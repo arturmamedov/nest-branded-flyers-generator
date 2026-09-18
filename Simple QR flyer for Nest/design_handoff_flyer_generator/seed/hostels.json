@@ -1,0 +1,25 @@
+{
+  "_note": "Seed data for the hostel table. Only these three are confirmed from the flyer work — Artur has the full list of 13 and will give it to you directly. Complete this file before first run; do not invent names. slug must stay stable, it is what flyers are tagged by.",
+  "hostels": [
+    { "slug": "duque-nest",     "name": "Duque Nest",      "island": "Tenerife",     "logo_path": null, "sort_order": 10 },
+    { "slug": "los-amigos-nest","name": "Los Amigos Nest", "island": "Tenerife",     "logo_path": null, "sort_order": 20 },
+    { "slug": "flamingo-nest",  "name": "Flamingo by Nest","island": "Gran Canaria", "logo_path": null, "sort_order": 30 }
+  ],
+  "islands": ["Tenerife", "Gran Canaria", "Ibiza"],
+  "doodles": [
+    { "slug": "icon-calendar",  "label": "Calendar",      "path": "assets/art/icon-calendar.png",  "kind": "icon" },
+    { "slug": "icon-pin",       "label": "Map pin",       "path": "assets/art/icon-pin.png",       "kind": "icon" },
+    { "slug": "icon-clock",     "label": "Clock",         "path": "assets/art/icon-clock.png",     "kind": "icon" },
+    { "slug": "doodle-pencil",  "label": "Pencil",        "path": "assets/art/doodle-pencil.png",  "kind": "icon" },
+    { "slug": "spark-teal",     "label": "Spark teal",    "path": "assets/art/spark-teal.png",     "kind": "spark" },
+    { "slug": "spark-yellow",   "label": "Spark yellow",  "path": "assets/art/spark-yellow.png",   "kind": "spark" },
+    { "slug": "blob-teal",      "label": "Blob teal",     "path": "assets/art/blob-teal.png",      "kind": "blob" },
+    { "slug": "blob-yellow",    "label": "Blob yellow",   "path": "assets/art/blob-yellow.png",    "kind": "blob" },
+    { "slug": "rule-teal-wide", "label": "Brush rule",    "path": "assets/art/rule-teal-wide.png", "kind": "rule" },
+    { "slug": "rule-teal-ask",  "label": "Brush rule short","path": "assets/art/rule-teal-ask.png","kind": "rule" },
+    { "slug": "mark-yellow",    "label": "Highlighter",   "path": "assets/art/mark-yellow.png",    "kind": "mark" },
+    { "slug": "frame-box",      "label": "Drawn frame",   "path": "assets/art/frame-box.png",      "kind": "frame" },
+    { "slug": "frame-box-sm",   "label": "Drawn frame small","path": "assets/art/frame-box-sm.png","kind": "frame" },
+    { "slug": "frame-box-wide", "label": "Drawn frame wide","path": "assets/art/frame-box-wide.png","kind": "frame" }
+  ]
+}

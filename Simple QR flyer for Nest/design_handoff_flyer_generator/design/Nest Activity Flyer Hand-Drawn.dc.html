@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- Photos are chosen at runtime from flyer-data.js, so the bundler cannot
+     find them in the markup. Declare each one here; the logic class resolves
+     them through window.__resources. A new photo file needs a new line. -->
+<meta name="ext-resource-dependency" content="assets/flyer-pool-party.png" data-resource-id="assets/flyer-pool-party.png">
+<meta name="ext-resource-dependency" content="assets/flyer-pizza-night.png" data-resource-id="assets/flyer-pizza-night.png">
+<meta name="ext-resource-dependency" content="assets/flyer-surf-lesson.png" data-resource-id="assets/flyer-surf-lesson.png">
+<template id="__bundler_thumbnail" data-bg-color="#F8F4E8">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 150"><rect width="120" height="150" fill="#F8F4E8"/><rect x="30" y="44" width="60" height="9" rx="4" fill="#141414"/><rect x="30" y="58" width="48" height="12" rx="6" fill="#0D6F82"/><rect x="30" y="82" width="17" height="17" rx="5" fill="none" stroke="#141414" stroke-width="2.5"/><rect x="51.5" y="82" width="17" height="17" rx="5" fill="none" stroke="#141414" stroke-width="2.5"/><rect x="73" y="82" width="17" height="17" rx="5" fill="none" stroke="#141414" stroke-width="2.5"/><rect x="34" y="110" width="52" height="7" rx="3.5" fill="#FAC213"/></svg>
+</template>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+<link href="https://fonts.googleapis.com/css2?family=Shantell+Sans:ital,wght@0,400;0,600;0,700;0,800&amp;family=Montserrat:wght@500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+  body{margin:0}
+  a{color:#0D6F82}
+  a:hover{color:#53CED1}
+</style>
+<script src="./flyer-data.js"></script>
+<script src="./image-slot.js"></script>
+</helmet>
+<div style="background:#12272f;min-height:100vh;font-family:'Montserrat',sans-serif">
+
+  <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:12px 16px;background:#083344;position:sticky;top:0;z-index:5">
+    <span style="font-weight:700;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#53CED1;margin-right:2px">Event</span>
+    <sc-for list="{{ tabs }}" as="tab" hint-placeholder-count="6">
+      <button type="button" onClick="{{ tab.onClick }}" style="font-family:'Montserrat',sans-serif;font-weight:600;font-size:12px;padding:7px 13px;border-radius:999px;cursor:pointer;border:1px solid {{ tab.border }};background:{{ tab.bg }};color:{{ tab.fg }}">{{ tab.label }}</button>
+    </sc-for>
+  </div>
+  <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:10px 16px 12px;background:#0b3d4f;position:sticky;top:53px;z-index:4">
+    <span style="font-weight:700;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#53CED1;margin-right:2px">Photo</span>
+    <sc-for list="{{ photoTabs }}" as="tab" hint-placeholder-count="3">
+      <button type="button" onClick="{{ tab.onClick }}" style="font-family:'Montserrat',sans-serif;font-weight:600;font-size:12px;padding:7px 13px;border-radius:999px;cursor:pointer;border:1px solid {{ tab.border }};background:{{ tab.bg }};color:{{ tab.fg }}">{{ tab.label }}</button>
+    </sc-for>
+    <span style="font-weight:700;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#53CED1;margin:0 2px 0 14px">Frames</span>
+    <sc-for list="{{ frameTabs }}" as="tab" hint-placeholder-count="2">
+      <button type="button" onClick="{{ tab.onClick }}" style="font-family:'Montserrat',sans-serif;font-weight:600;font-size:12px;padding:7px 13px;border-radius:999px;cursor:pointer;border:1px solid {{ tab.border }};background:{{ tab.bg }};color:{{ tab.fg }}">{{ tab.label }}</button>
+    </sc-for>
+    <span style="font-weight:700;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#53CED1;margin:0 2px 0 14px">View</span>
+    <sc-for list="{{ zoomTabs }}" as="tab" hint-placeholder-count="2">
+      <button type="button" onClick="{{ tab.onClick }}" style="font-family:'Montserrat',sans-serif;font-weight:600;font-size:12px;padding:7px 13px;border-radius:999px;cursor:pointer;border:1px solid {{ tab.border }};background:{{ tab.bg }};color:{{ tab.fg }}">{{ tab.label }}</button>
+    </sc-for>
+    <span style="font-weight:500;font-size:11px;color:rgba(255,255,255,0.45);margin-left:8px">1080 × 1350</span>
+  </div>
+
+  <div style="display:flex;justify-content:flex-start;overflow:auto;padding:28px 16px 56px">
+  <div style="zoom:{{ zoom }};flex:0 0 auto;margin-inline:auto">
+  <div data-screen-label="Hand-drawn event flyer" style="position:relative;width:1080px;height:1350px;flex:0 0 auto;margin-inline:auto;overflow:hidden;background:#F8F4E8;color:#141414;font-family:'Montserrat',sans-serif">
+
+    <img src="assets/art/blob-yellow.png" alt="" style="position:absolute;left:-14px;bottom:-10px;width:196px;z-index:0">
+    <img src="assets/art/blob-teal.png" alt="" style="position:absolute;right:-16px;bottom:-12px;width:226px;z-index:0">
+
+    <sc-if value="{{ modeBleed }}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute;left:0;right:0;top:0;height:474px;overflow:hidden;background:#E7E0CE">
+        <image-slot id="{{ photoId }}" src="{{ photo }}" fit="cover" shape="rect" placeholder="Drag the event photo here — keep faces in the top two thirds" style="position:absolute;inset:0;width:100%;height:100%"></image-slot>
+      </div>
+      <div style="position:absolute;left:0;right:0;top:0;height:210px;background:linear-gradient(to bottom,rgba(8,51,68,0.62) 0%,rgba(8,51,68,0.28) 58%,rgba(8,51,68,0) 100%);pointer-events:none"></div>
+      <svg viewBox="0 0 1080 90" preserveAspectRatio="none" style="position:absolute;left:0;right:0;top:396px;width:100%;height:92px;display:block"><path d="M0 26 C 150 6 290 34 452 22 C 610 10 760 36 902 22 C 980 14 1040 24 1080 16 L1080 90 L0 90 Z" fill="#F8F4E8"></path></svg>
+
+      <div style="position:absolute;left:60px;right:60px;top:44px;height:96px;display:flex;align-items:flex-start;justify-content:space-between;gap:20px">
+        <div style="display:flex;align-items:center;gap:16px">
+          <img src="assets/art/icon-calendar.png" alt="" style="height:56px;width:auto;filter:brightness(0) invert(1)">
+          <div style="font-family:'Shantell Sans','Comic Sans MS',cursive;font-weight:700;font-size:32px;letter-spacing:0.1em;color:#ffffff;line-height:1;white-space:nowrap">NEXT ACTIVITY</div>
+        </div>
+        <img src="assets/nest-logo-white.png" alt="Nests Hostels" style="height:50px;width:auto;flex:0 0 auto;margin-top:6px;filter:drop-shadow(0 2px 6px rgba(0,0,0,0.45))">
+      </div>
+
+      <div data-fit-box="1" style="position:absolute;left:60px;right:60px;top:512px;height:246px;overflow:hidden">
+        <div data-fit="76" data-fit-min="0.5" style="font-family:'Shantell Sans','Comic Sans MS',cursive;font-weight:800;font-size:76px;line-height:1.04;color:#141414;white-space:nowrap">{{ flyer.headline1 }}</div>
+        <div data-fit="102" data-fit-min="0.5" style="font-family:'Shantell Sans','Comic Sans MS',cursive;font-weight:800;font-size:102px;line-height:1.0;color:#0D6F82;white-space:nowrap">{{ flyer.headline2 }}</div>
+        <div data-fit="32" data-fit-min="0.8" style="font-family: 'Montserrat',sans-serif; font-weight: 600; font-size: 32px; line-height: 1.26; color: #3A3A34; margin-top: 23px">{{ flyer.headlineEs }}</div>
+      </div>
+      <img src="assets/art/spark-teal.png" alt="" style="position: absolute; right: 40px; top: 450px; width: 104px; left: 7px">
+    </sc-if>
+
+    <sc-if value="{{ modeBand }}" hint-placeholder-val="{{ true }}">
+      <img src="assets/art/spark-teal.png" alt="" style="position: absolute; left: 2px; top: 387px; width: 98px; transform: rotate(-65deg) scaleX(-1); z-index: 2">
+      <img src="assets/art/spark-yellow.png" alt="" style="position: absolute; right: 8px; top: 372px; width: 86px; transform: rotate(-6deg); z-index: 2">
+
+      <div style="position: absolute; left: 60px; right: 60px; top: 52px; height: 75px; display: flex; align-items: flex-start; justify-content: space-between; gap: 20px">
+        <div style="display:flex;align-items:center;gap:16px;flex:0 0 auto">
+          <img src="assets/art/icon-calendar.png" alt="" style="height:56px;width:auto">
+          <div style="display:flex;flex-direction:column;gap:3px">
+            <div style="font-family:'Shantell Sans','Comic Sans MS',cursive;font-weight:700;font-size:32px;letter-spacing:0.1em;color:#141414;line-height:1;white-space:nowrap">NEXT ACTIVITY</div>
+            <div style="height:14px;background:url(assets/art/rule-teal-wide.png) left center/100% 100% no-repeat"></div>
+          </div>
+        </div>
+        <img src="assets/nest-logo-teal.png" alt="Nests Hostels" style="height: 63px; width: auto; flex: 0 0 auto; margin-top: 0px">
+      </div>
+
+      <div data-fit-box="1" style="position: absolute; left: 60px; right: 60px; top: 124px; height: 246px; overflow: hidden">
+        
+        <div data-fit="76" data-fit-min="0.5" style="font-family:'Shantell Sans','Comic Sans MS',cursive;font-weight:800;font-size:76px;line-height:1.04;color:#141414;white-space:nowrap">{{ flyer.headline1 }}</div><div data-fit="102" data-fit-min="0.5" style="font-family:'Shantell Sans','Comic Sans MS',cursive;font-weight:800;font-size:102px;line-height:1.0;color:#0D6F82;white-space:nowrap">{{ flyer.headline2 }}</div>
+        <div data-fit="32" data-fit-min="0.8" style="font-family: 'Montserrat',sans-serif; font-weight: 600; font-size: 32px; line-height: 1.26; color: #3A3A34; margin-top: 23px">{{ flyer.headlineEs }}</div>
+      </div>
+
+      <div style="position:absolute;left:60px;right:60px;top:420px;height:372px">
+        <div style="position:absolute;inset:0;border-radius:40px;overflow:hidden;background:#E7E0CE">
+          <image-slot id="{{ photoId }}" src="{{ photo }}" fit="cover" shape="rect" placeholder="Drag the event photo here — keep faces inside the band" style="position:absolute;inset:0;width:100%;height:100%"></image-slot>
+        </div>
+        <sc-if value="{{ drawnFrames }}" hint-placeholder-val="{{ true }}">
+          <div style="position:absolute;inset:0;background-image:url(assets/art/frame-box-wide.png);background-size:100% 100%;background-repeat:no-repeat;pointer-events:none"></div>
+        </sc-if>
+        <sc-if value="{{ codeFrames }}" hint-placeholder-val="{{ false }}">
+          <svg viewBox="0 0 960 200" preserveAspectRatio="none" style="position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none"><path d="M46 9 C 200 4 380 13 540 7 C 700 2 830 12 914 8 C 944 7 954 26 951 54 C 954 96 949 142 952 164 C 954 186 932 197 902 193 C 690 198 410 189 154 195 C 84 197 9 192 11 166 C 7 122 13 72 9 48 C 7 22 22 10 46 9 Z" fill="none" stroke="#141414" stroke-width="5" stroke-linejoin="round" vector-effect="non-scaling-stroke"></path></svg>
+        </sc-if>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ modeNone }}" hint-placeholder-val="{{ false }}">
+      <img src="assets/art/spark-yellow.png" alt="" style="position:absolute;left:58px;top:658px;width:82px;transform:rotate(-10deg)">
+      <img src="assets/art/spark-yellow.png" alt="" style="position:absolute;right:58px;top:658px;width:82px;transform:scaleX(-1) rotate(-10deg)">
+
+      <div style="position:absolute;left:60px;right:60px;top:56px;height:96px;display:flex;align-items:flex-start;justify-content:space-between;gap:20px">
+        <div style="display:flex;align-items:center;gap:16px;flex:0 0 auto">
+          <img src="assets/art/icon-calendar.png" alt="" style="height:56px;width:auto">
+          <div style="display:flex;flex-direction:column;gap:3px">
+            <div style="font-family:'Shantell Sans','Comic Sans MS',cursive;font-weight:700;font-size:32px;letter-spacing:0.1em;color:#141414;line-height:1;white-space:nowrap">NEXT ACTIVITY</div>
+            <div style="height:14px;background:url(assets/art/rule-teal-wide.png) left center/100% 100% no-repeat"></div>
+          </div>
+        </div>
+        <img src="assets/nest-logo-teal.png" alt="Nests Hostels" style="height:50px;width:auto;flex:0 0 auto;margin-top:6px">
+      </div>
+
+      <div data-fit-box="1" style="position:absolute;left:60px;right:60px;top:206px;height:400px;overflow:hidden">
+        <div data-fit="96" data-fit-min="0.5" style="font-family:'Shantell Sans','Comic Sans MS',cursive;font-weight:800;font-size:96px;line-height:1.04;color:#141414;white-space:nowrap">{{ flyer.headline1 }}</div>
+        <div data-fit="132" data-fit-min="0.5" style="font-family:'Shantell Sans','Comic Sans MS',cursive;font-weight:800;font-size:132px;line-height:1.0;color:#0D6F82;white-space:nowrap">{{ flyer.headline2 }}</div>
+        <div data-fit="38" data-fit-min="0.8" style="font-family:'Montserrat',sans-serif;font-weight:600;font-size:38px;line-height:1.26;color:#3A3A34;margin-top:18px">{{ flyer.headlineEs }}</div>
+      </div>
+
+      <div style="position:absolute;left:186px;right:186px;top:700px;height:30px;background:url(assets/art/rule-teal-wide.png) center/100% 100% no-repeat"></div>
+    </sc-if>
+
+    <div style="position:absolute;left:60px;right:60px;top:806px;height:202px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px">
+      <sc-for list="{{ chips }}" as="chip" hint-placeholder-count="3">
+        <div data-fit-box="1" style="position:relative;height:202px;overflow:hidden">
+          <sc-if value="{{ drawnFrames }}" hint-placeholder-val="{{ true }}">
+            <div style="position:absolute;inset:0;background:url(assets/art/frame-box-sm.png) center/100% 100% no-repeat"></div>
+          </sc-if>
+          <sc-if value="{{ codeFrames }}" hint-placeholder-val="{{ false }}">
+            <svg viewBox="0 0 960 200" preserveAspectRatio="none" style="position:absolute;inset:0;width:100%;height:100%;overflow:visible"><path d="M46 9 C 200 4 380 13 540 7 C 700 2 830 12 914 8 C 944 7 954 26 951 54 C 954 96 949 142 952 164 C 954 186 932 197 902 193 C 690 198 410 189 154 195 C 84 197 9 192 11 166 C 7 122 13 72 9 48 C 7 22 22 10 46 9 Z" fill="#ffffff" stroke="#141414" stroke-width="5" stroke-linejoin="round" vector-effect="non-scaling-stroke"></path></svg>
+          </sc-if>
+          <div style="position:relative;z-index:1;padding:22px 24px 18px;display:flex;flex-direction:column;gap:8px">
+            <div style="display:flex;align-items:center;gap:9px;height:34px">
+              <sc-if value="{{ chip.hasIcon }}" hint-placeholder-val="{{ true }}">
+                <img src="{{ chip.icon }}" alt="" style="height: 33px; width: auto">
+              </sc-if>
+              <sc-if value="{{ chip.glyph }}" hint-placeholder-val="{{ false }}">
+                <span style="font-family:'Shantell Sans','Comic Sans MS',cursive;font-weight:800;font-size:34px;line-height:1;color:#0D6F82">{{ chip.glyph }}</span>
+              </sc-if>
+              <span style="font-family: 'Montserrat',sans-serif; font-weight: 700; font-size: 27px; letter-spacing: 0.13em; text-transform: uppercase; color: #0D6F82">{{ chip.label }}</span>
+            </div>
+            <sc-if value="{{ chip.mark }}" hint-placeholder-val="{{ true }}">
+              <div data-fit="44" data-fit-min="0.6" style="font-family:'Shantell Sans','Comic Sans MS',cursive;font-weight:700;font-size:44px;line-height:1.3;color:#141414">
+                <span style="background-image:url(assets/art/mark-yellow.png);background-size:100% 100%;background-repeat:no-repeat;padding:2px 10px 4px;margin-left:-8px;-webkit-box-decoration-break:clone;box-decoration-break:clone">{{ chip.big }}</span>
+              </div>
+            </sc-if>
+            <sc-if value="{{ chip.plain }}" hint-placeholder-val="{{ false }}">
+              <div data-fit="44" data-fit-min="0.6" style="font-family:'Shantell Sans','Comic Sans MS',cursive;font-weight:700;font-size:44px;line-height:1.1;color:#141414">{{ chip.big }}</div>
+            </sc-if>
+            <sc-if value="{{ chip.timeSub }}" hint-placeholder-val="{{ true }}">
+              <div style="display:flex;align-items:center;gap:9px">
+                <img src="assets/art/icon-clock.png" alt="" style="height:34px;width:auto;flex:0 0 auto">
+                <div data-fit="38" data-fit-min="0.7" style="font-family:'Shantell Sans','Comic Sans MS',cursive;font-weight:700;font-size:38px;line-height:1.1;color:#141414">{{ chip.sub }}</div>
+              </div>
+            </sc-if>
+            <sc-if value="{{ chip.plainSub }}" hint-placeholder-val="{{ false }}">
+              <div data-fit="30" data-fit-min="0.7" style="font-family:'Montserrat',sans-serif;font-weight:600;font-size:30px;line-height:1.22;color:#141414">{{ chip.sub }}</div>
+            </sc-if>
+          </div>
+        </div>
+      </sc-for>
+    </div>
+
+    <sc-if value="{{ hasExtras }}" hint-placeholder-val="{{ true }}">
+      <div data-fit="26" data-fit-gap="14" data-fit-min="0.8" style="position:absolute;left:60px;right:60px;top:1026px;height:36px;display:flex;flex-wrap:nowrap;align-items:center;gap:14px;font-family:'Shantell Sans','Comic Sans MS',cursive;font-weight:700;font-size:26px;letter-spacing:0.02em;text-transform:uppercase;color:#141414;white-space:nowrap;overflow:hidden">
+        <sc-for list="{{ extras }}" as="item" hint-placeholder-count="2">
+          <sc-if value="{{ item.sep }}" hint-placeholder-val="{{ true }}">
+            <span style="color:#0D6F82">·</span>
+          </sc-if>
+          <span>{{ item.text }}</span>
+        </sc-for>
+      </div>
+    </sc-if>
+
+    <div style="position:absolute;left:60px;right:60px;top:1076px;height:132px">
+      <div style="display:inline-block;max-width:700px">
+        <div data-fit="54" data-fit-min="0.66" style="font-family:'Shantell Sans','Comic Sans MS',cursive;font-weight:800;font-size:54px;line-height:1.08;color:#141414;white-space:nowrap">{{ flyer.askEn }}</div>
+        <div style="height:20px;margin-top:2px;background:url(assets/art/rule-teal-ask.png) left center/100% 100% no-repeat"></div>
+        <div data-fit="30" data-fit-min="0.8" style="font-family:'Montserrat',sans-serif;font-weight:600;font-size:30px;line-height:1.2;color:#3A3A34;margin-top:8px;white-space:nowrap">{{ flyer.askEs }}</div>
+      </div>
+      <img src="assets/art/doodle-pencil.png" alt="" style="position: absolute; right: 14px; top: 4px; width: 90px; transform: rotate(-4deg); left: 644px">
+    </div>
+
+    <sc-if value="{{ showPill }}" hint-placeholder-val="{{ true }}">
+      <div style="position:absolute;left:0;right:0;bottom:44px;display:flex;justify-content:center;z-index:1">
+        <div style="display:flex;align-items:center;gap:16px;background:#0D6F82;border-radius:18px;padding:15px 34px 17px;transform:rotate(-0.6deg)">
+          <span style="font-family:'Shantell Sans','Comic Sans MS',cursive;font-weight:700;font-size:30px;letter-spacing:0.04em;color:#ffffff;line-height:1">@NESTSHOSTELS</span>
+          <span style="width:13px;height:13px;border-radius:50%;background:#53CED1"></span>
+          <span style="font-family:'Shantell Sans','Comic Sans MS',cursive;font-weight:700;font-size:30px;letter-spacing:0.04em;color:#ffffff;line-height:1">¡TAG US!</span>
+        </div>
+      </div>
+    </sc-if>
+
+  </div>
+  </div>
+  </div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;flyer&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;Pool party&quot;,&quot;Pizza night&quot;,&quot;Surf lesson&quot;,&quot;Long copy · stress test&quot;,&quot;Paragliding&quot;,&quot;Pizza · weekly&quot;],&quot;default&quot;:&quot;Pool party&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Flyer&quot;},&quot;photoMode&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;Photo band&quot;,&quot;Full bleed&quot;,&quot;No photo&quot;],&quot;default&quot;:&quot;Photo band&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Flyer&quot;},&quot;frames&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;Hand-drawn frames&quot;,&quot;Code-drawn frames&quot;],&quot;default&quot;:&quot;Hand-drawn frames&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Flyer&quot;},&quot;showExtras&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Flyer&quot;},&quot;showTagPill&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Flyer&quot;}}">
+/* ==========================================================================
+   NEST EVENT FLYER — hand-drawn version, 1080 × 1350 (WhatsApp / Instagram)
+   The drawn art in assets/art/ was lifted from the original Canva flyer.
+   Copy lives in flyer-data.js — one block per event, nothing to change here.
+   Headline font is Shantell Sans, standing in for More Sugar Regular.
+   ========================================================================== */
+class Component extends DCLogic {
+  state = { i: null, pm: null, fr: null, filled: false, vw: 0, full: false };
+
+  componentDidMount() {
+    this._wait(); this._settle(); this._watchPhoto();
+    this._onResize = () => this.setState({ vw: window.innerWidth });
+    window.addEventListener('resize', this._onResize);
+    this._onResize();
+  }
+  componentWillUnmount() { window.removeEventListener('resize', this._onResize); }
+  componentDidUpdate() { this._settle(); this._watchPhoto(); }
+
+  _wait() {
+    if (window.NEST_FLYERS) return;
+    let n = 0;
+    const t = setInterval(() => {
+      if (window.NEST_FLYERS || ++n > 40) { clearInterval(t); this.forceUpdate(); }
+    }, 50);
+  }
+
+  _settle() {
+    const kick = () => this._fit();
+    requestAnimationFrame(kick);
+    [80, 400, 1200].forEach(t => setTimeout(kick, t));
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(kick);
+  }
+
+  _watchPhoto() {
+    const slot = document.querySelector('image-slot[id^="nest-hd-photo-"]');
+    if (!slot) { if (this.state.filled) this.setState({ filled: false }); return; }
+    const sync = () => {
+      const filled = slot.hasAttribute('data-filled');
+      if (filled !== this.state.filled) this.setState({ filled });
+    };
+    if (this._watched !== slot) {
+      if (this._obs) this._obs.disconnect();
+      this._obs = new MutationObserver(sync);
+      this._obs.observe(slot, { attributes: true, attributeFilter: ['data-filled'] });
+      this._watched = slot;
+    }
+    sync();
+  }
+
+  /* Typo guard. Two passes, both in px because the flyer is a fixed 1080×1350
+     artboard: first shrink any single locked line that runs past its width,
+     then shrink whole groups that run past the height of their box. Nothing
+     goes below its data-fit-min floor, so copy can never become unreadable —
+     it just gets smaller, and the layout never moves. */
+  _fit() {
+    const nodes = Array.prototype.slice.call(document.querySelectorAll('[data-fit]'));
+    nodes.forEach(el => {
+      el.style.fontSize = el.dataset.fit + 'px';
+      if (el.dataset.fitGap) el.style.gap = el.dataset.fitGap + 'px';
+    });
+    nodes.forEach(el => {
+      const base = parseFloat(el.dataset.fit);
+      const floor = el.dataset.fitMin ? parseFloat(el.dataset.fitMin) : 0.6;
+      const gapBase = el.dataset.fitGap ? parseFloat(el.dataset.fitGap) : null;
+      let k = 1, guard = 0;
+      if (gapBase != null) {
+        let g = 1;
+        while (el.scrollWidth > el.clientWidth + 1 && g > 0.3 && guard++ < 40) {
+          g -= 0.06;
+          el.style.gap = (gapBase * g).toFixed(2) + 'px';
+        }
+      }
+      guard = 0;
+      while (el.scrollWidth > el.clientWidth + 1 && k > floor && guard++ < 48) {
+        k = Math.max(floor, k - 0.025);
+        el.style.fontSize = (base * k).toFixed(2) + 'px';
+      }
+      el.__k = k;
+    });
+    document.querySelectorAll('[data-fit-box]').forEach(box => {
+      const kids = Array.prototype.slice.call(box.querySelectorAll('[data-fit]'));
+      if (!kids.length) return;
+      let g = 1, guard = 0;
+      while (box.scrollHeight > box.clientHeight + 1 && g > 0.55 && guard++ < 48) {
+        g -= 0.025;
+        kids.forEach(el => {
+          const base = parseFloat(el.dataset.fit) * (el.__k || 1) * g;
+          el.style.fontSize = base.toFixed(2) + 'px';
+        });
+      }
+    });
+  }
+
+  _res(url) {
+    if (!url) return '';
+    const r = window.__resources;
+    return (r && r[url]) || url;
+  }
+
+  _index(list) {
+    if (this.state.i != null) return Math.min(this.state.i, list.length - 1);
+    const byLabel = list.findIndex(f => f.label === this.props.flyer);
+    return byLabel > -1 ? byLabel : 0;
+  }
+
+  _pills(items, active, pick) {
+    return items.map(it => ({
+      label: it.label.replace(/ /g, '\u00A0'),
+      bg: it.key === active ? '#53CED1' : 'rgba(255,255,255,0.06)',
+      fg: it.key === active ? '#083344' : '#ffffff',
+      border: it.key === active ? '#53CED1' : 'rgba(255,255,255,0.25)',
+      onClick: () => pick(it.key)
+    }));
+  }
+
+  renderVals() {
+    const list = window.NEST_FLYERS || [];
+    const i = this._index(list);
+    const flyer = list[i] || { headline1: '', headline2: '', headlineEs: '', askEn: '', askEs: '', hostel: '', chips: [], extras: [] };
+
+    const propMode = { 'Photo band': 'band', 'Full bleed': 'bleed', 'No photo': 'none' }[this.props.photoMode] || 'band';
+    const mode = this.state.pm || propMode;
+    const drawn = this.state.fr != null
+      ? this.state.fr
+      : (this.props.frames ?? 'Hand-drawn frames') === 'Hand-drawn frames';
+
+    /* Blocks are matched by their label, not their position, so the order in
+       flyer-data.js can stay WHEN · COST · WHERE while the flyer prints them
+       left to right as WHEN · WHERE · COST. */
+    const find = (name) => (flyer.chips || []).find(c => String(c.label || '').trim().toLowerCase() === name);
+    const split = (c) => String((c && c.value) || '').split('·').map(s => s.trim()).filter(Boolean);
+
+    const when = find('when'), where = find('where'), cost = find('cost');
+    const chips = [];
+
+    if (when) {
+      const p = split(when);
+      chips.push({
+        label: when.label, big: p.shift() || '', sub: p.join(' · '),
+        mark: true, plain: false,
+        icon: 'assets/art/icon-calendar.png', hasIcon: true, glyph: '',
+        timeSub: p.length > 0, plainSub: false
+      });
+    }
+    if (where) {
+      // the hostel leads, the spot underneath — and the hostel is never repeated
+      const p = split(where).filter(s => s.toLowerCase() !== String(flyer.hostel || '').toLowerCase());
+      const big = flyer.hostel || p.shift() || '';
+      const sub = p.join(' · ');
+      chips.push({
+        label: where.label, big, sub,
+        mark: false, plain: true,
+        icon: 'assets/art/icon-pin.png', hasIcon: true, glyph: '',
+        timeSub: false, plainSub: !!sub
+      });
+    }
+    if (cost) {
+      const p = split(cost);
+      chips.push({
+        label: cost.label, big: p.shift() || '', sub: p.join(' · '),
+        mark: false, plain: true,
+        icon: '', hasIcon: false, glyph: '\u20AC',
+        timeSub: false, plainSub: p.length > 0
+      });
+    }
+
+    const extras = (this.props.showExtras ?? true) ? (flyer.extras || []) : [];
+    const photo = mode === 'none' ? '' : this._res(flyer.photo);
+
+    return {
+      flyer,
+      chips,
+      extras: extras.map((text, n) => ({ text, sep: n > 0 })),
+      hasExtras: extras.length > 0,
+      hasHostel: !!flyer.hostel,
+      modeBand: mode === 'band',
+      modeBleed: mode === 'bleed',
+      modeNone: mode === 'none',
+      drawnFrames: drawn,
+      codeFrames: !drawn,
+      showPill: this.props.showTagPill ?? true,
+      photo,
+      photoId: 'nest-hd-photo-' + (flyer.id || i),
+      needsPhoto: mode !== 'none' && !flyer.photo && !this.state.filled,
+      tabs: list.map((f, n) => ({
+        label: String(f.label || '').replace(/ /g, '\u00A0'),
+        bg: n === i ? '#53CED1' : 'rgba(255,255,255,0.06)',
+        fg: n === i ? '#083344' : '#ffffff',
+        border: n === i ? '#53CED1' : 'rgba(255,255,255,0.25)',
+        onClick: () => this.setState({ i: n })
+      })),
+      photoTabs: this._pills(
+        [{ key: 'band', label: 'In a frame' }, { key: 'bleed', label: 'Full bleed' }, { key: 'none', label: 'No photo' }],
+        mode,
+        k => this.setState({ pm: k })
+      ),
+      zoom: this.state.full ? 1 : Math.min(1, Math.max(0.3, ((this.state.vw || 1180) - 66) / 1080)),
+      zoomTabs: this._pills(
+        [{ key: 'fit', label: 'Fit' }, { key: 'full', label: '1:1' }],
+        this.state.full ? 'full' : 'fit',
+        k => this.setState({ full: k === 'full' })
+      ),
+      frameTabs: this._pills(
+        [{ key: 'drawn', label: 'Drawn art' }, { key: 'code', label: 'Code-drawn' }],
+        drawn ? 'drawn' : 'code',
+        k => this.setState({ fr: k === 'drawn' })
+      )
+    };
+  }
+}
+
+</script>
+</body>
+</html>
