@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { deriveChips, splitDot } from '../../src/shared/chips.js';
 import { lintFlyer } from '../../src/shared/copyRules.js';
-import { newFlyerData } from '../../src/shared/defaults.js';
-import { ACTIVITY, SAFE_BOX, WEEK, activityGroups, inside, overlaps } from '../../src/shared/layout.js';
-import { clampCrop, coverRect, panCrop } from '../../src/shared/photo.js';
+import { DEFAULT_DOODLES, PROTOTYPE_DOODLES, newFlyerData, sameDoodles } from '../../src/shared/defaults.js';
+import { ACTIVITY, SAFE_BOX, WEEK, activityGroups, inside, overlaps, photoAnchors } from '../../src/shared/layout.js';
+import { clampCrop, coverRect, panCrop, wholePhotoZoom, zoomCrop } from '../../src/shared/photo.js';
 import { SAMPLE_FLYERS } from '../../src/shared/samples.js';
 import { FlyerDataSchema } from '../../src/shared/schema.js';
 
@@ -97,20 +97,78 @@ describe('photo crop', () => {
     expect(r.top).toBeCloseTo(-80);
   });
 
-  it('never shows past an image edge', () => {
-    const r = coverRect(img, frame, { x: 0, y: 0, zoom: 1 });
-    expect(r.left).toBeLessThanOrEqual(0);
-    expect(r.top).toBeLessThanOrEqual(0);
-    expect(r.left + r.width).toBeGreaterThanOrEqual(frame.width - 1e-9);
-    expect(r.top + r.height).toBeGreaterThanOrEqual(frame.height - 1e-9);
-    expect(r.top).toBeCloseTo(0);
+  it('pans on both axes, even when the photo exactly fills one of them', () => {
+    // 2000×1000 fills the 1080 width exactly: the old cover clamp allowed no X movement.
+    const moved = panCrop({ x: 0.5, y: 0.5, zoom: 1 }, 100, 40, img, frame);
+    const r = coverRect(img, frame, moved);
+    expect(r.left).toBeCloseTo(100);
+    expect(r.top).toBeCloseTo(-40);
   });
 
-  it('pans with the pointer and clamps', () => {
-    const moved = panCrop({ x: 0.5, y: 0.5, zoom: 1 }, 0, 40, img, frame);
-    expect(moved.y).toBeLessThan(0.5);
-    const far = panCrop({ x: 0.5, y: 0.5, zoom: 1 }, 0, 10_000, img, frame);
-    expect(far).toEqual(clampCrop({ x: 0.5, y: 0, zoom: 1 }, img, frame));
+  it('never loses the photo: its centre stays inside the frame', () => {
+    const far = coverRect(img, frame, panCrop({ x: 0.5, y: 0.5, zoom: 1 }, 10_000, -10_000, img, frame));
+    expect(far.left + far.width / 2).toBeCloseTo(frame.width); // centre on the right edge
+    expect(far.top + far.height / 2).toBeCloseTo(0); // centre on the top edge
+  });
+
+  it('a big photo can still be pushed flush to an edge, and edges are sticky', () => {
+    const big = { width: 4000, height: 1000 }; // 1520 wide at cover: centred at left -220
+    const flush = coverRect(big, frame, panCrop({ x: 0.5, y: 0.5, zoom: 1 }, 220 - 6, 0, big, frame));
+    expect(flush.left).toBeCloseTo(0); // 6px short of flush snaps flush
+    const nudged = coverRect(big, frame, panCrop({ x: 0.5, y: 0.5, zoom: 1 }, 220 - 6, 0, big, frame, false));
+    expect(nudged.left).toBeCloseTo(-6); // keyboard nudges don't snap
+  });
+
+  it('zooms out below "fills the frame", down to a quarter, centred', () => {
+    const r = coverRect(img, frame, zoomCrop({ x: 0.5, y: 0.5, zoom: 1 }, 0.5, img, frame));
+    expect([r.width, r.height]).toEqual([540, 270]);
+    expect(r.left).toBeCloseTo(270);
+    expect(r.top).toBeCloseTo(55);
+    expect(clampCrop({ x: 0.5, y: 0.5, zoom: 0.01 }, img, frame).zoom).toBe(0.25);
+    expect(clampCrop({ x: 0.5, y: 0.5, zoom: 99 }, img, frame).zoom).toBe(4);
+  });
+
+  it('"whole photo" fits the entire image inside the frame', () => {
+    const portrait = { width: 1066, height: 1600 };
+    const band = { width: 940, height: 380 };
+    const r = coverRect(portrait, band, { x: 0.5, y: 0.5, zoom: wholePhotoZoom(portrait, band) });
+    expect(r.height).toBeCloseTo(380);
+    expect(r.width).toBeLessThanOrEqual(940);
+    expect(wholePhotoZoom(img, frame)).toBeCloseTo((380 / 1000) / (1080 / 2000));
+  });
+
+  it('a zoomed-out photo round-trips through the schema', () => {
+    const d = newFlyerData();
+    d.photoCrop = panCrop({ x: 0.5, y: 0.5, zoom: 0.25 }, -10_000, 0, { width: 1066, height: 1600 }, { width: 1080, height: 380 });
+    expect(FlyerDataSchema.safeParse(d).success).toBe(true);
+  });
+});
+
+describe('template art', () => {
+  it('the photo-corner sparks land exactly where the design pass put them (band and bleed)', () => {
+    for (const mode of ['band', 'bleed'] as const) {
+      const a = photoAnchors(mode);
+      const [teal, yellow] = DEFAULT_DOODLES;
+      expect([a[teal.anchor as 'photoLeft'].x + teal.x, a[teal.anchor as 'photoLeft'].y + teal.y]).toEqual([24, 657]);
+      expect([a[yellow.anchor as 'photoRight'].x + yellow.x, a[yellow.anchor as 'photoRight'].y + yellow.y]).toEqual([975, 658]);
+    }
+  });
+
+  it('with no photo the sparks follow the brush rule instead of sitting on the headline', () => {
+    const a = photoAnchors('none');
+    expect(a.photoLeft.y - 55).toBeGreaterThan(ACTIVITY.photoBleed.top); // below where the photo would be
+    expect(a.photoLeft.x).toBe(ACTIVITY.noPhotoRule.left);
+  });
+
+  it('the clock is gone and the bottom spark sits off the pill', () => {
+    expect(DEFAULT_DOODLES.map((d) => d.slug)).not.toContain('icon-clock');
+    expect(DEFAULT_DOODLES.at(-1)).toMatchObject({ slug: 'spark-teal', x: 776, y: 1601.7, w: 92, rot: -137, flipX: true });
+  });
+
+  it('recognises the untouched prototype set regardless of key order', () => {
+    const reordered = PROTOTYPE_DOODLES.map(({ slug, w, x, y, rot, flipX, opacity }) => ({ w, slug, y, x, rot, flipX, opacity }));
+    expect(sameDoodles(reordered, PROTOTYPE_DOODLES)).toBe(true);
+    expect(sameDoodles(DEFAULT_DOODLES, PROTOTYPE_DOODLES)).toBe(false);
   });
 });
 

@@ -1,6 +1,11 @@
 /* Story canvas geometry — every number from the handoff README §2, in one
    place. Tops are measured from the canvas edge. The bottom of the canvas is
-   allocated upward from the 1620 floor: pill, ask, extras, blocks. */
+   allocated upward from the 1620 floor: pill, ask, extras, blocks.
+
+   Deliberate departures from the prototype (team design pass, 2026-09-18):
+   the headline block sits at 345 (was 382) to clear the sparks on the photo's
+   top corners, so the eyebrow box ends at 345 (was 104 tall; its content is
+   62px, so nothing moves). */
 
 export interface Rect {
   left: number;
@@ -28,8 +33,8 @@ const inner = (top: number, height: number): Rect => ({
 });
 
 export const ACTIVITY = {
-  eyebrow: inner(250, 104),
-  headline: inner(382, 300),
+  eyebrow: inner(250, 95),
+  headline: inner(345, 300),
   headlineNoPhoto: inner(398, 460),
   photoBleed: { left: 0, top: 712, width: CANVAS.width, height: 380 } as Rect,
   photoBand: inner(712, 380),
@@ -82,6 +87,23 @@ export function inside(inner: Rect, outer: Rect, tolerance = 0): boolean {
     inner.left + inner.width <= outer.left + outer.width + tolerance &&
     inner.top + inner.height <= outer.top + outer.height + tolerance
   );
+}
+
+export interface Point {
+  x: number;
+  y: number;
+}
+
+/** Where photo-anchored art hangs from: the top corners of the photo slot
+    (the bleed photo uses the band's corners so the art stays on canvas), or
+    the ends of the brush rule when there is no photo. */
+export function photoAnchors(mode: PhotoMode): { photoLeft: Point; photoRight: Point } {
+  if (mode === 'none') {
+    const r = ACTIVITY.noPhotoRule;
+    return { photoLeft: { x: r.left, y: r.top }, photoRight: { x: r.left + r.width, y: r.top } };
+  }
+  const b = ACTIVITY.photoBand;
+  return { photoLeft: { x: b.left, y: b.top }, photoRight: { x: b.left + b.width, y: b.top } };
 }
 
 /** Photo frame size per mode, for crop maths. */

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type PointerEvent } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react';
 import { fitFlyer, type FitReport } from '../flyer/fit';
 import { Flyer } from '../flyer/Flyer';
 import { ACTIVITY, CANVAS, photoFrame } from '../shared/layout';
@@ -68,6 +68,14 @@ export function Preview({ data, hostel, photo, showSafeZones, actualSize, onFit,
   const onPointerUp = () => {
     drag.current = null;
   };
+  const NUDGE: Record<string, [number, number]> = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
+  const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+    const dir = NUDGE[e.key];
+    if (!dir || !photo || !frame) return;
+    e.preventDefault();
+    const step = e.shiftKey ? 40 : 4;
+    onCrop(panCrop(data.photoCrop, dir[0] * step, dir[1] * step, photo, frame, false));
+  };
 
   return (
     <div
@@ -98,7 +106,10 @@ export function Preview({ data, hostel, photo, showSafeZones, actualSize, onFit,
               onPointerMove={onPointerMove}
               onPointerUp={onPointerUp}
               onPointerCancel={onPointerUp}
-              title={photo ? 'Drag to reposition the photo' : undefined}
+              onKeyDown={onKeyDown}
+              tabIndex={photo ? 0 : -1}
+              aria-label={photo ? 'Photo position: drag, or use the arrow keys' : undefined}
+              title={photo ? 'Drag to move the photo · arrow keys nudge' : undefined}
             >
               {!photo && <span>Drop the event photo here — faces near the middle</span>}
             </div>

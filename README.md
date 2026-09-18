@@ -66,7 +66,17 @@ export renderer works in dev too.
 | `npm run typecheck` | client and server compile |
 | `npm test` | shared logic (`·` split, layout, crop maths, copy rules, schema) + the API on a temp DB |
 | `npm run test:render` | builds, then renders every sample in all three photo modes: inside the safe box, no overlapping blocks, no clipped text, real fonts loaded, highlighter clone, exports exactly 1080 × 1920 PNG/JPG, cache invalidates on save |
-| `npm run compare:design` | with `npm run dev` running and samples seeded: pixel-diffs the app against the design prototype (needs internet for the prototype's React). Diff images in `test-results/design-compare/` |
+| `npm run compare:design` | with `npm run dev` running and samples seeded: pixel-diffs the app against the design prototype (needs internet for the prototype's React). Diff images in `test-results/design-compare/`. The MVP matched it to 0 pixels; since the design pass below it differs on purpose in the headline and art — check nothing else moved |
+
+### Design pass (2026-09-18) — where the app departs from the prototype
+
+- Headline block at **345** (was 382) with photo; the eyebrow box trimmed to 95px so they don't overlap.
+- The two sparks sit on the **photo's top corners** (24,657 and 975,658 in band and bleed mode). They are anchored
+  to the photo slot, so with no photo they hang off the brush rule's ends instead of landing on the headline.
+- The bottom spark sits off the tag pill's end (776,1601.7, flipped, −137°). The clock doodle is gone.
+- Flyers still carrying the old art untouched were migrated (DB migration 2); hand-arranged art is left alone.
+
+Numbers live in `src/shared/layout.ts` (boxes) and `src/shared/defaults.ts` (art).
 
 The export checklist items that need eyes (5px strokes everywhere, the highlighter behind the
 full WHEN line) — download the stress-test flyer and look.

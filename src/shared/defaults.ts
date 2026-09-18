@@ -11,10 +11,23 @@ export const PHOTO_PLACEHOLDER = '#E7E0CE';
 
 export const DEFAULT_COLORS: Colors = { bg: CREAM, ink: INK, accent: DEEP_TEAL, mark: YELLOW };
 
-/* The margin art from the design file: sparks top, blobs and a clock bottom.
-   The prototype anchors some by right/bottom; these are the same positions
-   converted to top-left using each PNG's natural aspect ratio. */
+/* The template's art. Team design pass (2026-09-18), departing from the
+   prototype: the two sparks moved from the top margin onto the photo's top
+   corners (anchored, so they follow the photo slot — band/bleed at 24,657 and
+   975,658), the bottom spark sits off the tag pill's end, the clock is gone.
+   The blobs keep the prototype's right/bottom anchoring, converted to top-left
+   with each PNG's natural aspect ratio. */
 export const DEFAULT_DOODLES: DoodlePlacement[] = [
+  { slug: 'spark-teal', anchor: 'photoLeft', x: -46, y: -55, w: 104, rot: -8 },
+  { slug: 'spark-yellow', anchor: 'photoRight', x: -35, y: -54, w: 88, rot: 9 },
+  { slug: 'blob-yellow', x: -26, y: 1704.4474, w: 250, rot: 0 },
+  { slug: 'blob-teal', x: 818, y: 1673.6047, w: 290, rot: 0 },
+  { slug: 'spark-teal', x: 776, y: 1601.7, w: 92, rot: -137, flipX: true },
+];
+
+/** The previous default set, as the prototype had it — kept for migrating
+    flyers that still carry it untouched. */
+export const PROTOTYPE_DOODLES: DoodlePlacement[] = [
   { slug: 'spark-teal', x: 52, y: 74, w: 104, rot: -8 },
   { slug: 'spark-yellow', x: 918, y: 112, w: 88, rot: 9 },
   { slug: 'blob-yellow', x: -26, y: 1704.4474, w: 250, rot: 0 },
@@ -22,6 +35,13 @@ export const DEFAULT_DOODLES: DoodlePlacement[] = [
   { slug: 'spark-teal', x: 738, y: 1667.7015, w: 92, rot: 14, flipX: true },
   { slug: 'icon-clock', x: 236, y: 1656.1728, w: 74, rot: -9, opacity: 0.9 },
 ];
+
+/** Same art, same place — ignores key order and absent defaults. */
+export function sameDoodles(a: DoodlePlacement[], b: DoodlePlacement[]): boolean {
+  const norm = (d: DoodlePlacement) =>
+    JSON.stringify([d.slug, d.anchor ?? 'canvas', d.x, d.y, d.w, d.rot ?? 0, !!d.flipX, d.opacity ?? 1]);
+  return a.length === b.length && a.every((d, i) => norm(d) === norm(b[i]));
+}
 
 export const DEFAULT_TEXT: FlyerText = {
   eyebrow: 'NEXT ACTIVITY',

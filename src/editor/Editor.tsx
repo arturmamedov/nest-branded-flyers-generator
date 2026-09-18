@@ -3,6 +3,8 @@ import type { FitReport } from '../flyer/fit';
 import { deriveChip } from '../shared/chips';
 import { lintFlyer } from '../shared/copyRules';
 import { newFlyerData } from '../shared/defaults';
+import { photoFrame } from '../shared/layout';
+import { ZOOM_MAX, ZOOM_MIN, clampCrop, wholePhotoZoom, zoomCrop } from '../shared/photo';
 import type { Chip, ChipKey, Crop, FlyerData, FlyerInput, FlyerText, Hostel, PhotoInfo } from '../shared/schema';
 import { api, ApiError } from './api';
 import { Preview } from './Preview';
@@ -79,6 +81,9 @@ export function Editor({ id, hostels }: { id: number | null; hostels: Hostel[] }
   const setChip = (key: ChipKey, value: string) =>
     setDraft((d) => (d ? { ...d, data: { ...d.data, chips: d.data.chips.map((c) => (c.key === key ? { ...c, value } : c)) } } : d));
   const setCrop = (photoCrop: Crop) => setData({ photoCrop });
+  // Functional, so back-to-back slider and drag updates never read a stale crop.
+  const updateCrop = (fn: (c: Crop) => Crop) =>
+    setDraft((d) => (d ? { ...d, data: { ...d.data, photoCrop: fn(d.data.photoCrop) } } : d));
 
   const needsPhoto = draft.data.photoMode !== 'none' && !draft.photo;
   const shrunk = fit ? fit.clippedBoxes + fit.entries.filter((e) => e.overflowX).length : 0;
@@ -228,22 +233,11 @@ export function Editor({ id, hostels }: { id: number | null; hostels: Hostel[] }
                   }}
                 />
               </div>
-              <p className="help">Or drop a photo on the preview. Drag the photo in the preview to move it.</p>
-              {draft.photo && (
-                <Field label={`Zoom ${draft.data.photoCrop.zoom.toFixed(2)}×`}>
-                  <input
-                    type="range"
-                    min={1}
-                    max={3}
-                    step={0.01}
-                    value={draft.data.photoCrop.zoom}
-                    onChange={(e) => {
-                      const zoom = Number(e.target.value);
-                      setDraft((d) => (d ? { ...d, data: { ...d.data, photoCrop: { ...d.data.photoCrop, zoom } } } : d));
-                    }}
-                  />
-                </Field>
-              )}
+              <p className="help">
+                Or drop a photo on the preview. Drag the photo there to move it in any direction; click it and use the arrow keys to nudge
+                (Shift for bigger steps).
+              </p>
+              {draft.photo && <PhotoControls photo={draft.photo} data={draft.data} onCrop={updateCrop} />}
             </>
           )}
         </Section>
@@ -393,6 +387,46 @@ function ChipField({ chip, hostelName, onChange }: { chip: Chip; hostelName: str
       ) : (
         <span className="split split-empty">Empty — this block is hidden</span>
       )}
+    </div>
+  );
+}
+
+/* Zoom is a log slider: the middle just fills the frame, left shrinks the
+   photo inside it (down to ¼), right crops in (up to 4×). */
+const ZOOM_BASE = ZOOM_MAX; // symmetric: ZOOM_MIN = 1 / ZOOM_MAX
+const toSlider = (zoom: number) => Math.log(zoom) / Math.log(ZOOM_BASE);
+const fromSlider = (v: number) => (Math.abs(v) < 0.025 ? 1 : ZOOM_BASE ** v); // sticky at "fills the frame"
+
+function PhotoControls({ photo, data, onCrop }: { photo: PhotoInfo; data: FlyerData; onCrop: (fn: (c: Crop) => Crop) => void }) {
+  const frame = photoFrame(data.photoMode);
+  if (!frame) return null;
+  const zoom = data.photoCrop.zoom;
+  return (
+    <div className="photo-controls">
+      <Field label={`Zoom ${zoom.toFixed(2)}×`} help="Middle fills the frame · left shows more of the photo · right crops in">
+        <input
+          type="range"
+          min={toSlider(ZOOM_MIN)}
+          max={toSlider(ZOOM_MAX)}
+          step={0.005}
+          value={toSlider(zoom)}
+          onChange={(e) => {
+            const next = fromSlider(Number(e.target.value));
+            onCrop((c) => zoomCrop(c, next, photo, frame));
+          }}
+        />
+      </Field>
+      <div className="photo-row">
+        <button type="button" className="btn btn-quiet" onClick={() => onCrop(() => ({ x: 0.5, y: 0.5, zoom: 1 }))}>
+          Fill frame
+        </button>
+        <button type="button" className="btn btn-quiet" onClick={() => onCrop(() => ({ x: 0.5, y: 0.5, zoom: wholePhotoZoom(photo, frame) }))}>
+          Whole photo
+        </button>
+        <button type="button" className="btn btn-quiet" onClick={() => onCrop((c) => clampCrop({ ...c, x: 0.5, y: 0.5 }, photo, frame))}>
+          Centre
+        </button>
+      </div>
     </div>
   );
 }

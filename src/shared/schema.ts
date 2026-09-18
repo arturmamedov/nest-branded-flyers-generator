@@ -20,10 +20,11 @@ export const PhotoModeSchema = z.enum(['bleed', 'band', 'none']);
 export const TemplateSchema = z.enum(['activity', 'week']);
 export type Template = z.infer<typeof TemplateSchema>;
 
+/* Focal point may run past 0..1 when the photo is zoomed out (see photo.ts). */
 export const CropSchema = z.object({
-  x: z.number().min(0).max(1),
-  y: z.number().min(0).max(1),
-  zoom: z.number().min(1).max(3),
+  x: z.number().min(-2).max(3),
+  y: z.number().min(-2).max(3),
+  zoom: z.number().min(0.25).max(4),
 });
 export type Crop = z.infer<typeof CropSchema>;
 
@@ -38,8 +39,15 @@ export const OverrideSchema = z.object({
   order: z.array(ChipKeySchema).optional(),
 });
 
+/* x/y are canvas px, or offsets from a photo corner when anchored: the art
+   then follows the photo slot (band/bleed frame corner, or the brush rule's
+   ends in no-photo mode). */
+export const DoodleAnchorSchema = z.enum(['canvas', 'photoLeft', 'photoRight']);
+export type DoodleAnchor = z.infer<typeof DoodleAnchorSchema>;
+
 export const DoodlePlacementSchema = z.object({
   slug: z.string().max(80),
+  anchor: DoodleAnchorSchema.optional(),
   x: z.number(),
   y: z.number(),
   w: z.number().positive().max(1080),

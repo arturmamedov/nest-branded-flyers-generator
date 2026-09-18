@@ -2,14 +2,16 @@ import { Fragment, type CSSProperties, type Ref } from 'react';
 import { deriveChips, DEFAULT_CHIP_ORDER } from '../shared/chips';
 import { BRIGHT_TEAL, MUTED, PHOTO_PLACEHOLDER } from '../shared/defaults';
 import { BODY_FONT, HEADLINE_FONT } from '../shared/fonts';
-import { ACTIVITY, CANVAS, SAFE, photoFrame } from '../shared/layout';
+import { ACTIVITY, CANVAS, SAFE, photoAnchors, photoFrame, type PhotoMode } from '../shared/layout';
 import { coverRect } from '../shared/photo';
 import type { DoodlePlacement, FlyerData, Hostel, PhotoInfo } from '../shared/schema';
 import './fonts.css';
 
 /* THE renderer. The editor preview and the Playwright export both mount this
    component, so they cannot drift. The markup and styles are transcribed 1:1
-   from design/Nest Flyer Story Templates.dc.html — keep them that way. */
+   from design/Nest Flyer Story Templates.dc.html — keep them that way.
+   Positions come from src/shared/layout.ts and the art from defaults.ts,
+   which record where the team's design pass departs from the prototype. */
 
 export const art = (name: string) => `/assets/art/${name}.png`;
 
@@ -39,9 +41,10 @@ export function WonkyBox({ fill, stroke }: { fill: string; stroke: string }) {
 const HL: CSSProperties = { fontFamily: HEADLINE_FONT };
 const BODY: CSSProperties = { fontFamily: BODY_FONT };
 
-function doodleStyle(d: DoodlePlacement): CSSProperties {
+function doodleStyle(d: DoodlePlacement, mode: PhotoMode): CSSProperties {
+  const origin = d.anchor && d.anchor !== 'canvas' ? photoAnchors(mode)[d.anchor] : { x: 0, y: 0 };
   const t = [d.flipX ? 'scaleX(-1)' : '', d.rot ? `rotate(${d.rot}deg)` : ''].filter(Boolean).join(' ');
-  return { position: 'absolute', left: d.x, top: d.y, width: d.w, transform: t || undefined, opacity: d.opacity };
+  return { position: 'absolute', left: origin.x + d.x, top: origin.y + d.y, width: d.w, transform: t || undefined, opacity: d.opacity };
 }
 
 function logoUrl(hostel: Hostel | null): string {
@@ -74,6 +77,8 @@ export function Flyer({ data, hostel, photo, showSafeZones = false, ref }: Flyer
         style={{ position: 'absolute', maxWidth: 'none', ...coverRect(photo, frame, data.photoCrop) }}
       />
     ) : null;
+  // Behind a zoomed-out photo the flyer ground shows; the beige is only for an empty slot.
+  const photoGround = img ? bg : PHOTO_PLACEHOLDER;
   const mark = art('mark-yellow');
   const pillText: CSSProperties = { ...HL, fontWeight: 700, fontSize: 34, letterSpacing: '0.04em', color: '#ffffff', lineHeight: 1 };
 
@@ -102,7 +107,7 @@ export function Flyer({ data, hostel, photo, showSafeZones = false, ref }: Flyer
       }}
     >
       {data.doodles.map((d, i) => (
-        <img key={i} data-art="" src={art(d.slug)} alt="" style={doodleStyle(d)} />
+        <img key={i} data-art="" src={art(d.slug)} alt="" style={doodleStyle(d, mode)} />
       ))}
 
       <div
@@ -134,13 +139,13 @@ export function Flyer({ data, hostel, photo, showSafeZones = false, ref }: Flyer
       </div>
 
       {mode === 'bleed' && (
-        <div data-group="photo" style={{ position: 'absolute', left: 0, right: 0, top: ACTIVITY.photoBleed.top, height: ACTIVITY.photoBleed.height, overflow: 'hidden', background: PHOTO_PLACEHOLDER }}>
+        <div data-group="photo" style={{ position: 'absolute', left: 0, right: 0, top: ACTIVITY.photoBleed.top, height: ACTIVITY.photoBleed.height, overflow: 'hidden', background: photoGround }}>
           {img}
         </div>
       )}
       {mode === 'band' && (
         <div data-group="photo" style={{ position: 'absolute', left: 70, right: 70, top: ACTIVITY.photoBand.top, height: ACTIVITY.photoBand.height }}>
-          <div style={{ position: 'absolute', inset: 0, borderRadius: 40, overflow: 'hidden', background: PHOTO_PLACEHOLDER }}>{img}</div>
+          <div style={{ position: 'absolute', inset: 0, borderRadius: 40, overflow: 'hidden', background: photoGround }}>{img}</div>
           <WonkyBox fill="none" stroke={ink} />
         </div>
       )}

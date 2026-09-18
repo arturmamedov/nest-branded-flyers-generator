@@ -478,6 +478,17 @@ body {
   outline-offset: -6px;
 }
 
+.photo-handle.has-photo:focus-visible,
+.photo-handle.has-photo:focus {
+  outline: 6px solid rgba(83, 206, 209, 0.95);
+  outline-offset: -6px;
+}
+
+.photo-controls .photo-row {
+  margin-top: 0;
+  flex-wrap: wrap;
+}
+
 /* Library */
 .library {
   flex: 1 1 auto;

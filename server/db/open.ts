@@ -22,7 +22,8 @@ export function migrate(db: DB, migrations: Migration[]): { from: number; to: nu
   for (const m of [...migrations].sort((a, b) => a.version - b.version)) {
     if (m.version <= to) continue;
     db.transaction(() => {
-      db.exec(m.up);
+      if (typeof m.up === 'string') db.exec(m.up);
+      else m.up(db);
       db.pragma(`user_version = ${m.version}`);
     })();
     to = m.version;
