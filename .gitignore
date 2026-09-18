@@ -1,0 +1,9 @@
+node_modules/
+dist/
+dist-server/
+data/
+test-results/
+playwright-report/
+.env
+*.log
+.playwright-mcp/

@@ -1,0 +1,6 @@
+/* Self-hosted flyer faces — never hot-link Google Fonts: the export renderer
+   must not depend on network timing. Family names: src/shared/fonts.ts. */
+@import '@fontsource/shantell-sans/700.css';
+@import '@fontsource/shantell-sans/800.css';
+@import '@fontsource/montserrat/600.css';
+@import '@fontsource/montserrat/700.css';
