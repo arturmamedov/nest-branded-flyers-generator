@@ -17,7 +17,8 @@
     "typecheck": "tsc -p tsconfig.app.json --noEmit && tsc -p tsconfig.server.json --noEmit",
     "test": "vitest run",
     "test:render": "npm run build && playwright test",
-    "compare:design": "tsx scripts/compare-design.ts"
+    "compare:design": "tsx scripts/compare-design.ts",
+    "spike:client-export": "npm run build && tsx scripts/spike-client-export.ts"
   },
   "dependencies": {
     "@fontsource/montserrat": "5.3.0",
@@ -42,6 +43,9 @@
     "@types/react-dom": "^19.3.0",
     "@types/supertest": "^7.2.1",
     "@vitejs/plugin-react": "^6.1.1",
+    "@zumer/snapdom": "^3.0.0",
+    "html-to-image": "^1.11.13",
+    "modern-screenshot": "^4.7.0",
     "pixelmatch": "^7.2.0",
     "pngjs": "^7.0.0",
     "supertest": "^7.2.2",
