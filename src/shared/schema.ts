@@ -93,8 +93,27 @@ export const FlyerDataSchema = z.object({
 });
 export type FlyerData = z.infer<typeof FlyerDataSchema>;
 
-export const HostelSchema = z.object({
-  id: z.number(),
+/* ---- Input: POST /api/flyers and PUT /api/flyers/:id ---- */
+
+/** zod's .trim() is invisible in JSON Schema, so the flag tells the PHP validator to trim the same way. */
+const trimmedString = (min: number, max: number) => z.string().trim().min(min).max(max).meta({ 'x-nest-trim': true });
+
+export const FlyerInputSchema = z.object({
+  title: trimmedString(1, 80),
+  hostel: z.string().max(60).nullable(),
+  template: TemplateSchema,
+  data: FlyerDataSchema,
+  photoId: z.number().int().positive().nullable(),
+});
+export type FlyerInput = z.infer<typeof FlyerInputSchema>;
+
+/* ---- API responses: the contract suite parses every answer with these, on every backend ---- */
+
+/** toISOString(): UTC, milliseconds, Z. */
+export const TimestampSchema = z.iso.datetime({ precision: 3 });
+
+export const HostelSchema = z.strictObject({
+  id: z.number().int().positive(),
   slug: z.string(),
   name: z.string(),
   island: z.string(),
@@ -103,45 +122,78 @@ export const HostelSchema = z.object({
 });
 export type Hostel = z.infer<typeof HostelSchema>;
 
-export interface PhotoInfo {
-  id: number;
-  url: string;
-  width: number;
-  height: number;
-}
+export const DoodleSchema = z.strictObject({
+  id: z.number().int().positive(),
+  slug: z.string(),
+  label: z.string(),
+  url: z.string().regex(/^assets\//),
+  kind: z.string(),
+  builtin: z.boolean(),
+});
+export type Doodle = z.infer<typeof DoodleSchema>;
 
-export interface FlyerRecord {
-  id: number;
-  hostel: string | null;
-  template: Template;
-  title: string;
-  data: FlyerData;
-  photoId: number | null;
-  createdAt: string;
-  updatedAt: string;
-}
+/** A stored photo as the API returns it. `url` is relative to the app root. */
+export const PhotoInfoSchema = z.strictObject({
+  id: z.number().int().positive(),
+  url: z.string().regex(/^uploads\//),
+  width: z.number().int().positive(),
+  height: z.number().int().positive(),
+});
+export type PhotoInfo = z.infer<typeof PhotoInfoSchema>;
 
-/** GET /api/flyers/:id — everything the renderer needs, resolved. */
-export interface FlyerPayload {
-  flyer: FlyerRecord;
-  hostel: Hostel | null;
-  photo: PhotoInfo | null;
-}
-
-export const FlyerInputSchema = z.object({
-  title: z.string().trim().min(1).max(80),
-  hostel: z.string().max(60).nullable(),
+export const FlyerRecordSchema = z.strictObject({
+  id: z.number().int().positive(),
+  hostel: z.string().nullable(),
   template: TemplateSchema,
+  title: z.string(),
   data: FlyerDataSchema,
   photoId: z.number().int().positive().nullable(),
+  createdAt: TimestampSchema,
+  updatedAt: TimestampSchema,
 });
-export type FlyerInput = z.infer<typeof FlyerInputSchema>;
+export type FlyerRecord = z.infer<typeof FlyerRecordSchema>;
 
-export interface FlyerListItem {
-  id: number;
-  title: string;
-  template: Template;
-  hostel: string | null;
-  hostelName: string | null;
-  updatedAt: string;
-}
+/** GET /api/flyers/:id — everything the renderer needs, resolved. */
+export const FlyerPayloadSchema = z.strictObject({
+  flyer: FlyerRecordSchema,
+  hostel: HostelSchema.nullable(),
+  photo: PhotoInfoSchema.nullable(),
+});
+export type FlyerPayload = z.infer<typeof FlyerPayloadSchema>;
+
+/** POST /api/flyers (201) and PUT /api/flyers/:id (200). */
+export const FlyerSavedSchema = z.strictObject({ id: z.number().int().positive(), flyer: FlyerRecordSchema });
+export type FlyerSaved = z.infer<typeof FlyerSavedSchema>;
+
+export const FlyerListItemSchema = z.strictObject({
+  id: z.number().int().positive(),
+  title: z.string(),
+  template: TemplateSchema,
+  hostel: z.string().nullable(),
+  hostelName: z.string().nullable(),
+  updatedAt: TimestampSchema,
+});
+export type FlyerListItem = z.infer<typeof FlyerListItemSchema>;
+
+/** GET /api/config — what this backend can do. The editor picks its exporter and photo limits from it. */
+export const ApiConfigSchema = z.strictObject({
+  backend: z.enum(['node', 'php']),
+  storage: z.enum(['sqlite', 'json']),
+  exporters: z.array(z.enum(['client', 'server'])).min(1),
+  limits: z.strictObject({
+    maxUploadBytes: z.number().int().positive(),
+    maxPhotoEdge: z.number().int().positive(),
+  }),
+  server: z.record(z.string(), z.unknown()),
+});
+export type ApiConfig = z.infer<typeof ApiConfigSchema>;
+
+/** Every non-2xx API answer: {error:{code,message,fields?}}. */
+export const ErrorEnvelopeSchema = z.strictObject({
+  error: z.strictObject({
+    code: z.string(),
+    message: z.string(),
+    fields: z.record(z.string(), z.string()).optional(),
+  }),
+});
+export type ErrorEnvelope = z.infer<typeof ErrorEnvelopeSchema>;

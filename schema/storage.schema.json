@@ -1,0 +1,615 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Nest flyers JSON store (docs/json-storage.md)",
+  "$defs": {
+    "meta": {
+      "type": "object",
+      "properties": {
+        "formatVersion": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991
+        },
+        "migrations": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "counters": {
+          "type": "object",
+          "properties": {
+            "hostel": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "doodle": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "photo": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "flyer": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            }
+          },
+          "required": [
+            "hostel",
+            "doodle",
+            "photo",
+            "flyer"
+          ],
+          "additionalProperties": false
+        },
+        "seedHash": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "formatVersion",
+        "migrations",
+        "counters",
+        "seedHash"
+      ],
+      "additionalProperties": false
+    },
+    "hostels": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "slug": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "island": {
+            "type": "string"
+          },
+          "logoPath": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sortOrder": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "slug",
+          "name",
+          "island",
+          "logoPath",
+          "sortOrder"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "doodles": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "slug": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "builtin": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "slug",
+          "label",
+          "path",
+          "kind",
+          "builtin"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "photos": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "path": {
+            "type": "string",
+            "pattern": "^uploads\\/\\d{4}\\/\\d{2}\\/[0-9a-f]{16}\\.(jpg|png)$"
+          },
+          "width": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "height": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$"
+          }
+        },
+        "required": [
+          "id",
+          "path",
+          "width",
+          "height",
+          "createdAt"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "flyerIndex": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "title": {
+            "type": "string"
+          },
+          "template": {
+            "type": "string",
+            "enum": [
+              "activity",
+              "week"
+            ]
+          },
+          "hostel": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$"
+          },
+          "archived": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "template",
+          "hostel",
+          "updatedAt",
+          "archived"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "flyer": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991
+        },
+        "hostel": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "template": {
+          "type": "string",
+          "enum": [
+            "activity",
+            "week"
+          ]
+        },
+        "title": {
+          "type": "string"
+        },
+        "data": {
+          "type": "object",
+          "properties": {
+            "v": {
+              "default": 1,
+              "type": "number",
+              "const": 1
+            },
+            "template": {
+              "type": "string",
+              "enum": [
+                "activity",
+                "week"
+              ]
+            },
+            "photoMode": {
+              "type": "string",
+              "enum": [
+                "bleed",
+                "band",
+                "none"
+              ]
+            },
+            "photoCrop": {
+              "default": {
+                "x": 0.5,
+                "y": 0.5,
+                "zoom": 1
+              },
+              "type": "object",
+              "properties": {
+                "x": {
+                  "type": "number",
+                  "minimum": -2,
+                  "maximum": 3
+                },
+                "y": {
+                  "type": "number",
+                  "minimum": -2,
+                  "maximum": 3
+                },
+                "zoom": {
+                  "type": "number",
+                  "minimum": 0.25,
+                  "maximum": 4
+                }
+              },
+              "required": [
+                "x",
+                "y",
+                "zoom"
+              ],
+              "additionalProperties": false
+            },
+            "showPill": {
+              "default": true,
+              "type": "boolean"
+            },
+            "text": {
+              "type": "object",
+              "properties": {
+                "eyebrow": {
+                  "type": "string",
+                  "maxLength": 18
+                },
+                "headline1": {
+                  "type": "string",
+                  "maxLength": 40
+                },
+                "headline2": {
+                  "type": "string",
+                  "maxLength": 40
+                },
+                "headlineEs": {
+                  "type": "string",
+                  "maxLength": 140
+                },
+                "askEn": {
+                  "type": "string",
+                  "maxLength": 60
+                },
+                "askEs": {
+                  "type": "string",
+                  "maxLength": 70
+                },
+                "handle": {
+                  "type": "string",
+                  "maxLength": 18
+                },
+                "tag": {
+                  "type": "string",
+                  "maxLength": 12
+                }
+              },
+              "required": [
+                "eyebrow",
+                "headline1",
+                "headline2",
+                "headlineEs",
+                "askEn",
+                "askEs",
+                "handle",
+                "tag"
+              ],
+              "additionalProperties": false
+            },
+            "chips": {
+              "maxItems": 3,
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "key": {
+                    "type": "string",
+                    "enum": [
+                      "when",
+                      "where",
+                      "cost"
+                    ]
+                  },
+                  "label": {
+                    "type": "string",
+                    "maxLength": 12
+                  },
+                  "value": {
+                    "type": "string",
+                    "maxLength": 90
+                  }
+                },
+                "required": [
+                  "key",
+                  "label",
+                  "value"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "extras": {
+              "maxItems": 4,
+              "type": "array",
+              "items": {
+                "type": "string",
+                "maxLength": 32
+              }
+            },
+            "week": {
+              "default": [],
+              "maxItems": 5,
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "day": {
+                    "type": "string",
+                    "maxLength": 30
+                  },
+                  "name": {
+                    "type": "string",
+                    "maxLength": 80
+                  },
+                  "time": {
+                    "type": "string",
+                    "maxLength": 20
+                  },
+                  "cost": {
+                    "type": "string",
+                    "maxLength": 30
+                  },
+                  "shortName": {
+                    "type": "string",
+                    "maxLength": 60
+                  }
+                },
+                "required": [
+                  "day",
+                  "name",
+                  "time",
+                  "cost"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "colors": {
+              "type": "object",
+              "properties": {
+                "bg": {
+                  "type": "string",
+                  "pattern": "^#[0-9a-fA-F]{6}$"
+                },
+                "ink": {
+                  "type": "string",
+                  "pattern": "^#[0-9a-fA-F]{6}$"
+                },
+                "accent": {
+                  "type": "string",
+                  "pattern": "^#[0-9a-fA-F]{6}$"
+                },
+                "mark": {
+                  "type": "string",
+                  "pattern": "^#[0-9a-fA-F]{6}$"
+                }
+              },
+              "required": [
+                "bg",
+                "ink",
+                "accent",
+                "mark"
+              ],
+              "additionalProperties": false
+            },
+            "overrides": {
+              "default": {},
+              "type": "object",
+              "propertyNames": {
+                "type": "string"
+              },
+              "additionalProperties": {
+                "type": "object",
+                "properties": {
+                  "dx": {
+                    "default": 0,
+                    "type": "number"
+                  },
+                  "dy": {
+                    "default": 0,
+                    "type": "number"
+                  },
+                  "scale": {
+                    "default": 1,
+                    "type": "number",
+                    "minimum": 0.6,
+                    "maximum": 1.4
+                  },
+                  "order": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "enum": [
+                        "when",
+                        "where",
+                        "cost"
+                      ]
+                    }
+                  }
+                },
+                "required": [
+                  "dx",
+                  "dy",
+                  "scale"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "doodles": {
+              "maxItems": 40,
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "slug": {
+                    "type": "string",
+                    "maxLength": 80
+                  },
+                  "anchor": {
+                    "type": "string",
+                    "enum": [
+                      "canvas",
+                      "photoLeft",
+                      "photoRight"
+                    ]
+                  },
+                  "x": {
+                    "type": "number"
+                  },
+                  "y": {
+                    "type": "number"
+                  },
+                  "w": {
+                    "type": "number",
+                    "exclusiveMinimum": 0,
+                    "maximum": 1080
+                  },
+                  "rot": {
+                    "default": 0,
+                    "type": "number"
+                  },
+                  "flipX": {
+                    "type": "boolean"
+                  },
+                  "opacity": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1
+                  }
+                },
+                "required": [
+                  "slug",
+                  "x",
+                  "y",
+                  "w",
+                  "rot"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": [
+            "v",
+            "template",
+            "photoMode",
+            "photoCrop",
+            "showPill",
+            "text",
+            "chips",
+            "extras",
+            "week",
+            "colors",
+            "overrides",
+            "doodles"
+          ],
+          "additionalProperties": false
+        },
+        "photoId": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "maximum": 9007199254740991
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$"
+        },
+        "archived": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "hostel",
+        "template",
+        "title",
+        "data",
+        "photoId",
+        "createdAt",
+        "updatedAt",
+        "archived"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

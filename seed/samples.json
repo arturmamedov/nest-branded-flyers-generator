@@ -1,0 +1,580 @@
+[
+  {
+    "title": "Pool party",
+    "hostel": "duque-nest",
+    "template": "activity",
+    "photo": "flyer-pool-party.png",
+    "data": {
+      "v": 1,
+      "template": "activity",
+      "photoMode": "bleed",
+      "photoCrop": {
+        "x": 0.5,
+        "y": 0.5,
+        "zoom": 1
+      },
+      "showPill": true,
+      "text": {
+        "eyebrow": "NEXT ACTIVITY",
+        "headline1": "Saturday is a",
+        "headline2": "pool party.",
+        "headlineEs": "El sábado toca fiesta en la piscina.",
+        "askEn": "Sign up at reception.",
+        "askEs": "Apúntate en recepción.",
+        "handle": "@NESTSHOSTELS",
+        "tag": "¡TAG US!"
+      },
+      "chips": [
+        {
+          "key": "when",
+          "label": "When",
+          "value": "Saturday 19/9 · 15:00"
+        },
+        {
+          "key": "where",
+          "label": "Where",
+          "value": "The pool · Duque Nest"
+        },
+        {
+          "key": "cost",
+          "label": "Cost",
+          "value": "Free · food & drinks"
+        }
+      ],
+      "extras": [
+        "Everyone welcome",
+        "Bring a towel"
+      ],
+      "week": [],
+      "colors": {
+        "bg": "#F8F4E8",
+        "ink": "#141414",
+        "accent": "#0D6F82",
+        "mark": "#FAC213"
+      },
+      "overrides": {},
+      "doodles": [
+        {
+          "slug": "spark-teal",
+          "anchor": "photoLeft",
+          "x": -46,
+          "y": -55,
+          "w": 104,
+          "rot": -8
+        },
+        {
+          "slug": "spark-yellow",
+          "anchor": "photoRight",
+          "x": -35,
+          "y": -54,
+          "w": 88,
+          "rot": 9
+        },
+        {
+          "slug": "blob-yellow",
+          "x": -26,
+          "y": 1704.4474,
+          "w": 250,
+          "rot": 0
+        },
+        {
+          "slug": "blob-teal",
+          "x": 818,
+          "y": 1673.6047,
+          "w": 290,
+          "rot": 0
+        },
+        {
+          "slug": "spark-teal",
+          "x": 776,
+          "y": 1601.7,
+          "w": 92,
+          "rot": -137,
+          "flipX": true
+        }
+      ]
+    }
+  },
+  {
+    "title": "Pizza night",
+    "hostel": "duque-nest",
+    "template": "activity",
+    "photo": "flyer-pizza-night.png",
+    "data": {
+      "v": 1,
+      "template": "activity",
+      "photoMode": "bleed",
+      "photoCrop": {
+        "x": 0.5,
+        "y": 0.5,
+        "zoom": 1
+      },
+      "showPill": true,
+      "text": {
+        "eyebrow": "NEXT ACTIVITY",
+        "headline1": "Family dinner,",
+        "headline2": "pizza night.",
+        "headlineEs": "Cena en familia — pizza para todos.",
+        "askEn": "Sign up at reception.",
+        "askEs": "Apúntate en recepción.",
+        "handle": "@NESTSHOSTELS",
+        "tag": "¡TAG US!"
+      },
+      "chips": [
+        {
+          "key": "when",
+          "label": "When",
+          "value": "Tonight · 20:30"
+        },
+        {
+          "key": "where",
+          "label": "Where",
+          "value": "The terrace"
+        },
+        {
+          "key": "cost",
+          "label": "Cost",
+          "value": "8€ with a drink"
+        }
+      ],
+      "extras": [
+        "Vegan option",
+        "Everyone welcome"
+      ],
+      "week": [],
+      "colors": {
+        "bg": "#F8F4E8",
+        "ink": "#141414",
+        "accent": "#0D6F82",
+        "mark": "#FAC213"
+      },
+      "overrides": {},
+      "doodles": [
+        {
+          "slug": "spark-teal",
+          "anchor": "photoLeft",
+          "x": -46,
+          "y": -55,
+          "w": 104,
+          "rot": -8
+        },
+        {
+          "slug": "spark-yellow",
+          "anchor": "photoRight",
+          "x": -35,
+          "y": -54,
+          "w": 88,
+          "rot": 9
+        },
+        {
+          "slug": "blob-yellow",
+          "x": -26,
+          "y": 1704.4474,
+          "w": 250,
+          "rot": 0
+        },
+        {
+          "slug": "blob-teal",
+          "x": 818,
+          "y": 1673.6047,
+          "w": 290,
+          "rot": 0
+        },
+        {
+          "slug": "spark-teal",
+          "x": 776,
+          "y": 1601.7,
+          "w": 92,
+          "rot": -137,
+          "flipX": true
+        }
+      ]
+    }
+  },
+  {
+    "title": "Surf lesson",
+    "hostel": null,
+    "template": "activity",
+    "photo": "flyer-surf-lesson.png",
+    "data": {
+      "v": 1,
+      "template": "activity",
+      "photoMode": "bleed",
+      "photoCrop": {
+        "x": 0.5,
+        "y": 0.5,
+        "zoom": 1
+      },
+      "showPill": true,
+      "text": {
+        "eyebrow": "NEXT ACTIVITY",
+        "headline1": "Two hours",
+        "headline2": "of fun waves.",
+        "headlineEs": "Tu primera ola es esta tarde.",
+        "askEn": "Sign up at reception.",
+        "askEs": "Apúntate en recepción.",
+        "handle": "@NESTSHOSTELS",
+        "tag": "¡TAG US!"
+      },
+      "chips": [
+        {
+          "key": "when",
+          "label": "When",
+          "value": "Fridays · 15:00"
+        },
+        {
+          "key": "where",
+          "label": "Where",
+          "value": "Pick-up · 14:30"
+        },
+        {
+          "key": "cost",
+          "label": "Cost",
+          "value": "40€ a class"
+        }
+      ],
+      "extras": [
+        "Gear included",
+        "Beginner friendly"
+      ],
+      "week": [],
+      "colors": {
+        "bg": "#F8F4E8",
+        "ink": "#141414",
+        "accent": "#0D6F82",
+        "mark": "#FAC213"
+      },
+      "overrides": {},
+      "doodles": [
+        {
+          "slug": "spark-teal",
+          "anchor": "photoLeft",
+          "x": -46,
+          "y": -55,
+          "w": 104,
+          "rot": -8
+        },
+        {
+          "slug": "spark-yellow",
+          "anchor": "photoRight",
+          "x": -35,
+          "y": -54,
+          "w": 88,
+          "rot": 9
+        },
+        {
+          "slug": "blob-yellow",
+          "x": -26,
+          "y": 1704.4474,
+          "w": 250,
+          "rot": 0
+        },
+        {
+          "slug": "blob-teal",
+          "x": 818,
+          "y": 1673.6047,
+          "w": 290,
+          "rot": 0
+        },
+        {
+          "slug": "spark-teal",
+          "x": 776,
+          "y": 1601.7,
+          "w": 92,
+          "rot": -137,
+          "flipX": true
+        }
+      ]
+    }
+  },
+  {
+    "title": "Long copy · stress test",
+    "hostel": "los-amigos-nest",
+    "template": "activity",
+    "photo": null,
+    "data": {
+      "v": 1,
+      "template": "activity",
+      "photoMode": "none",
+      "photoCrop": {
+        "x": 0.5,
+        "y": 0.5,
+        "zoom": 1
+      },
+      "showPill": true,
+      "text": {
+        "eyebrow": "NEXT ACTIVITY",
+        "headline1": "Sunrise hike above",
+        "headline2": "the sea of clouds.",
+        "headlineEs": "Excursión al amanecer por encima del mar de nubes del Teide, con guía local y desayuno arriba.",
+        "askEn": "Sign up at reception.",
+        "askEs": "Apúntate en recepción.",
+        "handle": "@NESTSHOSTELS",
+        "tag": "¡TAG US!"
+      },
+      "chips": [
+        {
+          "key": "when",
+          "label": "When",
+          "value": "Saturday 27/9 · 05:30"
+        },
+        {
+          "key": "where",
+          "label": "Where",
+          "value": "Playa de las Américas · Av. Rafael Puig 12"
+        },
+        {
+          "key": "cost",
+          "label": "Cost",
+          "value": "25€ with breakfast · 18€ without"
+        }
+      ],
+      "extras": [
+        "Six hours",
+        "Bring a jacket",
+        "Twelve seats",
+        "Moderate walk"
+      ],
+      "week": [],
+      "colors": {
+        "bg": "#F8F4E8",
+        "ink": "#141414",
+        "accent": "#0D6F82",
+        "mark": "#FAC213"
+      },
+      "overrides": {},
+      "doodles": [
+        {
+          "slug": "spark-teal",
+          "anchor": "photoLeft",
+          "x": -46,
+          "y": -55,
+          "w": 104,
+          "rot": -8
+        },
+        {
+          "slug": "spark-yellow",
+          "anchor": "photoRight",
+          "x": -35,
+          "y": -54,
+          "w": 88,
+          "rot": 9
+        },
+        {
+          "slug": "blob-yellow",
+          "x": -26,
+          "y": 1704.4474,
+          "w": 250,
+          "rot": 0
+        },
+        {
+          "slug": "blob-teal",
+          "x": 818,
+          "y": 1673.6047,
+          "w": 290,
+          "rot": 0
+        },
+        {
+          "slug": "spark-teal",
+          "x": 776,
+          "y": 1601.7,
+          "w": 92,
+          "rot": -137,
+          "flipX": true
+        }
+      ]
+    }
+  },
+  {
+    "title": "Paragliding",
+    "hostel": "duque-nest",
+    "template": "activity",
+    "photo": null,
+    "data": {
+      "v": 1,
+      "template": "activity",
+      "photoMode": "none",
+      "photoCrop": {
+        "x": 0.5,
+        "y": 0.5,
+        "zoom": 1
+      },
+      "showPill": true,
+      "text": {
+        "eyebrow": "NEXT ACTIVITY",
+        "headline1": "Step off",
+        "headline2": "and fly.",
+        "headlineEs": "Vuela sobre el sur de Tenerife.",
+        "askEn": "Sign up at reception.",
+        "askEs": "Apúntate en recepción.",
+        "handle": "@NESTSHOSTELS",
+        "tag": "¡TAG US!"
+      },
+      "chips": [
+        {
+          "key": "when",
+          "label": "When",
+          "value": "Most mornings"
+        },
+        {
+          "key": "where",
+          "label": "Where",
+          "value": "Meet at reception"
+        },
+        {
+          "key": "cost",
+          "label": "Cost",
+          "value": "90€"
+        }
+      ],
+      "extras": [
+        "Tandem flight",
+        "Photos included"
+      ],
+      "week": [],
+      "colors": {
+        "bg": "#F8F4E8",
+        "ink": "#141414",
+        "accent": "#0D6F82",
+        "mark": "#FAC213"
+      },
+      "overrides": {},
+      "doodles": [
+        {
+          "slug": "spark-teal",
+          "anchor": "photoLeft",
+          "x": -46,
+          "y": -55,
+          "w": 104,
+          "rot": -8
+        },
+        {
+          "slug": "spark-yellow",
+          "anchor": "photoRight",
+          "x": -35,
+          "y": -54,
+          "w": 88,
+          "rot": 9
+        },
+        {
+          "slug": "blob-yellow",
+          "x": -26,
+          "y": 1704.4474,
+          "w": 250,
+          "rot": 0
+        },
+        {
+          "slug": "blob-teal",
+          "x": 818,
+          "y": 1673.6047,
+          "w": 290,
+          "rot": 0
+        },
+        {
+          "slug": "spark-teal",
+          "x": 776,
+          "y": 1601.7,
+          "w": 92,
+          "rot": -137,
+          "flipX": true
+        }
+      ]
+    }
+  },
+  {
+    "title": "Pizza · weekly",
+    "hostel": "duque-nest",
+    "template": "activity",
+    "photo": "flyer-pizza-night.png",
+    "data": {
+      "v": 1,
+      "template": "activity",
+      "photoMode": "bleed",
+      "photoCrop": {
+        "x": 0.5,
+        "y": 0.5,
+        "zoom": 1
+      },
+      "showPill": true,
+      "text": {
+        "eyebrow": "NEXT ACTIVITY",
+        "headline1": "Family dinner,",
+        "headline2": "every Friday.",
+        "headlineEs": "Cena en familia — todos los viernes.",
+        "askEn": "Sign up at reception.",
+        "askEs": "Apúntate en recepción.",
+        "handle": "@NESTSHOSTELS",
+        "tag": "¡TAG US!"
+      },
+      "chips": [
+        {
+          "key": "when",
+          "label": "When",
+          "value": "Fridays · 20:30"
+        },
+        {
+          "key": "where",
+          "label": "Where",
+          "value": "The terrace"
+        },
+        {
+          "key": "cost",
+          "label": "Cost",
+          "value": "8€ with a drink"
+        }
+      ],
+      "extras": [
+        "Vegan option",
+        "Everyone welcome"
+      ],
+      "week": [],
+      "colors": {
+        "bg": "#F8F4E8",
+        "ink": "#141414",
+        "accent": "#0D6F82",
+        "mark": "#FAC213"
+      },
+      "overrides": {},
+      "doodles": [
+        {
+          "slug": "spark-teal",
+          "anchor": "photoLeft",
+          "x": -46,
+          "y": -55,
+          "w": 104,
+          "rot": -8
+        },
+        {
+          "slug": "spark-yellow",
+          "anchor": "photoRight",
+          "x": -35,
+          "y": -54,
+          "w": 88,
+          "rot": 9
+        },
+        {
+          "slug": "blob-yellow",
+          "x": -26,
+          "y": 1704.4474,
+          "w": 250,
+          "rot": 0
+        },
+        {
+          "slug": "blob-teal",
+          "x": 818,
+          "y": 1673.6047,
+          "w": 290,
+          "rot": 0
+        },
+        {
+          "slug": "spark-teal",
+          "x": 776,
+          "y": 1601.7,
+          "w": 92,
+          "rot": -137,
+          "flipX": true
+        }
+      ]
+    }
+  }
+]

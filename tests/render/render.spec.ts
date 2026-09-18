@@ -1,5 +1,9 @@
-import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
+import { readFileSync } from 'node:fs';
+import { expect, test, type APIRequestContext, type APIResponse, type Page } from '@playwright/test';
 import sharp from 'sharp';
+import { apiError, type ApiErrorKey } from '../../src/shared/errors';
+import { flyerFilename } from '../../src/shared/filename';
+import { SAMPLE_FLYERS } from '../../src/shared/samples';
 import type { FlyerListItem, FlyerPayload } from '../../src/shared/schema';
 
 /* The automatable half of the handoff's export checklist (README §9), for
@@ -9,8 +13,11 @@ const SAFE = { left: 70, top: 250, right: 1010, bottom: 1620 };
 const MODES = ['bleed', 'band', 'none'] as const;
 const H = { 'X-Nest-Flyers': '1' };
 
+const SAMPLE_TITLES = new Set(SAMPLE_FLYERS.map((s) => s.title));
+
+/** The seeded samples only — other specs' flyers never leak in. */
 async function samples(request: APIRequestContext): Promise<FlyerPayload[]> {
-  const list = (await (await request.get('/api/flyers')).json()) as FlyerListItem[];
+  const list = ((await (await request.get('/api/flyers')).json()) as FlyerListItem[]).filter((f) => SAMPLE_TITLES.has(f.title));
   return Promise.all(list.map(async (f) => (await (await request.get(`/api/flyers/${f.id}`)).json()) as FlyerPayload));
 }
 
@@ -84,13 +91,14 @@ test('every sample, every photo mode: inside the safe box, no overlaps, no clipp
 
 test('export API returns exactly 1080×1920 PNG and JPG, cached until the flyer changes', async ({ request }) => {
   const list = (await (await request.get('/api/flyers')).json()) as FlyerListItem[];
-  const stress = list.find((f) => f.title.includes('stress'))!;
+  const stress = list.find((f) => f.title === 'Long copy · stress test')!;
 
   for (const format of ['png', 'jpg'] as const) {
     const res = await request.post(`/api/render/${stress.id}`, { headers: H, data: { format } });
     expect(res.status()).toBe(200);
     const meta = await sharp(await res.body()).metadata();
     expect([meta.format, meta.width, meta.height]).toEqual([format === 'png' ? 'png' : 'jpeg', 1080, 1920]);
+    expect(res.headers()['content-disposition']).toContain(`filename="${flyerFilename(stress.title, stress.id, format)}"`);
   }
 
   const again = await request.post(`/api/render/${stress.id}`, { headers: H, data: { format: 'png' } });
@@ -104,4 +112,40 @@ test('export API returns exactly 1080×1920 PNG and JPG, cached until the flyer 
   expect(put.status()).toBe(200);
   const after = await request.post(`/api/render/${stress.id}`, { headers: H, data: { format: 'png' } });
   expect(after.headers()['x-render-cache']).toBe('miss');
+});
+
+test('the export route checks the id, then the format, then the flyer (docs/api-contract.md)', async ({ request }) => {
+  const list = (await (await request.get('/api/flyers')).json()) as FlyerListItem[];
+  const id = list.find((f) => SAMPLE_TITLES.has(f.title))!.id;
+  const post = (path: string, data: unknown, headers: Record<string, string> = H) => request.post(path, { headers, data });
+  const fails = async (res: APIResponse, key: ApiErrorKey) => {
+    const spec = apiError(key);
+    const { error } = (await res.json()) as { error: { code: string; message: string } };
+    expect([res.status(), error.code, error.message]).toEqual([spec.status, spec.code, spec.message]);
+  };
+
+  await fails(await post(`/api/render/${id}`, { format: 'png' }, {}), 'forbidden');
+  await fails(await post('/api/render/abc', { format: 'gif' }), 'no_such_flyer');
+  await fails(await post(`/api/render/${id}`, { format: 'gif' }), 'bad_format');
+  await fails(await post('/api/render/999999', { format: 'gif' }), 'bad_format');
+  await fails(await post('/api/render/999999', { format: 'png' }), 'no_such_flyer');
+});
+
+test('the editor downloads through the server exporter when the backend has one', async ({ page, request }) => {
+  const list = (await (await request.get('/api/flyers')).json()) as FlyerListItem[];
+  const flyer = list.find((f) => f.title === 'Pool party')!;
+  const renders: string[] = [];
+  page.on('request', (r) => {
+    if (r.method() === 'POST' && /\/api\/render\/\d+$/.test(r.url())) renders.push(r.url());
+  });
+  await page.goto(`/#/flyers/${flyer.id}`);
+  for (const [button, format] of [['Download PNG', 'png'], ['JPG', 'jpg']] as const) {
+    const btn = page.getByRole('button', { name: button, exact: true });
+    await expect(btn).toBeEnabled();
+    const [download] = await Promise.all([page.waitForEvent('download'), btn.click()]);
+    expect(download.suggestedFilename()).toBe(flyerFilename(flyer.title, flyer.id, format));
+    const meta = await sharp(readFileSync(await download.path())).metadata();
+    expect([meta.format, meta.width, meta.height]).toEqual([format === 'png' ? 'png' : 'jpeg', 1080, 1920]);
+  }
+  expect(renders, 'both downloads went through POST /api/render').toHaveLength(2);
 });

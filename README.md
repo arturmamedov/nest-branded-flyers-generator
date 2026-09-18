@@ -64,8 +64,9 @@ export renderer works in dev too.
 | Command | What it proves |
 |---|---|
 | `npm run typecheck` | client and server compile |
-| `npm test` | shared logic (`·` split, layout, crop maths, copy rules, schema) + the API on a temp DB |
-| `npm run test:render` | builds, then renders every sample in all three photo modes: inside the safe box, no overlapping blocks, no clipped text, real fonts loaded, highlighter clone, exports exactly 1080 × 1920 PNG/JPG, cache invalidates on save |
+| `npm test` | shared logic (`·` split, layout, crop maths, copy rules, schema), the shared test vectors, the storage contract on every driver, SQLite migrations, and that generated files are current |
+| `npm run test:contract` | the HTTP contract (`docs/api-contract.md`) against every backend; `CONTRACT_BASE_URL=…` points it at a deployment instead |
+| `npm run test:render` | builds, then renders every sample in all three photo modes: inside the safe box, no overlapping blocks, no clipped text, real fonts loaded, highlighter clone, exports exactly 1080 × 1920 PNG/JPG, cache invalidates on save; the in-browser client export matches the server export (`fidelity.spec.ts`, ≤ 0.5 % per feature) |
 | `npm run compare:design` | with `npm run dev` running and samples seeded: pixel-diffs the app against the design prototype (needs internet for the prototype's React). Diff images in `test-results/design-compare/`. The MVP matched it to 0 pixels; since the design pass below it differs on purpose in the headline and art — check nothing else moved |
 
 ### Design pass (2026-09-18) — where the app departs from the prototype
@@ -132,6 +133,7 @@ A new build changes the renderer's build id, so cached exports are re-rendered a
 | `HOST` | `127.0.0.1` | bind address — never a public interface |
 | `PORT` | `8787` | |
 | `DATA_DIR` | `./data` | `flyers.db`, `uploads/`, `renders/` — keep it outside the checkout on the VPS |
+| `STORAGE` | `sqlite` | storage driver (`server/composition.ts`) |
 | `RENDER_ORIGIN` | `http://127.0.0.1:PORT` (or `http://HOST:PORT` for a specific IP) | where headless Chromium reaches the app |
 | `RENDER_TIMEOUT_MS` | `30000` | per export |
 

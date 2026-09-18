@@ -1,12 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { FitReport } from '../flyer/fit';
 import { deriveChip } from '../shared/chips';
+import { ACCEPTED_PHOTO_TYPES } from '../shared/limits';
 import { lintFlyer } from '../shared/copyRules';
 import { newFlyerData } from '../shared/defaults';
 import { photoFrame } from '../shared/layout';
 import { ZOOM_MAX, ZOOM_MIN, clampCrop, wholePhotoZoom, zoomCrop } from '../shared/photo';
 import type { Chip, ChipKey, Crop, FlyerData, FlyerInput, FlyerText, Hostel, PhotoInfo } from '../shared/schema';
 import { api, ApiError } from './api';
+import type { FlyerExporter } from './export';
+import { preparePhoto, type PhotoLimits } from './photoPrep';
 import { Preview } from './Preview';
 
 interface Draft {
@@ -35,7 +38,7 @@ const CHIP_HELP: Record<ChipKey, { placeholder: string; help: string }> = {
   cost: { placeholder: 'Free · food & drinks', help: 'Price big · what it includes small' },
 };
 
-export function Editor({ id, hostels }: { id: number | null; hostels: Hostel[] }) {
+export function Editor({ id, hostels, exporter, limits }: { id: number | null; hostels: Hostel[]; exporter: FlyerExporter; limits: PhotoLimits }) {
   const [draft, setDraft] = useState<Draft | null>(id == null ? blankDraft() : null);
   const [savedJson, setSavedJson] = useState<string>(() => (id == null ? JSON.stringify(toInput(blankDraft())) : 'loading'));
   const [flyerId, setFlyerId] = useState<number | null>(id);
@@ -119,7 +122,7 @@ export function Editor({ id, hostels }: { id: number | null; hostels: Hostel[] }
   const onDownload = (format: 'png' | 'jpg') =>
     run(format, async () => {
       const savedId = await save();
-      const { blob, filename } = await api.render(savedId, format);
+      const { blob, filename } = await exporter.export(savedId, format);
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -131,7 +134,8 @@ export function Editor({ id, hostels }: { id: number | null; hostels: Hostel[] }
 
   const onFile = (file: File) =>
     run('upload', async () => {
-      const photo = await api.uploadPhoto(file);
+      const { blob, name } = await preparePhoto(file, limits);
+      const photo = await api.uploadPhoto(blob, name);
       setDraft((d) =>
         d ? { ...d, photo, data: { ...d.data, photoCrop: { x: 0.5, y: 0.5, zoom: 1 }, photoMode: d.data.photoMode === 'none' ? 'bleed' : d.data.photoMode } } : d,
       );
@@ -224,7 +228,7 @@ export function Editor({ id, hostels }: { id: number | null; hostels: Hostel[] }
                 <input
                   ref={fileInput}
                   type="file"
-                  accept="image/jpeg,image/png,image/webp"
+                  accept={ACCEPTED_PHOTO_TYPES.join(',')}
                   hidden
                   onChange={(e) => {
                     const f = e.target.files?.[0];

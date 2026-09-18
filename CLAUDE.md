@@ -11,13 +11,15 @@ npm run dev            # Express + Vite middleware on http://127.0.0.1:8787 (API
 npm run seed:dev       # hostels + built-in doodles into ./data/flyers.db (idempotent)
 npm run seed:samples   # the six design records incl. the stress test (dev only)
 npm run typecheck      # client + server
-npm test               # Vitest: shared logic + API on a temp DB
+npm test               # Vitest: shared logic, shared vectors, storage contract per driver, generated files current
+npm run test:contract  # HTTP contract suite on every backend (CONTRACT_BASE_URL=… for a deployment)
+npm run gen            # regenerate schema/*.json, seed/samples.json, the error table in docs/api-contract.md
 npm run test:render    # builds, then Playwright render/export checks on the prod build
 npm run compare:design # reference pixel-diff vs the prototype (dev server running)
 npm run build          # vite build → dist/, tsc → dist-server/
 ```
 
-Before calling work done: `npm run typecheck && npm test && npm run test:render` all green, and look at UI
+Before calling work done: `npm run typecheck && npm test && npm run test:contract && npm run test:render` all green, and look at UI
 changes in a real browser (Chrome) — the preview and a downloaded export.
 
 ## Architecture (where things live)

@@ -3,6 +3,7 @@ import { existsSync, mkdirSync, readdirSync, unlinkSync } from 'node:fs';
 import { join } from 'node:path';
 import { chromium, type Browser } from 'playwright';
 import { CANVAS } from '../../src/shared/layout.js';
+import { EXPORT_JPEG_QUALITY } from '../../src/shared/limits.js';
 
 /* Server-side export: the same render page the editor preview shares, loaded
    in headless Chromium at exactly 1080×1920, screenshotted once the fonts,
@@ -57,7 +58,7 @@ export function createRenderer(opts: { origin: string; cacheDir: string; timeout
       await page.screenshot({
         path: file,
         type: format === 'jpg' ? 'jpeg' : 'png',
-        quality: format === 'jpg' ? 90 : undefined,
+        quality: format === 'jpg' ? EXPORT_JPEG_QUALITY : undefined,
         clip: { x: 0, y: 0, width: CANVAS.width, height: CANVAS.height },
         animations: 'disabled',
         caret: 'hide',

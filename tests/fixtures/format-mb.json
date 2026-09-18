@@ -1,0 +1,37 @@
+{
+  "_note": "formatMb(bytes): megabytes, one decimal, rounded down, \".0\" dropped (src/shared/errors.ts).",
+  "cases": [
+    {
+      "bytes": 15728640,
+      "text": "15"
+    },
+    {
+      "bytes": 2097152,
+      "text": "2"
+    },
+    {
+      "bytes": 3080192,
+      "text": "2.9"
+    },
+    {
+      "bytes": 2031616,
+      "text": "1.9"
+    },
+    {
+      "bytes": 1048575,
+      "text": "0.9"
+    },
+    {
+      "bytes": 1572864,
+      "text": "1.5"
+    },
+    {
+      "bytes": 104857600,
+      "text": "100"
+    },
+    {
+      "bytes": 5368709120,
+      "text": "5120"
+    }
+  ]
+}

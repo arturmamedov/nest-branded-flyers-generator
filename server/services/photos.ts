@@ -2,53 +2,36 @@ import { randomBytes } from 'node:crypto';
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import sharp, { type Metadata } from 'sharp';
+import { ACCEPTED_PHOTO_TYPES, MAX_PHOTO_EDGE, PHOTO_JPEG_QUALITY, isHeic } from '../../src/shared/limits.js';
+import { UPLOADS_DIR } from '../../src/shared/storage.js';
+import { HttpError } from '../errors.js';
 
-export class PhotoError extends Error {
-  constructor(
-    public status: number,
-    public code: string,
-    message: string,
-  ) {
-    super(message);
-  }
-}
-
-export const MAX_PHOTO_BYTES = 15 * 1024 * 1024;
-// 3× the widest frame: plenty for zoom, small enough for Chromium on a small VPS.
-const MAX_EDGE = 3240;
-
-/** iPhone photos: Chromium cannot draw HEIC, so say so plainly. */
-function isHeic(buf: Buffer): boolean {
-  if (buf.length < 12 || buf.toString('ascii', 4, 8) !== 'ftyp') return false;
-  return ['heic', 'heix', 'hevc', 'hevx', 'heim', 'heis', 'mif1', 'msf1'].includes(buf.toString('ascii', 8, 12));
-}
-
-/** Normalise an upload: EXIF rotation applied, downscaled, metadata (GPS) stripped. */
+/** Normalise an upload: EXIF rotation applied, downscaled, metadata (GPS) stripped.
+    Returns the stored path, `uploads/YYYY/MM/<16 hex>.jpg|png`, relative to the uploads folder's parent. */
 export async function processPhoto(
   buf: Buffer,
-  dataRoot: string,
+  uploadsDir: string,
   now = new Date(),
 ): Promise<{ path: string; width: number; height: number }> {
-  if (isHeic(buf)) {
-    throw new PhotoError(415, 'heic', 'iPhone HEIC photos are not supported — export it as JPG (Settings › Camera › Formats › Most Compatible) and try again.');
-  }
+  if (isHeic(buf)) throw new HttpError('heic');
   let meta: Metadata;
   try {
     meta = await sharp(buf).metadata();
   } catch {
-    throw new PhotoError(415, 'unsupported', 'That file is not an image we can read. Use a JPG, PNG or WebP.');
+    throw new HttpError('unreadable');
   }
-  if (!meta.format || !['jpeg', 'png', 'webp'].includes(meta.format)) {
-    throw new PhotoError(415, 'unsupported', `${meta.format?.toUpperCase() ?? 'This'} files are not supported. Use a JPG, PNG or WebP.`);
+  // sharp's format names are the MIME subtypes for the accepted three (not for every format: AVIF reads as 'heif').
+  if (!meta.format || !(ACCEPTED_PHOTO_TYPES as readonly string[]).includes(`image/${meta.format}`)) {
+    throw new HttpError('unsupported_format', { format: meta.format?.toUpperCase() ?? 'This' });
   }
 
-  const dir = `uploads/${now.getFullYear()}/${String(now.getMonth() + 1).padStart(2, '0')}`;
-  mkdirSync(join(dataRoot, ...dir.split('/')), { recursive: true });
+  const month = `${now.getFullYear()}/${String(now.getMonth() + 1).padStart(2, '0')}`;
+  mkdirSync(join(uploadsDir, ...month.split('/')), { recursive: true });
   const ext = meta.hasAlpha ? 'png' : 'jpg';
-  const rel = `${dir}/${randomBytes(8).toString('hex')}.${ext}`;
+  const name = `${month}/${randomBytes(8).toString('hex')}.${ext}`;
 
-  let pipeline = sharp(buf).rotate().resize({ width: MAX_EDGE, height: MAX_EDGE, fit: 'inside', withoutEnlargement: true });
-  pipeline = meta.hasAlpha ? pipeline.png() : pipeline.jpeg({ quality: 88, mozjpeg: true });
-  const info = await pipeline.toFile(join(dataRoot, ...rel.split('/')));
-  return { path: rel, width: info.width, height: info.height };
+  let pipeline = sharp(buf).rotate().resize({ width: MAX_PHOTO_EDGE, height: MAX_PHOTO_EDGE, fit: 'inside', withoutEnlargement: true });
+  pipeline = meta.hasAlpha ? pipeline.png() : pipeline.jpeg({ quality: PHOTO_JPEG_QUALITY, mozjpeg: true });
+  const info = await pipeline.toFile(join(uploadsDir, ...name.split('/')));
+  return { path: `${UPLOADS_DIR}/${name}`, width: info.width, height: info.height };
 }

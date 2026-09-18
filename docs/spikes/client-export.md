@@ -13,8 +13,11 @@ The real fonts are embedded. Both the PNG and the JPG are exactly 1080 × 1920, 
 
 `html-to-image` still fails, on the highlighter, as the handoff found.
 
-Reproduce with `npm run spike:client-export`. It builds, runs `scripts/spike-client-export.ts`, and writes
-the raw tables and golden/candidate/diff images to `test-results/client-export-spike/`.
+The spike script was retired once the permanent check replaced it. `tests/render/fidelity.spec.ts`
+downloads every sample through the real editor and holds each to these same rules on every `npm run test:render`. To
+rerun the three-library comparison, check out commit `7e8cd7a` and run `npm run spike:client-export`. It builds, runs
+`scripts/spike-client-export.ts`, and writes the raw tables and golden/candidate/diff images to
+`test-results/client-export-spike/`.
 
 ## Method
 

@@ -6,14 +6,13 @@ import { ACTIVITY, CANVAS, SAFE, photoAnchors, photoFrame, type PhotoMode } from
 import { coverRect } from '../shared/photo';
 import type { DoodlePlacement, FlyerData, Hostel, PhotoInfo } from '../shared/schema';
 import './fonts.css';
+import { artUrl as art, assetUrl } from './urls';
 
 /* THE renderer. The editor preview and the Playwright export both mount this
    component, so they cannot drift. The markup and styles are transcribed 1:1
    from design/Nest Flyer Story Templates.dc.html — keep them that way.
    Positions come from src/shared/layout.ts and the art from defaults.ts,
    which record where the team's design pass departs from the prototype. */
-
-export const art = (name: string) => `/assets/art/${name}.png`;
 
 export const WONKY_PATH =
   'M46 9 C 200 4 380 13 540 7 C 700 2 830 12 914 8 C 944 7 954 26 951 54 C 954 96 949 142 952 164 C 954 186 932 197 902 193 C 690 198 410 189 154 195 C 84 197 9 192 11 166 C 7 122 13 72 9 48 C 7 22 22 10 46 9 Z';
@@ -48,8 +47,7 @@ function doodleStyle(d: DoodlePlacement, mode: PhotoMode): CSSProperties {
 }
 
 function logoUrl(hostel: Hostel | null): string {
-  if (!hostel?.logoPath) return '/assets/nest-logo-teal.png';
-  return hostel.logoPath.startsWith('/') ? hostel.logoPath : '/' + hostel.logoPath;
+  return assetUrl(hostel?.logoPath || 'assets/nest-logo-teal.png');
 }
 
 export interface FlyerProps {
@@ -71,7 +69,7 @@ export function Flyer({ data, hostel, photo, showSafeZones = false, ref }: Flyer
   const img =
     photo && frame ? (
       <img
-        src={photo.url}
+        src={assetUrl(photo.url)}
         alt=""
         draggable={false}
         style={{ position: 'absolute', maxWidth: 'none', ...coverRect(photo, frame, data.photoCrop) }}
