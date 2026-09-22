@@ -153,8 +153,10 @@ final class JsonFlyerRepository implements FlyerRepository
                 $changed = true; // no flyer file at all: the row goes
                 continue;
             }
+            // Both rebuilt the same way: an array against a stdClass is never
+            // equal in PHP, which would rewrite the index on every call.
             $fixed = self::entry((array) $stored);
-            $changed = $changed || $fixed != $entry;
+            $changed = $changed || $fixed !== self::entry((array) $entry);
             $index[] = $fixed;
         }
         if ($changed) {

@@ -10,10 +10,17 @@ import type { StorageDriver } from '../../../server/config.js';
 import { SEED_FILE, dataPaths } from '../../../server/paths.js';
 import { applySeedFile } from '../../../server/storage/seed.js';
 
+/** Which store each project drives. The project name is the only input — no environment variable — so a run
+    always says which driver it proved, and `--project node-json` means exactly one thing. */
+const STORAGE_BY_PROJECT: Record<string, StorageDriver> = { node: 'sqlite', 'node-json': 'json' };
+
 /** The Node backend in-process on a fresh temp data folder, without a renderer
     (so the client-export branch of the contract runs; test:render covers the server one). */
 export default async function setup(project: TestProject) {
-  const storage: StorageDriver = 'sqlite';
+  const storage = STORAGE_BY_PROJECT[project.name];
+  if (!storage) {
+    throw new Error(`No storage driver for the contract project "${project.name}" (known: ${Object.keys(STORAGE_BY_PROJECT).join(', ')}).`);
+  }
   const dir = mkdtempSync(join(tmpdir(), `nest-flyers-contract-${storage}-`));
   const data = dataPaths(dir);
   const repos = createRepositories({ storage }, data);

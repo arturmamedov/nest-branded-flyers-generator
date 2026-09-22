@@ -2,7 +2,7 @@ import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { APP_ROOT } from './paths.js';
 
-export const STORAGE_DRIVERS = ['sqlite'] as const;
+export const STORAGE_DRIVERS = ['sqlite', 'json'] as const;
 export type StorageDriver = (typeof STORAGE_DRIVERS)[number];
 
 export interface Config {

@@ -22,6 +22,7 @@ import type { StorageDriver } from './config.js';
 import { HttpError } from './errors.js';
 import { ASSETS_DIR, DIST_DIR } from './paths.js';
 import { processPhoto } from './services/photos.js';
+import { StorageTooNewError } from './storage/json/store.js';
 import { renderKey, type Renderer } from './services/renderer.js';
 import type { AppRepositories } from './storage/types.js';
 
@@ -185,6 +186,11 @@ export function createApp(deps: AppDeps) {
     if (err instanceof HttpError) return send(err);
     if (err instanceof multer.MulterError && err.code === 'LIMIT_FILE_SIZE') {
       return send(new HttpError('too_large', { mb: formatMb(MAX_UPLOAD_BYTES) }));
+    }
+    // A data folder a newer build wrote: say so, as the PHP backend does, instead of a blank 500.
+    if (err instanceof StorageTooNewError) {
+      console.error(err);
+      return send(new HttpError('storage_too_new'));
     }
     const status = (err as { status?: number })?.status;
     if (status === 404) return send(new HttpError('not_found'));
