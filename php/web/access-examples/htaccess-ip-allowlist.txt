@@ -1,0 +1,22 @@
+# Nest flyers: only these networks may open the app (the editor, the photos and
+# the API). Paste this block at the TOP of the app's .htaccess and replace the
+# example addresses with your offices' public IPs (search "what is my IP" from
+# each office). config.php's access rule still guards the API on its own.
+#
+# Apache matches the address it sees. Behind a proxy or CDN that is the proxy's
+# address, so ask the host before relying on this.
+
+# Apache 2.4 (almost every host today):
+<IfModule mod_authz_core.c>
+    Require ip 203.0.113.7
+    Require ip 198.51.100.0/24
+    Require ip 2001:db8:1234::/48
+</IfModule>
+
+# Apache 2.2 (only if the host still runs it): delete the 2.4 block above and
+# uncomment these lines instead.
+# Order deny,allow
+# Deny from all
+# Allow from 203.0.113.7
+# Allow from 198.51.100.0/24
+# Allow from 2001:db8:1234::/48

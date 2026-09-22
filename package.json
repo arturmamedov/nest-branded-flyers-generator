@@ -19,7 +19,9 @@
     "test:render": "npm run build && playwright test",
     "compare:design": "tsx scripts/compare-design.ts",
     "gen": "tsx scripts/gen-shared.ts",
-    "test:contract": "vitest run -c vitest.contract.config.ts"
+    "test:contract": "vitest run -c vitest.contract.config.ts",
+    "test:php": "tsx scripts/php/phpunit.ts",
+    "test:php-smoke": "vite build && playwright test -c playwright.php.config.ts"
   },
   "dependencies": {
     "@fontsource/montserrat": "5.3.0",

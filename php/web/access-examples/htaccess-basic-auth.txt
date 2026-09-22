@@ -1,0 +1,29 @@
+# Nest flyers: a staff login for the whole app (the editor, the photos and the
+# API). Paste this block at the TOP of the app's .htaccess. Use it only over
+# https: Basic auth sends the password with every request.
+#
+# 1. Create the password file OUTSIDE the web root (never inside public_html),
+#    e.g. /home/ACCOUNT/nest-flyers.htpasswd, with one line per login:
+#        htpasswd -c -B /home/ACCOUNT/nest-flyers.htpasswd staff
+#    No shell on the host? Run htpasswd (it ships with Apache and Laragon) on
+#    your own machine and upload the file, or use the host panel's
+#    "password-protect directory" tool, which writes the same lines.
+# 2. Put that file's absolute path in AuthUserFile below (the host panel shows
+#    the account's home folder).
+
+# Apache 2.4:
+AuthType Basic
+AuthName "Nest flyers"
+AuthUserFile /home/ACCOUNT/nest-flyers.htpasswd
+Require valid-user
+
+# Apache 2.2: the same four lines work. Its htpasswd has no -B (bcrypt), so
+# create the file with -m (MD5) instead:
+#     htpasswd -c -m /home/ACCOUNT/nest-flyers.htpasswd staff
+#
+# To let the office in without a password and ask everyone else for one
+# (Apache 2.4), use this instead of the "Require valid-user" line:
+#     <RequireAny>
+#         Require ip 203.0.113.7
+#         Require valid-user
+#     </RequireAny>

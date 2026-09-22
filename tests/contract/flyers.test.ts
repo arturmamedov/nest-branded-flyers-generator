@@ -47,6 +47,9 @@ describe('flyers', () => {
     expect(await listed(ids, '?hostel=nowhere-nest')).toEqual([]);
     expect((await listed(ids, '?template=activity')).map((f) => f.id)).toEqual([c, b, a]);
     expect(await listed(ids, '?template=week')).toEqual([]);
+    // A name given twice, or with brackets, filters nothing on either backend.
+    expect((await listed(ids, '?hostel=duque-nest&hostel=flamingo-nest')).map((f) => f.id)).toEqual([c, b, a]);
+    expect((await listed(ids, '?hostel[]=duque-nest')).map((f) => f.id)).toEqual([c, b, a]);
   });
 
   it('DELETE archives (204): gone from reads, lists and writes', async () => {

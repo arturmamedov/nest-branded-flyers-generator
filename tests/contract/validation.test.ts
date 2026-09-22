@@ -103,6 +103,18 @@ describe('validation', () => {
     expect(await invalidFields([])).toEqual(['_']);
   });
 
+  it('ignores a number it cannot represent under a key it strips anyway', async () => {
+    const body = JSON.stringify({ ...flyerInput(), junk: 7 }).replace('"junk":7', '"junk":1e400');
+    const { flyer } = await mine.create(body);
+    expect(flyer).not.toHaveProperty('junk');
+  });
+
+  it('reports a non-finite number together with every other bad field', async () => {
+    const body = JSON.stringify(flyerInput({ title: '', data: { ...d, photoCrop: { x: 7, y: 0.5, zoom: 1 } } })).replace('"x":7', '"x":1e400');
+    const error = await fails(send('POST', 'api/flyers', body), 'invalid');
+    expect(Object.keys(error.fields ?? {}).sort()).toEqual(['data.photoCrop.x', 'title']);
+  });
+
   it('rejects numbers JSON can carry but JavaScript cannot (1e400)', async () => {
     const body = JSON.stringify(flyerInput({ data: { ...d, doodles: [{ slug: 'spark-teal', x: 7, y: 2, w: 50, rot: 0 }] } })).replace('"x":7', '"x":1e400');
     const error = await fails(send('POST', 'api/flyers', body), 'invalid');
