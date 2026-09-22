@@ -35,8 +35,13 @@ unchanged in what it does.
 ## Verified here
 
 - The whole contract suite and the smoke test against the deployed release on Apache (`CONTRACT_BASE_URL`).
-- The library migrated with `npm run copy`; `data/flyers.db` and its `-wal` are byte-identical before and after
-  (sha256 recorded at the start and re-checked at the end).
+- The library migrated with `npm run copy`; `data/flyers.db` and its `-wal` are byte-identical before and after.
+  The sha256s were recorded before Phase 4 and re-checked at the end:
+
+  ```
+  flyers.db      853246919d26157d8ae3c33abe40428983a765436069049020e5117796b292b1
+  flyers.db-wal  97f9909f8ba2f5b742f4cb5d044366e8e2149b6474cc73cc9ed3074ef978ee71
+  ```
 - The editor in Chrome on the deployment: library, preview, and a downloaded PNG (1080 × 1920, 1.1 MB) and JPG
   (273 KB) that look right — fonts, stretched art, the highlighter behind the WHEN line, even 5 px frames.
 - PHP 8.1 as well as 8.4: the same 544 tests pass, so the `>=8.1` promise is real.
