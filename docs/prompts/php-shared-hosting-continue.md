@@ -1,5 +1,10 @@
 # Continue: PHP shared-hosting port, Phases 2–5
 
+> **Status: done, 2026-09-22.** Phases 2–5 are built and committed on `feat/php-shared-hosting`
+> (`e2296a9`, `caf47c6`, `6b6b9e3` and the Phase 5 commit). The report — Definition of done item by item,
+> what was verified, what wasn't, and the trade-offs — is `docs/reports/php-port.md`. Everything below is
+> the brief as written; it is kept for the record, not as work to do.
+
 You are picking this up in a fresh session. Phases 0 and 1 of `docs/prompts/php-shared-hosting.md` are done,
 and the spike is approved. Build Phases 2–5 now, straight through. No more approval gates: stop only for a
 decision that genuinely belongs to the owner (Artur), and ask it with a clear recommended option.
