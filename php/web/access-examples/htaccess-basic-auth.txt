@@ -1,29 +1,44 @@
-# Nest flyers: a staff login for the whole app (the editor, the photos and the
-# API). Paste this block at the TOP of the app's .htaccess. Use it only over
-# https: Basic auth sends the password with every request.
+# Nest flyers: a staff login for the whole app (the editor, the art, the photos
+# and the API). Paste this block at the TOP of the app's .htaccess, and the one
+# in htaccess-force-https.txt under it. The preflight page prints both with
+# this account's paths filled in (docs/deploy.md, step 3).
 #
-# 1. Create the password file OUTSIDE the web root (never inside public_html),
-#    e.g. /home/ACCOUNT/nest-flyers.htpasswd, with one line per login:
-#        htpasswd -c -B /home/ACCOUNT/nest-flyers.htpasswd staff
-#    No shell on the host? Run htpasswd (it ships with Apache and Laragon) on
-#    your own machine and upload the file, or use the host panel's
-#    "password-protect directory" tool, which writes the same lines.
-# 2. Put that file's absolute path in AuthUserFile below (the host panel shows
-#    the account's home folder).
+# It asks for the password over https only. Over http it answers 403 without
+# asking, so the password never crosses the wire unencrypted, and if anything
+# here is not understood Apache refuses rather than lets in. (A redirect in
+# .htaccess is not enough on its own: Apache asks for the password before any
+# .htaccess redirect runs.)
+#
+# Use the same user and password as basicAuth in config.php: config.php guards
+# the API, this block everything else, and a staff member who passes only one
+# of them is refused by the other.
+#
+# 1. The password file, one "user:hash" line per login. Put it OUTSIDE the web
+#    root when your FTP login can reach such a folder (IONOS:
+#    /homepages/NN/dNNNNNNNNN/nest-flyers.htpasswd); otherwise name it .htpasswd
+#    in the app folder: Apache never serves a file whose name starts with .ht.
+#    The preflight page prints the line; so does htpasswd on your own machine
+#    (it ships with Apache and Laragon):
+#        htpasswd -nbB staff "the-password"
+# 2. Put that file's absolute path in AuthUserFile (the preflight page shows the
+#    app folder's absolute path).
+#
+# Apache 2.4 ("Require expr" does not exist on 2.2).
 
-# Apache 2.4:
 AuthType Basic
 AuthName "Nest flyers"
 AuthUserFile /home/ACCOUNT/nest-flyers.htpasswd
-Require valid-user
+<RequireAll>
+    Require valid-user
+    Require expr "%{HTTPS} == 'on' || %{HTTP:X-Forwarded-Proto} == 'https'"
+</RequireAll>
 
-# Apache 2.2: the same four lines work. Its htpasswd has no -B (bcrypt), so
-# create the file with -m (MD5) instead:
-#     htpasswd -c -m /home/ACCOUNT/nest-flyers.htpasswd staff
-#
-# To let the office in without a password and ask everyone else for one
-# (Apache 2.4), use this instead of the "Require valid-user" line:
-#     <RequireAny>
-#         Require ip 203.0.113.7
-#         Require valid-user
-#     </RequireAny>
+# To let an office in without a password (still over https only), use this
+# instead of the RequireAll block above:
+#     <RequireAll>
+#         <RequireAny>
+#             Require ip 203.0.113.7
+#             Require valid-user
+#         </RequireAny>
+#         Require expr "%{HTTPS} == 'on' || %{HTTP:X-Forwarded-Proto} == 'https'"
+#     </RequireAll>

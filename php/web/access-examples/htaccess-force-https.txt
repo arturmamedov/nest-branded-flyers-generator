@@ -1,0 +1,27 @@
+# Nest flyers: send http:// visitors to https://. Paste this block at the TOP
+# of the app's .htaccess, under the staff-login block if you use one
+# (htaccess-basic-auth.txt). The preflight page prints it too.
+#
+# Two lines of defence, because of the order Apache works in: it checks the
+# login before any .htaccess rewrite runs. With the staff login in place,
+# http:// is refused with a 403 before the RewriteRule is reached, so the
+# ErrorDocument line turns that 403 into the redirect. The RewriteRule does it
+# for everything Apache lets through. X-Forwarded-Proto covers hosts whose TLS
+# ends at a proxy in front of Apache.
+
+<If "%{HTTPS} != 'on' && %{HTTP:X-Forwarded-Proto} != 'https'">
+    ErrorDocument 403 https://%{HTTP_HOST}%{REQUEST_URI}
+</If>
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteCond %{HTTPS} !=on
+    RewriteCond %{HTTP:X-Forwarded-Proto} !=https
+    RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [R=301,L]
+</IfModule>
+
+# Optional, once every page of the domain works over https: browsers then never
+# try http:// again, for a year. It covers the whole domain (every site on it),
+# not just this app, so check with whoever runs the rest of the domain first.
+#     <IfModule mod_headers.c>
+#         Header always set Strict-Transport-Security "max-age=31536000" "expr=%{HTTPS} == 'on'"
+#     </IfModule>

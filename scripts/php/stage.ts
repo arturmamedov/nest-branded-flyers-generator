@@ -85,14 +85,17 @@ return $loader;
 `;
 }
 
-/** Copies php/web, keeping config.php out and data/ and uploads/ down to their .htaccess. */
+/** The rules a writable folder ships: its .htaccess, and uploads/ its .htaccess-minimal fallback. */
+const WRITABLE_DIR_RULES = ['.htaccess', '.htaccess-minimal'];
+
+/** Copies php/web, keeping config.php out and data/ and uploads/ down to their rules. */
 function shipsFromWeb(source: string): boolean {
   const rel = toPosix(relative(WEB_DIR, source));
   if (rel === '') return true;
   if (rel.toLowerCase() === 'config.php') return false;
   const [top, ...rest] = rel.split('/');
   if ((RELEASE_LAYOUT.writableDirs as readonly string[]).includes(top)) {
-    return rest.length === 0 || (rest.length === 1 && rest[0] === '.htaccess');
+    return rest.length === 0 || (rest.length === 1 && WRITABLE_DIR_RULES.includes(rest[0]));
   }
   return true;
 }

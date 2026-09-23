@@ -279,6 +279,13 @@ location ^~ /uploads/ {                 # images only, never executed
 There is no generic `location ~ \.php$`: only `api.php` ever runs. Restricting the app to the
 office is `allow`/`deny` or `auth_basic` in the server block.
 
+The preflight page (`docs/deploy.md`, step 1) is written for Apache and LiteSpeed. On nginx it
+is served as source unless it gets its own line, beside the `api/` one, for as long as it is up:
+
+```nginx
+location ~ ^/nest-preflight-[0-9a-f]+\.php$ { include fastcgi_params; fastcgi_pass unix:/run/php/php8.3-fpm.sock; fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name; }
+```
+
 ---
 
 ## Status
