@@ -12,6 +12,12 @@
 # are refused by a rewrite instead of "Options -Indexes"; PHP's error display is
 # left to .user.ini.
 
+# An internal tool: never indexed. robots.txt counts only at a domain's root,
+# and this app often lives in a subfolder, so every answer says it as well.
+<IfModule mod_headers.c>
+    Header set X-Robots-Tag "noindex, nofollow"
+</IfModule>
+
 <IfModule mod_rewrite.c>
     RewriteEngine On
 

@@ -41,6 +41,9 @@ function assertComplete(dir: string): void {
     'seed/hostels.json',
     'assets/nest-logo-teal.png',
     'uploads/.htaccess-minimal',
+    'robots.txt',
+    'access-examples/htaccess-basic-auth.txt',
+    'access-examples/htaccess-force-https.txt',
     ...GUARD_FILES,
   ];
   const missing = required.filter((file) => !existsSync(join(dir, file)));

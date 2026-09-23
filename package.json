@@ -23,7 +23,10 @@
     "test:contract": "vitest run -c vitest.contract.config.ts",
     "test:php": "tsx scripts/php/phpunit.ts",
     "test:php-smoke": "vite build && playwright test -c playwright.php.config.ts",
-    "build:php": "tsx scripts/build-php.ts"
+    "build:php": "tsx scripts/build-php.ts",
+    "deploy:backup": "tsx scripts/php/backup-deploy.ts",
+    "deploy:restore": "tsx scripts/php/restore-deploy.ts",
+    "deploy:reset": "tsx scripts/php/reset-deploy.ts"
   },
   "dependencies": {
     "@fontsource/montserrat": "5.3.0",

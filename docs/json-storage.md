@@ -90,3 +90,6 @@ that copy. The same command works the other way (`--from-json … --to-sqlite �
 Copy the data folder and the uploads folder. Both are plain files, and a copy taken while the app is idle is
 consistent; the store has no separate journal. Keep `config.php` with them — it is the only file the release does not
 ship. `php-errors.log`, `.lock` and `.lock.d` are working files, not library: a backup can drop them.
+
+On a host that is a download by FTP (`docs/deploy.md`, *Backups*); for a deployment on this machine,
+`npm run deploy:backup` and `deploy:restore` do it, and `tests/cross/restore-drill.test.ts` proves the round trip.
