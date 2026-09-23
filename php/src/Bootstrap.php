@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NestFlyers;
 
 use Closure;
+use NestFlyers\Diagnostics\HostFacts;
 use NestFlyers\Domain\Clock;
 use NestFlyers\Domain\Repositories;
 use NestFlyers\Domain\SystemClock;
@@ -161,7 +162,12 @@ final class Bootstrap
             $repos->flyers,
             $validator,
             $errors,
-            new ApiConfig($config->storage, $shared, $limits, $processor),
+            new ApiConfig(
+                $config->storage,
+                $shared,
+                $limits,
+                new HostFacts($shared, $limits, $processor, $config->access, $this->appRoot, $config->dataDir, $uploadsDir),
+            ),
             $photoService,
         ))->register($router);
 

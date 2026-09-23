@@ -42,8 +42,8 @@ DirectoryIndex index.html
     RewriteRule ^api/ api.php [L,QSA]
 </IfModule>
 
-# Config, tooling, logs and docs are never served, in any letter case.
-<FilesMatch "(?i)^(config.*\.php|router\.php|composer\..*|\.user\.ini|.*\.log|.*\.md)$">
+# Config, tooling, the release manifest, logs and docs are never served, in any letter case.
+<FilesMatch "(?i)^(config.*\.php|router\.php|composer\..*|\.user\.ini|release\.json|.*\.log|.*\.md)$">
     <IfModule mod_authz_core.c>
         Require all denied
     </IfModule>

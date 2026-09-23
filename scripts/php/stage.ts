@@ -3,6 +3,7 @@ import { join, relative, resolve } from 'node:path';
 import { APP_ROOT as REPO_ROOT, DIST_DIR } from '../../server/paths.js';
 import { runComposer } from './composer.js';
 import { RELEASE_LAYOUT } from './layout.js';
+import { writeManifest } from './manifest.js';
 import { PHP_DIR } from './phpBin.js';
 
 /* The one staging function: every PHP stage — the contract suite's, the smoke
@@ -136,5 +137,7 @@ export function stagePhp(outDir: string, { dist, vendor }: StageOptions): string
     if ((RELEASE_LAYOUT.writableDirs as readonly string[]).includes(dir)) continue;
     writeFileSync(join(out, dir, '.htaccess'), DENY_ALL, { flag: 'wx' });
   }
+  // Very last, over everything above: every stage carries the manifest the release does, so its readers run on every test.
+  writeManifest(out);
   return out;
 }

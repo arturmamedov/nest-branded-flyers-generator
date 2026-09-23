@@ -4,7 +4,8 @@ import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { APP_ROOT } from '../server/paths.js';
 import { generate } from './gen-shared.js';
-import { RELEASE_LAYOUT } from './php/layout.js';
+import { GUARD_FILES, MANIFEST_FILE } from './php/layout.js';
+import { describeSize, type Manifest } from './php/manifest.js';
 import { stagePhp } from './php/stage.js';
 
 /* `npm run build:php` — the folder you upload to a PHP host.
@@ -28,12 +29,12 @@ function assertComplete(dir: string): void {
     '.htaccess',
     '.user.ini',
     'config.sample.php',
+    MANIFEST_FILE,
     'vendor/autoload.php',
     'schema/shared.json',
     'seed/hostels.json',
     'assets/nest-logo-teal.png',
-    ...RELEASE_LAYOUT.writableDirs.map((writable) => `${writable}/.htaccess`),
-    ...RELEASE_LAYOUT.deniedDirs.filter((denied) => !(RELEASE_LAYOUT.writableDirs as readonly string[]).includes(denied)).map((denied) => `${denied}/.htaccess`),
+    ...GUARD_FILES,
   ];
   const missing = required.filter((file) => !existsSync(join(dir, file)));
   if (missing.length > 0) throw new Error(`The release is incomplete: ${missing.join(', ')}`);
@@ -73,6 +74,7 @@ function run(command: string, args: string[], cwd: string): void {
 
 if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
   const dir = buildPhpRelease();
-  console.log(`\nThe release is in ${dir}`);
+  const manifest = JSON.parse(readFileSync(join(dir, MANIFEST_FILE), 'utf8')) as Manifest;
+  console.log(`\nThe release is in ${dir}: ${describeSize(manifest)}, release ${manifest.id}${manifest.commit ? ` (${manifest.commit})` : ''}.`);
   console.log('Upload its contents to the host, then copy config.sample.php to config.php and set the access rule.');
 }

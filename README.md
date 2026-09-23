@@ -269,7 +269,7 @@ location ^~ /api/ {                     # the only place PHP runs
     fastcgi_param SCRIPT_NAME /api.php;
 }
 location ~ ^/(src|vendor|seed|schema|data)/ { return 404; }
-location ~ ^/(config.*\.php|router\.php|composer\.(json|lock)|\.user\.ini)$ { return 404; }
+location ~ ^/(config.*\.php|router\.php|composer\.(json|lock)|\.user\.ini|release\.json)$ { return 404; }
 location ^~ /uploads/ {                 # images only, never executed
     location ~ \.ph(p\d?|tml|ar|ps|t) { return 404; }
     add_header X-Content-Type-Options nosniff;

@@ -35,6 +35,13 @@ describe.skipIf(!isPhp)('PHP backend', () => {
     expect(c.server.php).toMatch(/^\d+\.\d+\.\d+/);
   });
 
+  // The one setting that turns "never publicly reachable without an access rule" into a breach. Run against a
+  // deployment, this is the line that says so (the local Laragon one runs allowPublic by the owner's choice, and fails here).
+  it('names its access rule, and it is not allowPublic', () => {
+    expect(c.server.accessRule, 'config.php lets anyone in (allowPublic): set basicAuth or allowIps instead').not.toBe('allowPublic');
+    expect(['allowIps', 'basicAuth', 'allowIps+basicAuth'], 'server.accessRule').toContain(c.server.accessRule);
+  });
+
   it('derives maxUploadBytes from 15 MiB, upload_max_filesize and post_max_size', () => {
     const upload = iniBytes(c.server.upload_max_filesize);
     const post = iniBytes(c.server.post_max_size);

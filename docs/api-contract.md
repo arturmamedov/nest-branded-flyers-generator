@@ -113,8 +113,11 @@ path, is 404 `no_such_endpoint`.
 - `limits` drives photo preparation in the browser.
 - `maxUploadBytes` is the largest upload this backend accepts. Node: 15 MiB. PHP: the smallest of 15 MiB,
   `upload_max_filesize`, and `post_max_size` minus 64 KiB.
-- `server` is diagnostics only. PHP reports `php`, `upload_max_filesize`, `post_max_size`, `memory_limit`,
-  `imageProcessor` and the image formats it can read.
+- `server` is diagnostics only: nothing reads it to decide anything. Node reports `node`. PHP reports `php`,
+  `upload_max_filesize`, `post_max_size`, `memory_limit`, `imageProcessor` and the image `formats` it can read (in
+  that order), then the host's facts (`php/src/Diagnostics/HostFacts.php`): SAPI, extensions, `open_basedir`,
+  timezone, whether the data and uploads folders take a real write, the error log, the release checked against its
+  `release.json`, and `accessRule` (`allowIps`, `basicAuth`, `allowIps+basicAuth`, or `allowPublic`).
 
 ### Hostels and doodles
 
