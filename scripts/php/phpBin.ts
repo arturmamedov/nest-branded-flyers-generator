@@ -1,12 +1,15 @@
 import { spawnSync } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { APP_ROOT as REPO_ROOT } from '../../server/paths.js';
+import { envValue } from '../env.js';
 
 /* Which PHP the Node-side scripts run. On the dev machine `php` on PATH is not
    the version the host runs (Laragon puts 8.3 there, the host is 8.4), and npm
    scripts run in cmd.exe where `PHP_BIN=… npm run …` doesn't work, so the
-   binary also comes from the repo's untracked .env. */
+   binary also comes from the repo's untracked .env (scripts/env.ts). */
+
+export { parseDotEnv } from '../env.js';
 
 export const PHP_DIR = join(REPO_ROOT, 'php');
 
@@ -18,26 +21,9 @@ export const MIN_PHP: readonly [number, number] = (() => {
   return [Number(m[1]), Number(m[2])];
 })();
 
-/** KEY=value lines, `#` comments. Values are taken verbatim, so Windows paths keep their backslashes. */
-export function parseDotEnv(text: string): Record<string, string> {
-  const out: Record<string, string> = {};
-  for (const raw of text.split(/\r?\n/)) {
-    const line = raw.trim();
-    if (!line || line.startsWith('#')) continue;
-    const eq = line.indexOf('=');
-    if (eq <= 0) continue;
-    out[line.slice(0, eq).trim()] = line.slice(eq + 1).trim();
-  }
-  return out;
-}
-
 /** PHP_BIN from the environment, else from <repo>/.env, else `php` on PATH. */
 export function resolvePhpBin(): string {
-  const fromEnv = process.env.PHP_BIN?.trim();
-  if (fromEnv) return fromEnv;
-  const envFile = join(REPO_ROOT, '.env');
-  const fromFile = existsSync(envFile) ? parseDotEnv(readFileSync(envFile, 'utf8')).PHP_BIN : undefined;
-  return fromFile || 'php';
+  return envValue('PHP_BIN') ?? 'php';
 }
 
 /** PHP_VERSION of a binary, e.g. "8.4.25". */

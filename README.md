@@ -67,7 +67,7 @@ export renderer works in dev too.
 |---|---|
 | `npm run typecheck` | client and server compile |
 | `npm test` | shared logic (`·` split, layout, crop maths, copy rules, schema), the shared test vectors, the storage contract on every driver, SQLite migrations, and that generated files are current |
-| `npm run test:contract` | the HTTP contract (`docs/api-contract.md`) against every backend; `CONTRACT_BASE_URL=…` points it at a deployment instead |
+| `npm run test:contract` | the HTTP contract (`docs/api-contract.md`) against every backend, the PHP one also behind a staff login (`php-basic`), and the access rule itself over HTTP (`php-access`: 401, 403, 503). `CONTRACT_BASE_URL` in `.env` points it at a deployment instead (see *Check it* below) |
 | `npm run test:render` | builds, then renders every sample in all three photo modes: inside the safe box, no overlapping blocks, no clipped text, real fonts loaded, highlighter clone, exports exactly 1080 × 1920 PNG/JPG, cache invalidates on save; the in-browser client export matches the server export (`fidelity.spec.ts`, ≤ 0.5 % per feature) |
 | `npm run test:php` | the PHP backend's own tests (PHPUnit). `composer test` in `php/` does the same; `PHP_BIN` picks the interpreter |
 | `npm run test:php-smoke` | builds, serves the release layout with `php -S`, and drives the editor on the PHP backend in a browser |
@@ -206,11 +206,19 @@ library is ready.
 
 ### 3. Check it
 
+Put the deployment in `.env` (see `.env.example`); that works in every shell:
+
 ```sh
-# from a checkout, against the real deployment
-CONTRACT_BASE_URL=https://flyers.example.org/ npm run test:contract   # the API contract + the deny rules
-CONTRACT_BASE_URL=https://flyers.example.org/ npm run test:php-smoke  # the editor, uploads and downloads
+CONTRACT_BASE_URL=https://flyers.example.org/
+CONTRACT_BASIC_USER=staff            # a locked deployment: the staff login
+CONTRACT_BASIC_PASSWORD=…
 ```
+
+then `npm run test:contract` (the API contract, the deny rules, and the lock on the page and photos) and
+`npm run test:php-smoke` (the editor, uploads and downloads). Both print which deployment they are
+testing; remove the lines afterwards, or every later run is a remote one. The same without `.env`, in
+PowerShell: `$env:CONTRACT_BASE_URL='https://flyers.example.org/'; npm run test:contract` (in Git Bash:
+`CONTRACT_BASE_URL=https://flyers.example.org/ npm run test:contract`; cmd.exe has no inline form).
 
 By hand: `GET api/config` should report `backend: php`; `data/meta.json`, `src/`, `vendor/`,
 `seed/`, `schema/`, `config.php` and any `.php` under `uploads/` must all answer 403 or 404.

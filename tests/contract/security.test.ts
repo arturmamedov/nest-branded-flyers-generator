@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { afterAll, describe, expect, inject, it } from 'vitest';
 import { RELEASE_LAYOUT, type DeniedDir } from '../../scripts/php/layout.js';
-import { config, url } from './client.js';
+import { config, send } from './client.js';
 
 /* The PHP release on a public host (docs/prompts/php-shared-hosting.md,
    Security): no code, data or config is reachable over HTTP, folders don't
@@ -38,7 +38,8 @@ function variants(path: string): string[] {
 }
 
 async function get(path: string) {
-  const res = await fetch(url(path));
+  // Through the client, signed in: behind a lock an anonymous 401 would pass for a deny.
+  const res = await send('GET', path, undefined, {});
   return { status: res.status, body: await res.text() };
 }
 
