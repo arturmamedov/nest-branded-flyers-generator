@@ -1,9 +1,20 @@
 {
-  "_note": "Seed data for the hostel table. Only these three are confirmed from the flyer work — Artur has the full list of 13 and will give it to you directly. Complete this file before first run; do not invent names. slug must stay stable, it is what flyers are tagged by.",
+  "_note": "Seed data for the hostel table, from Artur's hostel list (2026-09-23): slug = the website key + \"-nest\", name = name + connector + \"Nest\". Do not invent names. slug must stay stable, it is what flyers are tagged by. Adding a hostel is one line here; both backends upsert by slug and never delete.",
   "hostels": [
-    { "slug": "duque-nest",     "name": "Duque Nest",      "island": "Tenerife",     "logo_path": null, "sort_order": 10 },
-    { "slug": "los-amigos-nest","name": "Los Amigos Nest", "island": "Tenerife",     "logo_path": null, "sort_order": 20 },
-    { "slug": "flamingo-nest",  "name": "Flamingo by Nest","island": "Gran Canaria", "logo_path": null, "sort_order": 30 }
+    { "slug": "adeje-nest",      "name": "Adeje Nest",        "island": "Tenerife",     "logo_path": null, "sort_order":  10 },
+    { "slug": "duque-nest",      "name": "Duque Nest",        "island": "Tenerife",     "logo_path": null, "sort_order":  20 },
+    { "slug": "medano-nest",     "name": "Medano Nest",       "island": "Tenerife",     "logo_path": null, "sort_order":  30 },
+    { "slug": "ashavana-nest",   "name": "Ashavana Nest",     "island": "Tenerife",     "logo_path": null, "sort_order":  40 },
+    { "slug": "los-amigos-nest", "name": "Los Amigos Nest",   "island": "Tenerife",     "logo_path": null, "sort_order":  50 },
+    { "slug": "las-eras-nest",   "name": "Las Eras Nest",     "island": "Tenerife",     "logo_path": null, "sort_order":  60 },
+    { "slug": "aguere-nest",     "name": "Aguere Nest",       "island": "Tenerife",     "logo_path": null, "sort_order":  70 },
+    { "slug": "arena-nest",      "name": "Arena Nest",        "island": "Tenerife",     "logo_path": null, "sort_order":  80 },
+    { "slug": "puerto-nest",     "name": "Puerto Nest",       "island": "Tenerife",     "logo_path": null, "sort_order":  90 },
+    { "slug": "las-palmas-nest", "name": "Las Palmas Nest",   "island": "Gran Canaria", "logo_path": null, "sort_order": 100 },
+    { "slug": "la-isleta-nest",  "name": "La Isleta Nest",    "island": "Gran Canaria", "logo_path": null, "sort_order": 110 },
+    { "slug": "pura-vida-nest",  "name": "Pura Vida by Nest", "island": "Gran Canaria", "logo_path": null, "sort_order": 120 },
+    { "slug": "cisne-nest",      "name": "Cisne by Nest",     "island": "Ibiza",        "logo_path": null, "sort_order": 130 },
+    { "slug": "flamingo-nest",   "name": "Flamingo by Nest",  "island": "Ibiza",        "logo_path": null, "sort_order": 140 }
   ],
   "islands": ["Tenerife", "Gran Canaria", "Ibiza"],
   "doodles": [
