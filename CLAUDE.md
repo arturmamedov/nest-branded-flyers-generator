@@ -90,5 +90,8 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
 - Done: the PHP shared-hosting port, phases 2–5 (branch `feat/php-shared-hosting`): the seams, the PHP
   backend, the Node JSON driver and the copy tool, the release and the Laragon verification. The report is
   `docs/reports/php-port.md`; the briefs are `docs/prompts/php-shared-hosting*.md`.
+- Next planned: deploy readiness for a real shared host — brief in `docs/prompts/php-deploy-readiness.md`.
+  It proves the access rule over HTTP (no test does today), gives the release a manifest, adds a standalone
+  preflight page the owner uploads first, and rehearses the whole deploy on Apache.
 - Open: 10 of 13 hostel names, per-hostel logos, the real host (and its access rule — the local Laragon
   deploy runs with `allowPublic`).
