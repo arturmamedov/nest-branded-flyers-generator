@@ -34,7 +34,11 @@ unchanged in what it does.
 
 ## Verified here
 
-- The whole contract suite and the smoke test against the deployed release on Apache (`CONTRACT_BASE_URL`).
+- The whole contract suite and the smoke test against the deployed release on Apache (`CONTRACT_BASE_URL`), in
+  **both** URL shapes: the subfolder `http://localhost/nest-flyers-php/` and, after Artur reloaded Laragon on
+  2026-09-22, the domain root `http://nest-flyers-php.test/` — 110 contract tests and the browser smoke test
+  (create, all three photo modes, crop, reopen, library, PNG and JPG downloads) on each. The library was
+  snapshotted before the root run and restored byte for byte afterwards, so the real one carries no test data.
 - The library migrated with `npm run copy`; `data/flyers.db` and its `-wal` are byte-identical before and after.
   The sha256s were recorded before Phase 4 and re-checked at the end:
 
@@ -54,10 +58,6 @@ unchanged in what it does.
 - **A real shared host.** Everything ran on Laragon (Apache 2.4, mod_php 8.4). LiteSpeed, PHP-FPM/CGI and an FTP
   upload are untested. The CGI path matters for one thing only: Basic auth arrives through `HTTP_AUTHORIZATION`
   (the `.htaccess` passes it), which mod_php does not exercise.
-- **`nest-flyers-php.test`, the domain-root case.** Laragon only creates that vhost after you click Reload. The
-  routing it would exercise is covered by `php -S` (which serves at a root) and by the subfolder case on Apache,
-  but the vhost itself was not tried. Rerun the two commands in the README's "Check it" against
-  `http://nest-flyers-php.test/` after a reload.
 - **The `.htaccess` access examples.** `allowIps`/`basicAuth` are unit-tested in PHPUnit (CIDR v4/v6, the 401
   challenge, the combination rule), but the Apache snippets in `access-examples/` were not pasted into a live
   `.htaccess`. The local deploy runs with `allowPublic`, as you asked.
