@@ -12,12 +12,14 @@ npm run seed:dev       # hostels + built-in doodles into ./data/flyers.db (idemp
 npm run seed:samples   # the six design records incl. the stress test (dev only)
 npm run typecheck      # client + server
 npm test               # Vitest: shared logic, shared vectors, storage contract per driver, generated files current
-npm run test:contract  # HTTP contract suite on every backend (CONTRACT_BASE_URL=… for a deployment)
+npm run test:contract  # HTTP contract suite on every backend, php-basic (behind a login), php-access (the lock over
+                       # HTTP), cross; CONTRACT_BASE_URL (+ _BASIC_USER/_PASSWORD) in .env targets a deployment
 npm run gen            # regenerate schema/*.json, seed/samples.json, the error table in docs/api-contract.md
 npm run test:render    # builds, then Playwright render/export checks + client-export fidelity
 npm run test:php       # PHPUnit (PHP_BIN picks the interpreter; composer test in php/ does the same)
 npm run test:php-smoke # the editor driven against the PHP backend in a browser
-npm run build:php      # the shared-hosting release in release/php/
+npm run build:php      # the shared-hosting release in release/php/ (with release.json), and the preflight page beside it
+npm run deploy:backup  # a local deployment's library to ./backups/ (deploy:restore, deploy:reset); docs/deploy.md
 npm run copy           # move a library between storage drivers (SQLite <-> JSON files)
 npm run compare:design # reference pixel-diff vs the prototype (dev server running)
 npm run build          # vite build → dist/, tsc → dist-server/
@@ -90,8 +92,18 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
 - Done: the PHP shared-hosting port, phases 2–5 (branch `feat/php-shared-hosting`): the seams, the PHP
   backend, the Node JSON driver and the copy tool, the release and the Laragon verification. The report is
   `docs/reports/php-port.md`; the briefs are `docs/prompts/php-shared-hosting*.md`.
-- Next planned: deploy readiness for a real shared host — brief in `docs/prompts/php-deploy-readiness.md`.
-  It proves the access rule over HTTP (no test does today), gives the release a manifest, adds a standalone
-  preflight page the owner uploads first, and rehearses the whole deploy on Apache.
-- Open: 10 of 13 hostel names, per-hostel logos, the real host (and its access rule — the local Laragon
-  deploy runs with `allowPublic`).
+- Done: deploy readiness (`docs/prompts/php-deploy-readiness.md`, same branch, 2026-09-23). It adds:
+  - the access rule proven over HTTP (`tests/access`), and the checks can sign in (`.env`, `scripts/env.ts`);
+  - `release.json` and the host facts in `api/config`;
+  - the preflight page (`php/preflight/`);
+  - `docs/deploy.md`, the owner's single copy of the deploy steps, with backup/restore/reset;
+  - an Apache rehearsal, recorded in `docs/reports/php-port.md` and `docs/reports/host-facts.md`.
+  `seed/hostels.json` now has all 14 hostels.
+- **Not live, by the owner's decision:** the host is IONOS (`https://nestpass.ai/activities/`), and the app
+  goes public only once a real login exists. That login (Supabase, or the Laravel app as the issuer) is its
+  own brief, and is not to be started unasked. It will have to exempt a sign-in route from the access check,
+  and decide what guards the static files.
+- Open: per-hostel logos; the IONOS column of `docs/reports/host-facts.md`, above all whether the login
+  reaches PHP under FastCGI (the preflight page's *Login* line). The local Laragon deploy
+  (`nest-flyers-php`) still runs `allowPublic`, so the contract row that forbids it fails there by design.
+  The branch is unpushed, by the owner's choice.

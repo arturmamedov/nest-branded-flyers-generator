@@ -14,7 +14,7 @@ import { url } from './client.js';
    checks the login before it looks for the file, so a 404 here means the
    folder is not behind the lock. */
 
-const PATHS = ['', 'index.html', 'static/lock-probe.css', 'assets/lock-probe.png', 'uploads/2000/01/0000000000000000.jpg', 'api/config'];
+const PATHS = ['', 'index.html', 'static/lock-probe.css', 'assets/lock-probe.png', 'uploads/0000000000000000.jpg', 'api/config'];
 
 describe.runIf(inject('remote') && inject('basicAuth'))('a locked deployment refuses an anonymous visitor everywhere', () => {
   it.each(PATHS)('answers 401 to an anonymous GET /%s', async (path) => {

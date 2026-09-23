@@ -1,5 +1,9 @@
 # Next: make the PHP port deployable by Artur alone, on a real shared host
 
+> **Done, 2026-09-23** (all five phases, plus the hostel list). What was built and what the rehearsal
+> answered: `docs/reports/php-port.md` (*Deploy rehearsal*) and `docs/reports/host-facts.md`. The owner's
+> answers changed two defaults: the host is IONOS, and the app is not live until a real login exists.
+
 You are picking this up in a fresh session. The PHP shared-hosting port is **finished** — the app is built,
 tested and running on the owner's local Laragon Apache. This brief is about the gap between "it works on my
 machine's Apache" and "Artur can put it on a real hosting account, locked, and get it back if it breaks."

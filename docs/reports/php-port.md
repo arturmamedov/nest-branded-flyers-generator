@@ -55,17 +55,27 @@ unchanged in what it does.
 
 ## Not verified here, and what it would take
 
-- **A real shared host.** Everything ran on Laragon (Apache 2.4, mod_php 8.4). LiteSpeed, PHP-FPM/CGI and an FTP
-  upload are untested. The CGI path matters for one thing only: Basic auth arrives through `HTTP_AUTHORIZATION`
-  (the `.htaccess` passes it), which mod_php does not exercise.
-- **The `.htaccess` access examples.** `allowIps`/`basicAuth` are unit-tested in PHPUnit (CIDR v4/v6, the 401
-  challenge, the combination rule), but the Apache snippets in `access-examples/` were not pasted into a live
-  `.htaccess`. The local deploy runs with `allowPublic`, as you asked.
-- **A host firewall (ModSecurity).** Some cPanel hosts block `PUT` and `DELETE`, which the app needs. The README
-  says how to check in one curl.
-- **The nginx snippet** in the README is written from the Apache rules, not run.
-- **Imagick.** The processor is written and contract-tested, but this machine has no `imagick`, so those 37 tests
-  skip. GD is the default anyway.
+Updated 2026-09-23 after the deploy rehearsal (below). Each item left is blocked on a real host, and
+says what closes it.
+
+- **PHP as CGI/FastCGI (IONOS runs it this way).** The login's hand-off to PHP through
+  `REDIRECT_HTTP_AUTHORIZATION` has still only been unit-tested. Laragon runs mod_php, and enabling
+  FastCGI here would mean editing Laragon's global `httpd.conf`, which Artur declined. *Closes with:*
+  the preflight page's *Login* line on IONOS, reloaded behind the lock.
+- **The upload itself.** An FTP transfer, and extracting a zip with the host's file manager.
+  *Closes with:* `docs/deploy.md` step 2 on IONOS; the preflight page's *The release* line then
+  names anything that did not arrive.
+- **A restrictive `AllowOverride`.** `.htaccess-minimal` is held to the full files line by line,
+  but no host here refuses `Options`. *Closes with:* the host itself, only if every page answers 500.
+- **A host firewall (ModSecurity).** Some hosts block `PUT` and `DELETE`. *Closes with:*
+  `curl -i -X DELETE https://…/api/flyers/1` signed in: our JSON 403 means the firewall let it through.
+- **Server-side probes over a trusted certificate.** Laragon's certificate is self-signed, so PHP's
+  curl refused it and the page fell back to its manual list, as designed. *Closes with:* the
+  preflight page on IONOS, whose certificate is real.
+- **The nginx snippet** in the README is written from the Apache rules, not run. No nginx host is
+  planned.
+- **Imagick.** The processor is written and contract-tested, but this machine has no `imagick`,
+  so those 37 tests skip. GD is the default anyway.
 
 ## Known trade-offs
 
@@ -80,4 +90,60 @@ unchanged in what it does.
   contract checks sizes, formats and rules, never bytes. The same photo uploaded to each backend looks the same
   but is not byte-identical.
 - **No login, still.** The access rule is the whole defence: an IP allow-list or Basic auth, and HTTPS if it is
-  Basic. On the day this goes on a real domain, that is the first thing to set.
+  Basic. Artur's decision (2026-09-23): the app does not go live until a real login exists, which is its own
+  brief.
+
+## Deploy rehearsal (2026-09-23)
+
+`docs/prompts/php-deploy-readiness.md`, phase 5: `docs/deploy.md` followed literally, from a cold
+empty folder, on Laragon's Apache 2.4.57 with mod_php 8.4.25, over `https://localhost/…`
+(Laragon's certificate), at `A:\serverpath\laragon\nest-flyers-rehearsal\`. The folder, its
+password file and the `.env` lines were deleted afterwards. The live Laragon deployment
+(`nest-flyers-php`) was not touched. What the host answered is in `docs/reports/host-facts.md`.
+
+- **1. The preflight page, alone.** It rendered with no `vendor/`, no `config.php` and no
+  release. Every account check was green except `display_errors` (On in Laragon's `php.ini`;
+  Off once the release's `.htaccess` was in).
+- **2. The release,** copied in additively. *The release* went green: `5115b7ca1fdd (d4f1491)`,
+  every file and all eight security dotfiles in place.
+- **3. The password.** One password typed into the page gave `config.php`, the `.htpasswd`
+  line and the two `.htaccess` blocks. They were saved exactly where the page said, including the
+  password file outside the web root.
+- **4. The lock, from an anonymous vantage.**
+  - Over https, the editor page, a photo (a real one once the library was in), the API and
+    `static/` each answered 401 with the challenge; `release.json` answered 403.
+  - With the password, all of them answered 200; with a wrong one, 401.
+  - Over `http://`, every path answered 302 to `https://`, with no `WWW-Authenticate`: the
+    password is never asked for over http.
+  - The page recognised the lock as "a block on top" of the shipped rules.
+  - The login reached PHP through `PHP_AUTH_USER` and `HTTP_AUTHORIZATION`.
+  - The rehearsal caught one real bug, fixed in the same commit. The page's stand-in photo
+    path (`uploads/2000/01/…`) answered 403 even without a lock, because Apache judges the
+    missing folder names by `uploads/.htaccess`'s images-only rule. That would have been a false
+    green. The stand-in now sits directly in `uploads/`, where no lock means 404 (the same change
+    was made in `lock.test.ts`).
+- **The checks, run as Artur will run them,** from `.env` (`CONTRACT_BASE_URL`, the login and
+  `CONTRACT_DEPLOY_DIR`), with Node pointed at Laragon's CA:
+  - the full contract suite on the empty deployment: 121 passed, 1 skipped (the `post_max_size`
+    overflow probe, since Laragon allows 5G);
+  - the planted-file block, all 7 files refused with no `EXECUTED`;
+  - `lock.test.ts`, 6 anonymous 401s;
+  - the `allowPublic` row;
+  - `npm run test:php-smoke` in Chromium, signed in over https: passed.
+- **The library.**
+  - `deploy:reset` emptied the tested deployment.
+  - `npm run copy` moved in 3 hostels, 14 doodles, 6 photos and 9 flyers. The next request
+    re-seeded 14 hostels from the release.
+  - `deploy:backup` → `deploy:reset` → `deploy:restore` on that real library brought back all 9
+    flyers and 6 photos, the sample photo byte for byte.
+  - `data/flyers.db`, `-wal` and `-shm` were hashed before and after, and are unchanged (the two
+    sums above, and `-shm` `7a1a6e7b…ff9bb0`).
+- **The way back, JSON → SQLite**, never run before: the rehearsal's store copied into a scratch
+  SQLite file holds 14 hostels, 14 doodles, 6 photos and 9 flyers, and 6 photo files, matching
+  the store count for count.
+- **The deliverable.** In Chromium, a new flyer for *Pura Vida by Nest* (a hostel added this
+  session), with a photo, was saved and downloaded: a 1080 × 1920 PNG, in Shantell Sans and
+  Montserrat, looked at by eye.
+- **Cost.** The release check makes `api/config` about 90 ms slower on this Apache (0.50 s
+  against 0.41 s time to first byte). That is under the 100 ms at which it would have been cut
+  down to sizes only, so full hashes stay.

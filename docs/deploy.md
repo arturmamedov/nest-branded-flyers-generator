@@ -62,7 +62,8 @@ Create the app folder (IONOS: `activities` inside the domain's folder) and uploa
 
 Fix everything red under *This hosting account* before going on. The usual one is the PHP
 version: in the IONOS panel, set this domain's PHP to 8.3 or newer, then reload. Yellow lines are
-advice. Everything under *The release* says "not uploaded yet" for now.
+advice (`display_errors` is often On until the release's own settings arrive in step 2).
+Everything under *The release* says "not uploaded yet" for now.
 
 **1b.** If the page answers **500** *after* step 2 (and so does everything else in the folder),
 the host refuses a line of the release's `.htaccess`. In the file manager, rename
@@ -124,8 +125,9 @@ Reload the preflight page. It asks for the password now; enter it. Then:
 - *Flyer fonts* must be green. If a font does not load, flyers still export at exactly
   1080 × 1920, in the wrong typeface, and nothing else warns you.
 
-If the page cannot fetch from the server (some hosts forbid it), it says so and lists the
-addresses. Open each one in a **private window**: every one must ask for the login.
+If the page cannot fetch from the server (some hosts forbid it, and a test certificate the
+server itself does not trust stops it too), those lines are yellow and say why, and the page lists
+the addresses. Open each one in a **private window**: every one must ask for the login.
 
 ### 5. Make a flyer
 

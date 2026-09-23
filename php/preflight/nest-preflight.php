@@ -398,7 +398,13 @@ function listed(array $paths)
     return implode(', ', $shown) . (count($paths) > count($shown) ? ' and ' . (count($paths) - count($shown)) . ' more' : '');
 }
 
-/** The first photo on disk, so the outside probe asks for a real one; a made-up name otherwise (the lock answers first). */
+/**
+ * The first photo on disk, so the outside probe asks for a real one. Otherwise a
+ * made-up name directly in uploads/: the lock answers it 401, and without a lock
+ * it is a 404. (A made-up uploads/YYYY/MM/ path would not do: Apache judges the
+ * missing folder names by uploads/.htaccess's "images only" rule and answers 403,
+ * lock or no lock.)
+ */
 function firstPhoto($appRoot)
 {
     // No GLOB_BRACE: some C libraries lack it. Photos live in uploads/YYYY/MM/.
@@ -407,7 +413,7 @@ function firstPhoto($appRoot)
             return substr(str_replace('\\', '/', $file), strlen($appRoot) + 1);
         }
     }
-    return 'uploads/2000/01/0000000000000000.jpg';
+    return 'uploads/0000000000000000.jpg';
 }
 
 /**
