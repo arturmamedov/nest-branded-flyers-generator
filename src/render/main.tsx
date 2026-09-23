@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import type { FitReport } from '../flyer/fit';
 import { Flyer } from '../flyer/Flyer';
 import { prepareFlyer } from '../flyer/ready';
+import { apiUrl } from '../flyer/urls';
 import type { FlyerPayload } from '../shared/schema';
 
 /* The export page: one flyer at 1080×1920, nothing else. Headless Chromium
@@ -34,7 +35,7 @@ async function main() {
   const params = new URLSearchParams(location.search);
   let payload = window.__FLYER_PAYLOAD;
   if (!payload) {
-    const res = await fetch(`/api/flyers/${encodeURIComponent(params.get('id') || '')}`);
+    const res = await fetch(apiUrl(`flyers/${encodeURIComponent(params.get('id') || '')}`));
     if (!res.ok) throw new Error(`GET flyer ${params.get('id')}: ${res.status}`);
     payload = (await res.json()) as FlyerPayload;
   }

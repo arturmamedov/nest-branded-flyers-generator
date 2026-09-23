@@ -1,0 +1,9 @@
+# The JSON store (flyers, hostels, photos index, the error log): never served.
+# Better still, point config.php's dataDir at a folder outside the web root.
+<IfModule mod_authz_core.c>
+    Require all denied
+</IfModule>
+<IfModule !mod_authz_core.c>
+    Order allow,deny
+    Deny from all
+</IfModule>

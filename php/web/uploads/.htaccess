@@ -1,0 +1,48 @@
+# Staff photos. Nothing in this folder is ever run as code, listed, or served
+# as anything but a JPEG, PNG or WebP image.
+
+Options -Indexes -ExecCGI
+
+# mod_php: PHP is off in here. (Inside IfModule: under FPM php_flag is a 500.)
+<IfModule mod_php.c>
+    php_flag engine off
+</IfModule>
+<IfModule php_module>
+    php_flag engine off
+</IfModule>
+<IfModule mod_php7.c>
+    php_flag engine off
+</IfModule>
+
+# Hosts that map PHP by extension (AddHandler or AddType, as Laragon does): unmap it here.
+RemoveHandler .php .phtml .php3 .php4 .php5 .php7 .php8 .phar .phps .pht
+RemoveType .php .phtml .php3 .php4 .php5 .php7 .php8 .phar .phps .pht
+
+# A PHP-looking extension anywhere in the name (x.php, x.php.png, X.PHTML): refused.
+<FilesMatch "(?i)\.ph(p\d?|tml|ar|ps|t)">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
+# Every name that does not end in .jpg, .jpeg, .png or .webp: refused. This
+# block only ever denies; photos fall through to the parent folder's rules,
+# so an access rule pasted into the root .htaccess still covers them.
+<FilesMatch "(?i)^(?!.*\.(jpe?g|png|webp)$)">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
+# Browsers must not guess another type (an image that is secretly HTML).
+<IfModule mod_headers.c>
+    Header set X-Content-Type-Options nosniff
+</IfModule>

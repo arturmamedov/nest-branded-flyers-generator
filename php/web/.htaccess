@@ -1,0 +1,54 @@
+# Nest flyers: Apache rules for the app root (a domain root or a subfolder).
+#
+# To restrict the whole app (editor, photos and API) to your office or to a
+# password, paste one of the snippets from access-examples/ at the TOP of this
+# file. config.php's access rule guards only the API.
+#
+# If Apache answers 500 for every page, the host's AllowOverride does not allow
+# "Options": ask the host to allow it (the lines below need Options, FileInfo
+# and AuthConfig/Limit), rather than deleting the lines.
+
+Options -Indexes -MultiViews
+DirectoryIndex index.html
+
+# PHP errors must never be printed into an answer: they would corrupt the JSON.
+# api.php logs them instead. (Hosts running PHP as CGI/FPM read .user.ini.)
+<IfModule mod_php.c>
+    php_flag display_errors off
+    php_flag display_startup_errors off
+</IfModule>
+<IfModule php_module>
+    php_flag display_errors off
+    php_flag display_startup_errors off
+</IfModule>
+<IfModule mod_php7.c>
+    php_flag display_errors off
+    php_flag display_startup_errors off
+</IfModule>
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # CGI/FPM hosts drop the Authorization header; hand it to PHP so config.php's
+    # Basic auth works (it arrives as REDIRECT_HTTP_AUTHORIZATION after the rewrite).
+    RewriteCond %{HTTP:Authorization} .
+    RewriteRule ^ - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+
+    # Code, seed, schema and data folders are never served, in any letter case.
+    RewriteRule ^(src|vendor|seed|schema|data)(/|$) - [R=404,L,NC]
+
+    # The API: everything under api/ goes to the front controller. Relative
+    # rules and no RewriteBase, so a subfolder and a domain root both work.
+    RewriteRule ^api/ api.php [L,QSA]
+</IfModule>
+
+# Config, tooling, logs and docs are never served, in any letter case.
+<FilesMatch "(?i)^(config.*\.php|router\.php|composer\..*|\.user\.ini|.*\.log|.*\.md)$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</FilesMatch>

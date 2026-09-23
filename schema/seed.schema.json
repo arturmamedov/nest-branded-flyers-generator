@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "hostels": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "slug": {
+            "type": "string",
+            "pattern": "^[a-z0-9-]+$"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "island": {
+            "type": "string",
+            "minLength": 1
+          },
+          "logo_path": {
+            "default": null,
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sort_order": {
+            "default": 0,
+            "type": "number"
+          }
+        },
+        "required": [
+          "slug",
+          "name",
+          "island"
+        ]
+      }
+    },
+    "doodles": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "slug": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "slug",
+          "label",
+          "path",
+          "kind"
+        ]
+      }
+    }
+  },
+  "required": [
+    "hostels",
+    "doodles"
+  ]
+}

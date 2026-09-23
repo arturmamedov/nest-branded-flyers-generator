@@ -1,5 +1,9 @@
 # Brief: run the flyer generator on PHP-only shared hosting, with JSON-file storage
 
+> **Status: done, 2026-09-22.** All five phases are built on `feat/php-shared-hosting`. The report checks
+> this brief's Definition of done item by item and lists what could not be verified on this machine:
+> `docs/reports/php-port.md`. The continuation brief is `docs/prompts/php-shared-hosting-continue.md`.
+
 You are picking this up in a fresh session. Read `CLAUDE.md`, `README.md`, and the handoff
 `design_handoff_flyer_generator/README.md` (§5 fit, §7 data model, §8 API, §9 export) first.
 

@@ -1,7 +1,12 @@
 node_modules/
 dist/
 dist-server/
-data/
+/data/
+/release/
+php/vendor/
+php/.phpunit.cache/
+php/web/config.php
+test-results-php/
 test-results/
 playwright-report/
 .env

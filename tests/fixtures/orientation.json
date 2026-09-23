@@ -1,0 +1,119 @@
+{
+  "_note": "EXIF orientation 1–8 as sharp applies it (Node), for the PHP image processors to match. Marker: 40×20 JPEG, quadrants top-left red, top-right green, bottom-left blue, bottom-right white. quadrants = the colour at the centre of the output’s top-left, top-right, bottom-left, bottom-right quarter. Checked against sharp by tests/unit/shared-vectors.test.ts.",
+  "marker": {
+    "width": 40,
+    "height": 20,
+    "colors": {
+      "red": "#ff0000",
+      "green": "#00ff00",
+      "blue": "#0000ff",
+      "white": "#ffffff"
+    }
+  },
+  "cases": [
+    {
+      "orientation": 1,
+      "out": [
+        40,
+        20
+      ],
+      "quadrants": [
+        "red",
+        "green",
+        "blue",
+        "white"
+      ]
+    },
+    {
+      "orientation": 2,
+      "out": [
+        40,
+        20
+      ],
+      "quadrants": [
+        "green",
+        "red",
+        "white",
+        "blue"
+      ]
+    },
+    {
+      "orientation": 3,
+      "out": [
+        40,
+        20
+      ],
+      "quadrants": [
+        "white",
+        "blue",
+        "green",
+        "red"
+      ]
+    },
+    {
+      "orientation": 4,
+      "out": [
+        40,
+        20
+      ],
+      "quadrants": [
+        "blue",
+        "white",
+        "red",
+        "green"
+      ]
+    },
+    {
+      "orientation": 5,
+      "out": [
+        20,
+        40
+      ],
+      "quadrants": [
+        "red",
+        "blue",
+        "green",
+        "white"
+      ]
+    },
+    {
+      "orientation": 6,
+      "out": [
+        20,
+        40
+      ],
+      "quadrants": [
+        "blue",
+        "red",
+        "white",
+        "green"
+      ]
+    },
+    {
+      "orientation": 7,
+      "out": [
+        20,
+        40
+      ],
+      "quadrants": [
+        "white",
+        "green",
+        "blue",
+        "red"
+      ]
+    },
+    {
+      "orientation": 8,
+      "out": [
+        20,
+        40
+      ],
+      "quadrants": [
+        "green",
+        "white",
+        "red",
+        "blue"
+      ]
+    }
+  ]
+}

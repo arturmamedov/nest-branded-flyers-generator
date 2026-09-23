@@ -2,10 +2,14 @@ import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { APP_ROOT } from './paths.js';
 
+export const STORAGE_DRIVERS = ['sqlite', 'json'] as const;
+export type StorageDriver = (typeof STORAGE_DRIVERS)[number];
+
 export interface Config {
   host: string;
   port: number;
   dataDir: string;
+  storage: StorageDriver;
   renderOrigin: string;
   renderTimeoutMs: number;
   isProd: boolean;
@@ -23,10 +27,13 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
   // Headless Chromium must reach this server: a wildcard bind is reachable on
   // loopback, a specific LAN IP only on that IP.
   const internalHost = WILDCARD.has(host) ? '127.0.0.1' : host.includes(':') ? `[${host}]` : host;
+  const storage = (env.STORAGE || 'sqlite') as StorageDriver;
+  if (!STORAGE_DRIVERS.includes(storage)) throw new Error(`STORAGE must be one of ${STORAGE_DRIVERS.join(', ')} (got ${env.STORAGE})`);
   return {
     host,
     port,
     dataDir: env.DATA_DIR || './data',
+    storage,
     renderOrigin: env.RENDER_ORIGIN || `http://${internalHost}:${port}`,
     renderTimeoutMs: Number(env.RENDER_TIMEOUT_MS || 30_000),
     // The compiled server always serves the built client; tsx dev hosts Vite.

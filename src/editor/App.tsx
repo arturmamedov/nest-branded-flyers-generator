@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
-import type { Hostel } from '../shared/schema';
+import type { ApiConfig, Hostel } from '../shared/schema';
+import { assetUrl } from '../flyer/urls';
 import { api } from './api';
 import { Editor } from './Editor';
+import { createExporter, type FlyerExporter } from './export';
 import { Library } from './Library';
 
 export type Route = { page: 'library' } | { page: 'new' } | { page: 'edit'; id: number };
@@ -23,6 +25,8 @@ export function App() {
   // a first save does not fire hashchange, so it keeps its state.
   const [nav, setNav] = useState(0);
   const [hostels, setHostels] = useState<Hostel[] | null>(null);
+  // What this backend can do: which exporter runs, and the photo upload limits.
+  const [backend, setBackend] = useState<{ exporter: FlyerExporter; limits: ApiConfig['limits'] } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -35,14 +39,20 @@ export function App() {
   }, []);
 
   useEffect(() => {
-    api.hostels().then(setHostels, (e) => setError(String(e.message || e)));
+    Promise.all([api.hostels(), api.config()]).then(
+      ([h, config]) => {
+        setHostels(h);
+        setBackend({ exporter: createExporter(config), limits: config.limits });
+      },
+      (e) => setError(String(e.message || e)),
+    );
   }, []);
 
   return (
     <div className="app">
       <header className="topbar">
         <a className="brand" href="#/">
-          <img src="/assets/nest-logo-white.png" alt="" />
+          <img src={assetUrl('assets/nest-logo-white.png')} alt="" />
           <span>Flyers</span>
         </a>
         <nav>
@@ -56,10 +66,11 @@ export function App() {
       </header>
       {error && <div className="banner banner-error">Could not reach the server: {error}</div>}
       {hostels &&
+        backend &&
         (route.page === 'library' ? (
           <Library hostels={hostels} />
         ) : (
-          <Editor key={nav} id={route.page === 'edit' ? route.id : null} hostels={hostels} />
+          <Editor key={nav} id={route.page === 'edit' ? route.id : null} hostels={hostels} exporter={backend.exporter} limits={backend.limits} />
         ))}
     </div>
   );
