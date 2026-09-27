@@ -122,8 +122,8 @@ Reload the preflight page. It asks for the password now; enter it. Then:
   will refuse everyone: tell the host, or use `allowIps` in `config.php` instead.
 - *Connection* must be green: this page arrived over https, and `http://` sends visitors to
   `https://`.
-- *Flyer fonts* must be green. If a font does not load, flyers still export at exactly
-  1080 × 1920, in the wrong typeface, and nothing else warns you.
+- *Flyer fonts* must be green. If a font does not load, flyers still export at their exact
+  size (1080 × 1920 story, 1080 × 1440 WhatsApp), in the wrong typeface, and nothing else warns you.
 
 If the page cannot fetch from the server (some hosts forbid it, and a test certificate the
 server itself does not trust stops it too), those lines are yellow and say why, and the page lists
@@ -132,8 +132,9 @@ the addresses. Open each one in a **private window**: every one must ask for the
 ### 5. Make a flyer
 
 Open `https://nestpass.ai/activities/`, sign in, make a flyer with a photo, and download the
-PNG. Check that it is 1080 × 1920 and in the right typeface (compare it with one from the old
-app). The PNG is drawn by your own browser.
+PNG, once with **Story 9:16** and once with **WhatsApp 3:4** picked in the toolbar. Check that
+they are 1080 × 1920 and 1080 × 1440 and in the right typeface (compare the story with one from
+the old app). The PNGs are drawn by your own browser.
 
 **5b. Move the library in** (once). A developer, on the computer with the checkout, copies the
 current library into a folder that looks like the host's:

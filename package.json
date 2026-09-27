@@ -2,7 +2,7 @@
   "name": "nest-branded-flyers-generator",
   "version": "1.0.0",
   "private": true,
-  "description": "Internal mini-app: branded 1080x1920 Instagram-story flyers for Nests Hostels.",
+  "description": "Internal mini-app: branded flyers for Nests Hostels, as Instagram stories (1080x1920) and WhatsApp images (1080x1440).",
   "type": "module",
   "engines": {
     "node": ">=22"

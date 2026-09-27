@@ -492,7 +492,8 @@ function fontPaths($appRoot)
 /**
  * The fonts, fetched the way the staff member's browser will, because the
  * deliverable is the exported flyer: a host that 404s them produces a flyer
- * that renders, fits and downloads at exactly 1080 × 1920 in the wrong typeface.
+ * that renders, fits and downloads at its exact size (1080 × 1920 story,
+ * 1080 × 1440 WhatsApp) in the wrong typeface.
  */
 function fontsCheck($base, $fetch, array $paths, array $login)
 {
