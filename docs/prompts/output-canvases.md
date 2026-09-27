@@ -1,5 +1,9 @@
 # Brief: output canvases — Instagram story 9:16 + WhatsApp 3:4 from the same flyer
 
+> **Status: done, 2026-09-23.** Built and committed on `feat/output-canvases` (`4b6a949`..`a32043d`). The review
+> is `docs/reports/output-canvases-review.md`, the report `docs/reports/output-canvases.md`. The loose ends are
+> `docs/prompts/output-canvases-followup.md`. Everything below is the brief as written, kept for the record.
+
 You are working in the Nest Branded Flyers Generator repo. Read `CLAUDE.md`, `README.md` and
 `design_handoff_flyer_generator/README.md` first. The plan you are given is
 `docs/prompts/output-canvases-plan.md`. Your job has two parts: **review the plan critically, then build it.**
