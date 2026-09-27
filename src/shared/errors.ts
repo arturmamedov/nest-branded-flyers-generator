@@ -4,6 +4,11 @@
    suite and the error table in docs/api-contract.md. `{name}` is filled in by
    apiError(). */
 
+import { CANVAS_IDS } from './layout.js';
+
+/** "story or whatsapp": the canvas list as the error message reads it, from the registry. */
+const canvasList = CANVAS_IDS.length > 1 ? `${CANVAS_IDS.slice(0, -1).join(', ')} or ${CANVAS_IDS.at(-1)}` : CANVAS_IDS.join('');
+
 export interface ApiErrorSpec {
   status: number;
   code: string;
@@ -18,6 +23,7 @@ export const API_ERRORS = {
   unknown_photo: { status: 400, code: 'invalid', message: 'Unknown photo.', fields: { photoId: 'Unknown photo' } },
   no_photo_field: { status: 400, code: 'invalid', message: 'Attach the photo as the "photo" field.' },
   bad_format: { status: 400, code: 'invalid', message: 'format must be png or jpg.' },
+  bad_canvas: { status: 400, code: 'invalid', message: `canvas must be ${canvasList}.` },
   unauthorized: { status: 401, code: 'unauthorized', message: 'Sign in to use the flyer generator.' },
   forbidden: { status: 403, code: 'forbidden', message: 'Missing X-Nest-Flyers header.' },
   ip_forbidden: { status: 403, code: 'forbidden', message: 'This network is not allowed to use the flyer generator.' },

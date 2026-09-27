@@ -1,64 +1,75 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react';
+import { useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent, type RefObject } from 'react';
 import { fitFlyer, type FitReport } from '../flyer/fit';
 import { Flyer } from '../flyer/Flyer';
-import { ACTIVITY, CANVAS, photoFrame } from '../shared/layout';
-import { panCrop } from '../shared/photo';
+import { CANVASES, CANVAS_IDS, activityGroups, photoFrame, type CanvasId } from '../shared/layout';
+import { clampCrop, panCrop } from '../shared/photo';
 import type { Crop, FlyerData, Hostel, PhotoInfo } from '../shared/schema';
 
-/* The live preview IS the export renderer: the same <Flyer> at true
-   1080×1920, scaled with transform (never CSS zoom, which would change the
+/* The live preview IS the export renderer: the same <Flyer> at its canvas's
+   true size, scaled with transform (never CSS zoom, which would change the
    measurements the fit pass relies on). */
+
+export type FitCallback = (canvas: CanvasId, report: FitReport) => void;
 
 interface Props {
   data: FlyerData;
+  canvas: CanvasId;
   hostel: Hostel | null;
   photo: PhotoInfo | null;
   showSafeZones: boolean;
   actualSize: boolean;
-  onFit: (report: FitReport) => void;
+  onFit: FitCallback;
   onCrop: (crop: Crop) => void;
   onDropFile: (file: File) => void;
 }
 
-export function Preview({ data, hostel, photo, showSafeZones, actualSize, onFit, onCrop, onDropFile }: Props) {
+/** Refits whenever a font subset arrives (the copy's glyphs change width) and
+    returns refit: the caller refits on content changes, before paint on screen,
+    deferred offscreen. */
+function useFit(ref: RefObject<HTMLDivElement | null>, canvas: CanvasId, onFit: FitCallback) {
+  const refit = useCallback(() => {
+    if (ref.current) onFit(canvas, fitFlyer(ref.current));
+  }, [ref, canvas, onFit]);
+  useEffect(() => {
+    document.fonts.ready.then(refit);
+    document.fonts.addEventListener('loadingdone', refit);
+    return () => document.fonts.removeEventListener('loadingdone', refit);
+  }, [refit]);
+  return refit;
+}
+
+export function Preview({ data, canvas, hostel, photo, showSafeZones, actualSize, onFit, onCrop, onDropFile }: Props) {
   const flyerRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
-  const [fitScale, setFitScale] = useState(0.3);
+  const [stage, setStage] = useState<{ width: number; height: number } | null>(null);
   const [dragOver, setDragOver] = useState(false);
+  const { width: W, height: H } = CANVASES[canvas];
+  const pad = 48;
+  const fitScale = stage ? Math.max(0.15, Math.min((stage.width - pad) / W, (stage.height - pad) / H)) : 0.3;
   const scale = actualSize ? 1 : fitScale;
 
   useLayoutEffect(() => {
     const el = stageRef.current!;
-    const measure = () => {
-      const pad = 48;
-      setFitScale(Math.max(0.15, Math.min((el.clientWidth - pad) / CANVAS.width, (el.clientHeight - pad) / CANVAS.height)));
-    };
+    const measure = () => setStage({ width: el.clientWidth, height: el.clientHeight });
     measure();
     const ro = new ResizeObserver(measure);
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
 
-  const refit = useCallback(() => {
-    if (flyerRef.current) onFit(fitFlyer(flyerRef.current));
-  }, [onFit]);
-
-  // Re-fit after every content change, and whenever a font subset arrives.
+  // The canvas on screen fits before paint, so the preview never shows unfitted copy.
+  const refit = useFit(flyerRef, canvas, onFit);
   useLayoutEffect(refit, [data, hostel, refit]);
-  useEffect(() => {
-    document.fonts.ready.then(refit);
-    document.fonts.addEventListener('loadingdone', refit);
-    return () => document.fonts.removeEventListener('loadingdone', refit);
-  }, [refit]);
 
-  const frame = photoFrame(data.photoMode);
-  const frameBox = data.photoMode === 'bleed' ? ACTIVITY.photoBleed : ACTIVITY.photoBand;
+  const frame = photoFrame(canvas, data.photoMode);
+  const frameBox = activityGroups(canvas, data.photoMode).photo!;
   const drag = useRef<{ x: number; y: number; crop: Crop } | null>(null);
 
+  // Moves start from the crop as this frame shows it, so a drag never has a dead zone.
   const onPointerDown = (e: PointerEvent<HTMLDivElement>) => {
     if (!photo || !frame) return;
     e.currentTarget.setPointerCapture(e.pointerId);
-    drag.current = { x: e.clientX, y: e.clientY, crop: data.photoCrop };
+    drag.current = { x: e.clientX, y: e.clientY, crop: clampCrop(data.photoCrop, photo, frame) };
   };
   const onPointerMove = (e: PointerEvent<HTMLDivElement>) => {
     if (!drag.current || !photo || !frame) return;
@@ -74,7 +85,7 @@ export function Preview({ data, hostel, photo, showSafeZones, actualSize, onFit,
     if (!dir || !photo || !frame) return;
     e.preventDefault();
     const step = e.shiftKey ? 40 : 4;
-    onCrop(panCrop(data.photoCrop, dir[0] * step, dir[1] * step, photo, frame, false));
+    onCrop(panCrop(clampCrop(data.photoCrop, photo, frame), dir[0] * step, dir[1] * step, photo, frame, false));
   };
 
   return (
@@ -95,9 +106,9 @@ export function Preview({ data, hostel, photo, showSafeZones, actualSize, onFit,
         if (file) onDropFile(file);
       }}
     >
-      <div className="stage-canvas" style={{ width: CANVAS.width * scale, height: CANVAS.height * scale }}>
-        <div style={{ width: CANVAS.width, height: CANVAS.height, transform: `scale(${scale})`, transformOrigin: '0 0', position: 'relative' }}>
-          <Flyer ref={flyerRef} data={data} hostel={hostel} photo={photo} showSafeZones={showSafeZones} />
+      <div className="stage-canvas" style={{ width: W * scale, height: H * scale }}>
+        <div style={{ width: W, height: H, transform: `scale(${scale})`, transformOrigin: '0 0', position: 'relative' }}>
+          <Flyer ref={flyerRef} data={data} canvas={canvas} hostel={hostel} photo={photo} showSafeZones={showSafeZones} />
           {frame && (
             <div
               className={'photo-handle' + (photo ? ' has-photo' : '')}
@@ -116,6 +127,35 @@ export function Preview({ data, hostel, photo, showSafeZones, actualSize, onFit,
           )}
         </div>
       </div>
+      {CANVAS_IDS.filter((c) => c !== canvas).map((c) => (
+        <OffscreenFit key={c} canvas={c} data={data} hostel={hostel} photo={photo} onFit={onFit} />
+      ))}
     </div>
   );
+}
+
+/** A canvas that is not on screen, fitted all the same so the editor can say
+    where copy is cut off before anyone switches to it. The same <Flyer>, so no
+    second renderer: laid out (visibility, never display:none) but unseen. It
+    lags a keystroke behind (deferred), which keeps typing smooth. */
+function OffscreenFit({ canvas, data, hostel, photo, onFit }: { canvas: CanvasId; data: FlyerData; hostel: Hostel | null; photo: PhotoInfo | null; onFit: FitCallback }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const deferred = useDeferredValue(data);
+  // Only what can change a fitted size: a photo drag, a zoom or a nudge must not refit (or
+  // re-render) a canvas nobody sees. The same element back lets React skip the subtree.
+  const key = fitKey(deferred);
+  const fitData = useMemo(() => deferred, [key]); // eslint-disable-line react-hooks/exhaustive-deps
+  const refit = useFit(ref, canvas, onFit);
+  useEffect(refit, [fitData, hostel, refit]);
+  const flyer = useMemo(() => <Flyer ref={ref} data={fitData} canvas={canvas} hostel={hostel} photo={photo} />, [fitData, canvas, hostel, photo]);
+  return (
+    <div aria-hidden="true" style={{ position: 'fixed', left: -20000, top: 0, visibility: 'hidden', pointerEvents: 'none' }}>
+      {flyer}
+    </div>
+  );
+}
+
+/** The fields a fitted size depends on (the copy, what the chips print, the photo mode's boxes). */
+function fitKey(d: FlyerData): string {
+  return JSON.stringify([d.text, d.chips, d.extras, d.photoMode, d.showPill, d.overrides]);
 }

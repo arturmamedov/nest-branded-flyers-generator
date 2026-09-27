@@ -2,17 +2,25 @@ import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readdirSync, unlinkSync } from 'node:fs';
 import { join } from 'node:path';
 import { chromium, type Browser } from 'playwright';
-import { CANVAS } from '../../src/shared/layout.js';
+import { CANVASES, type CanvasId } from '../../src/shared/layout.js';
 import { EXPORT_JPEG_QUALITY } from '../../src/shared/limits.js';
 
 /* Server-side export: the same render page the editor preview shares, loaded
-   in headless Chromium at exactly 1080×1920, screenshotted once the fonts,
-   images and fit passes have settled (handoff README §9). */
+   in headless Chromium at exactly the canvas's size, screenshotted once the
+   fonts, images and fit passes have settled (handoff README §9). */
 
 export type RenderFormat = 'png' | 'jpg';
 
+export interface RenderJob {
+  id: number;
+  format: RenderFormat;
+  canvas: CanvasId;
+  /** Content hash of everything the image depends on (renderKey). */
+  key: string;
+}
+
 export interface Renderer {
-  render(id: number, format: RenderFormat, key: string): Promise<{ file: string; cached: boolean }>;
+  render(job: RenderJob): Promise<{ file: string; cached: boolean }>;
   invalidate(id: number): void;
   close(): Promise<void>;
 }
@@ -38,15 +46,13 @@ export function createRenderer(opts: { origin: string; cacheDir: string; timeout
     return browser;
   };
 
-  async function shoot(id: number, format: RenderFormat, file: string): Promise<void> {
+  async function shoot({ id, format, canvas }: RenderJob, file: string): Promise<void> {
+    const { width, height } = CANVASES[canvas];
     const b = await getBrowser();
-    const context = await b.newContext({
-      viewport: { width: CANVAS.width, height: CANVAS.height },
-      deviceScaleFactor: 1,
-    });
+    const context = await b.newContext({ viewport: { width, height }, deviceScaleFactor: 1 });
     try {
       const page = await context.newPage();
-      await page.goto(`${opts.origin}/render.html?id=${id}`, { waitUntil: 'domcontentloaded', timeout: opts.timeoutMs });
+      await page.goto(`${opts.origin}/render.html?id=${id}&canvas=${canvas}`, { waitUntil: 'domcontentloaded', timeout: opts.timeoutMs });
       await page.waitForFunction(() => {
         const w = globalThis as { __FLYER_READY?: boolean; __FLYER_ERROR?: string };
         return w.__FLYER_READY || w.__FLYER_ERROR;
@@ -55,11 +61,14 @@ export function createRenderer(opts: { origin: string; cacheDir: string; timeout
       });
       const error = await page.evaluate(() => (globalThis as { __FLYER_ERROR?: string }).__FLYER_ERROR);
       if (error) throw new Error('Render page failed: ' + error);
+      // A page that misread the canvas would still fill the clip (a story cut to 1440), so ask it what it drew.
+      const drawn = await page.getAttribute('[data-flyer]', 'data-canvas');
+      if (drawn !== canvas) throw new Error(`Render page drew ${drawn} instead of ${canvas}`);
       await page.screenshot({
         path: file,
         type: format === 'jpg' ? 'jpeg' : 'png',
         quality: format === 'jpg' ? EXPORT_JPEG_QUALITY : undefined,
-        clip: { x: 0, y: 0, width: CANVAS.width, height: CANVAS.height },
+        clip: { x: 0, y: 0, width, height },
         animations: 'disabled',
         caret: 'hide',
         scale: 'css',
@@ -70,17 +79,18 @@ export function createRenderer(opts: { origin: string; cacheDir: string; timeout
   }
 
   return {
-    render(id, format, key) {
-      const file = join(opts.cacheDir, `${id}-${key}.${format}`);
+    render(job) {
+      // The id leads, so invalidate() finds every canvas and format of a flyer.
+      const file = join(opts.cacheDir, `${job.id}-${job.canvas}-${job.key}.${job.format}`);
       if (existsSync(file)) return Promise.resolve({ file, cached: true });
       const existing = inFlight.get(file);
       if (existing) return existing; // a double-clicked Download renders once
       // Concurrency 1: one Chromium page at a time keeps a small VPS happy.
-      const job = queue.then(() => shoot(id, format, file)).then(() => ({ file, cached: false }));
-      queue = job.catch(() => undefined);
-      inFlight.set(file, job);
-      job.finally(() => inFlight.delete(file)).catch(() => undefined);
-      return job;
+      const shot = queue.then(() => shoot(job, file)).then(() => ({ file, cached: false }));
+      queue = shot.catch(() => undefined);
+      inFlight.set(file, shot);
+      shot.finally(() => inFlight.delete(file)).catch(() => undefined);
+      return shot;
     },
     invalidate(id) {
       for (const f of readdirSync(opts.cacheDir)) if (f.startsWith(`${id}-`)) unlinkSync(join(opts.cacheDir, f));

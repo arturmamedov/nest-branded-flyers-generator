@@ -1,6 +1,6 @@
 import pixelmatch from 'pixelmatch';
 import { PNG } from 'pngjs';
-import { ACTIVITY, CANVAS, type PhotoMode, type Rect } from '../../src/shared/layout';
+import { CANVASES, type CanvasId, type PhotoMode, type Rect } from '../../src/shared/layout';
 import { SAMPLE_FLYERS, type SampleFlyer } from '../../src/shared/samples';
 
 /* Pixel comparison of a client export against the server export, lifted from
@@ -9,9 +9,6 @@ import { SAMPLE_FLYERS, type SampleFlyer } from '../../src/shared/samples';
    upgrade that breaks one of the handoff's three load-bearing features
    (§9: stretched art, the highlighter's clone, non-scaling strokes) fails
    even when the overall difference stays small. */
-
-export const W = CANVAS.width;
-export const H = CANVAS.height;
 
 /** Agreed with the owner: % of differing pixels, outside the photo band and inside each feature's own boxes. */
 export const THRESHOLD = 0.5;
@@ -61,28 +58,39 @@ export function readRegions(): Regions {
   };
 }
 
-function fill(mask: Uint8Array, r: Rect, value: 0 | 1, grow = 0) {
+/** A mask the size of one canvas, one byte per pixel. */
+interface Mask {
+  W: number;
+  H: number;
+  px: Uint8Array;
+}
+
+const mask = (W: number, H: number): Mask => ({ W, H, px: new Uint8Array(W * H) });
+
+function fill({ W, H, px }: Mask, r: Rect, value: 0 | 1, grow = 0) {
   const x0 = Math.max(0, Math.floor(r.left - grow));
   const y0 = Math.max(0, Math.floor(r.top - grow));
   const x1 = Math.min(W, Math.ceil(r.left + r.width + grow));
   const y1 = Math.min(H, Math.ceil(r.top + r.height + grow));
-  for (let y = y0; y < y1; y++) mask.fill(value, y * W + Math.max(0, x0), y * W + Math.max(x0, x1));
+  for (let y = y0; y < y1; y++) px.fill(value, y * W + Math.max(0, x0), y * W + Math.max(x0, x1));
 }
 
-function photoMask(mode: PhotoMode): Uint8Array {
-  const m = new Uint8Array(W * H);
-  if (mode === 'bleed') fill(m, ACTIVITY.photoBleed, 1);
-  if (mode === 'band') fill(m, ACTIVITY.photoBand, 1);
-  return m;
+function photoMask(canvas: CanvasId, mode: PhotoMode): Uint8Array {
+  const { width, height, activity } = CANVASES[canvas];
+  const m = mask(width, height);
+  if (mode === 'bleed') fill(m, activity.photoBleed, 1);
+  if (mode === 'band') fill(m, activity.photoBand, 1);
+  return m.px;
 }
 
 /** % of differing pixels inside a region (photo band excluded), null when the region is empty. */
-function regionPct(diff: Uint8Array, photo: Uint8Array, rects: Rect[], ring?: { out: number; in: number }): number | null {
+function regionPct(diff: Uint8Array, photo: Uint8Array, W: number, H: number, rects: Rect[], ring?: { out: number; in: number }): number | null {
   if (!rects.length) return null;
-  const m = new Uint8Array(W * H);
+  const mm = mask(W, H);
+  const m = mm.px;
   for (const r of rects) {
-    fill(m, r, 1, ring ? ring.out : 0);
-    if (ring) fill(m, { left: r.left + ring.in, top: r.top + ring.in, width: r.width - 2 * ring.in, height: r.height - 2 * ring.in }, 0);
+    fill(mm, r, 1, ring ? ring.out : 0);
+    if (ring) fill(mm, { left: r.left + ring.in, top: r.top + ring.in, width: r.width - 2 * ring.in, height: r.height - 2 * ring.in }, 0);
   }
   let total = 0;
   let bad = 0;
@@ -94,7 +102,8 @@ function regionPct(diff: Uint8Array, photo: Uint8Array, rects: Rect[], ring?: { 
   return total ? (100 * bad) / total : null;
 }
 
-export function compare(golden: PNG, candidate: PNG, mode: PhotoMode, regions: Regions): Metrics {
+export function compare(golden: PNG, candidate: PNG, canvas: CanvasId, mode: PhotoMode, regions: Regions): Metrics {
+  const { width: W, height: H } = CANVASES[canvas];
   const diffImage = new PNG({ width: W, height: H });
   // Same settings as scripts/compare-design.ts. Anti-aliasing pixels are drawn
   // yellow and not counted; real differences are pure red.
@@ -104,7 +113,7 @@ export function compare(golden: PNG, candidate: PNG, mode: PhotoMode, regions: R
     const p = i * 4;
     diff[i] = diffImage.data[p] === 255 && diffImage.data[p + 1] === 0 && diffImage.data[p + 2] === 0 ? 1 : 0;
   }
-  const photo = photoMask(mode);
+  const photo = photoMask(canvas, mode);
   let outT = 0;
   let outBad = 0;
   let inT = 0;
@@ -121,11 +130,11 @@ export function compare(golden: PNG, candidate: PNG, mode: PhotoMode, regions: R
   return {
     outside: (100 * outBad) / outT,
     inside: inT ? (100 * inBad) / inT : null,
-    art: regionPct(diff, photo, regions.art),
-    mark: regionPct(diff, photo, regions.mark),
+    art: regionPct(diff, photo, W, H, regions.art),
+    mark: regionPct(diff, photo, W, H, regions.mark),
     // A ring along the frame edge: the 5px stroke, not the chip text inside.
-    wonky: regionPct(diff, photo, regions.wonky, { out: 6, in: 30 }),
-    text: regionPct(diff, photo, regions.text),
+    wonky: regionPct(diff, photo, W, H, regions.wonky, { out: 6, in: 30 }),
+    text: regionPct(diff, photo, W, H, regions.text),
   };
 }
 

@@ -13,7 +13,10 @@
    photo corners, no clock — see src/shared/layout.ts and defaults.ts) the
    app departs from the prototype on purpose, so expect differences in those
    areas. This is a reference report now, not a pass/fail gate: look at the
-   diff images and check nothing ELSE moved. */
+   diff images and check nothing ELSE moved.
+
+   Story only, by nature: the prototype has no other canvas. The render page
+   is asked for it by name, so its 1080 × 1920 numbers below stay true. */
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { extname, join } from 'node:path';
 import { chromium, type Page } from 'playwright';
@@ -78,7 +81,7 @@ async function shootApp(page: Page, c: (typeof CASES)[number]): Promise<Buffer> 
   const payload = (await (await fetch(`${ORIGIN}/api/flyers/${item.id}`)).json()) as FlyerPayload;
   payload.flyer.data.photoMode = c.mode;
   await page.addInitScript((p) => ((window as unknown as { __FLYER_PAYLOAD: unknown }).__FLYER_PAYLOAD = p), payload);
-  await page.goto(`${ORIGIN}/render.html`);
+  await page.goto(`${ORIGIN}/render.html?canvas=story`);
   await page.waitForFunction(() => (window as unknown as { __FLYER_READY?: boolean }).__FLYER_READY);
   return page.screenshot({ clip: { x: 0, y: 0, width: 1080, height: 1920 } });
 }

@@ -4,12 +4,13 @@ import { deriveChip } from '../shared/chips';
 import { ACCEPTED_PHOTO_TYPES } from '../shared/limits';
 import { lintFlyer } from '../shared/copyRules';
 import { newFlyerData } from '../shared/defaults';
-import { photoFrame } from '../shared/layout';
+import { CANVASES, CANVAS_IDS, isCanvasId, photoFrame, type CanvasId } from '../shared/layout';
 import { ZOOM_MAX, ZOOM_MIN, clampCrop, wholePhotoZoom, zoomCrop } from '../shared/photo';
 import type { Chip, ChipKey, Crop, FlyerData, FlyerInput, FlyerText, Hostel, PhotoInfo } from '../shared/schema';
 import { api, ApiError } from './api';
 import type { FlyerExporter } from './export';
 import { preparePhoto, type PhotoLimits } from './photoPrep';
+import { localStorageGet, localStorageSet } from './prefs';
 import { Preview } from './Preview';
 
 interface Draft {
@@ -32,6 +33,13 @@ const toInput = (d: Draft): FlyerInput => ({
   photoId: d.photo?.id ?? null,
 });
 
+/** The canvas on screen is how this viewer likes to work, never flyer data. */
+const CANVAS_PREF = 'editor.canvas';
+const savedCanvas = (): CanvasId => {
+  const v = localStorageGet(CANVAS_PREF);
+  return isCanvasId(v) ? v : 'story';
+};
+
 const CHIP_HELP: Record<ChipKey, { placeholder: string; help: string }> = {
   when: { placeholder: 'Saturday 19/9 · 15:00', help: 'Day on the yellow stroke · the hour next to the clock' },
   where: { placeholder: 'The terrace', help: 'The hostel prints big; type the spot. Add · for a second line' },
@@ -43,7 +51,8 @@ export function Editor({ id, hostels, exporter, limits }: { id: number | null; h
   const [savedJson, setSavedJson] = useState<string>(() => (id == null ? JSON.stringify(toInput(blankDraft())) : 'loading'));
   const [flyerId, setFlyerId] = useState<number | null>(id);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [fit, setFit] = useState<FitReport | null>(null);
+  const [fits, setFits] = useState<Partial<Record<CanvasId, FitReport>>>({});
+  const [canvas, setCanvas] = useState<CanvasId>(savedCanvas);
   const [safe, setSafe] = useState(false);
   const [actualSize, setActualSize] = useState(false);
   const [busy, setBusy] = useState<null | 'save' | 'png' | 'jpg' | 'upload'>(null);
@@ -72,7 +81,15 @@ export function Editor({ id, hostels, exporter, limits }: { id: number | null; h
 
   const hostel = useMemo(() => hostels.find((h) => h.slug === draft?.hostel) ?? null, [hostels, draft?.hostel]);
   const lints = useMemo(() => (draft ? lintFlyer(draft.data) : []), [draft]);
-  const onFit = useCallback((r: FitReport) => setFit(r), []);
+  // An identical report (a photo drag refits the canvas on screen) keeps the state, so nothing re-renders.
+  const onFit = useCallback(
+    (c: CanvasId, r: FitReport) => setFits((f) => (JSON.stringify(f[c]) === JSON.stringify(r) ? f : { ...f, [c]: r })),
+    [],
+  );
+  const chooseCanvas = (c: CanvasId) => {
+    setCanvas(c);
+    localStorageSet(CANVAS_PREF, c);
+  };
 
   if (loadError) return <div className="banner banner-error">{loadError} <a href="#/">Back to the library</a></div>;
   if (!draft) return <div className="loading">Loading flyer…</div>;
@@ -89,7 +106,11 @@ export function Editor({ id, hostels, exporter, limits }: { id: number | null; h
     setDraft((d) => (d ? { ...d, data: { ...d.data, photoCrop: fn(d.data.photoCrop) } } : d));
 
   const needsPhoto = draft.data.photoMode !== 'none' && !draft.photo;
-  const shrunk = fit ? fit.clippedBoxes + fit.entries.filter((e) => e.overflowX).length : 0;
+  // Every canvas is fitted, the one on screen and the others offscreen: copy is one, so is the warning.
+  const cutOff = CANVAS_IDS.filter((c) => {
+    const r = fits[c];
+    return r && r.clippedBoxes + r.entries.filter((e) => e.overflowX).length > 0;
+  });
 
   async function save(): Promise<number> {
     const input = toInput(draft!);
@@ -122,14 +143,15 @@ export function Editor({ id, hostels, exporter, limits }: { id: number | null; h
   const onDownload = (format: 'png' | 'jpg') =>
     run(format, async () => {
       const savedId = await save();
-      const { blob, filename } = await exporter.export(savedId, format);
+      // The canvas on screen when the button was pressed: what you see is what you download.
+      const { blob, filename } = await exporter.export({ id: savedId, format, canvas });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
       a.download = filename;
       a.click();
       setTimeout(() => URL.revokeObjectURL(url), 10_000);
-      return `Downloaded ${filename} (1080 × 1920).`;
+      return `Downloaded ${filename} (${CANVASES[canvas].width} × ${CANVASES[canvas].height}).`;
     });
 
   const onFile = (file: File) =>
@@ -241,7 +263,7 @@ export function Editor({ id, hostels, exporter, limits }: { id: number | null; h
                 Or drop a photo on the preview. Drag the photo there to move it in any direction; click it and use the arrow keys to nudge
                 (Shift for bigger steps).
               </p>
-              {draft.photo && <PhotoControls photo={draft.photo} data={draft.data} onCrop={updateCrop} />}
+              {draft.photo && <PhotoControls photo={draft.photo} data={draft.data} canvas={canvas} onCrop={updateCrop} />}
             </>
           )}
         </Section>
@@ -269,6 +291,13 @@ export function Editor({ id, hostels, exporter, limits }: { id: number | null; h
 
       <main className="workspace">
         <div className="toolbar">
+          <div className="seg seg-dark" role="group" aria-label="Canvas">
+            {CANVAS_IDS.map((c) => (
+              <button key={c} type="button" className={canvas === c ? 'on' : ''} aria-pressed={canvas === c} onClick={() => chooseCanvas(c)}>
+                {CANVASES[c].label}
+              </button>
+            ))}
+          </div>
           <div className="seg seg-dark">
             <button type="button" className={!safe ? 'on' : ''} onClick={() => setSafe(false)}>
               Clean
@@ -298,7 +327,7 @@ export function Editor({ id, hostels, exporter, limits }: { id: number | null; h
           </button>
         </div>
 
-        {(message || needsPhoto || lints.length > 0 || shrunk > 0) && (
+        {(message || needsPhoto || lints.length > 0 || cutOff.length > 0) && (
           <div className="notes">
             {message && <div className={message.kind === 'ok' ? 'note note-ok' : 'note note-error'}>{message.text}</div>}
             {needsPhoto && (
@@ -310,7 +339,11 @@ export function Editor({ id, hostels, exporter, limits }: { id: number | null; h
                 — the empty photo band would print as a blank strip.
               </div>
             )}
-            {shrunk > 0 && <div className="note note-warn">Some text is at its smallest size and is being cut off — shorten it.</div>}
+            {cutOff.length > 0 && (
+              <div className="note note-warn">
+                Some text is at its smallest size and is being cut off on {cutOff.map((c) => CANVASES[c].label).join(' and ')} — shorten it.
+              </div>
+            )}
             {lints.map((l, i) => (
               <div key={i} className="note note-warn">
                 {l.message}
@@ -321,6 +354,7 @@ export function Editor({ id, hostels, exporter, limits }: { id: number | null; h
 
         <Preview
           data={draft.data}
+          canvas={canvas}
           hostel={hostel}
           photo={draft.data.photoMode === 'none' ? null : draft.photo}
           showSafeZones={safe}
@@ -401,8 +435,10 @@ const ZOOM_BASE = ZOOM_MAX; // symmetric: ZOOM_MIN = 1 / ZOOM_MAX
 const toSlider = (zoom: number) => Math.log(zoom) / Math.log(ZOOM_BASE);
 const fromSlider = (v: number) => (Math.abs(v) < 0.025 ? 1 : ZOOM_BASE ** v); // sticky at "fills the frame"
 
-function PhotoControls({ photo, data, onCrop }: { photo: PhotoInfo; data: FlyerData; onCrop: (fn: (c: Crop) => Crop) => void }) {
-  const frame = photoFrame(data.photoMode);
+/* The frame is the one on screen. Every canvas's frame has the same aspect for
+   a mode (layout.ts), so the stored crop shows the same picture on all of them. */
+function PhotoControls({ photo, data, canvas, onCrop }: { photo: PhotoInfo; data: FlyerData; canvas: CanvasId; onCrop: (fn: (c: Crop) => Crop) => void }) {
+  const frame = photoFrame(canvas, data.photoMode);
   if (!frame) return null;
   const zoom = data.photoCrop.zoom;
   return (
