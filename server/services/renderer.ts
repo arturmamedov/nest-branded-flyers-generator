@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, readdirSync, unlinkSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { chromium, type Browser } from 'playwright';
 import { CANVASES, type CanvasId } from '../../src/shared/layout.js';
@@ -64,8 +64,7 @@ export function createRenderer(opts: { origin: string; cacheDir: string; timeout
       // A page that misread the canvas would still fill the clip (a story cut to 1440), so ask it what it drew.
       const drawn = await page.getAttribute('[data-flyer]', 'data-canvas');
       if (drawn !== canvas) throw new Error(`Render page drew ${drawn} instead of ${canvas}`);
-      await page.screenshot({
-        path: file,
+      const image = await page.screenshot({
         type: format === 'jpg' ? 'jpeg' : 'png',
         quality: format === 'jpg' ? EXPORT_JPEG_QUALITY : undefined,
         clip: { x: 0, y: 0, width, height },
@@ -73,6 +72,10 @@ export function createRenderer(opts: { origin: string; cacheDir: string; timeout
         caret: 'hide',
         scale: 'css',
       });
+      // Written aside, then renamed: the cache path only ever holds a whole image,
+      // even to a request that finds it mid-write or after a crash.
+      writeFileSync(`${file}.tmp`, image);
+      renameSync(`${file}.tmp`, file);
     } finally {
       await context.close();
     }
@@ -82,9 +85,9 @@ export function createRenderer(opts: { origin: string; cacheDir: string; timeout
     render(job) {
       // The id leads, so invalidate() finds every canvas and format of a flyer.
       const file = join(opts.cacheDir, `${job.id}-${job.canvas}-${job.key}.${job.format}`);
-      if (existsSync(file)) return Promise.resolve({ file, cached: true });
       const existing = inFlight.get(file);
       if (existing) return existing; // a double-clicked Download renders once
+      if (existsSync(file)) return Promise.resolve({ file, cached: true });
       // Concurrency 1: one Chromium page at a time keeps a small VPS happy.
       const shot = queue.then(() => shoot(job, file)).then(() => ({ file, cached: false }));
       queue = shot.catch(() => undefined);
