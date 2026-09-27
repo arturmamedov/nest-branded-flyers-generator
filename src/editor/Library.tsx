@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import type { FlyerListItem, Hostel } from '../shared/schema';
 import { api } from './api';
 import { go } from './App';
+import { localStorageGet, localStorageSet } from './prefs';
 
 const when = (iso: string) =>
   new Date(iso).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
@@ -112,20 +113,4 @@ export function Library({ hostels }: { hostels: Hostel[] }) {
       )}
     </div>
   );
-}
-
-function localStorageGet(key: string): string | null {
-  try {
-    return localStorage.getItem(key);
-  } catch {
-    return null;
-  }
-}
-
-function localStorageSet(key: string, value: string) {
-  try {
-    localStorage.setItem(key, value);
-  } catch {
-    /* private mode: the filter just isn't remembered */
-  }
 }
