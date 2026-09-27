@@ -2,7 +2,9 @@
 #
 # To restrict the whole app (editor, photos and API) to your office or to a
 # password, paste one of the snippets from access-examples/ at the TOP of this
-# file. config.php's access rule guards only the API.
+# file (the preflight page prints the password one with your paths filled in).
+# config.php's access rule guards only the API. Every release upload replaces
+# this file: paste the block again after each one (docs/deploy.md).
 #
 # If Apache answers 500 for every page, the host's AllowOverride does not allow
 # "Options": ask the host to allow it (the lines below need Options, FileInfo
@@ -10,6 +12,12 @@
 
 Options -Indexes -MultiViews
 DirectoryIndex index.html
+
+# An internal tool: never indexed. robots.txt counts only at a domain's root,
+# and this app often lives in a subfolder, so every answer says it as well.
+<IfModule mod_headers.c>
+    Header set X-Robots-Tag "noindex, nofollow"
+</IfModule>
 
 # PHP errors must never be printed into an answer: they would corrupt the JSON.
 # api.php logs them instead. (Hosts running PHP as CGI/FPM read .user.ini.)
@@ -42,8 +50,8 @@ DirectoryIndex index.html
     RewriteRule ^api/ api.php [L,QSA]
 </IfModule>
 
-# Config, tooling, logs and docs are never served, in any letter case.
-<FilesMatch "(?i)^(config.*\.php|router\.php|composer\..*|\.user\.ini|.*\.log|.*\.md)$">
+# Config, tooling, the release manifest, logs and docs are never served, in any letter case.
+<FilesMatch "(?i)^(config.*\.php|router\.php|composer\..*|\.user\.ini|release\.json|.*\.log|.*\.md)$">
     <IfModule mod_authz_core.c>
         Require all denied
     </IfModule>

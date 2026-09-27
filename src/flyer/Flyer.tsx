@@ -1,18 +1,19 @@
 import { Fragment, type CSSProperties, type Ref } from 'react';
 import { deriveChips, DEFAULT_CHIP_ORDER } from '../shared/chips';
-import { BRIGHT_TEAL, MUTED, PHOTO_PLACEHOLDER } from '../shared/defaults';
+import { BRIGHT_TEAL, MUTED, PHOTO_PLACEHOLDER, resolveDoodles, type ArtPlacement } from '../shared/defaults';
 import { BODY_FONT, HEADLINE_FONT } from '../shared/fonts';
-import { ACTIVITY, CANVAS, SAFE, photoAnchors, photoFrame, type PhotoMode } from '../shared/layout';
+import { CANVASES, artAnchors, photoFrame, placeArt, safeBox, type ArtAnchor, type ArtPoint, type CanvasId, type Rect } from '../shared/layout';
 import { coverRect } from '../shared/photo';
-import type { DoodlePlacement, FlyerData, Hostel, PhotoInfo } from '../shared/schema';
+import type { FlyerData, Hostel, PhotoInfo } from '../shared/schema';
 import './fonts.css';
 import { artUrl as art, assetUrl } from './urls';
 
 /* THE renderer. The editor preview and the Playwright export both mount this
    component, so they cannot drift. The markup and styles are transcribed 1:1
    from design/Nest Flyer Story Templates.dc.html — keep them that way.
-   Positions come from src/shared/layout.ts and the art from defaults.ts,
-   which record where the team's design pass departs from the prototype. */
+   Positions come from src/shared/layout.ts, per output canvas, and the art
+   from defaults.ts, which record where the team's design pass departs from
+   the prototype. */
 
 export const WONKY_PATH =
   'M46 9 C 200 4 380 13 540 7 C 700 2 830 12 914 8 C 944 7 954 26 951 54 C 954 96 949 142 952 164 C 954 186 932 197 902 193 C 690 198 410 189 154 195 C 84 197 9 192 11 166 C 7 122 13 72 9 48 C 7 22 22 10 46 9 Z';
@@ -40,32 +41,38 @@ export function WonkyBox({ fill, stroke }: { fill: string; stroke: string }) {
 const HL: CSSProperties = { fontFamily: HEADLINE_FONT };
 const BODY: CSSProperties = { fontFamily: BODY_FONT };
 
-function doodleStyle(d: DoodlePlacement, mode: PhotoMode): CSSProperties {
-  const origin = d.anchor && d.anchor !== 'canvas' ? photoAnchors(mode)[d.anchor] : { x: 0, y: 0 };
+function doodleStyle(d: ArtPlacement, anchors: Record<ArtAnchor, ArtPoint>): CSSProperties {
   const t = [d.flipX ? 'scaleX(-1)' : '', d.rot ? `rotate(${d.rot}deg)` : ''].filter(Boolean).join(' ');
-  return { position: 'absolute', left: origin.x + d.x, top: origin.y + d.y, width: d.w, transform: t || undefined, opacity: d.opacity };
+  return { position: 'absolute', ...placeArt(d, anchors), transform: t || undefined, opacity: d.opacity };
 }
 
 function logoUrl(hostel: Hostel | null): string {
   return assetUrl(hostel?.logoPath || 'assets/nest-logo-teal.png');
 }
 
+/** A block's horizontal edges as left/right insets, the way the story has always been written. */
+const across = (r: Rect, width: number) => ({ left: r.left, right: width - r.left - r.width });
+
 export interface FlyerProps {
   data: FlyerData;
+  /** Which output canvas to draw (src/shared/layout.ts). No default: every caller says. */
+  canvas: CanvasId;
   hostel: Hostel | null;
   photo: PhotoInfo | null;
   showSafeZones?: boolean;
   ref?: Ref<HTMLDivElement>;
 }
 
-export function Flyer({ data, hostel, photo, showSafeZones = false, ref }: FlyerProps) {
+export function Flyer({ data, canvas, hostel, photo, showSafeZones = false, ref }: FlyerProps) {
   const { ink, accent, bg } = data.colors;
   const t = data.text;
   const mode = data.photoMode;
+  const { width: W, height: H, activity: A } = CANVASES[canvas];
+  const anchors = artAnchors(canvas, mode);
   const chips = deriveChips(data.chips, hostel?.name ?? null, data.overrides.chips?.order ?? DEFAULT_CHIP_ORDER);
   const extras = data.extras.map((e) => e.trim()).filter(Boolean);
-  const head = mode === 'none' ? ACTIVITY.headlineNoPhoto : ACTIVITY.headline;
-  const frame = photoFrame(mode);
+  const head = mode === 'none' ? A.headlineNoPhoto : A.headline;
+  const frame = photoFrame(canvas, mode);
   const img =
     photo && frame ? (
       <img
@@ -84,10 +91,11 @@ export function Flyer({ data, hostel, photo, showSafeZones = false, ref }: Flyer
     <div
       ref={ref}
       data-flyer=""
+      data-canvas={canvas}
       style={{
         position: 'relative',
-        width: CANVAS.width,
-        height: CANVAS.height,
+        width: W,
+        height: H,
         overflow: 'hidden',
         background: bg,
         color: ink,
@@ -104,13 +112,13 @@ export function Flyer({ data, hostel, photo, showSafeZones = false, ref }: Flyer
         boxSizing: 'content-box',
       }}
     >
-      {data.doodles.map((d, i) => (
-        <img key={i} data-art="" src={art(d.slug)} alt="" style={doodleStyle(d, mode)} />
+      {resolveDoodles(data.doodles).map((d, i) => (
+        <img key={i} data-art="" src={art(d.slug)} alt="" style={doodleStyle(d, anchors)} />
       ))}
 
       <div
         data-group="eyebrow"
-        style={{ position: 'absolute', left: 70, right: 70, top: ACTIVITY.eyebrow.top, height: ACTIVITY.eyebrow.height, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 24 }}
+        style={{ position: 'absolute', ...across(A.eyebrow, W), top: A.eyebrow.top, height: A.eyebrow.height, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 24 }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 18, flex: '0 0 auto' }}>
           <img src={art('icon-calendar')} alt="" style={{ height: 62, width: 'auto' }} />
@@ -124,7 +132,7 @@ export function Flyer({ data, hostel, photo, showSafeZones = false, ref }: Flyer
         <img src={logoUrl(hostel)} alt="Nests Hostels" style={{ height: 56, width: 'auto', flex: '0 0 auto', marginTop: 6 }} />
       </div>
 
-      <div data-group="headline" data-fit-box="1" style={{ position: 'absolute', left: 70, right: 70, top: head.top, height: head.height, overflow: 'hidden' }}>
+      <div data-group="headline" data-fit-box="1" style={{ position: 'absolute', ...across(head, W), top: head.top, height: head.height, overflow: 'hidden' }}>
         {t.headline1 && (
           <div data-fit="92" data-fit-min="0.5" style={{ ...HL, fontWeight: 800, fontSize: 92, lineHeight: 1.04, color: ink, whiteSpace: 'nowrap' }}>{t.headline1}</div>
         )}
@@ -137,12 +145,12 @@ export function Flyer({ data, hostel, photo, showSafeZones = false, ref }: Flyer
       </div>
 
       {mode === 'bleed' && (
-        <div data-group="photo" style={{ position: 'absolute', left: 0, right: 0, top: ACTIVITY.photoBleed.top, height: ACTIVITY.photoBleed.height, overflow: 'hidden', background: photoGround }}>
+        <div data-group="photo" style={{ position: 'absolute', ...across(A.photoBleed, W), top: A.photoBleed.top, height: A.photoBleed.height, overflow: 'hidden', background: photoGround }}>
           {img}
         </div>
       )}
       {mode === 'band' && (
-        <div data-group="photo" style={{ position: 'absolute', left: 70, right: 70, top: ACTIVITY.photoBand.top, height: ACTIVITY.photoBand.height }}>
+        <div data-group="photo" style={{ position: 'absolute', ...across(A.photoBand, W), top: A.photoBand.top, height: A.photoBand.height }}>
           <div style={{ position: 'absolute', inset: 0, borderRadius: 40, overflow: 'hidden', background: photoGround }}>{img}</div>
           <WonkyBox fill="none" stroke={ink} />
         </div>
@@ -150,20 +158,20 @@ export function Flyer({ data, hostel, photo, showSafeZones = false, ref }: Flyer
       {mode === 'none' && (
         <div
           data-group="photo"
-          style={{ position: 'absolute', left: 240, right: 240, top: ACTIVITY.noPhotoRule.top, height: ACTIVITY.noPhotoRule.height, background: `url(${art('rule-teal-wide')}) center/100% 100% no-repeat` }}
+          style={{ position: 'absolute', ...across(A.noPhotoRule, W), top: A.noPhotoRule.top, height: A.noPhotoRule.height, background: `url(${art('rule-teal-wide')}) center/100% 100% no-repeat` }}
         />
       )}
 
       {chips.length > 0 && (
         <div
           data-group="chips"
-          style={{ position: 'absolute', left: 70, right: 70, top: ACTIVITY.chips.top, height: ACTIVITY.chips.height, display: 'grid', gridTemplateColumns: `repeat(${chips.length},minmax(0,1fr))`, gap: ACTIVITY.chipGap }}
+          style={{ position: 'absolute', ...across(A.chips, W), top: A.chips.top, height: A.chips.height, display: 'grid', gridTemplateColumns: `repeat(${chips.length},minmax(0,1fr))`, gap: A.chipGap }}
         >
           {chips.map((chip) => {
             const when = chip.key === 'when';
             const icon = chip.key === 'when' ? art('icon-calendar') : chip.key === 'where' ? art('icon-pin') : null;
             return (
-              <div key={chip.key} data-fit-box="1" style={{ position: 'relative', height: ACTIVITY.chips.height, overflow: 'hidden' }}>
+              <div key={chip.key} data-fit-box="1" style={{ position: 'relative', height: A.chips.height, overflow: 'hidden' }}>
                 <WonkyBox fill="#ffffff" stroke={ink} />
                 <div style={{ position: 'relative', zIndex: 1, padding: '24px 26px 20px', display: 'flex', flexDirection: 'column', gap: 8 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, height: 36 }}>
@@ -212,7 +220,7 @@ export function Flyer({ data, hostel, photo, showSafeZones = false, ref }: Flyer
           data-fit="30"
           data-fit-gap="16"
           data-fit-min="0.8"
-          style={{ position: 'absolute', left: 70, right: 70, top: ACTIVITY.extras.top, height: ACTIVITY.extras.height, display: 'flex', flexWrap: 'nowrap', alignItems: 'center', gap: 16, ...HL, fontWeight: 700, fontSize: 30, letterSpacing: '0.02em', textTransform: 'uppercase', color: ink, whiteSpace: 'nowrap', overflow: 'hidden' }}
+          style={{ position: 'absolute', ...across(A.extras, W), top: A.extras.top, height: A.extras.height, display: 'flex', flexWrap: 'nowrap', alignItems: 'center', gap: 16, ...HL, fontWeight: 700, fontSize: 30, letterSpacing: '0.02em', textTransform: 'uppercase', color: ink, whiteSpace: 'nowrap', overflow: 'hidden' }}
         >
           {extras.map((text, i) => (
             <Fragment key={i}>
@@ -224,7 +232,7 @@ export function Flyer({ data, hostel, photo, showSafeZones = false, ref }: Flyer
       )}
 
       {(t.askEn || t.askEs) && (
-        <div data-group="ask" style={{ position: 'absolute', left: 70, right: 70, top: ACTIVITY.ask.top, height: ACTIVITY.ask.height }}>
+        <div data-group="ask" style={{ position: 'absolute', ...across(A.ask, W), top: A.ask.top, height: A.ask.height }}>
           <div style={{ display: 'inline-block', maxWidth: 760 }}>
             {t.askEn && (
               <div data-fit="62" data-fit-min="0.66" style={{ ...HL, fontWeight: 800, fontSize: 62, lineHeight: 1.08, color: ink, whiteSpace: 'nowrap' }}>{t.askEn}</div>
@@ -239,7 +247,7 @@ export function Flyer({ data, hostel, photo, showSafeZones = false, ref }: Flyer
       )}
 
       {data.showPill && (t.handle || t.tag) && (
-        <div style={{ position: 'absolute', left: 0, right: 0, top: ACTIVITY.pill.top, display: 'flex', justifyContent: 'center' }}>
+        <div style={{ position: 'absolute', left: 0, right: 0, top: A.pill.top, display: 'flex', justifyContent: 'center' }}>
           <div
             data-group="pill"
             style={{ display: 'flex', alignItems: 'center', gap: 18, background: accent, borderRadius: 20, padding: '17px 38px 19px', transform: 'rotate(-0.6deg)' }}
@@ -251,22 +259,24 @@ export function Flyer({ data, hostel, photo, showSafeZones = false, ref }: Flyer
         </div>
       )}
 
-      {showSafeZones && <SafeZoneOverlay />}
+      {showSafeZones && <SafeZoneOverlay canvas={canvas} />}
     </div>
   );
 }
 
 /** Editor chrome, never exported. Orange here is deliberate: it is not flyer ink. */
-function SafeZoneOverlay() {
+function SafeZoneOverlay({ canvas }: { canvas: CanvasId }) {
+  const { safe } = CANVASES[canvas];
+  const box = safeBox(canvas);
   const common: CSSProperties = { position: 'absolute', pointerEvents: 'none' };
   return (
     <>
-      <div style={{ ...common, left: 0, right: 0, top: 0, height: SAFE.top, background: 'rgba(234,88,12,0.14)', borderBottom: '2px dashed rgba(234,88,12,0.75)' }} />
-      <div style={{ ...common, left: 0, right: 0, bottom: 0, height: SAFE.bottom, background: 'rgba(234,88,12,0.14)', borderTop: '2px dashed rgba(234,88,12,0.75)' }} />
-      <div style={{ ...common, left: 0, top: SAFE.top, bottom: SAFE.bottom, width: SAFE.side, background: 'rgba(234,88,12,0.1)', borderRight: '2px dashed rgba(234,88,12,0.6)' }} />
-      <div style={{ ...common, right: 0, top: SAFE.top, bottom: SAFE.bottom, width: SAFE.side, background: 'rgba(234,88,12,0.1)', borderLeft: '2px dashed rgba(234,88,12,0.6)' }} />
-      <div style={{ ...common, left: 78, top: 258, ...BODY, fontWeight: 700, fontSize: 22, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#B03A06' }}>
-        Safe zone · 940 × 1370
+      <div style={{ ...common, left: 0, right: 0, top: 0, height: safe.top, background: 'rgba(234,88,12,0.14)', borderBottom: '2px dashed rgba(234,88,12,0.75)' }} />
+      <div style={{ ...common, left: 0, right: 0, bottom: 0, height: safe.bottom, background: 'rgba(234,88,12,0.14)', borderTop: '2px dashed rgba(234,88,12,0.75)' }} />
+      <div style={{ ...common, left: 0, top: safe.top, bottom: safe.bottom, width: safe.side, background: 'rgba(234,88,12,0.1)', borderRight: '2px dashed rgba(234,88,12,0.6)' }} />
+      <div style={{ ...common, right: 0, top: safe.top, bottom: safe.bottom, width: safe.side, background: 'rgba(234,88,12,0.1)', borderLeft: '2px dashed rgba(234,88,12,0.6)' }} />
+      <div style={{ ...common, left: box.left + 8, top: box.top + 8, ...BODY, fontWeight: 700, fontSize: 22, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#B03A06' }}>
+        {`Safe zone · ${box.width} × ${box.height}`}
       </div>
     </>
   );

@@ -9,7 +9,9 @@
  * lock: pick one (or more; any one of them lets a request in).
  *
  * The rule guards the API only. To also keep the editor page and the photos
- * private, paste a snippet from access-examples/ into .htaccess.
+ * private, paste a snippet from access-examples/ into .htaccess, with
+ * htaccess-force-https.txt under it. The preflight page (docs/deploy.md) prints
+ * a complete config.php and those blocks from one password.
  */
 
 return [
@@ -19,7 +21,8 @@ return [
         // e.g. ['203.0.113.7/32', '198.51.100.0/24', '2001:db8:1234::/48']
         'allowIps' => [],
 
-        // A shared staff login (HTTP Basic auth; use it only over https).
+        // A shared staff login (HTTP Basic auth; use it only over https, see
+        // access-examples/htaccess-force-https.txt).
         // The hash comes from PHP's password_hash() on any machine with PHP:
         //     php -r "echo password_hash('the-password', PASSWORD_DEFAULT), PHP_EOL;"
         // or from `htpasswd -nbB staff the-password` (the part after "staff:").

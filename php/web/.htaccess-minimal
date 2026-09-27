@@ -1,0 +1,49 @@
+# Nest flyers: the fallback for the app root's .htaccess (docs/deploy.md, step 1b).
+#
+# Use it only when EVERY page here, the preflight page included, answers 500:
+# that is the host refusing a line of the full .htaccess (its AllowOverride
+# does not allow "Options", "DirectoryIndex" or "php_flag"). Rename this file
+# over .htaccess, and uploads/.htaccess-minimal over uploads/.htaccess, then
+# reload. Better still, ask the host to allow Options: the full file is the one
+# that is tested line by line.
+#
+# The same rules as the full .htaccess (tests/unit/htaccess.test.ts holds them
+# together), without the lines that need those permissions. Directory listings
+# are refused by a rewrite instead of "Options -Indexes"; PHP's error display is
+# left to .user.ini.
+
+# An internal tool: never indexed. robots.txt counts only at a domain's root,
+# and this app often lives in a subfolder, so every answer says it as well.
+<IfModule mod_headers.c>
+    Header set X-Robots-Tag "noindex, nofollow"
+</IfModule>
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # CGI/FPM hosts drop the Authorization header; hand it to PHP so config.php's
+    # Basic auth works (it arrives as REDIRECT_HTTP_AUTHORIZATION after the rewrite).
+    RewriteCond %{HTTP:Authorization} .
+    RewriteRule ^ - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+
+    # Code, seed, schema and data folders are never served, in any letter case.
+    RewriteRule ^(src|vendor|seed|schema|data)(/|$) - [R=404,L,NC]
+
+    # The API: everything under api/ goes to the front controller. Relative
+    # rules and no RewriteBase, so a subfolder and a domain root both work.
+    RewriteRule ^api/ api.php [L,QSA]
+
+    # No folder is listed (what "Options -Indexes" does in the full file); the app root keeps its index.html.
+    RewriteRule ^.+/$ - [R=404,L]
+</IfModule>
+
+# Config, tooling, the release manifest, logs and docs are never served, in any letter case.
+<FilesMatch "(?i)^(config.*\.php|router\.php|composer\..*|\.user\.ini|release\.json|.*\.log|.*\.md)$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</FilesMatch>

@@ -3,6 +3,7 @@ import { join, relative, resolve } from 'node:path';
 import { APP_ROOT as REPO_ROOT, DIST_DIR } from '../../server/paths.js';
 import { runComposer } from './composer.js';
 import { RELEASE_LAYOUT } from './layout.js';
+import { writeManifest } from './manifest.js';
 import { PHP_DIR } from './phpBin.js';
 
 /* The one staging function: every PHP stage — the contract suite's, the smoke
@@ -84,14 +85,17 @@ return $loader;
 `;
 }
 
-/** Copies php/web, keeping config.php out and data/ and uploads/ down to their .htaccess. */
+/** The rules a writable folder ships: its .htaccess, and uploads/ its .htaccess-minimal fallback. */
+const WRITABLE_DIR_RULES = ['.htaccess', '.htaccess-minimal'];
+
+/** Copies php/web, keeping config.php out and data/ and uploads/ down to their rules. */
 function shipsFromWeb(source: string): boolean {
   const rel = toPosix(relative(WEB_DIR, source));
   if (rel === '') return true;
   if (rel.toLowerCase() === 'config.php') return false;
   const [top, ...rest] = rel.split('/');
   if ((RELEASE_LAYOUT.writableDirs as readonly string[]).includes(top)) {
-    return rest.length === 0 || (rest.length === 1 && rest[0] === '.htaccess');
+    return rest.length === 0 || (rest.length === 1 && WRITABLE_DIR_RULES.includes(rest[0]));
   }
   return true;
 }
@@ -136,5 +140,7 @@ export function stagePhp(outDir: string, { dist, vendor }: StageOptions): string
     if ((RELEASE_LAYOUT.writableDirs as readonly string[]).includes(dir)) continue;
     writeFileSync(join(out, dir, '.htaccess'), DENY_ALL, { flag: 'wx' });
   }
+  // Very last, over everything above: every stage carries the manifest the release does, so its readers run on every test.
+  writeManifest(out);
   return out;
 }

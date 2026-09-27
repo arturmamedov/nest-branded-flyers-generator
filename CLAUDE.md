@@ -1,7 +1,7 @@
 # CLAUDE.md — Nest Branded Flyers Generator
 
-Internal tool: Nests Hostels staff fill in a form, drop a photo, download a 1080 × 1920 Instagram-story
-flyer. Read `README.md` (how to run and deploy) and `design_handoff_flyer_generator/README.md` (the spec:
+Internal tool: Nests Hostels staff fill in a form, drop a photo, download the flyer as a 1080 × 1920
+Instagram story or a 1080 × 1440 WhatsApp image (one flyer, two output canvases). Read `README.md` (how to run and deploy) and `design_handoff_flyer_generator/README.md` (the spec:
 geometry, tokens, fit algorithm, data model, API, export) before changing anything visual or structural.
 
 ## Commands
@@ -12,12 +12,14 @@ npm run seed:dev       # hostels + built-in doodles into ./data/flyers.db (idemp
 npm run seed:samples   # the six design records incl. the stress test (dev only)
 npm run typecheck      # client + server
 npm test               # Vitest: shared logic, shared vectors, storage contract per driver, generated files current
-npm run test:contract  # HTTP contract suite on every backend (CONTRACT_BASE_URL=… for a deployment)
+npm run test:contract  # HTTP contract suite on every backend, php-basic (behind a login), php-access (the lock over
+                       # HTTP), cross; CONTRACT_BASE_URL (+ _BASIC_USER/_PASSWORD) in .env targets a deployment
 npm run gen            # regenerate schema/*.json, seed/samples.json, the error table in docs/api-contract.md
 npm run test:render    # builds, then Playwright render/export checks + client-export fidelity
 npm run test:php       # PHPUnit (PHP_BIN picks the interpreter; composer test in php/ does the same)
 npm run test:php-smoke # the editor driven against the PHP backend in a browser
-npm run build:php      # the shared-hosting release in release/php/
+npm run build:php      # the shared-hosting release in release/php/ (with release.json), and the preflight page beside it
+npm run deploy:backup  # a local deployment's library to ./backups/ (deploy:restore, deploy:reset); docs/deploy.md
 npm run copy           # move a library between storage drivers (SQLite <-> JSON files)
 npm run compare:design # reference pixel-diff vs the prototype (dev server running)
 npm run build          # vite build → dist/, tsc → dist-server/
@@ -34,7 +36,8 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
 - `src/flyer/fit.ts` — the prototype's `_fit()` ported verbatim (two-pass shrink-to-fit). Keep the
   `data-fit*` attributes. `ready.ts` loads fonts/images and fits before any export.
 - `src/shared/` — DOM-free, used by client **and** server: `schema.ts` (zod, source of truth for the data
-  shape), `layout.ts` (every box position), `defaults.ts` (tokens + template art), `chips.ts` (the `·`
+  shape), `layout.ts` (the `CANVASES` registry: every canvas's size, safe zones, box positions and art
+  anchor points; a new canvas is one entry), `defaults.ts` (tokens + template art), `chips.ts` (the `·`
   convention), `photo.ts` (crop maths), `copyRules.ts`. Relative imports here use `.js` extensions (NodeNext).
 - `src/editor/` — editor + library UI. `render.html` + `src/render/` — the bare page headless Chromium shoots.
 - `server/` — Express 5 API, append-only SQLite migrations (`server/db/migrations.ts`), photo processing
@@ -50,8 +53,8 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
 
 ## Non-negotiables (from the handoff — don't "fix" them)
 
-- Safe zones are hard limits: 250 top, 300 bottom, 70 sides. Text/blocks stay inside; only art (and the
-  full-bleed photo, horizontally) may enter the margins.
+- Safe zones are hard limits **per canvas**: the story's 250 top, 300 bottom, 70 sides; WhatsApp's 40 all
+  round. Text/blocks stay inside; only art (and the full-bleed photo, horizontally) may enter the margins.
 - `#53CED1` is never text on cream (contrast). Text teal is `#0D6F82`. Orange `#EA580C` is never flyer ink.
 - Fonts are self-hosted (@fontsource, pinned); family names only in `src/shared/fonts.ts`.
 - Optional fields collapse — no placeholders, no empty boxes, no dangling `·`.
@@ -67,6 +70,12 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
   comments. `compare:design` is a reference report now, not a gate.
 - Photo crop is stored per flyer in `data.photoCrop` (focal x/y + zoom ¼–4×, free positioning, the photo's
   centre stays in the frame).
+- Output canvases (2026-09-23, `docs/reports/output-canvases.md`): the canvas is how a flyer is printed,
+  never flyer data (a per-viewer toolbar choice; the export API takes `canvas`, default `story`). One crop
+  serves every canvas because each photo frame keeps the story's aspect per mode. The template art follows
+  each canvas through render-only anchors (`resolveDoodles`), so stored doodles never changed and an older
+  release still reads every flyer. Every canvas is fitted in the editor, the others offscreen with the same
+  `<Flyer>`. The story renders byte-identical to before (`tests/render/baseline.spec.ts`, opt-in).
 
 ## How to work here
 
@@ -86,12 +95,27 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
 
 - Done: handoff build steps 1–6 (branch `feat/flyer-generator-mvp`).
 - Waiting, don't start unasked: step 7 (drag/nudge everything on the canvas, sizes, colours, order, reset),
-  step 8 (This week template), step 9 (doodle picker + icon uploads).
+  step 8 (This week template), step 9 (doodle picker + icon uploads). With two canvases: step 7's stored
+  `overrides` (dx/dy) are shared by every canvas, so it must decide how they apply per canvas; step 8's
+  `WEEK` boxes are story-only today; step 9, when it stores the render-only anchors (`bottomLeft`,
+  `bottomRight`, `floor`), must add a JSON migration id so an older release refuses the store cleanly.
+- Done: output canvases, Instagram story 9:16 + WhatsApp 3:4 (branch `feat/output-canvases`, 2026-09-23).
+  The review is `docs/reports/output-canvases-review.md`, the report `docs/reports/output-canvases.md`.
 - Done: the PHP shared-hosting port, phases 2–5 (branch `feat/php-shared-hosting`): the seams, the PHP
   backend, the Node JSON driver and the copy tool, the release and the Laragon verification. The report is
   `docs/reports/php-port.md`; the briefs are `docs/prompts/php-shared-hosting*.md`.
-- Next planned: deploy readiness for a real shared host — brief in `docs/prompts/php-deploy-readiness.md`.
-  It proves the access rule over HTTP (no test does today), gives the release a manifest, adds a standalone
-  preflight page the owner uploads first, and rehearses the whole deploy on Apache.
-- Open: 10 of 13 hostel names, per-hostel logos, the real host (and its access rule — the local Laragon
-  deploy runs with `allowPublic`).
+- Done: deploy readiness (`docs/prompts/php-deploy-readiness.md`, same branch, 2026-09-23). It adds:
+  - the access rule proven over HTTP (`tests/access`), and the checks can sign in (`.env`, `scripts/env.ts`);
+  - `release.json` and the host facts in `api/config`;
+  - the preflight page (`php/preflight/`);
+  - `docs/deploy.md`, the owner's single copy of the deploy steps, with backup/restore/reset;
+  - an Apache rehearsal, recorded in `docs/reports/php-port.md` and `docs/reports/host-facts.md`.
+  `seed/hostels.json` now has all 14 hostels.
+- **Not live, by the owner's decision:** the host is IONOS (`https://nestpass.ai/activities/`), and the app
+  goes public only once a real login exists. That login (Supabase, or the Laravel app as the issuer) is its
+  own brief, and is not to be started unasked. It will have to exempt a sign-in route from the access check,
+  and decide what guards the static files.
+- Open: per-hostel logos; the IONOS column of `docs/reports/host-facts.md`, above all whether the login
+  reaches PHP under FastCGI (the preflight page's *Login* line). The local Laragon deploy
+  (`nest-flyers-php`) still runs `allowPublic`, so the contract row that forbids it fails there by design.
+  The branch is unpushed, by the owner's choice.

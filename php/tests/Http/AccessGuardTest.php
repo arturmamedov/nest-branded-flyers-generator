@@ -157,6 +157,17 @@ final class AccessGuardTest extends TestCase
         self::assertSame(401, $this->refused($rule, ['REMOTE_ADDR' => self::OUTSIDER, 'PHP_AUTH_USER' => 'staff', 'PHP_AUTH_PW' => 'x'])->status);
     }
 
+    public function testKindNamesTheRuleForDiagnostics(): void
+    {
+        $basicAuth = ['user' => 'staff', 'passwordHash' => self::$hash];
+        self::assertSame('none', AccessRule::none()->kind());
+        self::assertSame('allowIps', AccessRule::fromArray(['allowIps' => ['203.0.113.0/24']])->kind());
+        self::assertSame('basicAuth', AccessRule::fromArray(['basicAuth' => $basicAuth])->kind());
+        self::assertSame('allowIps+basicAuth', AccessRule::fromArray(['allowIps' => ['203.0.113.0/24'], 'basicAuth' => $basicAuth])->kind());
+        // allowPublic lets anyone in whatever else is set, so it is the only word that matters.
+        self::assertSame('allowPublic', AccessRule::fromArray(['allowPublic' => true, 'basicAuth' => $basicAuth])->kind());
+    }
+
     private function basicOnly(): AccessRule
     {
         return AccessRule::fromArray(['basicAuth' => ['user' => 'staff', 'passwordHash' => self::$hash]]);

@@ -1,3 +1,4 @@
+import { artAnchors, type ArtAnchor } from './layout.js';
 import type { Colors, DoodlePlacement, FlyerData, FlyerText, Template } from './schema.js';
 
 /* Design tokens (handoff README §3). */
@@ -41,6 +42,34 @@ export function sameDoodles(a: DoodlePlacement[], b: DoodlePlacement[]): boolean
   const norm = (d: DoodlePlacement) =>
     JSON.stringify([d.slug, d.anchor ?? 'canvas', d.x, d.y, d.w, d.rot ?? 0, !!d.flipX, d.opacity ?? 1]);
   return a.length === b.length && a.every((d, i) => norm(d) === norm(b[i]));
+}
+
+/** Art as the renderer places it: x/y are offsets from an anchor point of the canvas (layout.ts, artAnchors). */
+export interface ArtPlacement extends Omit<DoodlePlacement, 'anchor'> {
+  anchor?: ArtAnchor;
+}
+
+/* What the canvas-anchored pieces of DEFAULT_DOODLES follow from canvas to
+   canvas: the blobs the bottom corners, the spark off the tag pill the stack's
+   floor (the two sparks on the photo carry their anchors already). Only the
+   renderer uses these anchors, so the stored data stays DEFAULT_DOODLES as
+   every flyer has it (no migration, and an older release still reads it). */
+const FOLLOWS: Record<string, ArtAnchor> = { 'blob-yellow': 'bottomLeft', 'blob-teal': 'bottomRight', 'spark-teal': 'floor' };
+
+/** DEFAULT_DOODLES re-expressed from the story's anchor points. Derived, and
+    exact: x − p + p is x again for these numbers (shared.test.ts checks it). */
+const TEMPLATE_ART: ArtPlacement[] = DEFAULT_DOODLES.map((d) => {
+  if (d.anchor) return d;
+  const anchor = FOLLOWS[d.slug];
+  const p = artAnchors('story', 'band')[anchor];
+  return { ...d, anchor, x: d.x - p.x, y: d.y - p.y };
+});
+
+/** The art to draw. An untouched template set follows the template onto every
+    canvas; art someone arranged keeps the anchors they gave it (canvas px, or
+    the photo's corners, as artAnchors defines them). */
+export function resolveDoodles(doodles: DoodlePlacement[]): ArtPlacement[] {
+  return sameDoodles(doodles, DEFAULT_DOODLES) ? TEMPLATE_ART : doodles;
 }
 
 export const DEFAULT_TEXT: FlyerText = {

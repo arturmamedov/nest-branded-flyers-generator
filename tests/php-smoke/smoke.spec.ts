@@ -4,7 +4,7 @@ import { expect, test, type APIRequestContext, type Locator, type Page, type Res
 import sharp from 'sharp';
 import { apiError } from '../../src/shared/errors';
 import { flyerFilename } from '../../src/shared/filename';
-import { CANVAS } from '../../src/shared/layout';
+import { CANVASES, CANVAS_IDS } from '../../src/shared/layout';
 import { MAX_PHOTO_EDGE } from '../../src/shared/limits';
 import {
   ApiConfigSchema,
@@ -353,7 +353,7 @@ test('the editor on the PHP backend: create, photos, crop, reopen, library, down
     leftovers.delete(copyId);
   });
 
-  await test.step('9. download PNG and JPG through the editor, each exactly 1080 × 1920', async () => {
+  await test.step('9. download PNG and JPG of every canvas through the editor, each at its exact size', async () => {
     await card(page, title).getByRole('link', { name: 'Open', exact: true }).click();
     await expect(page).toHaveURL(new RegExp(`#/flyers/${id}$`));
     await expect(page.getByLabel('Line 1')).toHaveValue(COPY.headline1);
@@ -362,18 +362,23 @@ test('the editor on the PHP backend: create, photos, crop, reopen, library, down
       ['Download PNG', 'png', 'png'],
       ['JPG', 'jpg', 'jpeg'],
     ] as const;
-    for (const [label, format, sharpFormat] of downloads) {
-      const button = page.getByRole('button', { name: label, exact: true });
-      await expect(button).toBeEnabled();
-      const [download] = await Promise.all([page.waitForEvent('download'), button.click()]);
-      const name = flyerFilename(title, id, format);
-      expect(download.suggestedFilename()).toBe(name);
-      const file = test.info().outputPath(name);
-      await download.saveAs(file);
-      const meta = await sharp(file).metadata();
-      expect([meta.format, meta.width, meta.height], name).toEqual([sharpFormat, CANVAS.width, CANVAS.height]);
-      await expect(page.locator('.notes .note-ok')).toContainText(name);
-      await expect(button).toBeEnabled(); // the editor is idle again
+    for (const canvas of CANVAS_IDS) {
+      const { label: canvasLabel, width, height } = CANVASES[canvas];
+      await page.getByRole('button', { name: canvasLabel, exact: true }).click();
+      await expect(page.locator('.stage-canvas [data-flyer]')).toHaveAttribute('data-canvas', canvas);
+      for (const [label, format, sharpFormat] of downloads) {
+        const button = page.getByRole('button', { name: label, exact: true });
+        await expect(button).toBeEnabled();
+        const [download] = await Promise.all([page.waitForEvent('download'), button.click()]);
+        const name = flyerFilename(title, id, format, canvas);
+        expect(download.suggestedFilename()).toBe(name);
+        const file = test.info().outputPath(name);
+        await download.saveAs(file);
+        const meta = await sharp(file).metadata();
+        expect([meta.format, meta.width, meta.height], name).toEqual([sharpFormat, width, height]);
+        await expect(page.locator('.notes .note-ok')).toContainText(`${name} (${width} × ${height})`);
+        await expect(button).toBeEnabled(); // the editor is idle again
+      }
     }
     expect(pageErrors, 'uncaught errors in the editor').toEqual([]);
   });

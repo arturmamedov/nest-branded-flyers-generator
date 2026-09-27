@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { expect, inject } from 'vitest';
 import type { z } from 'zod';
+import type { BasicAuth } from '../../scripts/env.js';
 import { SEED_FILE } from '../../server/paths.js';
 import { API_ERRORS, apiError, type ApiErrorKey } from '../../src/shared/errors.js';
 import { SAMPLE_FLYERS } from '../../src/shared/samples.js';
@@ -18,6 +19,10 @@ declare module 'vitest' {
     baseUrl: string;
     /** Where the PHP stage lives on disk (php project only), for planting files. */
     stageDir?: string;
+    /** The staff login, when the backend is behind Basic auth (php-basic, or a locked deployment). */
+    basicAuth?: BasicAuth;
+    /** True when the suite runs against a deployment (CONTRACT_BASE_URL) rather than a local backend. */
+    remote?: boolean;
   }
 }
 
@@ -28,8 +33,20 @@ export const base = () => {
 export const url = (path: string) => new URL(path.replace(/^\/+/, ''), base()).href;
 export const WRITE = { 'X-Nest-Flyers': '1' };
 
+/** The Authorization header for a Basic login. A credential in the URL is no alternative: fetch() refuses such a URL. */
+export const basicAuthHeader = ({ user, password }: BasicAuth) => ({
+  Authorization: `Basic ${Buffer.from(`${user}:${password}`, 'utf8').toString('base64')}`,
+});
+
+/** The login travels on every request, apart from `headers`: a test that drops the write header (`{}`) must still
+    get past the lock, or it would prove the lock instead of the write guard. */
+const signedIn = (): Record<string, string> => {
+  const login = inject('basicAuth');
+  return login ? basicAuthHeader(login) : {};
+};
+
 export async function send(method: string, path: string, body?: unknown, headers: Record<string, string> = WRITE): Promise<Response> {
-  const init: RequestInit = { method, headers: { ...headers } };
+  const init: RequestInit = { method, headers: { ...signedIn(), ...headers } };
   if (body instanceof FormData) init.body = body;
   else if (typeof body === 'string') {
     init.body = body;

@@ -40,8 +40,8 @@ export const OverrideSchema = z.object({
 });
 
 /* x/y are canvas px, or offsets from a photo corner when anchored: the art
-   then follows the photo slot (band/bleed frame corner, or the brush rule's
-   ends in no-photo mode). */
+   then follows the photo slot on every canvas. The exact points, per canvas
+   and photo mode, are defined once in layout.ts (artAnchors). */
 export const DoodleAnchorSchema = z.enum(['canvas', 'photoLeft', 'photoRight']);
 export type DoodleAnchor = z.infer<typeof DoodleAnchorSchema>;
 

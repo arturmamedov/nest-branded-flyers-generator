@@ -54,8 +54,8 @@ $denied = static function (string $path): bool {
     if (in_array($first, ['src', 'vendor', 'seed', 'schema', 'data'], true)) {
         return true;
     }
-    // …config, tooling and log files anywhere, and Apache's own .ht* files.
-    if (preg_match('/^(config.*\.php|router\.php|composer\..*|\.user\.ini|.*\.log|.*\.md|\.ht.*)\z/i', $name) === 1) {
+    // …config, tooling, the manifest and log files anywhere, and Apache's own .ht* files.
+    if (preg_match('/^(config.*\.php|router\.php|composer\..*|\.user\.ini|release\.json|.*\.log|.*\.md|\.ht.*)\z/i', $name) === 1) {
         return true;
     }
     // uploads/.htaccess: photos only, and never anything that looks like PHP (x.php.png too).

@@ -6,6 +6,7 @@ namespace NestFlyers\Tests\Http;
 
 use Closure;
 use LogicException;
+use NestFlyers\Diagnostics\HostFacts;
 use NestFlyers\Domain\DoodleRepository;
 use NestFlyers\Domain\FlyerRepository;
 use NestFlyers\Domain\HostelRepository;
@@ -28,6 +29,7 @@ use NestFlyers\Json;
 use NestFlyers\Photos\UploadLimits;
 use NestFlyers\Shared;
 use NestFlyers\Tests\Support\Paths;
+use NestFlyers\Tests\Support\TempDir;
 use NestFlyers\Validation\FlyerValidator;
 use NestFlyers\Validation\SchemaNormalizer;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -42,6 +44,8 @@ use stdClass;
 final class ApiTest extends TestCase
 {
     private const STAMP = '2026-09-18T10:00:00.000Z';
+    /** Access is not what this file tests: every request is let in. */
+    private const PUBLIC = ['allowPublic' => true];
 
     private Shared $shared;
     private ErrorCatalog $errors;
@@ -52,9 +56,12 @@ final class ApiTest extends TestCase
     /** @var FlyerRepository&object{records: array<int, array<string, mixed>>, inputs: list<array<string, mixed>>, lists: list<array{?string, ?string}>} */
     private FlyerRepository $flyers;
     private ?Closure $processor = null;
+    /** The app root, data and uploads folders HostFacts looks at: empty, so the release check reports no manifest. */
+    private string $root;
 
     protected function setUp(): void
     {
+        $this->root = TempDir::create('api');
         $this->shared = Shared::fromFile(Paths::schema('shared.json'));
         $this->errors = ErrorCatalog::fromShared($this->shared);
         $this->hostels = self::hostelRepository([
@@ -226,13 +233,22 @@ final class ApiTest extends TestCase
         self::assertSame('json', $config->storage);
         self::assertSame(['client'], $config->exporters);
         self::assertEquals((object) ['maxUploadBytes' => 2 * 1024 * 1024, 'maxPhotoEdge' => $this->shared->maxPhotoEdge()], $config->limits);
+        // The first six are pinned by tests/contract/php.test.ts too; the host facts follow (HostFacts).
         self::assertSame(
-            ['php', 'upload_max_filesize', 'post_max_size', 'memory_limit', 'imageProcessor', 'formats'],
+            [
+                'php', 'upload_max_filesize', 'post_max_size', 'memory_limit', 'imageProcessor', 'formats',
+                'sapi', 'extensions', 'openBasedir', 'timezone', 'dataDir', 'uploadsDir', 'errorLog', 'release', 'accessRule',
+            ],
             array_keys((array) $config->server),
         );
         self::assertSame(PHP_VERSION, $config->server->php);
         self::assertSame('2M', $config->server->upload_max_filesize);
         self::assertSame('gd', $config->server->imageProcessor);
+        self::assertSame(PHP_SAPI, $config->server->sapi);
+        self::assertSame(HostFacts::EXTENSIONS, array_keys((array) $config->server->extensions));
+        self::assertEquals((object) ['path' => $this->root . '/data', 'writable' => true], $config->server->dataDir);
+        self::assertEquals((object) ['manifest' => 'missing'], $config->server->release);
+        self::assertSame('allowPublic', $config->server->accessRule);
         if (extension_loaded('gd')) {
             self::assertContains('jpeg', $config->server->formats);
             self::assertContains('png', $config->server->formats);
@@ -270,13 +286,27 @@ final class ApiTest extends TestCase
         ($route['handler'])(self::request('POST', 'api/photos'), $route['params'], null);
     }
 
+    protected function tearDown(): void
+    {
+        TempDir::remove($this->root);
+    }
+
+    private function folder(string $name): string
+    {
+        $dir = $this->root . '/' . $name;
+        if (!is_dir($dir)) {
+            mkdir($dir);
+        }
+        return $dir;
+    }
+
     private function kernel(): Kernel
     {
         $router = new Router();
         $this->api()->register($router);
         return new Kernel(
             $this->errors,
-            new AccessGuard(AccessRule::fromArray(['allowPublic' => true]), $this->errors),
+            new AccessGuard(AccessRule::fromArray(self::PUBLIC), $this->errors),
             new WriteGuard($this->errors),
             static fn (): Router => $router,
         );
@@ -286,6 +316,7 @@ final class ApiTest extends TestCase
     {
         $validator = new FlyerValidator(Json::decode((string) file_get_contents(Paths::schema('flyer.schema.json'))), new SchemaNormalizer(), $this->errors);
         $processor = $this->processor ?? static fn (): ImageProcessor => self::processor('gd');
+        $limits = new UploadLimits($this->shared->maxUploadBytes(), '2M', '8M', '128M');
         return new Api(
             $this->hostels,
             self::doodleRepository(),
@@ -293,7 +324,15 @@ final class ApiTest extends TestCase
             $this->flyers,
             $validator,
             $this->errors,
-            new ApiConfig('json', $this->shared, new UploadLimits($this->shared->maxUploadBytes(), '2M', '8M', '128M'), $processor),
+            new ApiConfig('json', $this->shared, $limits, new HostFacts(
+                $this->shared,
+                $limits,
+                $processor,
+                AccessRule::fromArray(self::PUBLIC),
+                $this->root,
+                $this->folder('data'),
+                $this->folder('uploads'),
+            )),
             static fn () => throw new LogicException('photo service built'),
         );
     }

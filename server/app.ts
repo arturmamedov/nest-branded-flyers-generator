@@ -6,6 +6,7 @@ import type { ViteDevServer } from 'vite';
 import { z } from 'zod';
 import { formatMb } from '../src/shared/errors.js';
 import { flyerFilename } from '../src/shared/filename.js';
+import { isCanvasId } from '../src/shared/layout.js';
 import { MAX_PHOTO_EDGE, MAX_UPLOAD_BYTES } from '../src/shared/limits.js';
 import { normalizeFlyerInput } from '../src/shared/normalize.js';
 import {
@@ -157,13 +158,16 @@ export function createApp(deps: AppDeps) {
       const id = idParam(req);
       const format = (req.body?.format ?? 'png') as string;
       if (format !== 'png' && format !== 'jpg') throw new HttpError('bad_format');
+      // Absent (older editors) or null means the story, as format defaults to png.
+      const canvas: unknown = req.body?.canvas ?? 'story';
+      if (!isCanvasId(canvas)) throw new HttpError('bad_canvas');
       const flyer = await repos.flyers.get(id);
       if (!flyer) throw new HttpError('no_such_flyer');
       const { hostel, photo } = await resolve(flyer);
       const key = renderKey([flyer.template, flyer.data, hostel, photo?.path ?? null, deps.buildId]);
-      const { file, cached } = await renderer.render(id, format, key);
+      const { file, cached } = await renderer.render({ id, format, canvas, key });
       res.set('X-Render-Cache', cached ? 'hit' : 'miss');
-      res.download(file, flyerFilename(flyer.title, id, format));
+      res.download(file, flyerFilename(flyer.title, id, format, canvas));
     });
   }
 

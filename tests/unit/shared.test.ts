@@ -1,8 +1,24 @@
+import { readFileSync } from 'node:fs';
+import { PNG } from 'pngjs';
 import { describe, expect, it } from 'vitest';
 import { deriveChips, splitDot } from '../../src/shared/chips.js';
 import { lintFlyer } from '../../src/shared/copyRules.js';
-import { DEFAULT_DOODLES, PROTOTYPE_DOODLES, newFlyerData, sameDoodles } from '../../src/shared/defaults.js';
-import { ACTIVITY, SAFE_BOX, WEEK, activityGroups, inside, overlaps, photoAnchors } from '../../src/shared/layout.js';
+import { DEFAULT_DOODLES, PROTOTYPE_DOODLES, newFlyerData, resolveDoodles, sameDoodles, type ArtPlacement } from '../../src/shared/defaults.js';
+import {
+  CANVASES,
+  CANVAS_IDS,
+  WEEK,
+  activityGroups,
+  artAnchors,
+  inside,
+  isCanvasId,
+  overlaps,
+  photoFrame,
+  placeArt,
+  safeBox,
+  type CanvasId,
+  type PhotoMode,
+} from '../../src/shared/layout.js';
 import { clampCrop, coverRect, panCrop, wholePhotoZoom, zoomCrop } from '../../src/shared/photo.js';
 import { SAMPLE_FLYERS } from '../../src/shared/samples.js';
 import { FlyerDataSchema } from '../../src/shared/schema.js';
@@ -57,31 +73,108 @@ describe('the · convention', () => {
   });
 });
 
-describe('layout', () => {
-  for (const mode of ['bleed', 'band', 'none'] as const) {
-    it(`${mode}: groups never overlap and stay in the safe box`, () => {
-      const groups = Object.entries(activityGroups(mode));
-      for (const [name, rect] of groups) {
-        if (name === 'photo' && mode === 'bleed') continue; // bleed is the one sanctioned exception, horizontally
-        expect(inside(rect!, SAFE_BOX), name).toBe(true);
+const MODES: PhotoMode[] = ['bleed', 'band', 'none'];
+
+describe('canvases', () => {
+  it('the registry: story 9:16 and WhatsApp exactly 3:4, ids checked as own keys', () => {
+    expect(CANVAS_IDS).toEqual(['story', 'whatsapp']);
+    expect([CANVASES.story.width, CANVASES.story.height]).toEqual([1080, 1920]);
+    expect([CANVASES.whatsapp.width, CANVASES.whatsapp.height]).toEqual([1080, 1440]);
+    expect(CANVASES.whatsapp.width * 4).toBe(CANVASES.whatsapp.height * 3);
+    expect(CANVAS_IDS.every(isCanvasId)).toBe(true);
+    for (const bad of ['__proto__', 'toString', 'constructor', '', 'STORY', null, undefined, 1, {}]) expect(isCanvasId(bad), String(bad)).toBe(false);
+  });
+
+  it('the story is exactly the handoff\'s: 250 top, 300 bottom, 70 sides, the design pass\'s boxes', () => {
+    expect(safeBox('story')).toEqual({ left: 70, top: 250, width: 940, height: 1370 });
+    const inner = (top: number, height: number) => ({ left: 70, top, width: 940, height });
+    expect(activityGroups('story', 'bleed')).toEqual({
+      eyebrow: inner(250, 95),
+      headline: inner(345, 300),
+      chips: inner(1110, 206),
+      extras: inner(1318, 40),
+      ask: inner(1382, 150),
+      pill: inner(1544, 72),
+      photo: { left: 0, top: 712, width: 1080, height: 380 },
+    });
+    expect(activityGroups('story', 'band').photo).toEqual(inner(712, 380));
+    expect(activityGroups('story', 'none')).toMatchObject({ headline: inner(398, 460), photo: { left: 240, top: 900, width: 600, height: 32 } });
+    expect([photoFrame('story', 'bleed'), photoFrame('story', 'band'), photoFrame('story', 'none')]).toEqual([
+      { width: 1080, height: 380 },
+      { width: 940, height: 380 },
+      null,
+    ]);
+    expect(artAnchors('story', 'bleed')).toEqual({
+      canvas: { x: 0, y: 0, scale: 1 },
+      photoLeft: { x: 70, y: 712, scale: 1 },
+      photoRight: { x: 1010, y: 712, scale: 1 },
+      bottomLeft: { x: 0, y: 1920, scale: 1 },
+      bottomRight: { x: 1080, y: 1920, scale: 1 },
+      floor: { x: 540, y: 1620, scale: 1 },
+    });
+    expect(artAnchors('story', 'band')).toEqual(artAnchors('story', 'bleed'));
+    expect(artAnchors('story', 'none')).toMatchObject({ photoLeft: { x: 240, y: 900, scale: 1 }, photoRight: { x: 840, y: 900, scale: 1 } });
+  });
+
+  for (const canvas of CANVAS_IDS) {
+    const { height, safe, activity: a } = CANVASES[canvas];
+    for (const mode of MODES) {
+      it(`${canvas} / ${mode}: groups never overlap and stay in the safe box`, () => {
+        const groups = Object.entries(activityGroups(canvas, mode));
+        for (const [name, rect] of groups) {
+          if (name === 'photo' && mode === 'bleed') {
+            // The one sanctioned exception, horizontally: edge to edge, and inside vertically.
+            expect([rect!.left, rect!.width], name).toEqual([0, CANVASES[canvas].width]);
+            expect(inside({ ...rect!, left: safe.side, width: 1 }, safeBox(canvas)), name).toBe(true);
+            continue;
+          }
+          expect(inside(rect!, safeBox(canvas)), name).toBe(true);
+        }
+        for (let i = 0; i < groups.length; i++)
+          for (let j = i + 1; j < groups.length; j++)
+            expect(overlaps(groups[i][1]!, groups[j][1]!), `${groups[i][0]} × ${groups[j][0]}`).toBe(false);
+      });
+    }
+
+    it(`${canvas}: the bottom stack is allocated upward from its floor`, () => {
+      const floor = height - safe.bottom;
+      // The pill is tilted -0.6°: 4 px under it keep its corners off the floor.
+      expect(a.pill.top + a.pill.height + 4).toBeLessThanOrEqual(floor);
+      expect(a.ask.top + a.ask.height).toBeLessThanOrEqual(a.pill.top);
+      expect(a.extras.top + a.extras.height).toBeLessThanOrEqual(a.ask.top);
+      expect(a.chips.top + a.chips.height).toBeLessThanOrEqual(a.extras.top);
+      expect(a.photoBand.top + a.photoBand.height).toBeLessThanOrEqual(a.chips.top);
+      expect(a.photoBleed.top + a.photoBleed.height, 'bleed and band end together: the blocks below are shared').toBe(a.photoBand.top + a.photoBand.height);
+      expect(a.eyebrow.height, 'the eyebrow row is 62 px of icon and text').toBeGreaterThanOrEqual(62);
+      expect(a.headline.top).toBeGreaterThanOrEqual(a.eyebrow.top + a.eyebrow.height);
+    });
+
+    it(`${canvas}: every photo frame has the story's aspect, so one crop shows the same picture`, () => {
+      for (const mode of ['bleed', 'band'] as const) {
+        const f = photoFrame(canvas, mode)!;
+        const s = photoFrame('story', mode)!;
+        // Within half a pixel of the exact height at this width.
+        expect(Math.abs(f.height - (f.width * s.height) / s.width), mode).toBeLessThanOrEqual(0.5);
       }
-      for (let i = 0; i < groups.length; i++)
-        for (let j = i + 1; j < groups.length; j++)
-          expect(overlaps(groups[i][1]!, groups[j][1]!), `${groups[i][0]} × ${groups[j][0]}`).toBe(false);
+    });
+
+    it(`${canvas}: fitted boxes at least the story's size, and a column of at least 940`, () => {
+      // Not a proof that copy fitting the story fits here (a wider line shrinks less, then needs
+      // more height): that is why the editor fits every canvas. It keeps clipping here rare.
+      const story = CANVASES.story.activity;
+      for (const box of ['headline', 'headlineNoPhoto', 'chips', 'extras', 'ask'] as const) {
+        expect(a[box].width, box).toBeGreaterThanOrEqual(story[box].width);
+        expect(a[box].height, box).toBeGreaterThanOrEqual(story[box].height);
+      }
+      // schema.ts's max lengths keep the unfitted lines (eyebrow, handle, tag) inside a 940 column.
+      expect(safeBox(canvas).width).toBeGreaterThanOrEqual(940);
     });
   }
 
-  it('the bottom stack is allocated upward from the 1620 floor', () => {
-    expect(ACTIVITY.pill.top + ACTIVITY.pill.height).toBeLessThanOrEqual(1620);
-    expect(ACTIVITY.ask.top + ACTIVITY.ask.height).toBeLessThanOrEqual(ACTIVITY.pill.top);
-    expect(ACTIVITY.extras.top + ACTIVITY.extras.height).toBeLessThanOrEqual(ACTIVITY.ask.top);
-    expect(ACTIVITY.chips.top + ACTIVITY.chips.height).toBeLessThanOrEqual(ACTIVITY.extras.top);
-  });
-
-  it('five week rows end before the ask block', () => {
+  it('five week rows end before the ask block (the week template is story only until step 8)', () => {
     const { top, rowHeight, gap, max } = WEEK.rows;
     expect(top + max * rowHeight + (max - 1) * gap).toBe(1370);
-    expect(1370).toBeLessThan(ACTIVITY.ask.top);
+    expect(1370).toBeLessThan(CANVASES.story.activity.ask.top);
   });
 });
 
@@ -137,6 +230,38 @@ describe('photo crop', () => {
     expect(wholePhotoZoom(img, frame)).toBeCloseTo((380 / 1000) / (1080 / 2000));
   });
 
+  it('one crop, two frames of the same aspect: the same picture, scaled', () => {
+    const photos = [
+      { width: 1080, height: 1350 },
+      { width: 896, height: 370 },
+      { width: 1600, height: 1200 },
+      { width: 1066, height: 1600 },
+      // Wider than the band's 47:19, so its height binds: where 404 instead of 404.26 shows.
+      { width: 3000, height: 1000 },
+    ];
+    const crops = [
+      { x: 0.5, y: 0.5, zoom: 1 },
+      { x: 0.2, y: 0.9, zoom: 0.4 },
+      { x: 0.8, y: 0.1, zoom: 2.5 },
+      { x: -0.4, y: 1.6, zoom: 0.25 },
+      { x: 0.5, y: 0.3, zoom: 4 },
+    ];
+    for (const canvas of CANVAS_IDS)
+      for (const mode of ['bleed', 'band'] as const) {
+        const f = photoFrame(canvas, mode)!;
+        const s = photoFrame('story', mode)!;
+        const k = f.width / s.width;
+        for (const photo of photos)
+          for (const crop of crops) {
+            const a = coverRect(photo, f, crop);
+            const b = coverRect(photo, s, crop);
+            // Same picture: every edge within 0.1 % of the photo's size (0.2 px at least) of the story's, scaled.
+            const tolerance = Math.max(0.2, 0.001 * Math.max(a.width, a.height));
+            for (const key of ['left', 'top', 'width', 'height'] as const) expect(Math.abs(a[key] - b[key] * k), `${canvas} ${mode} ${key}`).toBeLessThan(tolerance);
+          }
+      }
+  });
+
   it('a zoomed-out photo round-trips through the schema', () => {
     const d = newFlyerData();
     d.photoCrop = panCrop({ x: 0.5, y: 0.5, zoom: 0.25 }, -10_000, 0, { width: 1066, height: 1600 }, { width: 1080, height: 380 });
@@ -144,21 +269,119 @@ describe('photo crop', () => {
   });
 });
 
+/** The art's PNGs: size and the opaque (alpha ≥ 128) pixels, for ink checks. Test-only geometry. */
+const ink = new Map<string, { width: number; height: number; px: [number, number][] }>();
+function artInk(slug: string) {
+  if (!ink.has(slug)) {
+    const png = PNG.sync.read(readFileSync(new URL(`../../assets/art/${slug}.png`, import.meta.url)));
+    const px: [number, number][] = [];
+    for (let y = 0; y < png.height; y++) for (let x = 0; x < png.width; x++) if (png.data[(y * png.width + x) * 4 + 3] >= 128) px.push([x, y]);
+    ink.set(slug, { width: png.width, height: png.height, px });
+  }
+  return ink.get(slug)!;
+}
+
+/** Where a piece's ink lands, as canvas points, placed as Flyer.tsx places it (rotate, then flip, about the centre). */
+function inkPoints(d: ArtPlacement, canvas: CanvasId, mode: PhotoMode): [number, number][] {
+  const art = artInk(d.slug);
+  const { left, top, width: w } = placeArt(d, artAnchors(canvas, mode));
+  const h = (w * art.height) / art.width;
+  const t = ((d.rot ?? 0) * Math.PI) / 180;
+  return art.px.map(([sx, sy]) => {
+    const ex = ((sx + 0.5) * w) / art.width - w / 2;
+    const ey = ((sy + 0.5) * h) / art.height - h / 2;
+    const rx = ex * Math.cos(t) - ey * Math.sin(t);
+    const ry = ex * Math.sin(t) + ey * Math.cos(t);
+    return [left + w / 2 + (d.flipX ? -rx : rx), top + h / 2 + ry];
+  });
+}
+
+/** Share of a piece's ink that lands on the canvas. */
+function inkOnCanvas(d: ArtPlacement, canvas: CanvasId, mode: PhotoMode): number {
+  const { width, height } = CANVASES[canvas];
+  const ink = inkPoints(d, canvas, mode);
+  return ink.filter(([x, y]) => x >= 0 && x < width && y >= 0 && y < height).length / ink.length;
+}
+
 describe('template art', () => {
-  it('the photo-corner sparks land exactly where the design pass put them (band and bleed)', () => {
-    for (const mode of ['band', 'bleed'] as const) {
-      const a = photoAnchors(mode);
-      const [teal, yellow] = DEFAULT_DOODLES;
-      expect([a[teal.anchor as 'photoLeft'].x + teal.x, a[teal.anchor as 'photoLeft'].y + teal.y]).toEqual([24, 657]);
-      expect([a[yellow.anchor as 'photoRight'].x + yellow.x, a[yellow.anchor as 'photoRight'].y + yellow.y]).toEqual([975, 658]);
+  it('on the story the template art lands exactly where DEFAULT_DOODLES stores it', () => {
+    for (const mode of MODES) {
+      const resolved = resolveDoodles(DEFAULT_DOODLES);
+      const anchors = artAnchors('story', mode);
+      resolved.forEach((d, i) => {
+        const stored = DEFAULT_DOODLES[i];
+        if (stored.anchor) return expect(d).toBe(stored);
+        const at = placeArt(d, anchors);
+        // toBe, not toBeCloseTo: the story must not move by a float's last bit.
+        expect(at.left, `${d.slug} x`).toBe(stored.x);
+        expect(at.top, `${d.slug} y`).toBe(stored.y);
+        expect(at.width, `${d.slug} w`).toBe(stored.w);
+        expect({ ...d, anchor: undefined, x: stored.x, y: stored.y }).toEqual({ ...stored, anchor: undefined });
+      });
     }
   });
 
-  it('with no photo the sparks follow the brush rule instead of sitting on the headline', () => {
-    const a = photoAnchors('none');
-    expect(a.photoLeft.y - 55).toBeGreaterThan(ACTIVITY.photoBleed.top); // below where the photo would be
-    expect(a.photoLeft.x).toBe(ACTIVITY.noPhotoRule.left);
+  it('only the untouched template set follows the canvas; any other art stays in canvas px', () => {
+    expect(resolveDoodles(PROTOTYPE_DOODLES)).toBe(PROTOTYPE_DOODLES);
+    const moved = DEFAULT_DOODLES.map((d, i) => (i === 2 ? { ...d, x: d.x + 1 } : d));
+    expect(resolveDoodles(moved)).toBe(moved);
+    expect(resolveDoodles(newFlyerData().doodles).map((d) => d.anchor)).toEqual(['photoLeft', 'photoRight', 'bottomLeft', 'bottomRight', 'floor']);
   });
+
+  it('the photo-corner sparks land exactly where the design pass put them on the story (band and bleed)', () => {
+    for (const mode of ['band', 'bleed'] as const) {
+      const a = artAnchors('story', mode);
+      const [teal, yellow] = DEFAULT_DOODLES;
+      expect([a[teal.anchor!].x + teal.x, a[teal.anchor!].y + teal.y]).toEqual([24, 657]);
+      expect([a[yellow.anchor!].x + yellow.x, a[yellow.anchor!].y + yellow.y]).toEqual([975, 658]);
+    }
+  });
+
+  for (const canvas of CANVAS_IDS) {
+    it(`${canvas}: the sparks on the photo's corners clear the headline, and with no photo follow the brush rule`, () => {
+      const [teal, yellow] = DEFAULT_DOODLES;
+      const { activity } = CANVASES[canvas];
+      for (const mode of ['band', 'bleed'] as const) {
+        const a = artAnchors(canvas, mode);
+        expect(a.photoLeft.y + teal.y, mode).toBeGreaterThanOrEqual(activity.headline.top + activity.headline.height);
+        expect(a.photoRight.y + yellow.y, mode).toBeGreaterThanOrEqual(activity.headline.top + activity.headline.height);
+      }
+      const none = artAnchors(canvas, 'none');
+      expect(none.photoLeft).toMatchObject({ x: activity.noPhotoRule.left, y: activity.noPhotoRule.top });
+      expect(none.photoRight.x).toBe(activity.noPhotoRule.left + activity.noPhotoRule.width);
+    });
+
+    it(`${canvas}: the last spark keeps the story's place at the pill's end`, () => {
+      const spark = resolveDoodles(DEFAULT_DOODLES).at(-1)!;
+      expect(spark.anchor).toBe('floor');
+      const pillBottom = (c: CanvasId) => CANVASES[c].activity.pill.top + CANVASES[c].activity.pill.height;
+      const at = (c: CanvasId) => placeArt(spark, artAnchors(c, 'band'));
+      // Its offset from the pill, not from the canvas edge, is what the design pass set: 776, 1601.7 on the story.
+      expect(at(canvas).top - pillBottom(canvas)).toBeCloseTo(at('story').top - pillBottom('story'), 9);
+      expect(at(canvas).left - CANVASES[canvas].width / 2).toBe(at('story').left - CANVASES.story.width / 2);
+      expect(at(canvas).width, 'the pill does not shrink, so neither does its spark').toBe(spark.w);
+    });
+
+    it(`${canvas}: the corner blobs keep off the ask's lines and the pill's spark`, () => {
+      // The ask's copy is at most 760 wide (Flyer.tsx), from the column's left edge.
+      const { ask } = CANVASES[canvas].activity;
+      const art = resolveDoodles(DEFAULT_DOODLES);
+      const cells = (d: ArtPlacement) => new Set(inkPoints(d, canvas, 'band').map(([x, y]) => `${Math.floor(x / 2)},${Math.floor(y / 2)}`));
+      const spark = cells(art.find((d) => d.anchor === 'floor')!);
+      for (const blob of art.filter((d) => d.anchor === 'bottomLeft' || d.anchor === 'bottomRight')) {
+        const onAsk = inkPoints(blob, canvas, 'band').filter(([x, y]) => x >= ask.left && x < ask.left + 760 && y >= ask.top && y < ask.top + ask.height);
+        expect(onAsk.length, `${blob.slug} ink on the ask's lines`).toBe(0);
+        expect([...cells(blob)].filter((c) => spark.has(c)).length, `${blob.slug} ink on the pill's spark`).toBe(0);
+      }
+    });
+
+    it(`${canvas}: the template art keeps at least as much of its ink on canvas as on the story`, () => {
+      for (const mode of MODES)
+        resolveDoodles(DEFAULT_DOODLES).forEach((d) => {
+          expect(inkOnCanvas(d, canvas, mode), `${d.slug} / ${mode}`).toBeGreaterThanOrEqual(inkOnCanvas(d, 'story', mode) - 0.01);
+        });
+    });
+  }
 
   it('the clock is gone and the bottom spark sits off the pill', () => {
     expect(DEFAULT_DOODLES.map((d) => d.slug)).not.toContain('icon-clock');

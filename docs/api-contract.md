@@ -59,6 +59,7 @@ errors. The catalogue is `src/shared/errors.ts`, which PHP reads from `schema/sh
 | `unknown_photo` | 400 | `invalid` | Unknown photo. fields `{"photoId":"Unknown photo"}` |
 | `no_photo_field` | 400 | `invalid` | Attach the photo as the "photo" field. |
 | `bad_format` | 400 | `invalid` | format must be png or jpg. |
+| `bad_canvas` | 400 | `invalid` | canvas must be story or whatsapp. |
 | `unauthorized` | 401 | `unauthorized` | Sign in to use the flyer generator. |
 | `forbidden` | 403 | `forbidden` | Missing X-Nest-Flyers header. |
 | `ip_forbidden` | 403 | `forbidden` | This network is not allowed to use the flyer generator. |
@@ -95,7 +96,7 @@ errors. The catalogue is `src/shared/errors.ts`, which PHP reads from `schema/sh
 | `PUT api/flyers/:id` | 200 `{id, flyer}` | `malformed`, `forbidden`, `no_such_flyer` (bad id, checked before the body is validated), `invalid`, `unknown_hostel`, `unknown_photo`, `no_such_flyer` (missing or archived) |
 | `DELETE api/flyers/:id` | **204**, empty body | `forbidden`, `no_such_flyer` |
 | `POST api/photos` (multipart, field `photo`) | **201** `PhotoInfo` | `forbidden`, `no_photo_field`, `too_large`, `too_many_pixels`, `heic`, `unsupported_format`, `unreadable` |
-| `POST api/render/:id` `{format}` | 200, the image | `malformed`, `forbidden`, `no_such_flyer` (bad id), `bad_format`, `no_such_flyer` |
+| `POST api/render/:id` `{format, canvas}` | 200, the image | `malformed`, `forbidden`, `no_such_flyer` (bad id), `bad_format`, `bad_canvas`, `no_such_flyer` |
 
 Each row lists its errors in the order they are checked. Anything else under `api/`, including a wrong method on a known
 path, is 404 `no_such_endpoint`.
@@ -113,8 +114,11 @@ path, is 404 `no_such_endpoint`.
 - `limits` drives photo preparation in the browser.
 - `maxUploadBytes` is the largest upload this backend accepts. Node: 15 MiB. PHP: the smallest of 15 MiB,
   `upload_max_filesize`, and `post_max_size` minus 64 KiB.
-- `server` is diagnostics only. PHP reports `php`, `upload_max_filesize`, `post_max_size`, `memory_limit`,
-  `imageProcessor` and the image formats it can read.
+- `server` is diagnostics only: nothing reads it to decide anything. Node reports `node`. PHP reports `php`,
+  `upload_max_filesize`, `post_max_size`, `memory_limit`, `imageProcessor` and the image `formats` it can read (in
+  that order), then the host's facts (`php/src/Diagnostics/HostFacts.php`): SAPI, extensions, `open_basedir`,
+  timezone, whether the data and uploads folders take a real write, the error log, the release checked against its
+  `release.json`, and `accessRule` (`allowIps`, `basicAuth`, `allowIps+basicAuth`, or `allowPublic`).
 
 ### Hostels and doodles
 
@@ -187,10 +191,16 @@ live in `src/shared/schema.ts`. How a backend applies them:
 - **Only where server-side export exists.** It exists when `api/config` lists `server` in `exporters` (Node, with its
   Playwright renderer). Elsewhere the path is not registered, so it gives 404 `no_such_endpoint`, and the editor
   exports in the browser with the same renderer.
-- **Body:** `{format: 'png' | 'jpg'}`, default `png`.
-- **Checks, in order:** the id (404), the format (400 `bad_format`), then that the flyer exists (404).
-- **Answer:** the 1080 × 1920 image, with `Content-Disposition: attachment; filename="<slug>.<format>"`. The slug comes
-  from `src/shared/filename.ts`, which the client exporter uses too. `X-Render-Cache: hit|miss` is also set.
+- **Body:** `{format: 'png' | 'jpg', canvas: <canvas id>}`. `format` defaults to `png`, `canvas` to `story`
+  (absent or `null`, as an editor from before canvases sends). The canvas ids and their sizes are the `CANVASES`
+  registry in `src/shared/layout.ts` (today `story`, 1080 × 1920, and `whatsapp`, 1080 × 1440); the `bad_canvas`
+  message lists them, generated.
+- **Checks, in order:** the id (404), the format (400 `bad_format`), the canvas (400 `bad_canvas`: anything that is not
+  one of the ids, including `''`, other types and inherited names like `__proto__`), then that the flyer exists (404).
+- **Answer:** the image at the canvas's exact size, with
+  `Content-Disposition: attachment; filename="<slug><suffix>.<format>"`. The slug and the canvas's suffix (none for the
+  story, `-whatsapp` for WhatsApp) come from `src/shared/filename.ts`, which the client exporter uses too.
+  `X-Render-Cache: hit|miss` is also set; each canvas and format is cached apart, and saving the flyer empties them all.
 
 ## Static files
 

@@ -2,7 +2,7 @@
   "name": "nest-branded-flyers-generator",
   "version": "1.0.0",
   "private": true,
-  "description": "Internal mini-app: branded 1080x1920 Instagram-story flyers for Nests Hostels.",
+  "description": "Internal mini-app: branded flyers for Nests Hostels, as Instagram stories (1080x1920) and WhatsApp images (1080x1440).",
   "type": "module",
   "engines": {
     "node": ">=22"
@@ -23,7 +23,10 @@
     "test:contract": "vitest run -c vitest.contract.config.ts",
     "test:php": "tsx scripts/php/phpunit.ts",
     "test:php-smoke": "vite build && playwright test -c playwright.php.config.ts",
-    "build:php": "tsx scripts/build-php.ts"
+    "build:php": "tsx scripts/build-php.ts",
+    "deploy:backup": "tsx scripts/php/backup-deploy.ts",
+    "deploy:restore": "tsx scripts/php/restore-deploy.ts",
+    "deploy:reset": "tsx scripts/php/reset-deploy.ts"
   },
   "dependencies": {
     "@fontsource/montserrat": "5.3.0",

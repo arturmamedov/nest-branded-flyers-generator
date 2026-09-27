@@ -62,6 +62,11 @@
       "code": "invalid",
       "message": "format must be png or jpg."
     },
+    "bad_canvas": {
+      "status": 400,
+      "code": "invalid",
+      "message": "canvas must be story or whatsapp."
+    },
     "unauthorized": {
       "status": 401,
       "code": "unauthorized",

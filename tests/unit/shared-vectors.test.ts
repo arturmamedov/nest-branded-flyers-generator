@@ -86,9 +86,14 @@ describe('trim', () => {
 
 describe('flyerFilename', () => {
   it('slugs the title the same for both exporters', () => {
-    expect(flyerFilename('Pool party 19/9', 7, 'png')).toBe('pool-party-199.png');
-    expect(flyerFilename('Ñandú  ¡fiesta! · sábado', 3, 'jpg')).toBe('nandu-fiesta-sabado.jpg');
-    expect(flyerFilename('¿¡·!?', 12, 'png')).toBe('flyer-12.png');
+    expect(flyerFilename('Pool party 19/9', 7, 'png', 'story')).toBe('pool-party-199.png');
+    expect(flyerFilename('Ñandú  ¡fiesta! · sábado', 3, 'jpg', 'story')).toBe('nandu-fiesta-sabado.jpg');
+    expect(flyerFilename('¿¡·!?', 12, 'png', 'story')).toBe('flyer-12.png');
+  });
+
+  it('names the canvas, except the story, whose downloads keep the name they always had', () => {
+    expect(flyerFilename('Pool party 19/9', 7, 'png', 'whatsapp')).toBe('pool-party-199-whatsapp.png');
+    expect(flyerFilename('¿¡·!?', 12, 'jpg', 'whatsapp')).toBe('flyer-12-whatsapp.jpg');
   });
 });
 

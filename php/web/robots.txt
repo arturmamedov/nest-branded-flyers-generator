@@ -1,0 +1,5 @@
+# Nest flyers: an internal tool, nothing here is for search engines. Crawlers
+# read robots.txt only at a domain's root, so in a subfolder install the
+# X-Robots-Tag header in .htaccess does this job; this file covers a domain root.
+User-agent: *
+Disallow: /

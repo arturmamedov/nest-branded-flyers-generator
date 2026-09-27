@@ -1,8 +1,9 @@
 # Nest Branded Flyers Generator
 
 Internal mini-app: staff pick a flyer template, fill in the event details, drop a photo, and
-download an Instagram-story-ready image (1080 × 1920). Flyers are saved to a shared library
-and can be reopened and edited later.
+download it as an Instagram story (1080 × 1920) or a WhatsApp image (1080 × 1440, 3:4): one
+flyer, two output canvases, switched in the editor's toolbar. Flyers are saved to a shared
+library and can be reopened and edited later.
 
 Built from a design handoff — **read `design_handoff_flyer_generator/README.md` first.** It
 carries exact geometry, colours, type, the text-fitting behaviour, the data model, the API
@@ -13,7 +14,7 @@ the flyer; they are references, not the app.
 
 - Node on a small VPS the team controls (Node 24 LTS; `.nvmrc`)
 - SQLite (`better-sqlite3`) — single file, easy backup
-- Playwright (Chromium) for the 1080 × 1920 PNG/JPG export
+- Playwright (Chromium) for the PNG/JPG export, at each canvas's exact size
 - Self-hosted Shantell Sans + Montserrat (do not hot-link Google Fonts — export timing)
 - Express 5 API · React + Vite editor · TypeScript throughout · `sharp` for photo uploads
 - **Or PHP shared hosting**: the same editor on a PHP 8.1+ backend with JSON-file storage, where the
@@ -30,16 +31,19 @@ The server binds to `127.0.0.1` unless `HOST` says otherwise, and every write ne
 
 ## First run
 
-1. Complete `seed/hostels.json` — three of the 13 hostels are filled in; Artur has the rest.
-   Seeding upserts by `slug` and never deletes, so re-run `npm run seed` after adding them.
+1. `seed/hostels.json` holds all 14 hostels, from Artur's list. Seeding upserts by `slug` and
+   never deletes, so re-run `npm run seed` after adding one (the PHP backend re-seeds by itself).
 2. Seed the database, then verify the Activity template renders pixel-matched to
    `design/Nest Flyer Story Templates.dc.html` (`npm run compare:design`, below).
 3. Work through the export checklist in the handoff README §9 before shipping.
 
 ## Ground rules
 
-- Instagram safe zones are hard limits: 250px top, 300px bottom, 70px sides. Text and info
-  blocks clamp inside them; only hand-drawn art may sit in the margins.
+- Safe zones are hard limits, **per canvas**: the Instagram story's 250px top, 300px bottom,
+  70px sides; WhatsApp's 40px all round (nothing covers a WhatsApp image's edges). Text and
+  info blocks clamp inside them; only hand-drawn art may sit in the margins. Every canvas's
+  geometry lives in the `CANVASES` registry in `src/shared/layout.ts`: adding a canvas is one
+  entry there.
 - `#53CED1` (bright teal) is never used for text on cream — it fails contrast. Text teal is
   `#0D6F82`.
 - Orange `#EA580C` belongs to the website's "Book Now" button. Never a flyer accent.
@@ -67,11 +71,12 @@ export renderer works in dev too.
 |---|---|
 | `npm run typecheck` | client and server compile |
 | `npm test` | shared logic (`·` split, layout, crop maths, copy rules, schema), the shared test vectors, the storage contract on every driver, SQLite migrations, and that generated files are current |
-| `npm run test:contract` | the HTTP contract (`docs/api-contract.md`) against every backend; `CONTRACT_BASE_URL=…` points it at a deployment instead |
-| `npm run test:render` | builds, then renders every sample in all three photo modes: inside the safe box, no overlapping blocks, no clipped text, real fonts loaded, highlighter clone, exports exactly 1080 × 1920 PNG/JPG, cache invalidates on save; the in-browser client export matches the server export (`fidelity.spec.ts`, ≤ 0.5 % per feature) |
+| `npm run test:contract` | the HTTP contract (`docs/api-contract.md`) against every backend, the PHP one also behind a staff login (`php-basic`), and the access rule itself over HTTP (`php-access`: 401, 403, 503). `CONTRACT_BASE_URL` in `.env` points it at a deployment instead (`docs/deploy.md`) |
+| `npm run test:render` | builds, then renders every sample in all three photo modes on every canvas: every block where `layout.ts` puts it, inside the safe box, no overlapping blocks, no clipped text, real fonts loaded, highlighter clone, exports each canvas at its exact size as PNG/JPG, cached per canvas until a save; the in-browser client export matches the server export (`fidelity.spec.ts`, ≤ 0.5 % per feature). `tests/render/baseline.spec.ts` is opt-in (`RENDER_BASELINE=capture\|check`): byte-identical PNGs of the story before and after a refactor |
 | `npm run test:php` | the PHP backend's own tests (PHPUnit). `composer test` in `php/` does the same; `PHP_BIN` picks the interpreter |
 | `npm run test:php-smoke` | builds, serves the release layout with `php -S`, and drives the editor on the PHP backend in a browser |
-| `npm run build:php` | the release to upload to a PHP host, in `release/php/` |
+| `npm run build:php` | the release to upload to a PHP host, in `release/php/`, and the preflight page beside it (`docs/deploy.md`) |
+| `npm run deploy:backup` / `deploy:restore` / `deploy:reset` | a local deployment's library out to a dated folder, back in, or emptied (`docs/deploy.md`, *Backups*) |
 | `npm run copy` | moves a library between storage drivers (SQLite ⇄ JSON files) |
 | `npm run compare:design` | with `npm run dev` running and samples seeded: pixel-diffs the app against the design prototype (needs internet for the prototype's React). Diff images in `test-results/design-compare/`. The MVP matched it to 0 pixels; since the design pass below it differs on purpose in the headline and art — check nothing else moved |
 
@@ -96,13 +101,16 @@ full WHEN line) — download the stress-test flyer and look.
 | `src/flyer/fit.ts` | the two-pass shrink-to-fit, ported verbatim from the prototype's `_fit()` |
 | `src/shared/` | DOM-free logic shared by client and server: schema, layout numbers, `·` parsing, crop maths, copy rules |
 | `src/editor/` | the editor and library UI |
-| `render.html`, `src/render/` | the bare 1080 × 1920 page headless Chromium screenshots |
+| `render.html`, `src/render/` | the bare page headless Chromium screenshots: one flyer on one canvas (`?canvas=`) |
 | `server/` | Express API, migrations, photo processing, export renderer |
 | `server/storage/` | the storage seam: the SQLite and JSON-file drivers, seeding, the copy tool |
 | `src/shared/` → `schema/` | generated by `npm run gen`: the JSON Schemas, limits and error catalogue PHP reads |
 | `php/` | the PHP backend (`src/`, `tests/`, `web/`), built into `release/php/` by `npm run build:php` |
 | `tests/contract/`, `tests/cross/` | the HTTP contract both backends answer, and the proof PHP serves a store Node wrote |
+| `tests/access/` | the PHP access rule over HTTP (who is refused, with what), and the preflight page |
+| `php/preflight/` | the preflight page the owner uploads before a release (`docs/deploy.md`) |
 | `docs/api-contract.md`, `docs/json-storage.md` | the two seams written down |
+| `docs/deploy.md` | the shared-hosting deploy, step by step, for the owner |
 | `assets/art/` | the built-in hand-drawn art (served at `/assets/art/…`) |
 | `fixtures/photos/` | development placeholder photos — **not licensed**, never shipped as content |
 | `design_handoff_flyer_generator/` | the handoff: spec README + HTML prototypes |
@@ -167,84 +175,38 @@ The same app on an ordinary hosting account: PHP and a web server, two writable 
 Node, no shell, no cron and no SQLite. The library is JSON files (`docs/json-storage.md`), and
 the PNG/JPG is rendered by the staff member's own browser instead of headless Chromium.
 
-**Needs:** PHP 8.1 or newer with `json` and `gd` (`exif` and `imagick` optional), Apache or
-LiteSpeed with `.htaccess` and `mod_rewrite` (an nginx snippet is below), and folders you can
-write to. Everything else ships in the release.
+**The deploy itself is [`docs/deploy.md`](docs/deploy.md)**, written for the owner (SFTP, the
+hosting panel and a browser): the preflight page, the upload, the password and the lock, the
+checks, backups, updates, rollback and troubleshooting. It is the only copy of those steps. This
+section keeps what a developer runs from the checkout. (The VPS deploy above is the other,
+developer-run path, with Node and a renderer; the two share no steps.)
 
-### 1. Build and upload
-
-```sh
-npm run build:php          # → release/php/  (Vite build + composer install --no-dev)
-```
-
-Upload the **contents** of `release/php/` to the folder the domain serves — a domain root or a
-subfolder, both work. `data/` and `uploads/` must be writable by PHP (usually 755, or 775 where
-PHP runs as another user). The release carries no `config.php` and nothing inside `data/` or
-`uploads/` but the `.htaccess` that denies them, so re-uploading never overwrites the library or
-your settings.
-
-### 2. Configure and let it in
-
-Copy `config.sample.php` to `config.php` and set **one** access rule. Until you do, every
-request answers 503: no login means the app must not be open by accident.
-
-```php
-'access' => [
-    'allowIps'    => ['203.0.113.7/32'],              // the office's public IP (IPv4 or IPv6, CIDR)
-    'basicAuth'   => ['user' => 'staff', 'passwordHash' => password_hash('…', PASSWORD_DEFAULT)],
-    'allowPublic' => false,                            // only on a machine nobody else can reach
-],
-'dataDir' => null,   // null = ./data (denied by .htaccess). Better: an absolute path outside public_html.
-```
-
-`config.php` guards the **API**. The editor page, the art and the photos are plain files, so
-to put the whole app behind the office IP or a password, paste one of the snippets in
-`access-examples/` at the top of `.htaccess`. Basic auth belongs behind HTTPS.
-
-Open the URL: the hostels seed themselves on the first request (there is no cron), and the
-library is ready.
-
-### 3. Check it
+**Needs on the host:** PHP 8.1 or newer with `json` and `gd` (or `imagick`), Apache or LiteSpeed
+with `.htaccess` and `mod_rewrite` (an nginx snippet is below), and folders PHP can write to.
 
 ```sh
-# from a checkout, against the real deployment
-CONTRACT_BASE_URL=https://flyers.example.org/ npm run test:contract   # the API contract + the deny rules
-CONTRACT_BASE_URL=https://flyers.example.org/ npm run test:php-smoke  # the editor, uploads and downloads
+npm run build:php     # → release/php/ (Vite build + composer install --no-dev, with release.json)
+                      #   and release/nest-preflight-<random>.php beside it, to upload first
 ```
 
-By hand: `GET api/config` should report `backend: php`; `data/meta.json`, `src/`, `vendor/`,
-`seed/`, `schema/`, `config.php` and any `.php` under `uploads/` must all answer 403 or 404.
-Some hosts run a firewall (ModSecurity) that blocks `PUT` and `DELETE`; the app needs both, so
-check that `curl -i -X DELETE https://…/api/flyers/1` comes back as **our** JSON 403
-(`Missing X-Nest-Flyers header.`) and not an HTML page from the host.
+The release never carries `config.php`, nor anything in `data/` or `uploads/` but their rules, so
+re-uploading never overwrites the library or the settings. `release.json` lists every file with
+its sha256; the preflight page and `GET api/config` (`server.release`) name whatever did not
+arrive, the eight security dotfiles by name.
 
-### 4. Move the current library in
+**Moving a library in** (into a local folder shaped like the host's, then uploaded):
 
 ```sh
-npm run copy -- --from-sqlite ./data/flyers.db --to-json <deploy>/data --uploads-to <deploy>/uploads
+npm run copy -- --from-sqlite ./data/flyers.db --to-json <folder>/data --uploads-to <folder>/uploads
 ```
 
-Upload `data/` and `uploads/` afterwards. The source database is never opened: a snapshot is
-read, so the Node app can keep running. A data folder is served by one backend at a time.
+The source database is never opened: a snapshot is read, so the Node app can keep running. The
+same command works the other way (`--from-json <folder>/data --uploads-from <folder>/uploads
+--to-sqlite …`). A data folder is served by one backend at a time.
 
-### Updating
-
-Upload the release's contents again. `config.php`, `data/` and `uploads/` are not in it, so they
-stay. If a release ever changes the store's format, the app says so rather than half-reading it.
-
-### Backup
-
-Copy `data/` and `uploads/` (plain files), and keep `config.php` with them.
-
-### Troubleshooting
-
-| What you see | Why |
-|---|---|
-| 503 `not_configured` | `config.php` has no access rule, or PHP could not read it |
-| 500 on every page | the host does not allow `Options`/`php_flag` in `.htaccess`: remove those lines (the first block and the `IfModule` blocks) and set them in the host's panel |
-| 404 on every `api/…` | `mod_rewrite` is off, or `AllowOverride` does not include `FileInfo` |
-| a warning printed before the JSON | `display_errors` is on and `.user.ini` is ignored: turn it off in the panel |
-| photos fail at a size the editor accepted | the host's `upload_max_filesize`/`post_max_size`; `GET api/config` reports what the app sees |
+**Against a local copy of a deployment** (a Laragon folder): `npm run deploy:backup`,
+`deploy:restore` and `deploy:reset` (`docs/deploy.md`, *Backups*), and the checks with
+`CONTRACT_BASE_URL` in `.env` (`docs/deploy.md`, *Checking from the computer with the checkout*).
 
 ### nginx
 
@@ -261,7 +223,7 @@ location ^~ /api/ {                     # the only place PHP runs
     fastcgi_param SCRIPT_NAME /api.php;
 }
 location ~ ^/(src|vendor|seed|schema|data)/ { return 404; }
-location ~ ^/(config.*\.php|router\.php|composer\.(json|lock)|\.user\.ini)$ { return 404; }
+location ~ ^/(config.*\.php|router\.php|composer\.(json|lock)|\.user\.ini|release\.json)$ { return 404; }
 location ^~ /uploads/ {                 # images only, never executed
     location ~ \.ph(p\d?|tml|ar|ps|t) { return 404; }
     add_header X-Content-Type-Options nosniff;
@@ -271,6 +233,13 @@ location ^~ /uploads/ {                 # images only, never executed
 There is no generic `location ~ \.php$`: only `api.php` ever runs. Restricting the app to the
 office is `allow`/`deny` or `auth_basic` in the server block.
 
+The preflight page (`docs/deploy.md`, step 1) is written for Apache and LiteSpeed. On nginx it
+is served as source unless it gets its own line, beside the `api/` one, for as long as it is up:
+
+```nginx
+location ~ ^/nest-preflight-[0-9a-f]+\.php$ { include fastcgi_params; fastcgi_pass unix:/run/php/php8.3-fpm.sock; fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name; }
+```
+
 ---
 
 ## Status
@@ -278,7 +247,8 @@ office is `allow`/`deny` or `auth_basic` in the server block.
 Shipped: handoff build steps 1–6 — Activity template pixel-matched to the prototype,
 Playwright export (PNG/JPG, cached), text fields with live preview and shrink-to-fit, photo
 upload with three photo modes, drag-to-reposition and zoom, library with hostel filter, reopen,
-duplicate and archive.
+duplicate and archive. Then output canvases: every flyer previews and downloads as an Instagram
+story or a WhatsApp 3:4 image (`docs/reports/output-canvases.md`).
 
 Next (handoff steps 7–9): per-element drag/nudge with snapping and safe-box clamping, font-size
 multipliers, contrast-checked colour swatches, block reorder, Reset to template; the

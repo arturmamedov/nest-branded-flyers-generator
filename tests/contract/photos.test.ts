@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { formatMb } from '../../src/shared/errors.js';
 import { PHOTO_PATH } from '../../src/shared/storage.js';
 import { PhotoInfoSchema, type PhotoInfo } from '../../src/shared/schema.js';
-import { config, fails, ok, send, upload, url } from './client.js';
+import { config, fails, ok, send, upload } from './client.js';
 
 /* The upload rules every backend applies (docs/api-contract.md, "Photos"):
    sniffed from the bytes, EXIF rotation applied, long edge ≤ 3240, metadata
@@ -15,7 +15,7 @@ const stored = (res: Promise<Response>) => ok(res, PhotoInfoSchema, 201);
 /** Fetches the stored file the way the browser will: relative to the app root. */
 async function served(photo: PhotoInfo) {
   expect(photo.url).toMatch(PHOTO_PATH);
-  const res = await fetch(url(photo.url));
+  const res = await send('GET', photo.url, undefined, {});
   expect(res.status).toBe(200);
   const meta = await sharp(Buffer.from(await res.arrayBuffer())).metadata();
   expect([meta.width, meta.height]).toEqual([photo.width, photo.height]);
@@ -59,7 +59,7 @@ describe('photos', () => {
     const turned = await sharp(await marker(40, 20)).jpeg({ quality: 95 }).withMetadata({ orientation: 6 }).toBuffer();
     const photo = await stored(upload(turned, 'turned.jpg'));
     expect([photo.width, photo.height]).toEqual([20, 40]);
-    const res = await fetch(url(photo.url));
+    const res = await send('GET', photo.url, undefined, {});
     const { data } = await sharp(Buffer.from(await res.arrayBuffer())).raw().toBuffer({ resolveWithObject: true });
     // Orientation 6 turns the image 90° clockwise: the red top-left quadrant ends up top-right.
     const at = (x: number, y: number) => [...data.subarray((y * 20 + x) * 3, (y * 20 + x) * 3 + 3)];

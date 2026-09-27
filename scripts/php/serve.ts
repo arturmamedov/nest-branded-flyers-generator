@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process';
-import { closeSync, existsSync, mkdtempSync, openSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { closeSync, copyFileSync, existsSync, mkdtempSync, openSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { createServer, type AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
 import { isAbsolute, join, relative, resolve } from 'node:path';
@@ -21,6 +21,8 @@ export const SERVE_INI: Readonly<Record<string, string>> = {
   memory_limit: '128M',
   output_buffering: '4096',
   'date.timezone': 'Pacific/Kiritimati',
+  // A test switches a running stage's access rule by rewriting config.php; OPcache could serve the old one.
+  'opcache.enable_cli': '0',
 };
 
 export interface PhpServerOptions {
@@ -81,20 +83,57 @@ function logTail(file: string, bytes = 4000): string {
   }
 }
 
-/** config.php for a test stage: loopback only through allowIps (so the IP rule is exercised, and allowPublic appears
-    only in the local Laragon deploy), and the store outside the stage, as a host keeps it outside public_html. */
-export function writeTestConfig(stage: string, dataDir: string): void {
+/** The access rule a test stage runs under. php -S reads config.php on every request, so a running stage can switch.
+    - loopback-ips: the default. Loopback may use the API through allowIps, so the IP rule is exercised and
+      allowPublic appears only in the local Laragon deploy.
+    - basic: a staff login and nothing else, so loopback is challenged like anyone.
+    - excluded-ips: an IP rule that does not include loopback (TEST-NET-1), and no login.
+    - sample: config.sample.php copied as it ships: a config.php with no rule, the likeliest state on deploy night.
+    - none: no config.php at all. */
+export type AccessPosture =
+  | { kind: 'loopback-ips' }
+  | { kind: 'basic'; user: string; passwordHash: string }
+  | { kind: 'excluded-ips' }
+  | { kind: 'sample' }
+  | { kind: 'none' };
+
+/** An address range no test machine has: TEST-NET-1 (RFC 5737). */
+export const EXCLUDED_RANGE = '192.0.2.0/24';
+
+/** config.php for a test stage, with the store outside the stage, as a host keeps it outside public_html. */
+export function writeTestConfig(stage: string, dataDir: string, access: AccessPosture = { kind: 'loopback-ips' }): void {
   assertInTmp(stage, 'A test config.php');
   if (!isAbsolute(dataDir)) throw new Error(`writeTestConfig: dataDir must be absolute (got ${dataDir}).`);
+  const file = join(stage, 'config.php');
+  if (access.kind === 'none') {
+    rmSync(file, { force: true });
+    return;
+  }
+  if (access.kind === 'sample') {
+    copyFileSync(join(stage, 'config.sample.php'), file);
+    return;
+  }
+  const rule = (() => {
+    switch (access.kind) {
+      case 'loopback-ips':
+        return `'allowIps' => ['127.0.0.1/32', '::1/128'],
+        'basicAuth' => null,`;
+      case 'basic':
+        return `'allowIps' => [],
+        'basicAuth' => ['user' => ${phpString(access.user)}, 'passwordHash' => ${phpString(access.passwordHash)}],`;
+      case 'excluded-ips':
+        return `'allowIps' => [${phpString(EXCLUDED_RANGE)}],
+        'basicAuth' => null,`;
+    }
+  })();
   const source = `<?php
 
 declare(strict_types=1);
 
-// Test stage only (scripts/php/serve.ts); never shipped. Loopback may use the API.
+// Test stage only (scripts/php/serve.ts); never shipped. Access posture: ${access.kind}.
 return [
     'access' => [
-        'allowIps' => ['127.0.0.1/32', '::1/128'],
-        'basicAuth' => null,
+        ${rule}
         'allowPublic' => false,
     ],
     'dataDir' => ${phpString(toPosix(resolve(dataDir)))},
@@ -102,7 +141,7 @@ return [
     'imageProcessor' => 'auto',
 ];
 `;
-  writeFileSync(join(stage, 'config.php'), source);
+  writeFileSync(file, source);
 }
 
 /** One readiness probe: null once api/config answers as the PHP backend, else what it said instead. */
@@ -187,6 +226,31 @@ export async function startPhpServer(options: PhpServerOptions): Promise<PhpServ
   return { baseUrl, logFile, exited, stop };
 }
 
+export interface ServedStage {
+  /** The throwaway folder holding the stage and its store; stop() deletes it. */
+  root: string;
+  stage: string;
+  dataDir: string;
+  server: PhpServer;
+}
+
+/** A fresh stage in the temp dir (never in the repo, which Laragon's Apache serves), its store beside it, served in the
+    loopback posture. Starting on loopback means "ready" proves the whole boot, seeding included; a test then switches
+    the access rule with writeTestConfig. server.stop() deletes root. */
+export async function startStage(options: { prefix: string; dist?: boolean; port?: number; phpBin?: string }): Promise<ServedStage> {
+  const root = mkdtempSync(join(tmpdir(), options.prefix));
+  try {
+    const stage = stagePhp(join(root, 'stage'), { dist: options.dist ?? false, vendor: 'shim' });
+    const dataDir = join(root, 'data');
+    writeTestConfig(stage, dataDir);
+    const server = await startPhpServer({ stage, port: options.port, phpBin: options.phpBin, tempRoot: root });
+    return { root, stage, dataDir, server };
+  } catch (e) {
+    rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+    throw e;
+  }
+}
+
 /** Names the process that owns a temp stage, so a later run sweeps only stages nobody is serving. */
 const STAGE_MARKER = 'server.json';
 
@@ -239,18 +303,9 @@ async function main(argv: string[]): Promise<void> {
 
   const prefix = 'nest-flyers-php-smoke-';
   sweepStale(prefix);
-  const root = mkdtempSync(join(tmpdir(), prefix));
-  let server: PhpServer;
-  try {
-    // Who owns this stage, so a later run's sweep can tell live from stale.
-    writeFileSync(join(root, STAGE_MARKER), JSON.stringify({ pid: process.pid, started: new Date().toISOString() }));
-    const stage = stagePhp(join(root, 'stage'), { dist: values.dist ?? false, vendor: 'shim' });
-    writeTestConfig(stage, join(root, 'data'));
-    server = await startPhpServer({ stage, port, tempRoot: root });
-  } catch (e) {
-    rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
-    throw e;
-  }
+  const { root, server } = await startStage({ prefix, dist: values.dist ?? false, port });
+  // Who owns this stage, so a later run's sweep can tell live from stale (until then, the sweep judges by age).
+  writeFileSync(join(root, STAGE_MARKER), JSON.stringify({ pid: process.pid, started: new Date().toISOString() }));
   console.log(`PHP backend at ${server.baseUrl} (log: ${server.logFile})`);
 
   let stopping = false;

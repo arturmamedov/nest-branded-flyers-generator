@@ -63,6 +63,19 @@ final class AccessRule
         return $this->allowPublic || $this->allowIps !== [] || $this->basicAuth !== null;
     }
 
+    /**
+     * The rule in one word, for api/config's diagnostics: allowPublic wins (it lets
+     * anyone in, whatever else is set); otherwise the rules that apply, joined by "+".
+     */
+    public function kind(): string
+    {
+        if ($this->allowPublic) {
+            return 'allowPublic';
+        }
+        $kinds = array_keys(array_filter(['allowIps' => $this->allowIps !== [], 'basicAuth' => $this->basicAuth !== null]));
+        return $kinds === [] ? 'none' : implode('+', $kinds);
+    }
+
     public function allowsIp(string $ip): bool
     {
         foreach ($this->allowIps as $network) {
