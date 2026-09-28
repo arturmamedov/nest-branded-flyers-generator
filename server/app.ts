@@ -21,7 +21,7 @@ import {
 import type { StoredDoodle, StoredPhoto } from '../src/shared/storage.js';
 import type { StorageDriver } from './config.js';
 import { HttpError } from './errors.js';
-import { ASSETS_DIR, DIST_DIR } from './paths.js';
+import { ASSETS_DIR, DIST_DIR, ROBOTS_FILE } from './paths.js';
 import { processPhoto } from './services/photos.js';
 import { StorageTooNewError } from './storage/json/store.js';
 import { renderKey, type Renderer } from './services/renderer.js';
@@ -178,6 +178,10 @@ export function createApp(deps: AppDeps) {
   // Flyer art and logos (built-ins) and staff uploads.
   app.use('/assets', express.static(ASSETS_DIR, { maxAge: '1h', fallthrough: false }));
   app.use('/uploads', express.static(deps.uploadsDir, { maxAge: '7d', immutable: true, fallthrough: false }));
+
+  // Every crawler, search and AI alike, is asked to stay out. It counts only when the app runs at a
+  // domain's root; in a subfolder the domain's own robots.txt does the job (on nestpass.ai, nestpass-tools').
+  app.get('/robots.txt', (_req, res) => res.sendFile(ROBOTS_FILE));
 
   if (deps.vite) {
     app.use(deps.vite.middlewares);

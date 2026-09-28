@@ -1,5 +1,30 @@
-# Nest flyers: an internal tool, nothing here is for search engines. Crawlers
-# read robots.txt only at a domain's root, so in a subfolder install the
-# X-Robots-Tag header in .htaccess does this job; this file covers a domain root.
+# Nests Hostels internal staff tools: not for search engines, and not for AI crawlers or model
+# training. Every crawler is asked to stay out of everything.
+#
+# robots.txt is a request that well-behaved crawlers follow, not a lock: the pages also answer
+# "noindex", and each tool's own login is what keeps it private. The same file ships with every
+# Nests tool (nestpass-tools, Flyers, Newsletter, QR codes); it only counts at a domain's root.
+
 User-agent: *
+Disallow: /
+
+# The AI crawlers by name as well, for any that only read a group of their own.
+User-agent: GPTBot
+User-agent: ChatGPT-User
+User-agent: OAI-SearchBot
+User-agent: ClaudeBot
+User-agent: Claude-User
+User-agent: Claude-SearchBot
+User-agent: anthropic-ai
+User-agent: Google-Extended
+User-agent: Applebot-Extended
+User-agent: CCBot
+User-agent: PerplexityBot
+User-agent: Perplexity-User
+User-agent: Bytespider
+User-agent: meta-externalagent
+User-agent: Amazonbot
+User-agent: cohere-ai
+User-agent: DuckAssistBot
+User-agent: MistralAI-User
 Disallow: /

@@ -112,6 +112,7 @@ full WHEN line) — download the stress-test flyer and look.
 | `docs/api-contract.md`, `docs/json-storage.md` | the two seams written down |
 | `docs/deploy.md` | the shared-hosting deploy, step by step, for the owner |
 | `assets/art/` | the built-in hand-drawn art (served at `/assets/art/…`) |
+| `php/web/robots.txt` | every crawler, search and AI, asked to stay out. The PHP release ships it and Express serves the same file at the app root; it counts when that is a domain's root. On nestpass.ai the domain's own copy (nestpass-tools) covers `/activities/`. |
 | `fixtures/photos/` | development placeholder photos — **not licensed**, never shipped as content |
 | `design_handoff_flyer_generator/` | the handoff: spec README + HTML prototypes |
 
