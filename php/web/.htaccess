@@ -1,41 +1,38 @@
 # Nest flyers: Apache rules for the app root (a domain root or a subfolder).
 #
-# To restrict the whole app (editor, photos and API) to your office or to a
-# password, paste one of the snippets from access-examples/ at the TOP of this
-# file (the preflight page prints the password one with your paths filled in).
-# config.php's access rule guards only the API. Every release upload replaces
-# this file: paste the block again after each one (docs/deploy.md).
+# To restrict the whole app (editor, photos and API) to a password, paste the
+# block from access-examples/htaccess-basic-auth.txt at the TOP of this file
+# (the preflight page prints it with your paths filled in). config.php's
+# access rule guards only the API. Every release upload replaces this file:
+# paste the block again after each one (docs/deploy.md).
 #
-# If Apache answers 500 for every page, the host's AllowOverride does not allow
-# "Options": ask the host to allow it (the lines below need Options, FileInfo
-# and AuthConfig/Limit), rather than deleting the lines.
+# Only lines a restrictive host allows in .htaccess: rewrites, headers and
+# FilesMatch. IONOS answers 403 to every page when this file has
+# "Options -Indexes -MultiViews" (docs/reports/host-facts.md), so folder
+# listings are refused by a rewrite instead, and PHP's error display is left to
+# .user.ini and api.php. An "Options", "php_flag" or "<If>" line added here can
+# take the whole app down on such a host.
 
-Options -Indexes -MultiViews
-DirectoryIndex index.html
-
-# An internal tool: never indexed. robots.txt (shipped at the app root) counts only
-# at a domain's root, and this app often lives in a subfolder, so every answer says it as well.
+# An internal tool: never indexed. robots.txt counts only at a domain's root,
+# and this app often lives in a subfolder, so every answer says it as well.
 <IfModule mod_headers.c>
     Header set X-Robots-Tag "noindex, nofollow"
 </IfModule>
 
-# PHP errors must never be printed into an answer: they would corrupt the JSON.
-# api.php logs them instead. (Hosts running PHP as CGI/FPM read .user.ini.)
-<IfModule mod_php.c>
-    php_flag display_errors off
-    php_flag display_startup_errors off
-</IfModule>
-<IfModule php_module>
-    php_flag display_errors off
-    php_flag display_startup_errors off
-</IfModule>
-<IfModule mod_php7.c>
-    php_flag display_errors off
-    php_flag display_startup_errors off
-</IfModule>
-
 <IfModule mod_rewrite.c>
     RewriteEngine On
+
+    # http:// goes to https:// before anything is served. X-Forwarded-Proto
+    # covers hosts whose TLS ends at a proxy in front of Apache. (With the staff
+    # login pasted above, Apache refuses http:// before any rewrite runs; the
+    # <If> lines of that block turn the refusal into this same redirect.)
+    # The address comes from the request line as sent, not REQUEST_URI: where
+    # MultiViews is on (IONOS, and .htaccess cannot turn it off there), Apache
+    # has already swapped api/config for api.php/config, which answers 404.
+    RewriteCond %{HTTPS} !=on
+    RewriteCond %{HTTP:X-Forwarded-Proto} !=https
+    RewriteCond %{THE_REQUEST} ^\S+\s+(?:https?://[^/\s]+)?(/\S*)
+    RewriteRule ^ https://%{HTTP_HOST}%1 [R=301,L,NE]
 
     # CGI/FPM hosts drop the Authorization header; hand it to PHP so config.php's
     # Basic auth works (it arrives as REDIRECT_HTTP_AUTHORIZATION after the rewrite).
@@ -48,6 +45,9 @@ DirectoryIndex index.html
     # The API: everything under api/ goes to the front controller. Relative
     # rules and no RewriteBase, so a subfolder and a domain root both work.
     RewriteRule ^api/ api.php [L,QSA]
+
+    # No folder is listed; the app root keeps its index.html.
+    RewriteRule ^.+/$ - [R=404,L]
 </IfModule>
 
 # Config, tooling, the release manifest, logs and docs are never served, in any letter case.

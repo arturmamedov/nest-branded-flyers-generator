@@ -240,14 +240,14 @@ function httpsCheck(array $server, $base, $fetch)
     }
     if ($r['status'] === 401) {
         return check('https', 'fail', 'HTTPS', 'http:// asks for the password: it would be sent unencrypted.',
-            'Use the https-only lock block this page prints (Require expr … HTTPS), and the force-https block.');
+            'Use the https-only lock block this page prints (Require expr … HTTPS).');
     }
     if ($r['status'] === 403) {
         return check('https', 'warn', 'HTTPS', 'http:// is refused (403) without asking for the password: safe, but visitors typing http:// see an error.',
-            'Add the force-https block this page prints, which turns that 403 into a redirect.');
+            'The <If> lines at the end of the lock block turn that 403 into a redirect, on hosts that allow <If> in .htaccess.');
     }
     return check('https', 'warn', 'HTTPS', "This page arrived over https ($signal), but http:// answers {$r['status']} instead of switching to https://.",
-        'Add the force-https block this page prints, at the top of .htaccess.');
+        'The release\'s .htaccess sends http:// to https://: the one here is missing, not read, or from an older release. Upload the release\'s .htaccess again.');
 }
 
 /** Which of the three places PHP can find a Basic login in carried one: names only, never the values. */
@@ -383,7 +383,7 @@ function releaseChecks(array $verdict)
     }
     $htaccess = [
         'as shipped' => ['info', 'No lock pasted into .htaccess yet: the editor page, the art and the photos are open to anyone who finds the address.'],
-        'block on top' => ['pass', 'The shipped rules are intact, with a block pasted above them (the lock).'],
+        'block on top' => ['pass', 'The shipped rules are intact, with a block pasted above them.'],
         'changed' => ['warn', 'Edited somewhere other than the top. Paste blocks above the shipped rules, and leave those as they are.'],
         'missing' => ['fail', 'Missing: nothing keeps code and config private.'],
     ];
@@ -453,7 +453,7 @@ function outsideVerdict($id, $title, $url, $status)
         return check($id, 'pass', $title, "$url refuses a stranger (503: config.php has no access rule yet).");
     }
     if ($status >= 500) {
-        return check($id, 'fail', $title, "$url answers $status.", 'If every page does, the host rejects a line of .htaccess: see docs/deploy.md, step 1b.');
+        return check($id, 'fail', $title, "$url answers $status.", 'If every page does, the host rejects a line of .htaccess, usually one pasted at the top: see docs/deploy.md, Troubleshooting.');
     }
     if ($id === 'outside-denied') {
         return $status === 200
@@ -559,22 +559,11 @@ function lockBlock($authUserFile)
         . "<RequireAll>\n"
         . "    Require valid-user\n"
         . "    Require expr \"%{HTTPS} == 'on' || %{HTTP:X-Forwarded-Proto} == 'https'\"\n"
-        . "</RequireAll>\n";
-}
-
-/** The block that sends http:// to https:// (access-examples/htaccess-force-https.txt). */
-function forceHttpsBlock()
-{
-    return "# Nest flyers: http:// goes to https://.\n"
+        . "</RequireAll>\n"
+        . "# Turns the 403 over http into the redirect. If every page then answers an error, the host refuses <If>: delete these three lines.\n"
         . "<If \"%{HTTPS} != 'on' && %{HTTP:X-Forwarded-Proto} != 'https'\">\n"
         . "    ErrorDocument 403 https://%{HTTP_HOST}%{REQUEST_URI}\n"
-        . "</If>\n"
-        . "<IfModule mod_rewrite.c>\n"
-        . "    RewriteEngine On\n"
-        . "    RewriteCond %{HTTPS} !=on\n"
-        . "    RewriteCond %{HTTP:X-Forwarded-Proto} !=https\n"
-        . "    RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [R=301,L]\n"
-        . "</IfModule>\n";
+        . "</If>\n";
 }
 
 /** Where the password file should go: next to the web root rather than in it, when there is a web root to go next to. */
@@ -592,7 +581,7 @@ function passwordFilePaths(array $server, $appRoot)
 /**
  * The password box's answer: one password in, the lines to paste out.
  *
- * @return array{error?: string, configPhp?: string, htpasswd?: string, lock?: string, forceHttps?: string, authUserFile?: string}
+ * @return array{error?: string, configPhp?: string, htpasswd?: string, lock?: string, authUserFile?: string}
  */
 function passwordBlocks($user, $password, array $passwordFiles)
 {
@@ -607,7 +596,6 @@ function passwordBlocks($user, $password, array $passwordFiles)
         'configPhp' => configPhp($user, password_hash($password, PASSWORD_BCRYPT)),
         'htpasswd' => $user . ':' . password_hash($password, PASSWORD_BCRYPT, ['cost' => HTPASSWD_COST]) . "\n",
         'lock' => lockBlock($file),
-        'forceHttps' => forceHttpsBlock(),
         'authUserFile' => $file,
     ];
 }
@@ -791,8 +779,8 @@ function render(array $report, $password, array $passwordFiles, $appRoot, $https
                 . '<h2>2. The password file</h2><p class="lead">One line, saved as <code>' . h($password['authUserFile']) . '</code>'
                 . (isset($passwordFiles['outside']) ? ' (outside the web root). If your FTP login cannot reach that folder, use <code>' . h($passwordFiles['inside']) . '</code> instead, and change AuthUserFile below to match.' : '.')
                 . '</p><pre id="htpasswd">' . h($password['htpasswd']) . '</pre>'
-                . '<h2>3. The top of .htaccess</h2><p class="lead">Paste both blocks above everything else in the app folder\'s <code>.htaccess</code>. They lock the editor page, the art and the photos, over https only.</p>'
-                . '<pre id="htaccess">' . h($password['lock'] . "\n" . $password['forceHttps']) . '</pre>'
+                . '<h2>3. The top of .htaccess</h2><p class="lead">Paste this block above everything else in the app folder\'s <code>.htaccess</code>. It locks the editor page, the art and the photos, over https only.</p>'
+                . '<pre id="htaccess">' . h($password['lock']) . '</pre>'
                 . '<p class="lead">Locked out? Delete config.php and remove these blocks over FTP: everything then answers 503 "not set up yet", which is safe. Never use allowPublic.</p>';
         }
     }

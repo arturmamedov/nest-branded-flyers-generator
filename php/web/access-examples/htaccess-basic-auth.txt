@@ -1,7 +1,7 @@
 # Nest flyers: a staff login for the whole app (the editor, the art, the photos
-# and the API). Paste this block at the TOP of the app's .htaccess, and the one
-# in htaccess-force-https.txt under it. The preflight page prints both with
-# this account's paths filled in (docs/deploy.md, step 3).
+# and the API). Paste this block at the TOP of the app's .htaccess, above the
+# release's own https redirect. The preflight page prints it with this
+# account's paths filled in (docs/deploy.md, step 3).
 #
 # It asks for the password over https only. Over http it answers 403 without
 # asking, so the password never crosses the wire unencrypted, and if anything
@@ -42,3 +42,12 @@ AuthUserFile /home/ACCOUNT/nest-flyers.htpasswd
 #         </RequireAny>
 #         Require expr "%{HTTPS} == 'on' || %{HTTP:X-Forwarded-Proto} == 'https'"
 #     </RequireAll>
+
+# Over http the lines above answer 403 before any redirect can run: this turns
+# that 403 into the redirect to https://. <If> is allowed in .htaccess only
+# where the host allows everything there (AllowOverride All); where it is not,
+# every page answers an error (500, or IONOS's 403 page). Delete these three
+# lines there: http:// visitors then get a plain 403, which is still safe.
+<If "%{HTTPS} != 'on' && %{HTTP:X-Forwarded-Proto} != 'https'">
+    ErrorDocument 403 https://%{HTTP_HOST}%{REQUEST_URI}
+</If>

@@ -132,7 +132,18 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
   goes public only once a real login exists. That login (Supabase, or the Laravel app as the issuer) is its
   own brief, and is not to be started unasked. It will have to exempt a sign-in route from the access check,
   and decide what guards the static files.
-- Open: per-hostel logos; the IONOS column of `docs/reports/host-facts.md`, above all whether the login
-  reaches PHP under FastCGI (the preflight page's *Login* line). The local Laragon deploy
+- IONOS answered the preflight page on 2026-09-28 (the IONOS column of `docs/reports/host-facts.md`):
+  PHP 8.4 under FastCGI, gd, every account check green.
+  - Its root `.htaccess` was a hand-edited older copy, so `release.json` was served.
+  - `http://` was not redirected.
+  - The then-shipped full `.htaccess` was refused: 403 on every URL, shown on IONOS's own page with
+    a cookie banner. The likely line is `Options -Indexes -MultiViews`.
+  - MultiViews is on and cannot be turned off from `.htaccess`.
+  So the release's root `.htaccess` is now the one IONOS runs: rewrites, headers and `FilesMatch`
+  only, with the https redirect first (taken from `THE_REQUEST`, because of MultiViews).
+  `.htaccess-minimal`, step 1b and the separate https example are gone. The lock's `<If>` lines
+  (http 403 → redirect) may be refused there too; the block says to delete them if so.
+- Open: per-hostel logos; whether the login reaches PHP under FastCGI (the preflight page's *Login*
+  line, once a lock is on). The local Laragon deploy
   (`nest-flyers-php`) still runs `allowPublic`, so the contract row that forbids it fails there by design.
   The branch is unpushed, by the owner's choice.

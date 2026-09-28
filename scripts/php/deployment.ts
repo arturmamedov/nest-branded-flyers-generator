@@ -19,7 +19,10 @@ export interface Deployment {
   configFile: string | null;
 }
 
-/** What the writable folders keep through a reset or a restore: the rules the release ships, not the library. */
+/**
+ * What the writable folders keep through a reset or a restore: the rules a release ships, not the library.
+ * Releases before 2026-09-28 also shipped uploads/.htaccess-minimal, and deployments of them still have it.
+ */
 export const RULE_FILES: ReadonlySet<string> = new Set(['.htaccess', '.htaccess-minimal']);
 
 /**

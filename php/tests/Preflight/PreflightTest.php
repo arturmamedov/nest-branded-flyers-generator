@@ -20,7 +20,6 @@ use function NestFlyersPreflight\displayErrorsCheck;
 use function NestFlyersPreflight\extensionsCheck;
 use function NestFlyersPreflight\fontPaths;
 use function NestFlyersPreflight\fontsCheck;
-use function NestFlyersPreflight\forceHttpsBlock;
 use function NestFlyersPreflight\httpsCheck;
 use function NestFlyersPreflight\limitsCheck;
 use function NestFlyersPreflight\lockBlock;
@@ -155,7 +154,6 @@ final class PreflightTest extends TestCase
             self::directives(str_replace('/home/ACCOUNT/nest-flyers.htpasswd', '/srv/x.htpasswd', (string) file_get_contents("$examples/htaccess-basic-auth.txt"))),
             self::directives(lockBlock('/srv/x.htpasswd')),
         );
-        self::assertSame(self::directives((string) file_get_contents("$examples/htaccess-force-https.txt")), self::directives(forceHttpsBlock()));
     }
 
     // ---- the checks ----

@@ -62,11 +62,12 @@ says what closes it.
   `REDIRECT_HTTP_AUTHORIZATION` has still only been unit-tested. Laragon runs mod_php, and enabling
   FastCGI here would mean editing Laragon's global `httpd.conf`, which Artur declined. *Closes with:*
   the preflight page's *Login* line on IONOS, reloaded behind the lock.
-- **The upload itself.** An FTP transfer, and extracting a zip with the host's file manager.
-  *Closes with:* `docs/deploy.md` step 2 on IONOS; the preflight page's *The release* line then
-  names anything that did not arrive.
-- **A restrictive `AllowOverride`.** `.htaccess-minimal` is held to the full files line by line,
-  but no host here refuses `Options`. *Closes with:* the host itself, only if every page answers 500.
+- **The upload itself.** Closed on IONOS (2026-09-28): the preflight page found every file of release
+  `56b82bc7cab3` as shipped, the eight dotfiles included.
+- **A restrictive `AllowOverride`.** Closed on IONOS (2026-09-28). It answered 403 to every page
+  under the full root `.htaccess`, most likely because of `Options -Indexes -MultiViews`. It ran
+  the `.htaccess-minimal` rules with the https redirect on top. That is now the release's only root
+  `.htaccess`, and the full/minimal pair and step 1b are gone (`docs/reports/host-facts.md`).
 - **A host firewall (ModSecurity).** Some hosts block `PUT` and `DELETE`. *Closes with:*
   `curl -i -X DELETE https://…/api/flyers/1` signed in: our JSON 403 means the firewall let it through.
 - **Server-side probes over a trusted certificate.** Laragon's certificate is self-signed, so PHP's

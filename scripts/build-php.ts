@@ -32,7 +32,6 @@ function assertComplete(dir: string): void {
     'api.php',
     'router.php',
     '.htaccess',
-    '.htaccess-minimal',
     '.user.ini',
     'config.sample.php',
     MANIFEST_FILE,
@@ -40,10 +39,8 @@ function assertComplete(dir: string): void {
     'schema/shared.json',
     'seed/hostels.json',
     'assets/nest-logo-teal.png',
-    'uploads/.htaccess-minimal',
     'robots.txt',
     'access-examples/htaccess-basic-auth.txt',
-    'access-examples/htaccess-force-https.txt',
     ...GUARD_FILES,
   ];
   const missing = required.filter((file) => !existsSync(join(dir, file)));

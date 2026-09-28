@@ -65,12 +65,6 @@ version: in the IONOS panel, set this domain's PHP to 8.3 or newer, then reload.
 advice (`display_errors` is often On until the release's own settings arrive in step 2).
 Everything under *The release* says "not uploaded yet" for now.
 
-**1b.** If the page answers **500** *after* step 2 (and so does everything else in the folder),
-the host refuses a line of the release's `.htaccess`. In the file manager, rename
-`.htaccess-minimal` to `.htaccess` (replacing it), and `uploads/.htaccess-minimal` to
-`uploads/.htaccess`, then reload. Ask the host to allow `Options` in `.htaccess` too: the full
-files are the tested ones.
-
 ### 2. Upload the release
 
 Either upload the zip and extract it into the app folder with the file manager (IONOS Webspace
@@ -84,7 +78,12 @@ hidden files shown. Two rules:
   in a folder the website does not serve. It is also on the office drive.
 
 Reload the preflight page. *The release* must be green: every file arrived, the eight security
-files by name. If a file is listed as missing or different, upload it again.
+files by name. If a file is listed as missing or different, upload it again. *Connection* must be
+green too: the release's `.htaccess` sends every `http://` visitor to `https://`.
+
+If every page now answers an error (IONOS: a 403 on its own page, with a cookie banner), the host
+refuses a line of the release's `.htaccess`. Upload the previous release's `.htaccess` to get
+back, and tell a developer: the file carries only what IONOS accepted on 2026-09-28.
 
 ### 3. Set the password
 
@@ -98,9 +97,11 @@ itself appears nowhere.
    SFTP login can reach that folder, otherwise as `.htpasswd` in the app folder (Apache never
    serves a file whose name starts with `.ht`). If you use the second place, change the
    `AuthUserFile` line in block 3 to match.
-3. **The top of `.htaccess`** — open the app folder's `.htaccess`, paste both blocks **above
-   everything else**, and save. They lock the editor page, the art and the photos, which
-   `config.php` does not cover.
+3. **The top of `.htaccess`** — open the app folder's `.htaccess`, paste the block **above
+   everything else**, and save. It locks the editor page, the art and the photos, which
+   `config.php` does not cover. If every page then answers an error, the host refuses the three
+   `<If …>` lines at the end of the block: delete them. `http://` then answers a plain 403
+   instead of switching to `https://`, which is still safe.
 
 Why two locks with the same login: `config.php` guards the API, `.htaccess` guards everything
 else. With the same user and password in both, the browser asks once. With different ones, a
@@ -120,8 +121,8 @@ Reload the preflight page. It asks for the password now; enter it. Then:
 - *Login* says which variable carried your password to PHP. IONOS runs PHP as CGI/FastCGI, where
   that hand-off is the step most likely to fail. If it says no login reached PHP, `config.php`
   will refuse everyone: tell the host, or use `allowIps` in `config.php` instead.
-- *Connection* must be green: this page arrived over https, and `http://` sends visitors to
-  `https://`.
+- *Connection* must still be green: this page arrived over https, and `http://` sends visitors
+  to `https://` without asking for the password.
 - *Flyer fonts* must be green. If a font does not load, flyers still export at their exact
   size (1080 × 1920 story, 1080 × 1440 WhatsApp), in the wrong typeface, and nothing else warns you.
 
@@ -203,9 +204,10 @@ backup → wipe → restore brings back a flyer and its photo byte for byte.
 2. Take a backup.
 3. Upload the new release additively (step 2). `config.php`, `data/` and `uploads/` are not in
    it, so they stay.
-4. **The upload replaces `.htaccess`, and with it the lock you pasted.** Paste the two blocks at
-   the top again right away (you kept them, or make them again on a fresh preflight page), and
-   check in a private window that the editor page asks for the login.
+4. **The upload replaces `.htaccess`, and with it the lock you pasted.** Paste the block at the
+   top again right away (you kept it, or make it again on a fresh preflight page), and check in a
+   private window that the editor page asks for the login. The https redirect is part of the
+   release: nothing to paste for it.
 5. Reload the app. If a release ever changes the store's format, the app says so rather than
    half-reading it.
 
@@ -260,8 +262,8 @@ goes to the host, and each run says so at the start.
 
 | What you see | Why, and what to do |
 |---|---|
-| 500 on every page in the folder, the preflight page too | the host refuses a line of `.htaccess` (usually `Options`): step 1b |
-| photos alone answer 500 | the same, in `uploads/.htaccess`: rename `uploads/.htaccess-minimal` over it |
+| 500 on every page in the folder, the preflight page too (IONOS: 403, on its own page with a cookie banner) | the host refuses a line of `.htaccess`. Right after pasting a block, it is that block: take it out again (the lock's `<If …>` lines are the likely one). Right after an upload, put the previous release's `.htaccess` back and tell a developer |
+| photos alone answer 500 | the same, in `uploads/.htaccess` (IONOS accepts it as shipped) |
 | 503 `not_configured` | `config.php` is missing, has no access rule, or PHP could not read it (a typo): check it against the one the preflight page printed |
 | the browser asks for the password twice, or signs in and the app then says "Sign in" | the `.htaccess` login and `config.php`'s `basicAuth` differ: make them the same user and password |
 | signed in, but every save or load fails with "Sign in" | the host drops the Authorization header on its way to PHP: the preflight page's *Login* line says so. Ask the host (CGIPassAuth), or use `allowIps` in `config.php` |
