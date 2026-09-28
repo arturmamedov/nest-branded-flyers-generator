@@ -1,6 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import { join } from 'node:path';
-import { expect, test, type APIRequestContext, type Locator, type Page, type Response as PwResponse } from '@playwright/test';
+import type { APIRequestContext, Locator, Page, Response as PwResponse } from '@playwright/test';
+import { expect, test } from '../browser';
 import sharp from 'sharp';
 import { apiError } from '../../src/shared/errors';
 import { flyerFilename } from '../../src/shared/filename';

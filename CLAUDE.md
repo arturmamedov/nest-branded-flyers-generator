@@ -40,6 +40,15 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
   anchor points; a new canvas is one entry), `defaults.ts` (tokens + template art), `chips.ts` (the `·`
   convention), `photo.ts` (crop maths), `copyRules.ts`. Relative imports here use `.js` extensions (NodeNext).
 - `src/editor/` — editor + library UI. `render.html` + `src/render/` — the bare page headless Chromium shoots.
+- The editor's top bar is `<nest-nav tool="flyers">` (`App.tsx`), the bar every Nests tool shares.
+  - It is loaded `async` from `https://nestpass.ai/kit/nest-nav.js`. That file lives in the
+    `nestpass-tools` repo (`A:\serverpath\laragon\nestpass-tools`), with the list of tools and the
+    contract.
+  - Its shadow root draws the bar. `editor.css` styles only the editor's own links (the default
+    slot) and the `slot="fallback"` brand, which shows at the same 54 px until the script runs or
+    if it can't be reached.
+  - Browser specs import `test`/`expect` from `tests/browser.ts`, which blocks the script.
+    `tests/render/chrome.spec.ts` holds both states.
 - `server/` — Express 5 API, append-only SQLite migrations (`server/db/migrations.ts`), photo processing
   (sharp), Playwright export with a content-hash cache. Storage lives behind `server/storage/` (the
   `sqlite` and `json` drivers, chosen by `STORAGE` in `server/composition.ts`) and the copy tool.
@@ -111,6 +120,14 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
   - `docs/deploy.md`, the owner's single copy of the deploy steps, with backup/restore/reset;
   - an Apache rehearsal, recorded in `docs/reports/php-port.md` and `docs/reports/host-facts.md`.
   `seed/hostels.json` now has all 14 hostels.
+- Built: the shared top bar (branch `feat/shared-nav`, 2026-09-27; the plan's decisions are in
+  `nestpass-tools/README.md`).
+  - The same bar runs in Flyers, Newsletter, QR and Social vanity URLs (`nestpass.ai/vanity/`, in the
+    website repo `H-Nests/www_cur/tools/vanity-links`), and the tools page `nestpass.ai/` lists them.
+  - Live since 2026-09-28: SSL, the tools page and the kit, and Flyers and Newsletter with the bar.
+    QR's part is on its branch `claude/shared-nav-7477311f`.
+  - Still open: this app answered without a password on 2026-09-28 (`allowPublic`), while the public
+    tools page links to it. The lock is `docs/deploy.md` steps 3–4.
 - **Not live, by the owner's decision:** the host is IONOS (`https://nestpass.ai/activities/`), and the app
   goes public only once a real login exists. That login (Supabase, or the Laravel app as the issuer) is its
   own brief, and is not to be started unasked. It will have to exempt a sign-in route from the access check,

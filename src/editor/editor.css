@@ -39,15 +39,27 @@ body {
   flex-direction: column;
 }
 
-.topbar {
+/* The top bar is <nest-nav>, which every Nests tool shares and loads from nestpass.ai
+   (the nestpass-tools repo). Its shadow root draws the bar and the links to the other tools;
+   this file styles only what the editor puts inside it:
+   - the fallback brand, shown while the element is undefined (the script hasn't run yet, or
+     nestpass.ai can't be reached);
+   - the editor's own links.
+   The fallback keeps the shared bar's 54 px, so the upgrade moves nothing. */
+nest-nav {
+  flex: 0 0 auto;
+}
+
+nest-nav:not(:defined) {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 10px 20px;
+  box-sizing: border-box;
+  height: 54px;
+  padding: 0 20px;
   background: var(--night);
   color: #fff;
-  flex: 0 0 auto;
 }
 
 .brand {
@@ -73,20 +85,22 @@ body {
   border-left: 1px solid rgba(255, 255, 255, 0.25);
 }
 
-.topbar nav {
+nest-nav > nav {
   display: flex;
   align-items: center;
   gap: 18px;
 }
 
-.topbar nav a:not(.btn) {
+/* 13 px like the shared bar's own links, in both states. */
+nest-nav > nav a:not(.btn) {
   color: rgba(255, 255, 255, 0.75);
   text-decoration: none;
   font-weight: 600;
+  font-size: 13px;
 }
 
-.topbar nav a.active,
-.topbar nav a:not(.btn):hover {
+nest-nav > nav a.active,
+nest-nav > nav a:not(.btn):hover {
   color: #fff;
 }
 
@@ -608,5 +622,13 @@ body {
 
   .stage {
     min-height: 420px;
+  }
+}
+
+/* On a phone the shared bar's tool menu sits beside these links; keep them compact (the
+   nestpass-tools contract). */
+@media (max-width: 480px) {
+  nest-nav > nav {
+    gap: 12px;
   }
 }

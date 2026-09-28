@@ -50,12 +50,15 @@ export function App() {
 
   return (
     <div className="app">
-      <header className="topbar">
-        <a className="brand" href="#/">
+      {/* The bar every Nests tool shares, with the links to the other tools, comes from
+          nestpass.ai (index.html loads it). Until it arrives, or if it can't, the element shows
+          the editor's own brand (slot="fallback"). The editor's links are its default slot. */}
+      <nest-nav tool="flyers">
+        <a className="brand" slot="fallback" href="#/">
           <img src={assetUrl('assets/nest-logo-white.png')} alt="" />
           <span>Flyers</span>
         </a>
-        <nav>
+        <nav aria-label="Flyers">
           <a className={route.page === 'library' ? 'active' : ''} href="#/">
             Library
           </a>
@@ -63,7 +66,7 @@ export function App() {
             New flyer
           </a>
         </nav>
-      </header>
+      </nest-nav>
       {error && <div className="banner banner-error">Could not reach the server: {error}</div>}
       {hostels &&
         backend &&

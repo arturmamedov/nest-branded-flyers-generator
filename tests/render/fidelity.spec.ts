@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
-import { expect, test, type APIRequestContext, type Browser, type Download, type Page } from '@playwright/test';
+import type { APIRequestContext, Browser, Download, Page } from '@playwright/test';
+import { expect, test, withoutKit } from '../browser';
 import { PNG } from 'pngjs';
 import sharp from 'sharp';
 import { flyerFilename } from '../../src/shared/filename';
@@ -109,6 +110,7 @@ test.afterAll(async ({ request }) => {
     Any request to the server renderer is aborted, so a wrong exporter fails loudly. */
 async function clientOnlyEditor(browser: Browser, baseURL: string | undefined, dpr: number) {
   const context = await browser.newContext({ baseURL, viewport: { width: 1280, height: 800 }, deviceScaleFactor: dpr });
+  await withoutKit(context); // its own context, outside the fixture: tests/browser.ts
   const page = await context.newPage();
   let configs = 0;
   await page.route('**/api/config', async (route) => {

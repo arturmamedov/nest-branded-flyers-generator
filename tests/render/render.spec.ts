@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
-import { expect, test, type APIRequestContext, type APIResponse, type Page } from '@playwright/test';
+import type { APIRequestContext, APIResponse, Page } from '@playwright/test';
+import { expect, test } from '../browser';
 import sharp from 'sharp';
 import { apiError, type ApiErrorKey } from '../../src/shared/errors';
 import { flyerFilename } from '../../src/shared/filename';

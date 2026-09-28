@@ -100,7 +100,7 @@ full WHEN line) — download the stress-test flyer and look.
 | `src/flyer/Flyer.tsx` | **the** renderer — used by the editor preview and the export page. Transcribed 1:1 from the prototype |
 | `src/flyer/fit.ts` | the two-pass shrink-to-fit, ported verbatim from the prototype's `_fit()` |
 | `src/shared/` | DOM-free logic shared by client and server: schema, layout numbers, `·` parsing, crop maths, copy rules |
-| `src/editor/` | the editor and library UI |
+| `src/editor/` | the editor and library UI. Its top bar is `<nest-nav tool="flyers">`, the bar every Nests tool shares; see below |
 | `render.html`, `src/render/` | the bare page headless Chromium screenshots: one flyer on one canvas (`?canvas=`) |
 | `server/` | Express API, migrations, photo processing, export renderer |
 | `server/storage/` | the storage seam: the SQLite and JSON-file drivers, seeding, the copy tool |
@@ -117,6 +117,15 @@ full WHEN line) — download the stress-test flyer and look.
 
 To swap Shantell Sans for More Sugar (if a licence is ever bought): change `HEADLINE_FAMILY` in
 `src/shared/fonts.ts` and the `@import`s in `src/flyer/fonts.css`.
+
+**The top bar comes from nestpass.ai.**
+- `index.html` loads `https://nestpass.ai/kit/nest-nav.js` (`async`). That file comes from the
+  `nestpass-tools` repo, which also holds the list of tools the bar links to.
+- The bar is drawn in a shadow root, so it can't touch the flyer.
+- This app styles only its own links, and the fallback brand shown until the script arrives (or if
+  nestpass.ai is down) at the same 54 px.
+- The browser specs block the script (`tests/browser.ts`). `tests/render/chrome.spec.ts` checks both
+  states.
 
 ---
 
