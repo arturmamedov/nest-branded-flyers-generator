@@ -1,21 +1,24 @@
 import { readFileSync } from 'node:fs';
 import type { APIRequestContext, APIResponse, Page } from '@playwright/test';
+import { PNG } from 'pngjs';
 import { expect, test } from '../browser';
 import { EDITOR_VIEWPORT } from '../editor';
+import { bodiesOf } from './pixels';
 import sharp from 'sharp';
 import { apiError, type ApiErrorKey } from '../../src/shared/errors';
 import { flyerFilename } from '../../src/shared/filename';
 import { resolveDoodles } from '../../src/shared/defaults';
-import { CANVASES, CANVAS_IDS, activityGroups, artAnchors, placeArt, safeBox, type CanvasId } from '../../src/shared/layout';
+import { CANVASES, CANVAS_IDS, activityGroups, artAnchors, placeArt, safeBox, weekGroups, weekRowRect, type CanvasId } from '../../src/shared/layout';
 import { SAMPLE_FLYERS } from '../../src/shared/samples';
 import type { FlyerListItem, FlyerPayload } from '../../src/shared/schema';
+import { printedRows } from '../../src/shared/week';
 import { WRITE_HEADERS } from '../../src/shared/writeGuard';
 
 /* The automatable half of the handoff's export checklist (README §9), for
-   every sample flyer — the stress test included — in all three photo modes,
-   on every output canvas. */
+   every sample flyer — both stress tests included — on every output canvas:
+   an Activity sample in all three photo modes, a This week sample once, as
+   its rows (it has no photo, whatever its photo mode says). */
 
-const MODES = ['bleed', 'band', 'none'] as const;
 
 const SAMPLE_TITLES = new Set(SAMPLE_FLYERS.map((s) => s.title));
 
@@ -44,11 +47,17 @@ for (const canvas of CANVAS_IDS) {
     const { width: W, height: HT } = CANVASES[canvas];
     const safe = safeBox(canvas);
     for (const base of all) {
-      for (const mode of MODES) {
+      for (const body of bodiesOf(base.flyer.data)) {
         const payload: FlyerPayload = structuredClone(base);
-        payload.flyer.data.photoMode = mode;
-        if (mode !== 'none' && !payload.photo) payload.photo = withPhoto.photo;
-        const label = `${canvas} / ${base.flyer.title} / ${mode}`;
+        if (body === 'week') {
+          // A week flyer never draws a photo, whatever its photo mode and photo say: it gets both, to prove it.
+          payload.flyer.data.photoMode = 'band';
+          payload.photo = withPhoto.photo;
+        } else {
+          payload.flyer.data.photoMode = body;
+          if (body !== 'none' && !payload.photo) payload.photo = withPhoto.photo;
+        }
+        const label = `${canvas} / ${base.flyer.title} / ${body}`;
 
         await test.step(label, async () => {
           await renderPayload(page, payload, canvas);
@@ -58,7 +67,38 @@ for (const canvas of CANVAS_IDS) {
               return { name: el.dataset.group!, left: b.left, top: b.top, right: b.right, bottom: b.bottom };
             });
             const faces = [...document.fonts].filter((f) => f.status === 'loaded').map((f) => `${f.family.replace(/"/g, '')} ${f.weight}`);
-            const mark = document.querySelector('[data-group=chips] span[style*="mark-yellow"]');
+            // Every highlighter: the WHEN chip's, and each week row's day.
+            const marks = [...document.querySelectorAll('[data-flyer] span[style*="mark-yellow"]')].map(
+              (el) => getComputedStyle(el).getPropertyValue('box-decoration-break') || getComputedStyle(el).getPropertyValue('-webkit-box-decoration-break'),
+            );
+            const edges = (el: Element) => {
+              const b = el.getBoundingClientRect();
+              return { left: b.left, top: b.top, right: b.right, bottom: b.bottom };
+            };
+            // A week's rows as printed: each slot's box, its cells' text, and its right group's children.
+            const rows = [...document.querySelectorAll<HTMLElement>('[data-row]')].map((el) => {
+              const right = el.querySelector('[data-cell=right]');
+              const name = el.querySelector('[data-cell=name]');
+              return {
+                slot: Number(el.dataset.row),
+                box: edges(el),
+                nameBox: edges(el.querySelector('[data-fit-box]')!),
+                nameCell: name ? edges(name) : null,
+                cells: [...el.querySelectorAll('[data-cell]')].map(edges),
+                day: el.querySelector('[data-cell=day]')?.textContent ?? '',
+                name: el.querySelector('[data-cell=name]')?.textContent ?? '',
+                time: el.querySelector('[data-cell=time]')?.textContent ?? '',
+                cost: [...el.querySelectorAll('[data-cell=cost]')].map((c) => c.textContent ?? ''),
+                clocks: el.querySelectorAll('img').length,
+                marks: el.querySelectorAll('span[style*="mark-yellow"]').length,
+                right: right ? edges(right) : null,
+                rightKids: right ? [...right.children].map(edges) : [],
+              };
+            });
+            // A row field is never left as a bare separator.
+            const rowDots = [...document.querySelectorAll('[data-group=rows] *')].filter((el) => el.children.length === 0 && el.textContent!.trim() === '·').length;
+            // The headline's lines as printed: the Activity headline, or the week's title.
+            const lines = [...document.querySelectorAll('[data-group=title] [data-fit], [data-group=headline] [data-fit]')].map((el) => el.textContent ?? '');
             // The eyebrow row's children don't shrink: the logo's right edge is where it really ends.
             const logo = document.querySelector('[data-group=eyebrow] img[alt="Nests Hostels"]')!.getBoundingClientRect();
             // The flyer's own art (the pencil in the ask box is part of the block, not a doodle).
@@ -73,15 +113,22 @@ for (const canvas of CANVAS_IDS) {
               groups,
               logoRight: logo.right,
               faces,
-              fit: (window as unknown as { __FLYER_FIT: { clippedBoxes: number; entries: { text: string; overflowX: boolean }[] } }).__FLYER_FIT,
-              markBreak: mark ? getComputedStyle(mark).getPropertyValue('box-decoration-break') || getComputedStyle(mark).getPropertyValue('-webkit-box-decoration-break') : null,
+              fit: (window as unknown as { __FLYER_FIT: { clippedBoxes: number; entries: { text: string; base: number; finalPx: number; overflowX: boolean }[] } }).__FLYER_FIT,
+              marks,
+              rows,
+              rowDots,
+              lines,
               scroll: { w: document.documentElement.scrollWidth, h: document.documentElement.scrollHeight },
             };
           });
 
           expect(r.drawn, `${label}: the page drew this canvas`).toBe(canvas);
           // Every block where the registry puts it: a leftover story number would pass the safe box, not this.
-          const table = activityGroups(canvas, mode);
+          const table = body === 'week' ? weekGroups(canvas) : activityGroups(canvas, body);
+          // Exactly this template's blocks, each once: none missing (a week flyer's title, say), none extra (a photo).
+          expect(r.groups.map((g) => g.name).sort(), `${label}: exactly this template's blocks`).toEqual(Object.keys(table).sort());
+          const t = payload.flyer.data.text;
+          expect(r.lines, `${label}: the headline's own lines`).toEqual([t.headline1, t.headline2, t.headlineEs].filter(Boolean));
           for (const g of r.groups) {
             const want = table[g.name as keyof typeof table]!;
             if (g.name === 'pill') {
@@ -103,7 +150,7 @@ for (const canvas of CANVAS_IDS) {
 
           // The art where the registry hangs it, from data that went through the store: the template set
           // is recognised and follows the canvas (the blobs to its corners, the spark to the pill).
-          const want = resolveDoodles(payload.flyer.data.doodles).map((d) => placeArt(d, artAnchors(canvas, mode)));
+          const want = resolveDoodles(payload.flyer.data.doodles).map((d) => placeArt(d, artAnchors(canvas, body)));
           expect(r.art.length, `${label}: art pieces`).toBe(want.length);
           // The style reads back rounded to two decimals, so to the nearest 0.05 px.
           r.art.forEach((a, i) => {
@@ -111,7 +158,7 @@ for (const canvas of CANVAS_IDS) {
           });
 
           for (const g of r.groups) {
-            const bleed = g.name === 'photo' && mode === 'bleed';
+            const bleed = g.name === 'photo' && body === 'bleed';
             if (!bleed) {
               expect(g.left, `${label}: ${g.name} left`).toBeGreaterThanOrEqual(safe.left - 0.5);
               expect(g.right, `${label}: ${g.name} right`).toBeLessThanOrEqual(safe.left + safe.width + 0.5);
@@ -132,13 +179,170 @@ for (const canvas of CANVAS_IDS) {
           for (const face of ['Shantell Sans 700', 'Shantell Sans 800', 'Montserrat 600', 'Montserrat 700']) {
             expect(r.faces, `${label}: ${face}`).toContain(face);
           }
-          if (r.markBreak !== null) expect(r.markBreak, `${label}: highlighter clone`).toBe('clone');
+          for (const mark of r.marks) expect(mark, `${label}: highlighter clone`).toBe('clone');
           expect(r.scroll, `${label}: no scrollbars`).toEqual({ w: W, h: HT });
+
+          // A week flyer prints exactly its printable rows, top-aligned, each as the shared rules say:
+          // the short name, the price on two lines, no clock without a time, no highlighter without a day.
+          const printed = body === 'week' ? printedRows(payload.flyer.data.week) : [];
+          expect(r.rows.map((x) => x.slot), `${label}: printed rows, slot by slot`).toEqual(printed.map((_, slot) => slot));
+          r.rows.forEach((x, slot) => {
+            const cell = weekRowRect(canvas, slot);
+            for (const [edge, value] of [
+              ['left', cell.left],
+              ['top', cell.top],
+              ['right', cell.left + cell.width],
+              ['bottom', cell.top + cell.height],
+            ] as const)
+              expect(Math.abs(x.box[edge] - value), `${label}: row ${slot} ${edge}`).toBeLessThanOrEqual(0.5);
+            expect({ day: x.day, name: x.name, time: x.time, cost: x.cost }, `${label}: row ${slot} prints`).toEqual(printed[slot]);
+            expect(x.clocks, `${label}: row ${slot} clock`).toBe(printed[slot].time ? 1 : 0);
+            expect(x.marks, `${label}: row ${slot} highlighter`).toBe(printed[slot].day ? 1 : 0);
+            // A long time or price shrinks inside its capped group; spilling out of it would reach the name unseen.
+            for (const kid of x.rightKids)
+              expect(kid.left >= x.right!.left - 0.5 && kid.right <= x.right!.right + 0.5, `${label}: row ${slot} right group holds its lines`).toBe(true);
+            // The departures from the prototype, as signed off: time and price capped at 250 px, so the name keeps
+            // at least what the day and the cap leave (320 px on the story, 380 on WhatsApp), and inside its box.
+            const inner = { left: x.box.left + 34, right: x.box.right - 34 };
+            for (const c of x.cells) expect(c.left >= inner.left - 0.5 && c.right <= inner.right + 0.5, `${label}: row ${slot} cells inside the row`).toBe(true);
+            if (x.right) expect(x.right.right - x.right.left, `${label}: row ${slot} time and price capped`).toBeLessThanOrEqual(250.5);
+            expect(x.nameBox.right - x.nameBox.left, `${label}: row ${slot} room for the name`).toBeGreaterThanOrEqual(inner.right - inner.left - 250 - 250 - 2 * 26 - 0.5);
+            if (x.nameCell) expect(x.nameCell.left >= x.nameBox.left - 0.5 && x.nameCell.right <= x.nameBox.right + 0.5, `${label}: row ${slot} name inside its box`).toBe(true);
+          });
+          expect(r.rowDots, `${label}: no dangling ·`).toBe(0);
+          if (base.flyer.title === 'This week · stress test') {
+            expect(r.rows[1].name, `${label}: a long name prints its short name`).toBe('Catamaran to Los Gigantes');
+            expect(r.rows[0].cost, `${label}: a price with a · prints on two lines`).toEqual(['25€', '18€ without breakfast']);
+            // The cap is what shrinks them: sized to their copy, both would print at full size and squeeze the name.
+            for (const text of ['10:00 – 13:00', '18€ without breakfast']) {
+              const entry = r.fit.entries.find((e) => e.text === text)!;
+              expect(entry.finalPx, `${label}: "${text}" shrinks in its capped column`).toBeLessThan(entry.base);
+            }
+          }
         });
       }
     }
   });
 }
+
+for (const canvas of CANVAS_IDS) {
+  test(`${canvas}: a week row with nothing to print is left out, and the rows below close up`, async ({ page, request }) => {
+    const sparse = (await samples(request)).find((p) => p.flyer.title === 'This week · sparse')!;
+    const payload: FlyerPayload = structuredClone(sparse);
+    const [first, second] = payload.flyer.data.week;
+    payload.flyer.data.week = [first, { day: '', name: '', time: '', cost: '' }, { day: ' · ', name: '  ', time: '·', cost: ' · ', shortName: ' ' }, second];
+    await renderPayload(page, payload, canvas);
+    const rows = await page.evaluate(() =>
+      [...document.querySelectorAll<HTMLElement>('[data-row]')].map((el) => ({
+        slot: el.dataset.row,
+        name: el.querySelector('[data-cell=name]')?.textContent,
+        top: Math.round(el.getBoundingClientRect().top),
+      })),
+    );
+    expect(rows).toEqual([
+      { slot: '0', name: first.name, top: weekRowRect(canvas, 0).top },
+      { slot: '1', name: second.name, top: weekRowRect(canvas, 1).top },
+    ]);
+  });
+}
+
+for (const canvas of CANVAS_IDS) {
+  test(`${canvas}: a week flyer prints its own title, and a word too long for its row shrinks inside its box`, async ({ page, request }) => {
+    const sparse = (await samples(request)).find((p) => p.flyer.title === 'This week · sparse')!;
+    const payload: FlyerPayload = structuredClone(sparse);
+    // Edited title lines, the Spanish one emptied; a price at the cap, so the name has its least room.
+    payload.flyer.data.text = { ...payload.flyer.data.text, headline1: 'Our week', headline2: 'this week.', headlineEs: '' };
+    payload.flyer.data.week = [{ day: 'Fridays', name: 'Strandvolleyball', time: '', cost: '18€ without breakfast' }];
+    await renderPayload(page, payload, canvas);
+    const r = await page.evaluate(() => {
+      const edges = (el: Element) => {
+        const b = el.getBoundingClientRect();
+        return { left: b.left, right: b.right };
+      };
+      const row = document.querySelector('[data-row="0"]')!;
+      const fit = (window as unknown as { __FLYER_FIT: { entries: { text: string; finalPx: number; overflowX: boolean }[] } }).__FLYER_FIT;
+      return {
+        title: [...document.querySelectorAll('[data-group=title] [data-fit]')].map((el) => el.textContent),
+        nameBox: edges(row.querySelector('[data-fit-box]')!),
+        name: edges(row.querySelector('[data-cell=name]')!),
+        word: fit.entries.find((e) => e.text === 'Strandvolleyball')!,
+      };
+    });
+    expect(r.title).toEqual(['Our week', 'this week.']);
+    // The word is wider than the column at 44 px: it shrinks, whole, inside its box, and is not cut off.
+    expect(r.word.finalPx).toBeLessThan(44);
+    expect(r.word.overflowX).toBe(false);
+    expect(r.name.left).toBeGreaterThanOrEqual(r.nameBox.left - 0.5);
+    expect(r.name.right).toBeLessThanOrEqual(r.nameBox.right + 0.5);
+  });
+
+  test(`${canvas}: a time or price still too long at its floor is cut at its column, never drawn across the row's frame`, async ({ page, request }) => {
+    const sparse = (await samples(request)).find((p) => p.flyer.title === 'This week · sparse')!;
+    const payload: FlyerPayload = structuredClone(sparse);
+    payload.flyer.data.week = [{ day: 'Fridays', name: 'Surf', time: 'Mon–Fri 10:00–13:00', cost: 'Donation, any amount welcome' }];
+    await renderPayload(page, payload, canvas);
+    const { strip, cut } = await page.evaluate(() => {
+      const right = document.querySelector('[data-row="0"] [data-cell=right]')!.getBoundingClientRect();
+      const row = document.querySelector('[data-row="0"]')!.getBoundingClientRect();
+      const fit = (window as unknown as { __FLYER_FIT: { entries: { text: string; overflowX: boolean }[] } }).__FLYER_FIT;
+      // Between the column's right edge and the frame's stroke, over the row's middle (clear of the frame's rounded
+      // corners, whose stroke curves in within ~30 px of the row's top and bottom): row fill only.
+      const x = Math.ceil(right.right) + 1;
+      return {
+        strip: { x, y: Math.round(row.top) + 32, width: Math.floor(row.right) - 14 - x, height: Math.round(row.height) - 64 },
+        cut: fit.entries.filter((e) => e.overflowX).map((e) => e.text),
+      };
+    });
+    // Past their floor, both lines still say so: the editor warns that copy is cut off.
+    expect(cut).toEqual(expect.arrayContaining(['Mon–Fri 10:00–13:00', 'Donation, any amount welcome']));
+    const shot = PNG.sync.read(await page.screenshot({ clip: strip }));
+    let inked = 0;
+    for (let i = 0; i < shot.data.length; i += 4) if (Math.min(shot.data[i], shot.data[i + 1], shot.data[i + 2]) < 235) inked++;
+    expect(inked, `ink between the column and the frame (${JSON.stringify(strip)})`).toBe(0);
+  });
+}
+
+test('the export waits for every image a week flyer draws: a slow clock is decoded when the page says it is ready', async ({ browser, baseURL, request }) => {
+  const stress = (await samples(request)).find((p) => p.flyer.title === 'This week · stress test')!;
+  const context = await browser.newContext({ baseURL, viewport: { width: CANVASES.story.width, height: CANVASES.story.height } });
+  try {
+    let delayed = 0;
+    await context.route('**/assets/art/icon-clock.png', async (route) => {
+      delayed++;
+      await new Promise((resolve) => setTimeout(resolve, 800));
+      await route.continue();
+    });
+    const page = await context.newPage();
+    // Records the flyer's images at the very moment the page reports ready, not after.
+    await page.addInitScript((p) => {
+      const w = window as unknown as Record<string, unknown>;
+      w.__FLYER_PAYLOAD = p;
+      let ready: unknown;
+      Object.defineProperty(window, '__FLYER_READY', {
+        configurable: true,
+        get: () => ready,
+        set: (value) => {
+          w.__IMAGES_AT_READY = [...document.querySelectorAll<HTMLImageElement>('[data-flyer] img')].map((img) => ({
+            src: img.src,
+            decoded: img.complete && img.naturalWidth > 0,
+          }));
+          ready = value;
+        },
+      });
+    }, stress);
+    await page.goto('/render.html?canvas=story');
+    await page.waitForFunction(() => {
+      const w = window as unknown as { __FLYER_READY?: boolean; __FLYER_ERROR?: string };
+      return w.__FLYER_READY || w.__FLYER_ERROR;
+    });
+    const images = (await page.evaluate(() => (window as unknown as { __IMAGES_AT_READY: { src: string; decoded: boolean }[] }).__IMAGES_AT_READY)) ?? [];
+    expect(delayed, 'the clock was requested, and held back').toBeGreaterThan(0);
+    expect(images.filter((i) => i.src.includes('icon-clock')).length, 'the rows draw their clocks').toBeGreaterThan(0);
+    expect(images.filter((i) => !i.decoded)).toEqual([]);
+  } finally {
+    await context.close();
+  }
+});
 
 test('export API returns every canvas at its exact size as PNG and JPG, each cached until the flyer changes', async ({ request }) => {
   const list = (await (await request.get('/api/flyers')).json()) as FlyerListItem[];
@@ -149,7 +353,7 @@ test('export API returns every canvas at its exact size as PNG and JPG, each cac
   const save = async () => {
     const put = await request.put(`/api/flyers/${stress.id}`, {
       headers: WRITE_HEADERS,
-      data: { title: payload.flyer.title, hostel: payload.flyer.hostel, template: 'activity', data: payload.flyer.data, photoId: payload.flyer.photoId },
+      data: { title: payload.flyer.title, hostel: payload.flyer.hostel, template: payload.flyer.template, data: payload.flyer.data, photoId: payload.flyer.photoId },
     });
     expect(put.status()).toBe(200);
   };

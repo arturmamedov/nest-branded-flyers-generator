@@ -47,9 +47,12 @@ interface Case {
   photo: boolean;
 }
 
+/** The story's Activity flyers: a byte baseline of what existed before a change (a week sample has no past to match). */
+const ACTIVITY_SAMPLES = SAMPLE_FLYERS.filter((s) => s.data.template === 'activity');
+
 function cases(): Case[] {
   const out: Case[] = [];
-  for (const s of [...SAMPLE_FLYERS, highlighterWrapSample()]) {
+  for (const s of [...ACTIVITY_SAMPLES, highlighterWrapSample()]) {
     for (const mode of MODES) out.push({ name: `${s.title} - ${mode}`, title: s.title, hostel: s.hostel, data: { ...s.data, photoMode: mode }, photo: mode !== 'none' });
   }
   const pool = SAMPLE_FLYERS.find((s) => s.title === 'Pool party')!;
@@ -144,7 +147,7 @@ test('story baseline: every case renders byte-identical to the captured PNGs', a
   const photo = await photoId(request);
   const problems: string[] = [];
   for (const c of cases()) {
-    const input = { title: `baseline-${c.name}`, hostel: c.hostel, template: 'activity', data: c.data, photoId: c.photo ? photo : null };
+    const input = { title: `baseline-${c.name}`, hostel: c.hostel, template: c.data.template, data: c.data, photoId: c.photo ? photo : null };
     const saved = (await (await request.post('/api/flyers', { headers: WRITE_HEADERS, data: input })).json()) as FlyerSaved;
 
     // The export, as the editor's server exporter asks for it. Saving the flyer

@@ -99,7 +99,7 @@ export function generate(read: (rel: string) => string = (rel) => readFileSync(j
       },
     }),
     'seed/samples.json': json(
-      SAMPLE_FLYERS.map((s) => ({ title: s.title, hostel: s.hostel, template: 'activity', photo: s.photo, data: s.data })),
+      SAMPLE_FLYERS.map((s) => ({ title: s.title, hostel: s.hostel, template: s.data.template, photo: s.photo, data: s.data })),
     ),
     [CONTRACT_DOC]: contractDoc(read(CONTRACT_DOC)),
   };

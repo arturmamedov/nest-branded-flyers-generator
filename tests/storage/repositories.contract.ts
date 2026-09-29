@@ -214,6 +214,10 @@ export function describeRepositoryContract(name: string, factory: RepositoryFact
         expect(await ids({ hostel: 'nowhere' })).toEqual([]);
         expect(await ids({ template: 'week' })).toEqual([week]);
         expect(await ids({ template: 'nope' })).toEqual([]);
+        // Both at once, as the library asks when both filters are set.
+        expect(await ids({ hostel: 'none', template: 'week' })).toEqual([week]);
+        expect(await ids({ hostel: 'none', template: 'activity' })).toEqual([chain]);
+        expect(await ids({ hostel: 'duque-nest', template: 'week' })).toEqual([]);
         expect(await ids({ hostel: '', template: '' })).toEqual([duque, chain, week].sort());
       });
 

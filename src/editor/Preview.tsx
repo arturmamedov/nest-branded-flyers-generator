@@ -1,7 +1,7 @@
 import { useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent, type RefObject } from 'react';
 import { fitFlyer, type FitReport } from '../flyer/fit';
 import { Flyer } from '../flyer/Flyer';
-import { CANVASES, CANVAS_IDS, activityGroups, photoFrame, type CanvasId } from '../shared/layout';
+import { CANVASES, CANVAS_IDS, activityGroups, bodyOf, photoFrame, type CanvasId } from '../shared/layout';
 import { clampCrop, panCrop } from '../shared/photo';
 import type { Crop, FlyerData, Hostel, PhotoInfo } from '../shared/schema';
 
@@ -61,7 +61,8 @@ export function Preview({ data, canvas, hostel, photo, showSafeZones, actualSize
   const refit = useFit(flyerRef, canvas, onFit);
   useLayoutEffect(refit, [data, hostel, refit]);
 
-  const frame = photoFrame(canvas, data.photoMode);
+  // No frame, no handle: "No photo", and a week flyer, whatever photo mode it keeps for switching back.
+  const frame = photoFrame(canvas, bodyOf(data));
   const frameBox = activityGroups(canvas, data.photoMode).photo!;
   const drag = useRef<{ x: number; y: number; crop: Crop } | null>(null);
 
@@ -155,7 +156,7 @@ function OffscreenFit({ canvas, data, hostel, photo, onFit }: { canvas: CanvasId
   );
 }
 
-/** The fields a fitted size depends on (the copy, what the chips print, the photo mode's boxes). */
+/** The fields a fitted size depends on (the copy, what the chips and rows print, the template's and photo mode's boxes). */
 function fitKey(d: FlyerData): string {
-  return JSON.stringify([d.text, d.chips, d.extras, d.photoMode, d.showPill, d.overrides]);
+  return JSON.stringify([d.template, d.text, d.chips, d.extras, d.week, d.photoMode, d.showPill, d.overrides]);
 }

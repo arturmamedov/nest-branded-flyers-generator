@@ -1,7 +1,13 @@
 import pixelmatch from 'pixelmatch';
 import { PNG } from 'pngjs';
-import { CANVASES, type CanvasId, type PhotoMode, type Rect } from '../../src/shared/layout';
+import { CANVASES, type Body, type CanvasId, type PhotoMode, type Rect } from '../../src/shared/layout';
 import { SAMPLE_FLYERS, type SampleFlyer } from '../../src/shared/samples';
+import type { FlyerData } from '../../src/shared/schema';
+
+/** What the render suites draw a flyer as: an Activity flyer in each photo mode, a week flyer once, as its rows
+    (it has no photo, whatever its photo mode says). */
+export const bodiesOf = (data: Pick<FlyerData, 'template'>): Body[] =>
+  data.template === 'week' ? ['week'] : (['bleed', 'band', 'none'] satisfies PhotoMode[]);
 
 /* Pixel comparison of a client export against the server export, lifted from
    the approved Phase 1 spike (docs/spikes/client-export.md): the same diff,
@@ -31,8 +37,9 @@ export interface Metrics {
   text: number | null;
 }
 
-/** No sample wraps its WHEN line, so none exercises box-decoration-break:
-    clone. This record does, and keeps every other stress-test worst case. */
+/** No Activity sample wraps its WHEN line, so none exercises box-decoration-break:
+    clone there (the week stress test's two-line day does, in its rows). This
+    record does, and keeps every other stress-test worst case. */
 export function highlighterWrapSample(): SampleFlyer {
   const s = structuredClone(SAMPLE_FLYERS.find((f) => f.title.startsWith('Long copy'))!);
   s.title = 'Highlighter wrap';
@@ -52,7 +59,7 @@ export function readRegions(): Regions {
     art: styled.filter((el) => !el.style.backgroundImage.includes('mark-yellow')).map((el) => rel(el.getBoundingClientRect())),
     mark: marks.flatMap((el) => [...el.getClientRects()].map(rel)),
     wonky: [...root.querySelectorAll('svg')].map((el) => rel(el.getBoundingClientRect())),
-    text: ['headline', 'extras', 'ask', 'pill'].flatMap((g) =>
+    text: ['headline', 'title', 'rows', 'extras', 'ask', 'pill'].flatMap((g) =>
       [...root.querySelectorAll(`[data-group="${g}"]`)].map((el) => rel(el.getBoundingClientRect())),
     ),
   };
@@ -75,11 +82,12 @@ function fill({ W, H, px }: Mask, r: Rect, value: 0 | 1, grow = 0) {
   for (let y = y0; y < y1; y++) px.fill(value, y * W + Math.max(0, x0), y * W + Math.max(x0, x1));
 }
 
-function photoMask(canvas: CanvasId, mode: PhotoMode): Uint8Array {
+/** The photo's pixels, left out of every metric but `inside`: no photo, and a week flyer, mask nothing. */
+function photoMask(canvas: CanvasId, body: Body): Uint8Array {
   const { width, height, activity } = CANVASES[canvas];
   const m = mask(width, height);
-  if (mode === 'bleed') fill(m, activity.photoBleed, 1);
-  if (mode === 'band') fill(m, activity.photoBand, 1);
+  if (body === 'bleed') fill(m, activity.photoBleed, 1);
+  if (body === 'band') fill(m, activity.photoBand, 1);
   return m.px;
 }
 
@@ -102,7 +110,7 @@ function regionPct(diff: Uint8Array, photo: Uint8Array, W: number, H: number, re
   return total ? (100 * bad) / total : null;
 }
 
-export function compare(golden: PNG, candidate: PNG, canvas: CanvasId, mode: PhotoMode, regions: Regions): Metrics {
+export function compare(golden: PNG, candidate: PNG, canvas: CanvasId, body: Body, regions: Regions): Metrics {
   const { width: W, height: H } = CANVASES[canvas];
   const diffImage = new PNG({ width: W, height: H });
   // Same settings as scripts/compare-design.ts. Anti-aliasing pixels are drawn
@@ -113,7 +121,7 @@ export function compare(golden: PNG, candidate: PNG, canvas: CanvasId, mode: Pho
     const p = i * 4;
     diff[i] = diffImage.data[p] === 255 && diffImage.data[p + 1] === 0 && diffImage.data[p + 2] === 0 ? 1 : 0;
   }
-  const photo = photoMask(canvas, mode);
+  const photo = photoMask(canvas, body);
   let outT = 0;
   let outBad = 0;
   let inT = 0;

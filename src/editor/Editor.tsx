@@ -1,20 +1,23 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { FitReport } from '../flyer/fit';
-import { deriveChip } from '../shared/chips';
+import { deriveChip, splitBigSub } from '../shared/chips';
 import { ACCEPTED_PHOTO_TYPES } from '../shared/limits';
 import { lintFlyer } from '../shared/copyRules';
-import { DEFAULT_PHOTO_MODE, newFlyerData } from '../shared/defaults';
-import { CANVASES, CANVAS_IDS, isCanvasId, photoFrame, type CanvasId, type PhotoMode } from '../shared/layout';
+import { DEFAULT_PHOTO_MODE, followHostel, newFlyerData, switchTemplate, weekTitle } from '../shared/defaults';
+import { CANVASES, CANVAS_IDS, bodyOf, isCanvasId, photoFrame, type CanvasId, type PhotoMode } from '../shared/layout';
 import { DEFAULT_CROP, ZOOM_MAX, ZOOM_MIN, clampCrop, wholePhotoZoom, zoomCrop } from '../shared/photo';
-import type { Chip, ChipKey, Crop, FlyerData, FlyerInput, FlyerText, Hostel, PhotoInfo } from '../shared/schema';
+import type { Chip, ChipKey, Crop, FlyerData, FlyerInput, FlyerListItem, FlyerText, Hostel, PhotoInfo, Template, WeekRow } from '../shared/schema';
+import { WEEK_ROWS_MAX, WEEK_ROW_LIMITS, eventName, isPrintable, rowFromActivity } from '../shared/week';
 import { api, ApiError } from './api';
 import type { FlyerExporter } from './export';
+import { LangFlag, type Lang } from './LangFlag';
 import { mayLeave, useLeaveGuard } from './leaveGuard';
 import { PHOTO_MODE_LABEL } from './photoModes';
 import { preparePhoto, type PhotoLimits } from './photoPrep';
 import { replaceHash } from './route';
 import { localStorageGet, localStorageSet } from './prefs';
 import { Preview } from './Preview';
+import { TEMPLATE_LABEL } from './templates';
 
 interface Draft {
   title: string;
@@ -25,16 +28,24 @@ interface Draft {
 
 const blankDraft = (): Draft => ({ title: '', hostel: null, data: newFlyerData('activity'), photo: null });
 
-const autoTitle = (d: Draft) =>
-  d.title.trim() || [d.data.text.headline1, d.data.text.headline2].join(' ').replace(/\s+/g, ' ').replace(/\.$/, '').trim() || 'Untitled flyer';
+const autoTitle = (d: Draft) => d.title.trim() || eventName(d.data.text) || 'Untitled flyer';
 
 const toInput = (d: Draft): FlyerInput => ({
   title: autoTitle(d),
   hostel: d.hostel,
-  template: 'activity',
+  template: d.data.template,
   data: d.data,
   photoId: d.photo?.id ?? null,
 });
+
+const EMPTY_ROW: WeekRow = { day: '', name: '', time: '', cost: '' };
+
+/** A row with its short name set, or without the key at all when cleared: an empty one would
+    print nothing different but make a saved flyer read as changed. */
+function withShortName(row: WeekRow, shortName: string): WeekRow {
+  const { shortName: _, ...rest } = row;
+  return shortName ? { ...rest, shortName } : rest;
+}
 
 /** The canvas on screen is how this viewer likes to work, never flyer data. */
 const CANVAS_PREF = 'editor.canvas';
@@ -58,7 +69,7 @@ export function Editor({ id, hostels, exporter, limits }: { id: number | null; h
   const [canvas, setCanvas] = useState<CanvasId>(savedCanvas);
   const [safe, setSafe] = useState(false);
   const [actualSize, setActualSize] = useState(false);
-  const [busy, setBusy] = useState<null | 'save' | 'png' | 'jpg' | 'upload'>(null);
+  const [busy, setBusy] = useState<null | 'save' | 'png' | 'jpg' | 'upload' | 'row'>(null);
   const [message, setMessage] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
 
@@ -66,7 +77,8 @@ export function Editor({ id, hostels, exporter, limits }: { id: number | null; h
     if (id == null) return;
     api.flyer(id).then(
       (p) => {
-        const d: Draft = { title: p.flyer.title, hostel: p.flyer.hostel, data: p.flyer.data, photo: p.photo };
+        // The record's template wins over data.template, as it does on every write (normalize.ts).
+        const d: Draft = { title: p.flyer.title, hostel: p.flyer.hostel, data: { ...p.flyer.data, template: p.flyer.template }, photo: p.photo };
         setDraft(d);
         setSavedJson(JSON.stringify(toInput(d)));
       },
@@ -108,8 +120,18 @@ export function Editor({ id, hostels, exporter, limits }: { id: number | null; h
   // Functional, so back-to-back slider and drag updates never read a stale crop.
   const updateCrop = (fn: (c: Crop) => Crop) =>
     setDraft((d) => (d ? { ...d, data: { ...d.data, photoCrop: fn(d.data.photoCrop) } } : d));
+  const nameOf = (slug: string | null) => hostels.find((h) => h.slug === slug)?.name ?? null;
+  // Both read the draft they change: the defaults that follow a template or a hostel are worked out from it.
+  const chooseTemplate = (to: Template) => setDraft((d) => (d ? { ...d, data: switchTemplate(d.data, to, nameOf(d.hostel)) } : d));
+  const chooseHostel = (slug: string | null) =>
+    setDraft((d) => (d ? { ...d, hostel: slug, data: followHostel(d.data, nameOf(d.hostel), nameOf(slug)) } : d));
+  const updateWeek = (fn: (rows: WeekRow[]) => WeekRow[]) => setDraft((d) => (d ? { ...d, data: { ...d.data, week: fn(d.data.week) } } : d));
 
-  const needsPhoto = draft.data.photoMode !== 'none' && !draft.photo;
+  const week = draft.data.template === 'week';
+  // The week title's defaults, as a new week flyer gets them for this hostel: the placeholders once cleared.
+  const weekDefaults = weekTitle(hostel?.name ?? null);
+  // A frame with no photo in it would print as a blank strip; a week flyer has no frame at all.
+  const needsPhoto = photoFrame(canvas, bodyOf(draft.data)) !== null && !draft.photo;
   // Every canvas is fitted, the one on screen and the others offscreen: copy is one, so is the warning.
   const cutOff = CANVAS_IDS.filter((c) => {
     const r = fits[c];
@@ -168,6 +190,23 @@ export function Editor({ id, hostels, exporter, limits }: { id: number | null; h
       );
     });
 
+  // A week flyer has no photo: a drop gets a reason, never an upload.
+  const onDrop = (file: File) =>
+    week ? setMessage({ kind: 'error', text: `A ${TEMPLATE_LABEL.week} flyer has no photo — switch to ${TEMPLATE_LABEL.activity} to use one.` }) : onFile(file);
+
+  // A row from a saved Activity flyer: a copy, never a link. It joins the rows as they are when it
+  // arrives (they may have changed while it was on its way), and only while there is room.
+  const takeRow = (id: number) =>
+    run('row', async () => {
+      if (draft.data.week.length >= WEEK_ROWS_MAX) throw new Error(`A week holds ${WEEK_ROWS_MAX} rows: remove one first.`);
+      const p = await api.flyer(id);
+      const row = rowFromActivity(p.flyer.data, p.flyer.title);
+      setDraft((d) =>
+        d && d.data.template === 'week' && d.data.week.length < WEEK_ROWS_MAX ? { ...d, data: { ...d.data, week: [...d.data.week, row] } } : d,
+      );
+      return `Added “${row.name}” from ${p.flyer.title}.`;
+    });
+
   const t = draft.data.text;
   const chip = (key: ChipKey) => draft.data.chips.find((c) => c.key === key) as Chip;
 
@@ -179,8 +218,18 @@ export function Editor({ id, hostels, exporter, limits }: { id: number | null; h
           <BackToLibrary className="btn btn-quiet" />
         </div>
         <Section title="Flyer">
-          <Field label="Hostel" help="Prints in the WHERE block and tags the flyer in the library">
-            <select value={draft.hostel ?? ''} onChange={(e) => set({ hostel: e.target.value || null })}>
+          <div className="field">
+            <span className="label">Template</span>
+            <div className="seg" role="group" aria-label="Template">
+              {(Object.entries(TEMPLATE_LABEL) as [Template, string][]).map(([key, label]) => (
+                <button key={key} type="button" className={draft.data.template === key ? 'on' : ''} aria-pressed={draft.data.template === key} onClick={() => chooseTemplate(key)}>
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <Field label="Hostel" help={week ? 'Named in the Spanish title line, and tags the flyer in the library' : 'Prints in the WHERE block and tags the flyer in the library'}>
+            <select aria-label="Hostel" value={draft.hostel ?? ''} onChange={(e) => chooseHostel(e.target.value || null)}>
               <option value="">All hostels (chain-wide)</option>
               {[...new Set(hostels.map((h) => h.island))].map((island) => (
                 <optgroup key={island} label={island}>
@@ -200,76 +249,98 @@ export function Editor({ id, hostels, exporter, limits }: { id: number | null; h
           </Field>
         </Section>
 
-        <Section title="Headline">
-          <Field label="Line 1" help="Black. About 18 characters before it starts to shrink">
-            <input value={t.headline1} maxLength={40} placeholder="Saturday is a" onChange={(e) => setText('headline1', e.target.value)} />
+        {/* A week flyer's title is the headline's lines: one set, kept across a switch (the owner's call, 2026-09-29). */}
+        <Section title={week ? 'Title' : 'Headline'} hint={week ? `The same lines as the ${TEMPLATE_LABEL.activity} headline: switching template keeps them.` : undefined}>
+          <Field label="Line 1" lang="en" help={week ? 'Black' : 'Black. About 18 characters before it starts to shrink'}>
+            <input value={t.headline1} maxLength={40} placeholder={week ? weekDefaults.headline1 : 'Saturday is a'} onChange={(e) => setText('headline1', e.target.value)} />
           </Field>
-          <Field label="Line 2" help="Big and teal. About 15 characters">
-            <input value={t.headline2} maxLength={40} placeholder="pool party." onChange={(e) => setText('headline2', e.target.value)} />
+          <Field label="Line 2" lang="en" help={week ? 'Big and teal' : 'Big and teal. About 15 characters'}>
+            <input value={t.headline2} maxLength={40} placeholder={week ? weekDefaults.headline2 : 'pool party.'} onChange={(e) => setText('headline2', e.target.value)} />
           </Field>
-          <Field label="Spanish line" optional help="Leave empty and it disappears">
-            <textarea rows={2} value={t.headlineEs} maxLength={140} placeholder="El sábado toca fiesta en la piscina." onChange={(e) => setText('headlineEs', e.target.value)} />
+          <Field
+            label="Spanish line"
+            lang="es"
+            optional
+            help={week ? 'Names the place picked above until you change it. Leave empty and it disappears' : 'Leave empty and it disappears'}
+          >
+            <textarea
+              rows={2}
+              value={t.headlineEs}
+              maxLength={140}
+              placeholder={week ? weekDefaults.headlineEs : 'El sábado toca fiesta en la piscina.'}
+              onChange={(e) => setText('headlineEs', e.target.value)}
+            />
           </Field>
         </Section>
 
-        <Section title="When · Where · Cost" hint="Put a · between the big line and the small line.">
-          {(['when', 'where', 'cost'] as const).map((key) => (
-            <ChipField key={key} chip={chip(key)} hostelName={hostel?.name ?? null} onChange={(v) => setChip(key, v)} />
-          ))}
-        </Section>
+        {week ? (
+          <Section title={`${TEMPLATE_LABEL.week}’s rows`} hint={`Up to ${WEEK_ROWS_MAX}. Type them, or take one from a saved ${TEMPLATE_LABEL.activity} flyer and change it.`}>
+            <WeekRowsField rows={draft.data.week} onChange={updateWeek} onTake={takeRow} taking={busy === 'row'} />
+          </Section>
+        ) : (
+          <>
+            <Section title="When · Where · Cost" hint="Put a · between the big line and the small line.">
+              {(['when', 'where', 'cost'] as const).map((key) => (
+                <ChipField key={key} chip={chip(key)} hostelName={hostel?.name ?? null} onChange={(v) => setChip(key, v)} />
+              ))}
+            </Section>
 
-        <Section title="Nice to know" hint="0–4 short items. The dots are added for you.">
-          <ExtrasField extras={draft.data.extras} onChange={(extras) => setData({ extras })} />
-        </Section>
+            <Section title="Nice to know" hint="0–4 short items. The dots are added for you.">
+              <ExtrasField extras={draft.data.extras} onChange={(extras) => setData({ extras })} />
+            </Section>
+          </>
+        )}
 
         <Section title="The ask">
-          <Field label="English">
+          <Field label="English" lang="en">
             <input value={t.askEn} maxLength={60} onChange={(e) => setText('askEn', e.target.value)} />
           </Field>
-          <Field label="Spanish" optional>
+          <Field label="Spanish" lang="es" optional>
             <input value={t.askEs} maxLength={70} onChange={(e) => setText('askEs', e.target.value)} />
           </Field>
         </Section>
 
-        <Section title="Photo">
-          <div className="seg">
-            {(Object.entries(PHOTO_MODE_LABEL) as [PhotoMode, string][]).map(([mode, label]) => (
-              <button key={mode} type="button" className={draft.data.photoMode === mode ? 'on' : ''} onClick={() => setData({ photoMode: mode })}>
-                {label}
-              </button>
-            ))}
-          </div>
-          {draft.data.photoMode !== 'none' && (
-            <>
-              <div className="photo-row">
-                <button type="button" className="btn" disabled={busy === 'upload'} onClick={() => fileInput.current?.click()}>
-                  {busy === 'upload' ? 'Uploading…' : draft.photo ? 'Replace photo' : 'Choose photo'}
+        {!week && (
+          <Section title="Photo">
+            <div className="seg">
+              {(Object.entries(PHOTO_MODE_LABEL) as [PhotoMode, string][]).map(([mode, label]) => (
+                <button key={mode} type="button" className={draft.data.photoMode === mode ? 'on' : ''} onClick={() => setData({ photoMode: mode })}>
+                  {label}
                 </button>
-                {draft.photo && (
-                  <button type="button" className="btn btn-quiet" onClick={() => set({ photo: null })}>
-                    Remove
+              ))}
+            </div>
+            {draft.data.photoMode !== 'none' && (
+              <>
+                <div className="photo-row">
+                  <button type="button" className="btn" disabled={busy === 'upload'} onClick={() => fileInput.current?.click()}>
+                    {busy === 'upload' ? 'Uploading…' : draft.photo ? 'Replace photo' : 'Choose photo'}
                   </button>
-                )}
-                <input
-                  ref={fileInput}
-                  type="file"
-                  accept={ACCEPTED_PHOTO_TYPES.join(',')}
-                  hidden
-                  onChange={(e) => {
-                    const f = e.target.files?.[0];
-                    if (f) onFile(f);
-                    e.target.value = '';
-                  }}
-                />
-              </div>
-              <p className="help">
-                Or drop a photo on the preview. Drag the photo there to move it in any direction; click it and use the arrow keys to nudge
-                (Shift for bigger steps).
-              </p>
-              {draft.photo && <PhotoControls photo={draft.photo} data={draft.data} canvas={canvas} onCrop={updateCrop} />}
-            </>
-          )}
-        </Section>
+                  {draft.photo && (
+                    <button type="button" className="btn btn-quiet" onClick={() => set({ photo: null })}>
+                      Remove
+                    </button>
+                  )}
+                  <input
+                    ref={fileInput}
+                    type="file"
+                    accept={ACCEPTED_PHOTO_TYPES.join(',')}
+                    hidden
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) onFile(f);
+                      e.target.value = '';
+                    }}
+                  />
+                </div>
+                <p className="help">
+                  Or drop a photo on the preview. Drag the photo there to move it in any direction; click it and use the arrow keys to nudge
+                  (Shift for bigger steps).
+                </p>
+                {draft.photo && <PhotoControls photo={draft.photo} data={draft.data} canvas={canvas} onCrop={updateCrop} />}
+              </>
+            )}
+          </Section>
+        )}
 
         <Section title="Top and tag pill">
           <Field label="Eyebrow">
@@ -364,7 +435,7 @@ export function Editor({ id, hostels, exporter, limits }: { id: number | null; h
           actualSize={actualSize}
           onFit={onFit}
           onCrop={setCrop}
-          onDropFile={onFile}
+          onDropFile={onDrop}
         />
       </main>
     </div>
@@ -398,10 +469,12 @@ function Section({ title, hint, children }: { title: string; hint?: string; chil
   );
 }
 
-function Field({ label, help, optional, children }: { label: string; help?: string; optional?: boolean; children: ReactNode }) {
+/** A labelled control. `lang` flags the language the copy is written in (LangFlag). */
+function Field({ label, help, optional, lang, children }: { label: string; help?: string; optional?: boolean; lang?: Lang; children: ReactNode }) {
   return (
     <label className="field">
       <span className="label">
+        {lang && <LangFlag lang={lang} />}
         {label}
         {optional && <em> optional</em>}
       </span>
@@ -411,14 +484,16 @@ function Field({ label, help, optional, children }: { label: string; help?: stri
   );
 }
 
-function ChipField({ chip, hostelName, onChange }: { chip: Chip; hostelName: string | null; onChange: (v: string) => void }) {
+/** A text input with a button that puts a · where the caret is: the convention's big line · small line. */
+function DotInput({ label, value, maxLength, placeholder, onChange }: { label: string; value: string; maxLength: number; placeholder: string; onChange: (v: string) => void }) {
   const input = useRef<HTMLInputElement>(null);
-  const derived = deriveChip(chip, hostelName);
   const insertDot = () => {
     const el = input.current!;
     const start = el.selectionStart ?? el.value.length;
     const end = el.selectionEnd ?? el.value.length;
     const next = el.value.slice(0, start).replace(/\s+$/, '') + ' · ' + el.value.slice(end).replace(/^\s+/, '');
+    // maxLength stops typing, not a script: past it, the save would be refused. Counted as maxLength counts.
+    if (next.length > maxLength) return el.focus();
     onChange(next);
     requestAnimationFrame(() => {
       el.focus();
@@ -426,25 +501,175 @@ function ChipField({ chip, hostelName, onChange }: { chip: Chip; hostelName: str
       el.setSelectionRange(pos, pos);
     });
   };
+  return (
+    <div className="with-button">
+      <input ref={input} aria-label={label} value={value} maxLength={maxLength} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} />
+      <button type="button" className="btn btn-quiet dot" title="Insert a · separator" onClick={insertDot}>
+        ·
+      </button>
+    </div>
+  );
+}
+
+/** The two lines a value prints as, or that it prints nothing. */
+function Split({ big, sub, empty }: { big: string; sub: string; empty: string }) {
+  return big ? (
+    <span className="split">
+      <b>{big}</b>
+      {sub && <span>{sub}</span>}
+    </span>
+  ) : (
+    <span className="split split-empty">{empty}</span>
+  );
+}
+
+function ChipField({ chip, hostelName, onChange }: { chip: Chip; hostelName: string | null; onChange: (v: string) => void }) {
+  const derived = deriveChip(chip, hostelName);
   const { placeholder, help } = CHIP_HELP[chip.key];
   return (
     <div className="field">
       <span className="label">{chip.label}</span>
-      <div className="with-button">
-        <input ref={input} aria-label={chip.label} value={chip.value} maxLength={90} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} />
-        <button type="button" className="btn btn-quiet dot" title="Insert a · separator" onClick={insertDot}>
-          ·
-        </button>
-      </div>
+      <DotInput label={chip.label} value={chip.value} maxLength={90} placeholder={placeholder} onChange={onChange} />
       <span className="help">{help}</span>
-      {derived.big ? (
-        <span className="split">
-          <b>{derived.big}</b>
-          {derived.sub && <span>{derived.sub}</span>}
-        </span>
-      ) : (
-        <span className="split split-empty">Empty — this block is hidden</span>
-      )}
+      <Split big={derived.big} sub={derived.sub} empty="Empty — this block is hidden" />
+    </div>
+  );
+}
+
+/** Where focus goes after a row moved or went: the control that follows the row, or its neighbour. */
+type RowFocus = { slot: number; want: 'up' | 'down' | 'remove' } | 'add';
+
+/* This week's rows: typed, or taken from a saved Activity flyer (a copy, then edited like any other).
+   Every change is a function of the rows as they are (updateWeek), never of the list this render saw. */
+function WeekRowsField({ rows, onChange, onTake, taking }: { rows: WeekRow[]; onChange: (fn: (rows: WeekRow[]) => WeekRow[]) => void; onTake: (id: number) => void; taking: boolean }) {
+  const [saved, setSaved] = useState<FlyerListItem[] | null>(null);
+  const root = useRef<HTMLDivElement>(null);
+  const focus = useRef<RowFocus | null>(null);
+
+  // The saved Activity flyers to take a row from, fetched when the rows are first shown.
+  useEffect(() => {
+    let live = true;
+    api.flyers({ template: 'activity' }).then(
+      (list) => live && setSaved(list),
+      () => live && setSaved([]),
+    );
+    return () => {
+      live = false;
+    };
+  }, []);
+
+  // After a move or a removal: the moved row keeps the focus (its other arrow when this one is off at an end),
+  // a removal hands it to the row that took its place, or to "+ Add row".
+  useLayoutEffect(() => {
+    const f = focus.current;
+    if (!f) return;
+    focus.current = null;
+    const find = (name: string) => root.current?.querySelector<HTMLButtonElement>(`[aria-label="${name}"]`);
+    const add = root.current?.querySelector<HTMLButtonElement>('[data-add-row]');
+    if (f === 'add') return add?.focus();
+    const n = f.slot + 1;
+    const first = find(`${f.want === 'remove' ? 'Remove' : 'Move'} row ${n}${f.want === 'remove' ? '' : ` ${f.want}`}`);
+    const other = find(`Move row ${n} ${f.want === 'up' ? 'down' : 'up'}`);
+    (first && !first.disabled ? first : other && !other.disabled ? other : add)?.focus();
+  });
+
+  const set = (slot: number, patch: Partial<WeekRow>) => onChange((rs) => rs.map((r, i) => (i === slot ? { ...r, ...patch } : r)));
+  const move = (slot: number, by: -1 | 1) => {
+    focus.current = { slot: slot + by, want: by < 0 ? 'up' : 'down' };
+    onChange((rs) => {
+      const to = slot + by;
+      if (to < 0 || to >= rs.length) return rs;
+      const next = [...rs];
+      [next[slot], next[to]] = [next[to], next[slot]];
+      return next;
+    });
+  };
+  const remove = (slot: number) => {
+    focus.current = slot < rows.length - 1 ? { slot, want: 'remove' } : slot > 0 ? { slot: slot - 1, want: 'remove' } : 'add';
+    onChange((rs) => rs.filter((_, i) => i !== slot));
+  };
+  const full = rows.length >= WEEK_ROWS_MAX;
+
+  return (
+    <div className="week-rows" ref={root}>
+      {rows.map((r, slot) => {
+        const n = slot + 1;
+        const cost = splitBigSub(r.cost);
+        return (
+          <div key={slot} className="week-row">
+            <div className="week-row-head">
+              <h3>Row {n}</h3>
+              <button type="button" className="btn btn-quiet" aria-label={`Move row ${n} up`} disabled={slot === 0} onClick={() => move(slot, -1)}>
+                ↑
+              </button>
+              <button type="button" className="btn btn-quiet" aria-label={`Move row ${n} down`} disabled={slot === rows.length - 1} onClick={() => move(slot, 1)}>
+                ↓
+              </button>
+              <button type="button" className="btn btn-quiet" aria-label={`Remove row ${n}`} onClick={() => remove(slot)}>
+                ✕
+              </button>
+            </div>
+            {!isPrintable(r) && <p className="split split-empty">Empty — this row is hidden</p>}
+            <div className="two">
+              <label className="field">
+                <span className="label">Day</span>
+                <input aria-label={`Row ${n} day`} value={r.day} maxLength={WEEK_ROW_LIMITS.day} placeholder="Fridays" onChange={(e) => set(slot, { day: e.target.value })} />
+              </label>
+              <label className="field">
+                <span className="label">Time</span>
+                <input aria-label={`Row ${n} time`} value={r.time} maxLength={WEEK_ROW_LIMITS.time} placeholder="20:30" onChange={(e) => set(slot, { time: e.target.value })} />
+              </label>
+            </div>
+            <label className="field">
+              <span className="label">Event</span>
+              <input aria-label={`Row ${n} event`} value={r.name} maxLength={WEEK_ROW_LIMITS.name} placeholder="Two hours of fun waves" onChange={(e) => set(slot, { name: e.target.value })} />
+              <span className="help">The whole name: it wraps to two lines, then shrinks</span>
+            </label>
+            <label className="field">
+              <span className="label">
+                Short name<em> optional</em>
+              </span>
+              <input
+                aria-label={`Row ${n} short name`}
+                value={r.shortName ?? ''}
+                maxLength={WEEK_ROW_LIMITS.shortName}
+                placeholder="For a long name"
+                onChange={(e) => onChange((rs) => rs.map((x, i) => (i === slot ? withShortName(x, e.target.value) : x)))}
+              />
+              <span className="help">Prints instead of the event name</span>
+            </label>
+            <div className="field">
+              <span className="label">Price</span>
+              <DotInput label={`Row ${n} cost`} value={r.cost} maxLength={WEEK_ROW_LIMITS.cost} placeholder="25€ · 18€ without breakfast" onChange={(v) => set(slot, { cost: v })} />
+              <span className="help">Put a · before a second, smaller line</span>
+              {cost.big && <Split big={cost.big} sub={cost.sub} empty="" />}
+            </div>
+          </div>
+        );
+      })}
+      <div className="week-add">
+        {!full && (
+          <button type="button" className="btn btn-quiet" data-add-row onClick={() => onChange((rs) => (rs.length < WEEK_ROWS_MAX ? [...rs, { ...EMPTY_ROW }] : rs))}>
+            + Add row
+          </button>
+        )}
+        <select
+          aria-label="Add from a saved flyer"
+          value=""
+          disabled={full || taking || !saved?.length}
+          onChange={(e) => {
+            const id = Number(e.target.value);
+            if (id) onTake(id);
+          }}
+        >
+          <option value="">{saved === null ? 'Loading saved flyers…' : saved.length ? 'Add from a saved flyer…' : `No saved ${TEMPLATE_LABEL.activity} flyers yet`}</option>
+          {saved?.map((f) => (
+            <option key={f.id} value={f.id}>
+              {f.hostelName ? `${f.title} · ${f.hostelName}` : f.title}
+            </option>
+          ))}
+        </select>
+      </div>
     </div>
   );
 }
@@ -458,7 +683,7 @@ const fromSlider = (v: number) => (Math.abs(v) < 0.025 ? 1 : ZOOM_BASE ** v); //
 /* The frame is the one on screen. Every canvas's frame has the same aspect for
    a mode (layout.ts), so the stored crop shows the same picture on all of them. */
 function PhotoControls({ photo, data, canvas, onCrop }: { photo: PhotoInfo; data: FlyerData; canvas: CanvasId; onCrop: (fn: (c: Crop) => Crop) => void }) {
-  const frame = photoFrame(canvas, data.photoMode);
+  const frame = photoFrame(canvas, bodyOf(data));
   if (!frame) return null;
   const zoom = data.photoCrop.zoom;
   return (

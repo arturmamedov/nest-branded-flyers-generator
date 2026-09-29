@@ -7,8 +7,9 @@ import { FIXTURE_PHOTOS_DIR, SEED_FILE, dataPaths } from '../paths.js';
 import { processPhoto } from '../services/photos.js';
 import { applySeedFile } from '../storage/seed.js';
 
-/* Dev / fixture data: the six design records, including the stress test.
-   Idempotent by title. The sample photos are placeholders, not licensed. */
+/* Dev / fixture data: the six design records and the three This week flyers,
+   both stress tests included. Idempotent by title. The sample photos are
+   placeholders, not licensed. */
 const config = loadConfig();
 const data = dataPaths(config.dataDir);
 const repos = createRepositories(config, data);
@@ -23,7 +24,8 @@ for (const s of SAMPLE_FLYERS) {
     const stored = await processPhoto(readFileSync(join(FIXTURE_PHOTOS_DIR, s.photo)), data.uploads);
     photoId = (await repos.photos.insert(stored)).id;
   }
-  await repos.flyers.create({ title: s.title, hostel: s.hostel, template: 'activity', data: s.data, photoId });
+  // The repository stores what it is given (no API normalising here): the column must be the sample's own template.
+  await repos.flyers.create({ title: s.title, hostel: s.hostel, template: s.data.template, data: s.data, photoId });
   added++;
 }
 console.log(`Sample flyers: ${added} added, ${SAMPLE_FLYERS.length - added} already present.`);

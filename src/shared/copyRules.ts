@@ -1,5 +1,6 @@
 import { DEFAULT_TEXT } from './defaults.js';
 import type { FlyerData } from './schema.js';
+import { printedName, usesShortName } from './week.js';
 
 /* Nests brand-voice rules (handoff README §12), as gentle warnings. */
 
@@ -16,17 +17,39 @@ export interface Lint {
   message: string;
 }
 
-function textFields(d: FlyerData): { field: string; value: string }[] {
+/** A line of copy; `row` names the week row it belongs to, so a warning can say which of five. */
+interface TextField {
+  field: string;
+  value: string;
+  row?: number;
+}
+
+/** A row's printed event name: the short name when it has one, since that is what prints. */
+const rowName = (d: FlyerData, i: number): TextField => {
+  const row = d.week[i];
+  return { field: `week.${i}.${usesShortName(row) ? 'shortName' : 'name'}`, value: printedName(row), row: i };
+};
+
+/** Only what prints: a week flyer keeps its chips and extras for switching back, an Activity flyer its rows. */
+function textFields(d: FlyerData): TextField[] {
   const t = d.text;
-  const out = [
+  const body: TextField[] =
+    d.template === 'week'
+      ? d.week.flatMap((row, i) => [
+          { field: `week.${i}.day`, value: row.day, row: i },
+          rowName(d, i),
+          { field: `week.${i}.time`, value: row.time, row: i },
+          { field: `week.${i}.cost`, value: row.cost, row: i },
+        ])
+      : [...d.chips.map((c) => ({ field: `chip.${c.key}`, value: c.value })), ...d.extras.map((e, i) => ({ field: `extras.${i}`, value: e }))];
+  const out: TextField[] = [
     { field: 'eyebrow', value: t.eyebrow },
     { field: 'headline1', value: t.headline1 },
     { field: 'headline2', value: t.headline2 },
     { field: 'headlineEs', value: t.headlineEs },
     { field: 'askEn', value: t.askEn },
     { field: 'askEs', value: t.askEs },
-    ...d.chips.map((c) => ({ field: `chip.${c.key}`, value: c.value })),
-    ...d.extras.map((e, i) => ({ field: `extras.${i}`, value: e })),
+    ...body,
   ];
   if (d.showPill) out.push({ field: 'tag', value: t.tag }, { field: 'handle', value: t.handle });
   return out;
@@ -39,6 +62,7 @@ const SEPARATOR_SLASH = /(?<!\d)\/|\/(?!\d)/;
 export function lintFlyer(d: FlyerData): Lint[] {
   const lints: Lint[] = [];
   const fields = textFields(d);
+  const warn = (f: TextField, message: string) => lints.push({ field: f.field, message: f.row === undefined ? message : `Row ${f.row + 1}: ${message}` });
 
   // Up to the template's own marks in the tag are free; any more typed into it count like the copy's.
   const pillFree = d.showPill ? Math.min(bangs(d.text.tag), PILL_OWN) : 0;
@@ -51,21 +75,26 @@ export function lintFlyer(d: FlyerData): Lint[] {
 
   for (const f of fields) {
     if (/book[\s-]*now/i.test(f.value)) {
-      lints.push({ field: f.field, message: '"Book now" belongs to the website\'s booking button — never on a flyer.' });
+      warn(f, '"Book now" belongs to the website\'s booking button — never on a flyer.');
     }
     if (BULLETS.test(f.value)) {
-      lints.push({ field: f.field, message: 'Use · or — as separators, never bullets.' });
+      warn(f, 'Use · or — as separators, never bullets.');
     }
     if (SEPARATOR_SLASH.test(f.value)) {
-      lints.push({ field: f.field, message: 'Use · or — as separators, never slashes.' });
+      warn(f, 'Use · or — as separators, never slashes.');
     }
   }
 
-  for (const field of ['headline1', 'headline2'] as const) {
-    const v = d.text[field];
-    const letters = v.replace(/[^\p{L}]/gu, '');
-    if (letters.length > 3 && v === v.toUpperCase()) {
-      lints.push({ field, message: 'Sentence case for headlines — capitals are for labels only.' });
+  // Sentence case for headlines (§12), and a week row's event name is its row's headline.
+  const headlines: TextField[] = [
+    { field: 'headline1', value: d.text.headline1 },
+    { field: 'headline2', value: d.text.headline2 },
+    ...(d.template === 'week' ? d.week.map((_, i) => rowName(d, i)) : []),
+  ];
+  for (const f of headlines) {
+    const letters = f.value.replace(/[^\p{L}]/gu, '');
+    if (letters.length > 3 && f.value === f.value.toUpperCase()) {
+      warn(f, 'Sentence case for headlines — capitals are for labels only.');
     }
   }
 

@@ -1,20 +1,27 @@
 import { useEffect, useState } from 'react';
-import type { FlyerListItem, Hostel } from '../shared/schema';
+import type { FlyerListItem, Hostel, Template } from '../shared/schema';
 import { api } from './api';
 import { go, onPage } from './route';
 import { localStorageGet, localStorageSet } from './prefs';
+import { TEMPLATE_LABEL, isTemplate } from './templates';
+
+const savedTemplate = (): Template | '' => {
+  const v = localStorageGet('library.template');
+  return isTemplate(v) ? v : '';
+};
 
 const when = (iso: string) =>
   new Date(iso).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 
 export function Library({ hostels }: { hostels: Hostel[] }) {
   const [filter, setFilter] = useState<string>(() => localStorageGet('library.hostel') ?? '');
+  const [template, setTemplate] = useState<Template | ''>(savedTemplate);
   const [items, setItems] = useState<FlyerListItem[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<number | null>(null);
 
   const load = () =>
-    api.flyers(filter || undefined).then(
+    api.flyers({ hostel: filter || undefined, template: template || undefined }).then(
       (list) => {
         setItems(list);
         setError(null);
@@ -24,9 +31,10 @@ export function Library({ hostels }: { hostels: Hostel[] }) {
 
   useEffect(() => {
     localStorageSet('library.hostel', filter);
+    localStorageSet('library.template', template);
     setItems(null);
     load();
-  }, [filter]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [filter, template]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function duplicate(id: number) {
     setBusyId(id);
@@ -75,6 +83,17 @@ export function Library({ hostels }: { hostels: Hostel[] }) {
             ))}
           </select>
         </label>
+        <label className="filter">
+          <span>Template</span>
+          <select value={template} onChange={(e) => setTemplate(isTemplate(e.target.value) ? e.target.value : '')}>
+            <option value="">All templates</option>
+            {(Object.entries(TEMPLATE_LABEL) as [Template, string][]).map(([key, label]) => (
+              <option key={key} value={key}>
+                {label}
+              </option>
+            ))}
+          </select>
+        </label>
       </div>
       {error && <div className="banner banner-error">{error}</div>}
       {!items && !error && <div className="loading">Loading…</div>}
@@ -93,7 +112,7 @@ export function Library({ hostels }: { hostels: Hostel[] }) {
               <a className="card-main" href={`#/flyers/${f.id}`}>
                 <span className="card-title">{f.title}</span>
                 <span className="card-meta">
-                  {f.hostelName ?? 'All hostels'} · {f.template === 'week' ? 'This week' : 'Activity'} · {when(f.updatedAt)}
+                  {f.hostelName ?? 'All hostels'} · {TEMPLATE_LABEL[f.template]} · {when(f.updatedAt)}
                 </span>
               </a>
               <div className="card-actions">

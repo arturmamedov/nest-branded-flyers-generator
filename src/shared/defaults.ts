@@ -16,9 +16,10 @@ export const DEFAULT_COLORS: Colors = { bg: CREAM, ink: INK, accent: DEEP_TEAL, 
 /* The template's art. Team design pass (2026-09-18), departing from the
    prototype: the two sparks moved from the top margin onto the photo's top
    corners (anchored, so they follow the photo slot — band/bleed at 24,657 and
-   975,658), the bottom spark sits off the tag pill's end, the clock is gone.
-   The blobs keep the prototype's right/bottom anchoring, converted to top-left
-   with each PNG's natural aspect ratio. */
+   975,658; on a week flyer the first row's corners, artAnchors), the bottom
+   spark sits off the tag pill's end, the clock is gone. The blobs keep the
+   prototype's right/bottom anchoring, converted to top-left with each PNG's
+   natural aspect ratio. */
 export const DEFAULT_DOODLES: DoodlePlacement[] = [
   { slug: 'spark-teal', anchor: 'photoLeft', x: -46, y: -55, w: 104, rot: -8 },
   { slug: 'spark-yellow', anchor: 'photoRight', x: -35, y: -54, w: 88, rot: 9 },
@@ -73,8 +74,11 @@ export function resolveDoodles(doodles: DoodlePlacement[]): ArtPlacement[] {
   return sameDoodles(doodles, DEFAULT_DOODLES) ? TEMPLATE_ART : doodles;
 }
 
+/** Each template's eyebrow on a new flyer. Switching template swaps it while it is still this. */
+export const DEFAULT_EYEBROW: Record<Template, string> = { activity: 'NEXT ACTIVITY', week: 'THIS WEEK' };
+
 export const DEFAULT_TEXT: FlyerText = {
-  eyebrow: 'NEXT ACTIVITY',
+  eyebrow: DEFAULT_EYEBROW.activity,
   headline1: '',
   headline2: '',
   headlineEs: '',
@@ -88,6 +92,34 @@ export const DEFAULT_TEXT: FlyerText = {
     hence never 'none'. The owner's choice (2026-09-28), superseding handoff §1 item 4 ("full bleed (default)"). */
 export const DEFAULT_PHOTO_MODE: Exclude<PhotoMode, 'none'> = 'band';
 
+/** The week's title lines, prefilled and editable (the owner's call, 2026-09-29; the prototype fixed them).
+    They are the headline's fields: a week flyer has no headline of its own. The Spanish line names the
+    hostel, or the whole chain on a chain-wide flyer, as the prototype did. */
+export function weekTitle(hostelName: string | null): Pick<FlyerText, 'headline1' | 'headline2' | 'headlineEs'> {
+  return { headline1: 'What’s on', headline2: 'this week.', headlineEs: `El plan de la semana en ${hostelName || 'Nests Hostels'}.` };
+}
+
+const TITLE_LINES = ['headline1', 'headline2', 'headlineEs'] as const;
+
+/** A flyer shown with the other template. Nothing is dropped: the photo, chips and extras wait on a week
+    flyer, the rows on an Activity one, for switching back. Only defaults nobody touched follow: the
+    eyebrow, the week's title lines (filled when the headline is empty, cleared when untouched). So an
+    untouched flyer switched and back is exactly what it was, and nothing reads as unsaved. */
+export function switchTemplate(d: FlyerData, to: Template, hostelName: string | null): FlyerData {
+  if (d.template === to) return d;
+  const title = weekTitle(hostelName);
+  const text = { ...d.text, eyebrow: d.text.eyebrow === DEFAULT_EYEBROW[d.template] ? DEFAULT_EYEBROW[to] : d.text.eyebrow };
+  if (to === 'week' && TITLE_LINES.every((k) => !text[k])) Object.assign(text, title);
+  if (to === 'activity' && TITLE_LINES.every((k) => text[k] === title[k])) Object.assign(text, { headline1: '', headline2: '', headlineEs: '' });
+  return { ...d, template: to, text };
+}
+
+/** A week flyer's Spanish line follows the hostel while it still reads as the default for the one before. */
+export function followHostel(d: FlyerData, prevName: string | null, nextName: string | null): FlyerData {
+  if (d.template !== 'week' || d.text.headlineEs !== weekTitle(prevName).headlineEs) return d;
+  return { ...d, text: { ...d.text, headlineEs: weekTitle(nextName).headlineEs } };
+}
+
 export function newFlyerData(template: Template = 'activity'): FlyerData {
   return {
     v: 1,
@@ -95,7 +127,7 @@ export function newFlyerData(template: Template = 'activity'): FlyerData {
     photoMode: DEFAULT_PHOTO_MODE,
     photoCrop: { ...DEFAULT_CROP },
     showPill: true,
-    text: { ...DEFAULT_TEXT, eyebrow: template === 'week' ? 'THIS WEEK' : 'NEXT ACTIVITY' },
+    text: { ...DEFAULT_TEXT, eyebrow: DEFAULT_EYEBROW[template], ...(template === 'week' ? weekTitle(null) : {}) },
     chips: [
       { key: 'when', label: 'When', value: '' },
       { key: 'where', label: 'Where', value: '' },

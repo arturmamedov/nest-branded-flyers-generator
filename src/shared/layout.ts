@@ -1,4 +1,5 @@
-import type { DoodleAnchor } from './schema.js';
+import type { DoodleAnchor, FlyerData } from './schema.js';
+import { WEEK_ROWS_MAX } from './week.js';
 
 /* Canvas geometry — every box position, for every output canvas, in one
    place. A flyer is one set of data; a canvas is one way to print it (the
@@ -26,7 +27,13 @@ export interface ArtPoint extends Point {
 
 export type PhotoMode = 'bleed' | 'band' | 'none';
 
-export type GroupId = 'eyebrow' | 'headline' | 'photo' | 'chips' | 'extras' | 'ask' | 'pill';
+/** What fills a flyer between its eyebrow and its ask: the Activity template's photo mode, or the
+    week's rows. A week flyer keeps a photo mode (and its photo) for switching back, never uses it. */
+export type Body = PhotoMode | 'week';
+
+export const bodyOf = (d: Pick<FlyerData, 'template' | 'photoMode'>): Body => (d.template === 'week' ? 'week' : d.photoMode);
+
+export type GroupId = 'eyebrow' | 'headline' | 'photo' | 'chips' | 'extras' | 'ask' | 'pill' | 'title' | 'rows';
 
 /** Where each block of the Activity template sits on one canvas. */
 export interface ActivityBoxes {
@@ -43,6 +50,18 @@ export interface ActivityBoxes {
   pill: { top: number; height: number };
 }
 
+/** Where the This week template's own blocks sit on one canvas; its eyebrow, ask and pill are the Activity ones. */
+export interface WeekBoxes {
+  /** What’s on / this week. / the Spanish line: the Activity headline's markup, in its own box. */
+  title: Rect;
+  /** The box five rows fill. Fewer rows stay at its top (the owner's call, 2026-09-29). */
+  rows: Rect;
+  rowHeight: number;
+  rowGap: number;
+  /** How far below the first row's top corners the photo-corner sparks hang (artAnchors). */
+  artDrop: number;
+}
+
 /** A canvas's text column: `inner(top, height)` is a box between its side margins. */
 export type Column = (top: number, height: number) => Rect;
 
@@ -56,6 +75,7 @@ export interface CanvasSpec {
   /** Appended to the download's name. The story keeps today's `<slug>.png`. */
   fileSuffix: string;
   activity: ActivityBoxes;
+  week: WeekBoxes;
   /** What the canvas decides about the template art; its anchor points follow from the rest (artAnchors). */
   art: {
     /** How far the photo-corner anchors sit inside the band's corners. */
@@ -68,9 +88,31 @@ export interface CanvasSpec {
 const columnOf = ({ width, safe }: Pick<CanvasSpec, 'width' | 'safe'>): Column => (top, height) => ({ left: safe.side, top, width: width - 2 * safe.side, height });
 
 /** A canvas from what it decides: its boxes are written against its own column and width. */
-function defineCanvas(spec: Omit<CanvasSpec, 'activity'>, boxes: (inner: Column, width: number) => ActivityBoxes): CanvasSpec {
-  return { ...spec, activity: boxes(columnOf(spec), spec.width) };
+function defineCanvas(
+  spec: Omit<CanvasSpec, 'activity' | 'week'>,
+  activity: (inner: Column, width: number) => ActivityBoxes,
+  week: (inner: Column) => WeekBoxes,
+): CanvasSpec {
+  const inner = columnOf(spec);
+  return { ...spec, activity: activity(inner, spec.width), week: week(inner) };
 }
+
+/* ---- This week: the handoff §2's rows, the same size on every canvas ----
+   122 px rows, 15 apart. §3's "22px between week rows" is stale: §2 explains
+   that at 138/22 the fifth row reached 1478 and crossed the ask. The title box
+   is 250 tall (What’s on / this week. / the Spanish line, fitted). */
+const WEEK_TITLE_HEIGHT = 250;
+const WEEK_ROW_HEIGHT = 122;
+const WEEK_ROW_GAP = 15;
+
+/** A canvas's week boxes: its title's top, its rows' top, and how far the sparks hang below the rows' corners. */
+const weekBoxes = (inner: Column, titleTop: number, rowsTop: number, artDrop: number): WeekBoxes => ({
+  title: inner(titleTop, WEEK_TITLE_HEIGHT),
+  rows: inner(rowsTop, WEEK_ROWS_MAX * WEEK_ROW_HEIGHT + (WEEK_ROWS_MAX - 1) * WEEK_ROW_GAP),
+  rowHeight: WEEK_ROW_HEIGHT,
+  rowGap: WEEK_ROW_GAP,
+  artDrop,
+});
 
 /* ---- Instagram story, 1080 × 1920 ----
    Every number from the handoff README §2. Instagram safe zones: 250 top, 300
@@ -104,6 +146,12 @@ const STORY = defineCanvas(
     ask: inner(1382, 150),
     pill: { top: 1544, height: 72 },
   }),
+  // This week (handoff §2): the title at 398, where the no-photo headline starts, and five rows from 700
+  // to 1370, 12 px above the ask. The sparks hang from the first row's corners (the owner's call,
+  // 2026-09-29), 7 px lower than on the photo: tilted −8° and +9°, their ink reached 6.3 and 5.4 px up into
+  // the title box, where the Spanish line's descenders can sit; 7 is the least that keeps it out (signed off
+  // from the proof sheets, 2026-09-29).
+  (inner) => weekBoxes(inner, 398, 700, 7),
 );
 
 /* ---- WhatsApp image, 1080 × 1440 (exactly 3:4) ----
@@ -158,6 +206,10 @@ const WHATSAPP = defineCanvas(
     ask: inner(1164, 150),
     pill: { top: 1324, height: 72 },
   }),
+  // This week, built as the story's (signed off from the proof sheets, 2026-09-29): the title at the
+  // no-photo headline's 162, the rows the story's 52 px below it, 464 → 1134. The 18 px the shorter canvas
+  // leaves over go above the shared ask (30, not 12). The sparks drop 7 px, as on the story.
+  (inner) => weekBoxes(inner, 162, 464, 7),
 );
 
 export const CANVASES = { story: STORY, whatsapp: WHATSAPP } as const satisfies Record<string, CanvasSpec>;
@@ -176,27 +228,41 @@ export function safeBox(canvas: CanvasId): Rect {
   return { left: safe.side, top: safe.top, width: width - 2 * safe.side, height: height - safe.top - safe.bottom };
 }
 
-/* ---- This week (step 8, not built): story only until it is. ---- */
-export const WEEK = {
-  title: columnOf(STORY)(398, 250),
-  rows: { top: 700, rowHeight: 122, gap: 15, max: 5 },
-} as const;
+/** The boxes both templates share: the eyebrow, the ask and the pill. */
+function sharedGroups(canvas: CanvasId): Pick<Record<GroupId, Rect>, 'eyebrow' | 'ask' | 'pill'> {
+  const a = CANVASES[canvas].activity;
+  return { eyebrow: a.eyebrow, ask: a.ask, pill: columnOf(CANVASES[canvas])(a.pill.top, a.pill.height) };
+}
 
 /** The fixed boxes of the Activity template on a canvas, for a photo mode. */
 export function activityGroups(canvas: CanvasId, mode: PhotoMode): Partial<Record<GroupId, Rect>> {
   const a = CANVASES[canvas].activity;
+  const { eyebrow, ask, pill } = sharedGroups(canvas);
   const groups: Partial<Record<GroupId, Rect>> = {
-    eyebrow: a.eyebrow,
+    eyebrow,
     headline: mode === 'none' ? a.headlineNoPhoto : a.headline,
     chips: a.chips,
     extras: a.extras,
-    ask: a.ask,
-    pill: columnOf(CANVASES[canvas])(a.pill.top, a.pill.height),
+    ask,
+    pill,
   };
   if (mode === 'bleed') groups.photo = a.photoBleed;
   if (mode === 'band') groups.photo = a.photoBand;
   if (mode === 'none') groups.photo = a.noPhotoRule;
   return groups;
+}
+
+/** The fixed boxes of the This week template on a canvas: its own title and rows, the Activity eyebrow, ask and pill. */
+export function weekGroups(canvas: CanvasId): Partial<Record<GroupId, Rect>> {
+  const w = CANVASES[canvas].week;
+  const { eyebrow, ask, pill } = sharedGroups(canvas);
+  return { eyebrow, title: w.title, rows: w.rows, ask, pill };
+}
+
+/** Where the printed row in `slot` sits: rows stack from the top of the rows box, whatever their number. */
+export function weekRowRect(canvas: CanvasId, slot: number): Rect {
+  const { rows, rowHeight, rowGap } = CANVASES[canvas].week;
+  return { left: rows.left, top: rows.top + slot * (rowHeight + rowGap), width: rows.width, height: rowHeight };
 }
 
 export function overlaps(a: Rect, b: Rect): boolean {
@@ -220,27 +286,33 @@ export function inside(inner: Rect, outer: Rect, tolerance = 0): boolean {
 /** Stored anchors, plus the ones only the template's own art uses (defaults.ts). */
 export type ArtAnchor = DoodleAnchor | 'bottomLeft' | 'bottomRight' | 'floor';
 
-/** Where art hangs from on a canvas, for a photo mode. The one statement of
+/** Where art hangs from on a canvas, for a flyer's body. The one statement of
     the rule (schema.ts and defaults.ts point here):
     - canvas: the canvas's top-left, so x/y are canvas px on every canvas;
     - photoLeft / photoRight: the band's top corners, moved in by the canvas's
       photoInset (the band's, even in bleed, so the art stays on canvas), at the
       top of the photo on screen (the bleed's top in bleed mode); with no photo,
-      the ends of the brush rule;
+      the ends of the brush rule; on a week flyer, the first row's top corners,
+      moved in the same way and down by the week's artDrop (the owner's call,
+      2026-09-29: the rows take the photo's place);
     - bottomLeft / bottomRight: the canvas's bottom corners, at its cornerScale;
     - floor: mid-canvas at the bottom of the safe box, where the stack ends.
     placeArt() puts a piece there. */
-export function artAnchors(canvas: CanvasId, mode: PhotoMode): Record<ArtAnchor, ArtPoint> {
-  const { width, height, safe, activity: a, art } = CANVASES[canvas];
+export function artAnchors(canvas: CanvasId, body: Body): Record<ArtAnchor, ArtPoint> {
+  const { width, height, safe, activity: a, week: w, art } = CANVASES[canvas];
   let photoLeft: ArtPoint;
   let photoRight: ArtPoint;
-  if (mode === 'none') {
+  if (body === 'none') {
     const r = a.noPhotoRule;
     photoLeft = { x: r.left, y: r.top, scale: 1 };
     photoRight = { x: r.left + r.width, y: r.top, scale: 1 };
+  } else if (body === 'week') {
+    const y = w.rows.top + w.artDrop;
+    photoLeft = { x: w.rows.left + art.photoInset, y, scale: 1 };
+    photoRight = { x: w.rows.left + w.rows.width - art.photoInset, y, scale: 1 };
   } else {
     const b = a.photoBand;
-    const top = mode === 'bleed' ? a.photoBleed.top : b.top;
+    const top = body === 'bleed' ? a.photoBleed.top : b.top;
     photoLeft = { x: b.left + art.photoInset, y: top, scale: 1 };
     photoRight = { x: b.left + b.width - art.photoInset, y: top, scale: 1 };
   }
@@ -261,10 +333,10 @@ export function placeArt(d: { anchor?: ArtAnchor; x: number; y: number; w: numbe
   return { left: o.x + d.x * o.scale, top: o.y + d.y * o.scale, width: d.w * o.scale };
 }
 
-/** Photo frame size per canvas and mode, for crop maths. */
-export function photoFrame(canvas: CanvasId, mode: PhotoMode): { width: number; height: number } | null {
+/** Photo frame size per canvas and body, for crop maths. No photo, and a week flyer, have none. */
+export function photoFrame(canvas: CanvasId, body: Body): { width: number; height: number } | null {
   const a = CANVASES[canvas].activity;
-  if (mode === 'bleed') return { width: a.photoBleed.width, height: a.photoBleed.height };
-  if (mode === 'band') return { width: a.photoBand.width, height: a.photoBand.height };
+  if (body === 'bleed') return { width: a.photoBleed.width, height: a.photoBleed.height };
+  if (body === 'band') return { width: a.photoBand.width, height: a.photoBand.height };
   return null;
 }

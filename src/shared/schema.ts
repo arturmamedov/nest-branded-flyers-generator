@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { DEFAULT_CROP, ZOOM_MAX, ZOOM_MIN } from './photo.js';
+import { WEEK_ROWS_MAX, WEEK_ROW_LIMITS } from './week.js';
 
 /* The flyer.data JSON, one shape for both templates (handoff README §7).
    Field names and the `·` convention are kept from flyer-data.js.
@@ -41,8 +42,9 @@ export const OverrideSchema = z.object({
 });
 
 /* x/y are canvas px, or offsets from a photo corner when anchored: the art
-   then follows the photo slot on every canvas. The exact points, per canvas
-   and photo mode, are defined once in layout.ts (artAnchors). */
+   then follows the photo slot on every canvas (on a week flyer, the first
+   row's corners). The exact points, per canvas and body, are defined once in
+   layout.ts (artAnchors). */
 export const DoodleAnchorSchema = z.enum(['canvas', 'photoLeft', 'photoRight']);
 export type DoodleAnchor = z.infer<typeof DoodleAnchorSchema>;
 
@@ -59,12 +61,13 @@ export const DoodlePlacementSchema = z.object({
 export type DoodlePlacement = z.infer<typeof DoodlePlacementSchema>;
 
 export const WeekRowSchema = z.object({
-  day: z.string().max(30),
-  name: z.string().max(80),
-  time: z.string().max(20),
-  cost: z.string().max(30),
-  shortName: z.string().max(60).optional(),
+  day: z.string().max(WEEK_ROW_LIMITS.day),
+  name: z.string().max(WEEK_ROW_LIMITS.name),
+  time: z.string().max(WEEK_ROW_LIMITS.time),
+  cost: z.string().max(WEEK_ROW_LIMITS.cost),
+  shortName: z.string().max(WEEK_ROW_LIMITS.shortName).optional(),
 });
+export type WeekRow = z.infer<typeof WeekRowSchema>;
 
 export const TextSchema = z.object({
   eyebrow: z.string().max(18),
@@ -87,7 +90,7 @@ export const FlyerDataSchema = z.object({
   text: TextSchema,
   chips: z.array(ChipSchema).max(3),
   extras: z.array(z.string().max(32)).max(4),
-  week: z.array(WeekRowSchema).max(5).default([]),
+  week: z.array(WeekRowSchema).max(WEEK_ROWS_MAX).default([]),
   colors: ColorsSchema,
   overrides: z.record(z.string(), OverrideSchema).default({}),
   doodles: z.array(DoodlePlacementSchema).max(40),

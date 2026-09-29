@@ -251,6 +251,16 @@ nest-nav > nav a:not(.btn):hover {
   font-size: 12px;
 }
 
+/* The language a field is written in (LangFlag.tsx). */
+.field .label .flag {
+  height: 12px;
+  width: auto;
+  margin-right: 6px;
+  vertical-align: -1px;
+  border-radius: 2px;
+  box-shadow: 0 0 0 1px rgba(20, 20, 20, 0.18);
+}
+
 .field input:not([type='checkbox']):not([type='range']),
 .field select,
 .field textarea,
@@ -360,6 +370,67 @@ nest-nav > nav a:not(.btn):hover {
   display: flex;
   gap: 8px;
   margin: 12px 0 6px;
+}
+
+/* This week's rows: one card per row, then the ways to add one. */
+.week-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.week-row {
+  padding: 8px 10px 2px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
+}
+
+.week-row .field {
+  margin-bottom: 8px;
+}
+
+.week-row-head {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-bottom: 6px;
+}
+
+.week-row-head h3 {
+  flex: 1 1 auto;
+  margin: 0;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--teal);
+}
+
+.week-row-head .btn:disabled {
+  opacity: 0.35;
+}
+
+.week-add {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.week-add select {
+  flex: 1 1 180px;
+  min-width: 0;
+  font: inherit;
+  font-size: 13px;
+  padding: 7px 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--ink);
+}
+
+.week-add select:focus-visible {
+  outline: 2px solid var(--teal);
+  outline-offset: 2px;
 }
 
 /* Segmented control */

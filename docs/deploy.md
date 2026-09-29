@@ -25,7 +25,7 @@ npm run build:php
 
 It prints three things you need:
 
-- `release/php/` — the app, **392 files, 3.09 MB** (the build prints the current count, and
+- `release/php/` — the app, **389 files, 3.12 MB** (the build prints the current count, and
   `release/php/release.json` lists every file). FTP clients and file-manager uploads go by size,
   so a 3 MB upload is small.
 - `release/nest-preflight-<16 letters and digits>.php` — the preflight page. Its name is random
@@ -218,6 +218,10 @@ Extract the previous release's zip (from the office drive) over the app folder, 
 then paste the lock back at the top of `.htaccess`. Nothing else changes: the library and
 `config.php` are not in any release. No rebuild and no laptop needed.
 
+A release from before the This week template (2026-09-29) shows a week flyer as an Activity one,
+and a Save or a Download there turns it into an Activity flyer. Its rows and title are kept:
+reopen it in a newer release and switch it back to This week.
+
 ## Locked out?
 
 A wrong password hash, a wrong `AuthUserFile` path (every page then answers 500) or a host that
@@ -251,8 +255,8 @@ checkout's `seed/hostels.json`, so it fails whenever the two differ for a harmle
 hostel added in one place first), and a check that cries wolf stops being run.
 
 **The full suite** (`npm run test:contract`, `npm run test:php-smoke`) only on an **empty**
-deployment, before the library goes in: it creates 13 flyers that deleting only archives, and
-photos no endpoint can remove.
+deployment, before the library goes in: it creates 21 flyers (18 from the contract suite, 3 from the
+smoke test) that deleting only archives, and photos no endpoint can remove.
 
 Remove the three lines from `.env` afterwards. While `CONTRACT_BASE_URL` is set, every test run
 goes to the host, and each run says so at the start.

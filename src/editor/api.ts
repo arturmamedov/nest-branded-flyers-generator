@@ -1,5 +1,5 @@
 import { apiUrl } from '../flyer/urls';
-import type { ApiConfig, FlyerInput, FlyerListItem, FlyerPayload, FlyerSaved, Hostel, PhotoInfo } from '../shared/schema';
+import type { ApiConfig, FlyerInput, FlyerListItem, FlyerPayload, FlyerSaved, Hostel, PhotoInfo, Template } from '../shared/schema';
 import { WRITE_HEADERS } from '../shared/writeGuard';
 
 /* Every write carries X-Nest-Flyers: the server's cross-site-write guard.
@@ -36,7 +36,14 @@ async function call<T>(method: string, path: string, body?: unknown): Promise<T>
 export const api = {
   config: () => call<ApiConfig>('GET', 'config'),
   hostels: () => call<Hostel[]>('GET', 'hostels'),
-  flyers: (hostel?: string) => call<FlyerListItem[]>('GET', 'flyers' + (hostel ? `?hostel=${encodeURIComponent(hostel)}` : '')),
+  /** An empty filter is left out of the query: `?hostel=` and `?template=` alone mean "all" too. */
+  flyers: ({ hostel, template }: { hostel?: string; template?: Template } = {}) => {
+    const query = new URLSearchParams();
+    if (hostel) query.set('hostel', hostel);
+    if (template) query.set('template', template);
+    const search = query.toString();
+    return call<FlyerListItem[]>('GET', 'flyers' + (search ? `?${search}` : ''));
+  },
   flyer: (id: number) => call<FlyerPayload>('GET', `flyers/${id}`),
   create: (input: FlyerInput) => call<FlyerSaved>('POST', 'flyers', input),
   update: (id: number, input: FlyerInput) => call<FlyerSaved>('PUT', `flyers/${id}`, input),

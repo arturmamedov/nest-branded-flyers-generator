@@ -576,5 +576,354 @@
         }
       ]
     }
+  },
+  {
+    "title": "This week · Duque Nest",
+    "hostel": "duque-nest",
+    "template": "week",
+    "photo": null,
+    "data": {
+      "v": 1,
+      "template": "week",
+      "photoMode": "band",
+      "photoCrop": {
+        "x": 0.5,
+        "y": 0.5,
+        "zoom": 1
+      },
+      "showPill": true,
+      "text": {
+        "eyebrow": "THIS WEEK",
+        "headline1": "What’s on",
+        "headline2": "this week.",
+        "headlineEs": "El plan de la semana en Duque Nest.",
+        "askEn": "Sign up at reception.",
+        "askEs": "Apúntate en recepción.",
+        "handle": "@NESTSHOSTELS",
+        "tag": "¡TAG US!"
+      },
+      "chips": [
+        {
+          "key": "when",
+          "label": "When",
+          "value": ""
+        },
+        {
+          "key": "where",
+          "label": "Where",
+          "value": ""
+        },
+        {
+          "key": "cost",
+          "label": "Cost",
+          "value": ""
+        }
+      ],
+      "extras": [],
+      "week": [
+        {
+          "day": "Fridays",
+          "name": "Two hours of fun waves",
+          "time": "15:00",
+          "cost": "40€ a class"
+        },
+        {
+          "day": "Fridays",
+          "name": "Family dinner, every Friday",
+          "time": "20:30",
+          "cost": "8€ with a drink"
+        },
+        {
+          "day": "Saturday 19/9",
+          "name": "Saturday is a pool party",
+          "time": "15:00",
+          "cost": "Free · food & drinks"
+        },
+        {
+          "day": "Most mornings",
+          "name": "Step off and fly",
+          "time": "",
+          "cost": "90€"
+        }
+      ],
+      "colors": {
+        "bg": "#F8F4E8",
+        "ink": "#141414",
+        "accent": "#0D6F82",
+        "mark": "#FAC213"
+      },
+      "overrides": {},
+      "doodles": [
+        {
+          "slug": "spark-teal",
+          "anchor": "photoLeft",
+          "x": -46,
+          "y": -55,
+          "w": 104,
+          "rot": -8
+        },
+        {
+          "slug": "spark-yellow",
+          "anchor": "photoRight",
+          "x": -35,
+          "y": -54,
+          "w": 88,
+          "rot": 9
+        },
+        {
+          "slug": "blob-yellow",
+          "x": -26,
+          "y": 1704.4474,
+          "w": 250,
+          "rot": 0
+        },
+        {
+          "slug": "blob-teal",
+          "x": 818,
+          "y": 1673.6047,
+          "w": 290,
+          "rot": 0
+        },
+        {
+          "slug": "spark-teal",
+          "x": 776,
+          "y": 1601.7,
+          "w": 92,
+          "rot": -137,
+          "flipX": true
+        }
+      ]
+    }
+  },
+  {
+    "title": "This week · stress test",
+    "hostel": "los-amigos-nest",
+    "template": "week",
+    "photo": null,
+    "data": {
+      "v": 1,
+      "template": "week",
+      "photoMode": "band",
+      "photoCrop": {
+        "x": 0.5,
+        "y": 0.5,
+        "zoom": 1
+      },
+      "showPill": true,
+      "text": {
+        "eyebrow": "THIS WEEK",
+        "headline1": "What’s on",
+        "headline2": "this week.",
+        "headlineEs": "El plan de la semana en Los Amigos Nest.",
+        "askEn": "Sign up at reception.",
+        "askEs": "Apúntate en recepción.",
+        "handle": "@NESTSHOSTELS",
+        "tag": "¡TAG US!"
+      },
+      "chips": [
+        {
+          "key": "when",
+          "label": "When",
+          "value": ""
+        },
+        {
+          "key": "where",
+          "label": "Where",
+          "value": ""
+        },
+        {
+          "key": "cost",
+          "label": "Cost",
+          "value": ""
+        }
+      ],
+      "extras": [],
+      "week": [
+        {
+          "day": "Saturday 27/9",
+          "name": "Sunrise hike above the sea of clouds",
+          "time": "05:30",
+          "cost": "25€ · 18€ without breakfast"
+        },
+        {
+          "day": "Saturdays and Sundays",
+          "name": "Sunset catamaran along the Los Gigantes cliffs with snorkelling and dinner",
+          "time": "18:30",
+          "cost": "55€",
+          "shortName": "Catamaran to Los Gigantes"
+        },
+        {
+          "day": "Every day",
+          "name": "Beach volleyball and paddle boarding",
+          "time": "10:00 – 13:00",
+          "cost": ""
+        },
+        {
+          "day": "",
+          "name": "Open mic night",
+          "time": "21:00",
+          "cost": "Free"
+        },
+        {
+          "day": "Most mornings",
+          "name": "Step off and fly",
+          "time": "",
+          "cost": "90€"
+        }
+      ],
+      "colors": {
+        "bg": "#F8F4E8",
+        "ink": "#141414",
+        "accent": "#0D6F82",
+        "mark": "#FAC213"
+      },
+      "overrides": {},
+      "doodles": [
+        {
+          "slug": "spark-teal",
+          "anchor": "photoLeft",
+          "x": -46,
+          "y": -55,
+          "w": 104,
+          "rot": -8
+        },
+        {
+          "slug": "spark-yellow",
+          "anchor": "photoRight",
+          "x": -35,
+          "y": -54,
+          "w": 88,
+          "rot": 9
+        },
+        {
+          "slug": "blob-yellow",
+          "x": -26,
+          "y": 1704.4474,
+          "w": 250,
+          "rot": 0
+        },
+        {
+          "slug": "blob-teal",
+          "x": 818,
+          "y": 1673.6047,
+          "w": 290,
+          "rot": 0
+        },
+        {
+          "slug": "spark-teal",
+          "x": 776,
+          "y": 1601.7,
+          "w": 92,
+          "rot": -137,
+          "flipX": true
+        }
+      ]
+    }
+  },
+  {
+    "title": "This week · sparse",
+    "hostel": null,
+    "template": "week",
+    "photo": null,
+    "data": {
+      "v": 1,
+      "template": "week",
+      "photoMode": "band",
+      "photoCrop": {
+        "x": 0.5,
+        "y": 0.5,
+        "zoom": 1
+      },
+      "showPill": true,
+      "text": {
+        "eyebrow": "THIS WEEK",
+        "headline1": "What’s on",
+        "headline2": "this week.",
+        "headlineEs": "El plan de la semana en Nests Hostels.",
+        "askEn": "Sign up at reception.",
+        "askEs": "Apúntate en recepción.",
+        "handle": "@NESTSHOSTELS",
+        "tag": "¡TAG US!"
+      },
+      "chips": [
+        {
+          "key": "when",
+          "label": "When",
+          "value": ""
+        },
+        {
+          "key": "where",
+          "label": "Where",
+          "value": ""
+        },
+        {
+          "key": "cost",
+          "label": "Cost",
+          "value": ""
+        }
+      ],
+      "extras": [],
+      "week": [
+        {
+          "day": "Fridays",
+          "name": "Two hours of fun waves",
+          "time": "",
+          "cost": "40€ a class"
+        },
+        {
+          "day": "Most mornings",
+          "name": "Step off and fly",
+          "time": "",
+          "cost": "90€"
+        }
+      ],
+      "colors": {
+        "bg": "#F8F4E8",
+        "ink": "#141414",
+        "accent": "#0D6F82",
+        "mark": "#FAC213"
+      },
+      "overrides": {},
+      "doodles": [
+        {
+          "slug": "spark-teal",
+          "anchor": "photoLeft",
+          "x": -46,
+          "y": -55,
+          "w": 104,
+          "rot": -8
+        },
+        {
+          "slug": "spark-yellow",
+          "anchor": "photoRight",
+          "x": -35,
+          "y": -54,
+          "w": 88,
+          "rot": 9
+        },
+        {
+          "slug": "blob-yellow",
+          "x": -26,
+          "y": 1704.4474,
+          "w": 250,
+          "rot": 0
+        },
+        {
+          "slug": "blob-teal",
+          "x": 818,
+          "y": 1673.6047,
+          "w": 290,
+          "rot": 0
+        },
+        {
+          "slug": "spark-teal",
+          "x": 776,
+          "y": 1601.7,
+          "w": 92,
+          "rot": -137,
+          "flipX": true
+        }
+      ]
+    }
   }
 ]

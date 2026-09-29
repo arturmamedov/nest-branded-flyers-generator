@@ -1,9 +1,11 @@
 import { randomBytes } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import type { APIRequestContext, Page, Response as PwResponse } from '@playwright/test';
 import { expect, test } from '../browser';
-import { POOL_PARTY, apiCall, backToLibrary, dropFile, status, type FilePayload } from '../editor';
+import { POOL_PARTY, apiCall, backToLibrary, dropFile, rowField, status, templateButton, type FilePayload } from '../editor';
 import sharp from 'sharp';
 import { PHOTO_MODE_LABEL } from '../../src/editor/photoModes';
+import { TEMPLATE_LABEL } from '../../src/editor/templates';
 import { DEFAULT_PHOTO_MODE } from '../../src/shared/defaults';
 import { apiError } from '../../src/shared/errors';
 import { flyerFilename } from '../../src/shared/filename';
@@ -24,7 +26,8 @@ import { WRITE_HEADERS } from '../../src/shared/writeGuard';
 /* The PHP smoke test (playwright.php.config.ts): one staff session through the
    real editor against the PHP backend — create, upload in every photo mode,
    crop, the big-photo and refused-format paths, reopen, the library (filter,
-   duplicate, archive), and PNG + JPG downloads through the in-browser exporter.
+   duplicate, archive), and PNG + JPG downloads through the in-browser exporter —
+   and a This week flyer in a test of its own.
    The API is only used to check what the UI saved, and to clean up.
    Every URL is relative to baseURL, so the same spec runs against `php -S` and
    a subfolder deploy (CONTRACT_BASE_URL). Expectations that depend on the host
@@ -357,5 +360,77 @@ test('the editor on the PHP backend: create, photos, crop, reopen, library, down
     expect(res.status(), await res.text()).toBe(204);
     leftovers.delete(id);
     expect((await request.get(`api/flyers/${id}`)).status()).toBe(404);
+  });
+});
+
+test('a This week flyer on the PHP backend: made, refused a photo, reopened and saved again, downloaded on every canvas', async ({ page, request }) => {
+  const pageErrors: string[] = [];
+  page.on('pageerror', (e) => pageErrors.push(e.message));
+  const title = `smoke week ${Date.now().toString(36)}`;
+  const row = { day: 'Fridays', name: 'Two hours of fun waves', time: '15:00', cost: '25€ · 18€ without breakfast' };
+  const week = templateButton(page, 'week');
+
+  const id = await test.step('make it: This week, one row, saved', async () => {
+    await page.goto('./#/new');
+    await week.click();
+    await expect(week).toHaveAttribute('aria-pressed', 'true');
+    await page.getByLabel('Library name').fill(title);
+    await page.getByRole('button', { name: '+ Add row', exact: true }).click();
+    await rowField(page, 1, 'day').fill(row.day);
+    await rowField(page, 1, 'event').fill(row.name);
+    await rowField(page, 1, 'time').fill(row.time);
+    await rowField(page, 1, 'cost').fill(row.cost);
+    const [res] = await Promise.all([page.waitForResponse(apiCall('POST', 'flyers')), page.getByRole('button', { name: 'Save', exact: true }).click()]);
+    expect(res.status(), await res.text()).toBe(201);
+    const saved = FlyerSavedSchema.parse(await res.json());
+    leftovers.add(saved.id);
+    expect([saved.flyer.template, saved.flyer.data.template]).toEqual(['week', 'week']);
+    return saved.id;
+  });
+
+  await test.step('a photo dropped on it is refused with a reason, and nothing is uploaded', async () => {
+    const uploads: string[] = [];
+    page.on('request', (r) => {
+      if (r.method() === 'POST' && new URL(r.url()).pathname.endsWith('/api/photos')) uploads.push(r.url());
+    });
+    await dropFile(page, page.locator('.stage'), { name: 'pool-party.png', mimeType: 'image/png', buffer: readFileSync(POOL_PARTY) });
+    await expect(errorNote(page)).toContainText(`${TEMPLATE_LABEL.week} flyer has no photo`);
+    expect(uploads).toEqual([]);
+  });
+
+  await test.step('reopened, edited and saved again it is still a week flyer, and the week filter lists it', async () => {
+    await page.reload();
+    await expect(week).toHaveAttribute('aria-pressed', 'true');
+    await rowField(page, 1, 'time').fill('16:00');
+    await save(page, id);
+    const stored = await payload(request, id);
+    expect([stored.flyer.template, stored.flyer.data.template]).toEqual(['week', 'week']);
+    expect(stored.flyer.data.week).toEqual([{ ...row, time: '16:00' }]);
+    const listed = (await (await request.get('api/flyers?template=week')).json()) as { id: number }[];
+    expect(listed.map((f) => f.id)).toContain(id);
+  });
+
+  await test.step('PNG and JPG of every canvas through the in-browser exporter, each at its exact size', async () => {
+    for (const canvas of CANVAS_IDS) {
+      const { label: canvasLabel, width, height } = CANVASES[canvas];
+      await page.getByRole('button', { name: canvasLabel, exact: true }).click();
+      await expect(page.locator('.stage-canvas [data-flyer]')).toHaveAttribute('data-canvas', canvas);
+      for (const [label, format, sharpFormat] of [
+        ['Download PNG', 'png', 'png'],
+        ['JPG', 'jpg', 'jpeg'],
+      ] as const) {
+        const button = page.getByRole('button', { name: label, exact: true });
+        await expect(button).toBeEnabled();
+        const [download] = await Promise.all([page.waitForEvent('download'), button.click()]);
+        const name = flyerFilename(title, id, format, canvas);
+        expect(download.suggestedFilename()).toBe(name);
+        const file = test.info().outputPath(name);
+        await download.saveAs(file);
+        const meta = await sharp(file).metadata();
+        expect([meta.format, meta.width, meta.height], name).toEqual([sharpFormat, width, height]);
+        await expect(button).toBeEnabled();
+      }
+    }
+    expect(pageErrors, 'uncaught errors in the editor').toEqual([]);
   });
 });

@@ -55,6 +55,11 @@ describe('normalisation', () => {
     expect(flyer.data.template).toBe('activity');
   });
 
+  it('the template column wins over data.template, the other way too', async () => {
+    const { flyer } = await mine.create(flyerInput({ template: 'week', data: { ...newFlyerData('activity') } }));
+    expect([flyer.template, flyer.data.template]).toEqual(['week', 'week']);
+  });
+
   it('an empty hostel means chain-wide', async () => {
     const { id, flyer } = await mine.create(flyerInput({ hostel: '' }));
     expect(flyer.hostel).toBeNull();
@@ -88,6 +93,19 @@ describe('validation', () => {
     expect(await invalidFields(flyerInput({ data: { ...d, extras: ['a', 'b', 'c', 'd', 'e'] } }))).toEqual(['data.extras']);
     expect(await invalidFields(flyerInput({ photoId: 1.5 }))).toEqual(['photoId']);
     expect(await invalidFields(flyerInput({ photoId: '1' as never }))).toEqual(['photoId']);
+  });
+
+  it('checks the week rows: at most five, each field to its limit, every field but the short name required', async () => {
+    const w = newFlyerData('week');
+    const row = { day: 'Fridays', name: 'Surf lesson', time: '15:00', cost: '40€' };
+    const withRows = (week: unknown[]) => flyerInput({ template: 'week', data: { ...w, week: week as never } });
+    expect(await invalidFields(withRows(Array.from({ length: 6 }, () => row)))).toEqual(['data.week']);
+    expect(await invalidFields(withRows([{ ...row, name: 'x'.repeat(81) }]))).toEqual(['data.week.0.name']);
+    expect(await invalidFields(withRows([row, { ...row, shortName: 'x'.repeat(61) }]))).toEqual(['data.week.1.shortName']);
+    const { time: _, ...noTime } = row;
+    expect(await invalidFields(withRows([noTime]))).toEqual(['data.week.0.time']);
+    const { flyer } = await mine.create(withRows([row, { ...row, shortName: 'Surf' }]));
+    expect(flyer.data.week).toEqual([row, { ...row, shortName: 'Surf' }]);
   });
 
   it('reports every bad field at once', async () => {

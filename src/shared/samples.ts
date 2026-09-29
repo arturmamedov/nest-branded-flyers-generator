@@ -1,9 +1,12 @@
-import { newFlyerData } from './defaults.js';
-import type { FlyerData } from './schema.js';
+import { newFlyerData, weekTitle } from './defaults.js';
+import type { FlyerData, WeekRow } from './schema.js';
 
-/* The records from design/flyer-data.js, as seed flyers. "Long copy · stress
-   test" exercises every worst case at once — keep it as a seed record and a
-   visual regression fixture. */
+/* The records from design/flyer-data.js, as seed flyers, then three This week
+   flyers made of the same events. "Long copy · stress test" exercises every
+   worst case of the Activity template at once, "This week · stress test"
+   every worst case of a week row — keep both as seed records and visual
+   regression fixtures. The week ones come last: other suites take the first
+   sample, and the first with a photo, as an Activity flyer. */
 
 export interface SampleFlyer {
   title: string;
@@ -101,15 +104,75 @@ const SOURCES: Src[] = [
   },
 ];
 
-export const SAMPLE_FLYERS: SampleFlyer[] = SOURCES.map((s) => {
-  const data = newFlyerData('activity');
-  data.photoMode = s.photo ? 'bleed' : 'none';
-  data.text = { ...data.text, headline1: s.headline1, headline2: s.headline2, headlineEs: s.headlineEs };
-  data.chips = [
-    { key: 'when', label: 'When', value: s.when },
-    { key: 'where', label: 'Where', value: s.where },
-    { key: 'cost', label: 'Cost', value: s.cost },
-  ];
-  data.extras = [...s.extras];
-  return { title: s.title, hostel: s.hostel, photo: s.photo, data };
-});
+interface WeekSrc {
+  title: string;
+  hostel: string | null;
+  /** The hostel's name as seed/hostels.json spells it, for the Spanish title line (shared.test.ts checks it). */
+  hostelName: string | null;
+  /** Keys in the schema's order (day, name, time, cost, shortName): PHP round-trips samples byte for byte. */
+  rows: WeekRow[];
+}
+
+const WEEK_SOURCES: WeekSrc[] = [
+  {
+    title: 'This week · Duque Nest',
+    hostel: 'duque-nest',
+    hostelName: 'Duque Nest',
+    rows: [
+      { day: 'Fridays', name: 'Two hours of fun waves', time: '15:00', cost: '40€ a class' },
+      { day: 'Fridays', name: 'Family dinner, every Friday', time: '20:30', cost: '8€ with a drink' },
+      { day: 'Saturday 19/9', name: 'Saturday is a pool party', time: '15:00', cost: 'Free · food & drinks' },
+      { day: 'Most mornings', name: 'Step off and fly', time: '', cost: '90€' },
+    ],
+  },
+  {
+    // Every row a worst case: the handoff's own wrapping name with a two-line price; a name too long for
+    // any row, with its short name, on a two-line day; a long time; no day; no time; no price.
+    title: 'This week · stress test',
+    hostel: 'los-amigos-nest',
+    hostelName: 'Los Amigos Nest',
+    rows: [
+      { day: 'Saturday 27/9', name: 'Sunrise hike above the sea of clouds', time: '05:30', cost: '25€ · 18€ without breakfast' },
+      {
+        day: 'Saturdays and Sundays',
+        name: 'Sunset catamaran along the Los Gigantes cliffs with snorkelling and dinner',
+        time: '18:30',
+        cost: '55€',
+        shortName: 'Catamaran to Los Gigantes',
+      },
+      { day: 'Every day', name: 'Beach volleyball and paddle boarding', time: '10:00 – 13:00', cost: '' },
+      { day: '', name: 'Open mic night', time: '21:00', cost: 'Free' },
+      { day: 'Most mornings', name: 'Step off and fly', time: '', cost: '90€' },
+    ],
+  },
+  {
+    title: 'This week · sparse',
+    hostel: null,
+    hostelName: null,
+    rows: [
+      { day: 'Fridays', name: 'Two hours of fun waves', time: '', cost: '40€ a class' },
+      { day: 'Most mornings', name: 'Step off and fly', time: '', cost: '90€' },
+    ],
+  },
+];
+
+export const SAMPLE_FLYERS: SampleFlyer[] = [
+  ...SOURCES.map((s) => {
+    const data = newFlyerData('activity');
+    data.photoMode = s.photo ? 'bleed' : 'none';
+    data.text = { ...data.text, headline1: s.headline1, headline2: s.headline2, headlineEs: s.headlineEs };
+    data.chips = [
+      { key: 'when', label: 'When', value: s.when },
+      { key: 'where', label: 'Where', value: s.where },
+      { key: 'cost', label: 'Cost', value: s.cost },
+    ];
+    data.extras = [...s.extras];
+    return { title: s.title, hostel: s.hostel, photo: s.photo, data };
+  }),
+  ...WEEK_SOURCES.map((s) => {
+    const data = newFlyerData('week');
+    data.text = { ...data.text, ...weekTitle(s.hostelName) };
+    data.week = s.rows.map((r) => ({ ...r }));
+    return { title: s.title, hostel: s.hostel, photo: null, data };
+  }),
+];

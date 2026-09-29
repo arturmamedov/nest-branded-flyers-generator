@@ -1,5 +1,7 @@
 import { join } from 'node:path';
 import type { Locator, Page, Response as PwResponse } from '@playwright/test';
+import { TEMPLATE_LABEL } from '../src/editor/templates';
+import type { Template } from '../src/shared/schema';
 
 /* Driving the editor in a browser spec: the Node render suite (tests/render/editor.spec.ts)
    and the PHP smoke test (tests/php-smoke) use the same helpers. Paths stay relative to the
@@ -30,6 +32,14 @@ export const status = (page: Page) => page.locator('.toolbar .status');
 
 /** The editor's one way back, "← Library" at the top of its form (it has no top bar). */
 export const backToLibrary = (page: Page) => page.locator('.panel').getByRole('link', { name: 'Library', exact: true });
+
+/** The editor's template toggle: "Activity" or "This week". */
+export const templateButton = (page: Page, template: Template) =>
+  page.getByRole('group', { name: 'Template' }).getByRole('button', { name: TEMPLATE_LABEL[template], exact: true });
+
+/** One field of a week row, by its own name ("Row 2 cost"): exact, since the labels of five rows share their words. */
+export const rowField = (page: Page, n: number, field: 'day' | 'event' | 'short name' | 'time' | 'cost') =>
+  page.getByLabel(`Row ${n} ${field}`, { exact: true });
 
 /** Drops a file on the preview the way the OS does: a drop event carrying a DataTransfer with the file in it. */
 export async function dropFile(page: Page, target: Locator, file: FilePayload) {

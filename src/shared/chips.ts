@@ -20,19 +20,26 @@ export function splitDot(value: string): string[] {
     .filter(Boolean);
 }
 
+/** Segments back into one line, the way the flyer prints them. */
+export const joinDot = (parts: string[]): string => parts.join(' · ');
+
+/** A value with no stray `·`: no empty segment, no dangling dot, even spacing. */
+export const tidyDot = (value: string): string => joinDot(splitDot(value));
+
+/** The convention's two lines: the first segment big, the rest small. */
+export function splitBigSub(value: string): { big: string; sub: string } {
+  const parts = splitDot(value);
+  return { big: parts.shift() || '', sub: joinDot(parts) };
+}
+
 /** One chip, derived. WHERE puts the hostel on the big line and drops a
     segment that repeats it; with no hostel the first segment is the big line. */
 export function deriveChip(chip: Chip, hostelName: string | null): DerivedChip {
-  let parts = splitDot(chip.value);
-  let big: string;
-  if (chip.key === 'where') {
-    const hostel = (hostelName || '').trim();
-    parts = parts.filter((s) => s.toLowerCase() !== hostel.toLowerCase());
-    big = hostel || parts.shift() || '';
-  } else {
-    big = parts.shift() || '';
-  }
-  return { key: chip.key, label: chip.label, big, sub: parts.join(' · ') };
+  if (chip.key !== 'where') return { key: chip.key, label: chip.label, ...splitBigSub(chip.value) };
+  const hostel = (hostelName || '').trim();
+  const parts = splitDot(chip.value).filter((s) => s.toLowerCase() !== hostel.toLowerCase());
+  const big = hostel || parts.shift() || '';
+  return { key: chip.key, label: chip.label, big, sub: joinDot(parts) };
 }
 
 /** Chips in print order. A chip with nothing to say collapses — no empty box. */

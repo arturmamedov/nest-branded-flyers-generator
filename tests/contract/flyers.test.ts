@@ -1,5 +1,6 @@
 import { afterAll, describe, expect, it } from 'vitest';
 import { z } from 'zod';
+import { SAMPLE_FLYERS } from '../../src/shared/samples.js';
 import { FlyerListItemSchema, FlyerPayloadSchema, FlyerSavedSchema } from '../../src/shared/schema.js';
 import { fails, flyerInput, flyers, hostelName, ok, send } from './client.js';
 
@@ -50,6 +51,38 @@ describe('flyers', () => {
     // A name given twice, or with brackets, filters nothing on either backend.
     expect((await listed(ids, '?hostel=duque-nest&hostel=flamingo-nest')).map((f) => f.id)).toEqual([c, b, a]);
     expect((await listed(ids, '?hostel[]=duque-nest')).map((f) => f.id)).toEqual([c, b, a]);
+  });
+
+  it('a This week flyer round-trips: created, read, its rows reordered, and listed by template, alone and with a hostel', async () => {
+    const week = structuredClone(SAMPLE_FLYERS.find((s) => s.title === 'This week · stress test')!.data);
+    const created = await mine.create(flyerInput({ hostel: 'duque-nest', template: 'week', data: week }));
+    expect(created.flyer).toMatchObject({ hostel: 'duque-nest', template: 'week' });
+    expect(created.flyer.data.template).toBe('week');
+    // Every row as sent: a short name kept where it is set, and no key where it is not.
+    expect(created.flyer.data.week).toEqual(week.week);
+    const got = await ok(send('GET', `api/flyers/${created.id}`), FlyerPayloadSchema);
+    expect(got.flyer).toEqual(created.flyer);
+
+    const reordered = [...week.week].reverse();
+    const updated = await ok(
+      send('PUT', `api/flyers/${created.id}`, flyerInput({ title: created.flyer.title, hostel: 'duque-nest', template: 'week', data: { ...created.flyer.data, week: reordered } })),
+      FlyerSavedSchema,
+    );
+    expect(updated.flyer.template).toBe('week');
+    expect(updated.flyer.data.week).toEqual(reordered);
+
+    const activity = (await mine.create(flyerInput({ hostel: 'duque-nest' }))).id;
+    const chainWide = (await mine.create(flyerInput({ template: 'week', data: week }))).id;
+    const ids = [created.id, activity, chainWide];
+    const weeks = await listed(ids, '?template=week');
+    expect(weeks.map((f) => [f.id, f.template])).toEqual([
+      [chainWide, 'week'],
+      [created.id, 'week'],
+    ]);
+    expect((await listed(ids, '?template=activity')).map((f) => f.id)).toEqual([activity]);
+    expect((await listed(ids, '?hostel=duque-nest&template=week')).map((f) => f.id)).toEqual([created.id]);
+    expect((await listed(ids, '?hostel=none&template=week')).map((f) => f.id)).toEqual([chainWide]);
+    expect(await listed(ids, '?hostel=none&template=activity')).toEqual([]);
   });
 
   it('DELETE archives (204): gone from reads, lists and writes', async () => {

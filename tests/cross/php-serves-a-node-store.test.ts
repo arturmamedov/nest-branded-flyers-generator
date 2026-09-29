@@ -68,6 +68,7 @@ interface Answers {
   byHostel: Json;
   chainWide: Json;
   byTemplate: Json;
+  byWeek: Json;
   /** Every flyer id that was created, the archived one included (both backends must 404 it the same way). */
   payloads: Record<string, Json>;
   /** Photo URL → `<status> <sha256>`: the same bytes must come back from DATA_DIR/uploads (Node) and <app root>/uploads (PHP). */
@@ -162,6 +163,8 @@ describe('PHP serves a store the Node JSON driver wrote', () => {
     expect(phpAnswers.byHostel).toEqual(nodeAnswers.byHostel);
     expect(phpAnswers.chainWide).toEqual(nodeAnswers.chainWide);
     expect(phpAnswers.byTemplate).toEqual(nodeAnswers.byTemplate);
+    expect(phpAnswers.byWeek).toEqual(nodeAnswers.byWeek);
+    expect((nodeAnswers.byWeek.body as unknown[]).length, 'the week samples are listed as week flyers').toBeGreaterThan(0);
     // The fixture is worth having: every flyer shares one updatedAt, so both backends had to tie-break on id.
     const list = nodeAnswers.flyers.body as { id: number; updatedAt: string }[];
     expect(list.length).toBeGreaterThan(1);
@@ -261,7 +264,7 @@ async function withNodeApp<T>(run: (baseUrl: string, repos: Repositories) => Pro
   }
 }
 
-/** The six design records through the real API, with their fixture photos, and the last one archived. */
+/** The sample records through the real API, each with its own template and its fixture photo, and the first one archived. */
 async function seedSamples(baseUrl: string): Promise<{ ids: number[]; photos: PhotoInfo[] }> {
   const photos = new Map<string, PhotoInfo>();
   const ids: number[] = [];
@@ -270,7 +273,7 @@ async function seedSamples(baseUrl: string): Promise<{ ids: number[]; photos: Ph
     const saved = await createFlyer(baseUrl, {
       title: sample.title,
       hostel: sample.hostel,
-      template: 'activity',
+      template: sample.data.template,
       data: structuredClone(sample.data),
       photoId: sample.photo ? photos.get(sample.photo)!.id : null,
     });
@@ -327,6 +330,7 @@ async function readEverything(baseUrl: string, flyerIds: number[], photoUrls: st
     byHostel: await json(baseUrl, `api/flyers?hostel=${SAMPLE_HOSTEL}`),
     chainWide: await json(baseUrl, 'api/flyers?hostel=none'),
     byTemplate: await json(baseUrl, 'api/flyers?template=activity'),
+    byWeek: await json(baseUrl, 'api/flyers?template=week'),
     payloads: {},
     photos: {},
   };

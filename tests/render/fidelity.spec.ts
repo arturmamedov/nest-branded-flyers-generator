@@ -4,25 +4,26 @@ import { expect, test, withoutKit } from '../browser';
 import { PNG } from 'pngjs';
 import sharp from 'sharp';
 import { flyerFilename } from '../../src/shared/filename';
-import { CANVASES, CANVAS_IDS, type CanvasId, type PhotoMode } from '../../src/shared/layout';
+import { CANVASES, CANVAS_IDS, type Body, type CanvasId } from '../../src/shared/layout';
 import { SAMPLE_FLYERS } from '../../src/shared/samples';
 import type { FlyerListItem, FlyerPayload, FlyerSaved } from '../../src/shared/schema';
 import { WRITE_HEADERS } from '../../src/shared/writeGuard';
-import { THRESHOLD, compare, failures, highlighterWrapSample, jpegQuality, readRegions, type Regions } from './pixels';
+import { THRESHOLD, bodiesOf, compare, failures, highlighterWrapSample, jpegQuality, readRegions, type Regions } from './pixels';
 
 /* The permanent export-fidelity check (brief Phase 2, from the approved spike):
-   every sample in every photo mode is downloaded through the real editor with
-   the in-browser ClientExporter, and held to the server's Playwright export of
-   the same saved flyer, ≤ 0.5 % differing pixels outside the photo band and
-   inside each feature's boxes, on every output canvas. DPR 1 covers every
-   case; DPR 2 (a Retina laptop) three story cases and one per other canvas,
-   or all with FIDELITY_FULL=1. */
+   every Activity sample in every photo mode, and every This week sample once
+   (it has no photo), is downloaded through the real editor with the in-browser
+   ClientExporter, and held to the server's Playwright export of the same saved
+   flyer, ≤ 0.5 % differing pixels outside the photo band and inside each
+   feature's boxes, on every output canvas. DPR 1 covers every case; DPR 2 (a
+   Retina laptop) four story cases and one per other canvas, or all with
+   FIDELITY_FULL=1. */
 
-const MODES: PhotoMode[] = ['bleed', 'band', 'none'];
 const RETINA = new Set([
   'story | Highlighter wrap / band',
   'story | Long copy · stress test / bleed',
   'story | Paragliding / none',
+  'story | This week · stress test / week',
   ...CANVAS_IDS.filter((c) => c !== 'story').map((c) => `${c} | Long copy · stress test / bleed`),
 ]);
 const FULL = !!process.env.FIDELITY_FULL;
@@ -30,7 +31,7 @@ const FULL = !!process.env.FIDELITY_FULL;
 interface Case {
   label: string;
   canvas: CanvasId;
-  mode: PhotoMode;
+  mode: Body;
   id: number;
   title: string;
   golden: PNG;
@@ -68,7 +69,7 @@ async function seed(request: APIRequestContext, page: Page) {
 
   for (const s of [...SAMPLE_FLYERS, highlighterWrapSample()]) {
     const source = payloads.get(s.title);
-    for (const mode of MODES) {
+    for (const mode of bodiesOf(s.data)) {
       const label = `${s.title} / ${mode}`;
       const title = `fidelity-${label}`;
       const saved = await json<FlyerSaved>(
@@ -77,9 +78,9 @@ async function seed(request: APIRequestContext, page: Page) {
           data: {
             title,
             hostel: s.hostel,
-            template: 'activity',
-            data: { ...s.data, photoMode: mode },
-            photoId: mode === 'none' ? null : (source?.photo?.id ?? borrowed),
+            template: s.data.template,
+            data: mode === 'week' ? s.data : { ...s.data, photoMode: mode },
+            photoId: mode === 'none' || mode === 'week' ? null : (source?.photo?.id ?? borrowed),
           },
         }),
       );
@@ -95,8 +96,8 @@ async function seed(request: APIRequestContext, page: Page) {
 }
 
 test.beforeAll(async ({ request, browser }) => {
-  // 21 flyers, a server render and a region read per canvas.
-  test.setTimeout(240_000 * CANVAS_IDS.length);
+  // 24 flyers (7 Activity samples × 3 photo modes, 3 week samples), a server render and a region read per canvas.
+  test.setTimeout(280_000 * CANVAS_IDS.length);
   const page = await browser.newPage();
   await seed(request, page);
   await page.close();
@@ -131,7 +132,7 @@ async function download(page: Page, button: string): Promise<{ file: Buffer; dow
   return { file: readFileSync(path), download };
 }
 
-const labels = CANVAS_IDS.flatMap((canvas) => [...SAMPLE_FLYERS, highlighterWrapSample()].flatMap((s) => MODES.map((m) => `${canvas} | ${s.title} / ${m}`)));
+const labels = CANVAS_IDS.flatMap((canvas) => [...SAMPLE_FLYERS, highlighterWrapSample()].flatMap((s) => bodiesOf(s.data).map((m) => `${canvas} | ${s.title} / ${m}`)));
 for (const l of RETINA) if (!labels.includes(l)) throw new Error(`Retina case "${l}" is not a fidelity case`);
 const runs = labels.flatMap((label) => [1, ...(FULL || RETINA.has(label) ? [2] : [])].map((dpr) => ({ label, dpr })));
 

@@ -1,27 +1,31 @@
 import { readFileSync } from 'node:fs';
 import { PNG } from 'pngjs';
 import { describe, expect, it } from 'vitest';
-import { deriveChips, splitDot } from '../../src/shared/chips.js';
+import { deriveChips, splitBigSub, splitDot } from '../../src/shared/chips.js';
 import { MAX_EXCLAMATIONS, lintFlyer } from '../../src/shared/copyRules.js';
 import { DEFAULT_DOODLES, DEFAULT_TEXT, PROTOTYPE_DOODLES, newFlyerData, resolveDoodles, sameDoodles, type ArtPlacement } from '../../src/shared/defaults.js';
 import {
   CANVASES,
   CANVAS_IDS,
-  WEEK,
   activityGroups,
   artAnchors,
+  bodyOf,
   inside,
   isCanvasId,
   overlaps,
   photoFrame,
   placeArt,
   safeBox,
+  weekGroups,
+  weekRowRect,
+  type Body,
   type CanvasId,
   type PhotoMode,
 } from '../../src/shared/layout.js';
 import { clampCrop, coverRect, panCrop, wholePhotoZoom, zoomCrop } from '../../src/shared/photo.js';
 import { SAMPLE_FLYERS } from '../../src/shared/samples.js';
 import { FlyerDataSchema } from '../../src/shared/schema.js';
+import { WEEK_ROWS_MAX } from '../../src/shared/week.js';
 
 const HOSTELS: Record<string, string> = {
   'duque-nest': 'Duque Nest',
@@ -35,8 +39,14 @@ describe('the · convention', () => {
     expect(splitDot('')).toEqual([]);
   });
 
+  it('splits a value into its big line and the rest, rejoined', () => {
+    expect(splitBigSub('25€ with breakfast · 18€ without')).toEqual({ big: '25€ with breakfast', sub: '18€ without' });
+    expect(splitBigSub('10€ · 8€ with a card · kids free')).toEqual({ big: '10€', sub: '8€ with a card · kids free' });
+    expect(splitBigSub(' · ')).toEqual({ big: '', sub: '' });
+  });
+
   it('derives the six design records exactly as the prototype does', () => {
-    const got = SAMPLE_FLYERS.map((s) =>
+    const got = SAMPLE_FLYERS.filter((s) => s.data.template === 'activity').map((s) =>
       deriveChips(s.data.chips, s.hostel ? HOSTELS[s.hostel] : null).map((c) => [c.key, c.big, c.sub]),
     );
     expect(got).toEqual([
@@ -171,11 +181,56 @@ describe('canvases', () => {
     });
   }
 
-  it('five week rows end before the ask block (the week template is story only until step 8)', () => {
-    const { top, rowHeight, gap, max } = WEEK.rows;
-    expect(top + max * rowHeight + (max - 1) * gap).toBe(1370);
-    expect(1370).toBeLessThan(CANVASES.story.activity.ask.top);
+  it("the story's week is the handoff's §2: the title at 398/250, five 122 px rows 15 apart from 700 to 1370", () => {
+    const inner = (top: number, height: number) => ({ left: 70, top, width: 940, height });
+    expect(weekGroups('story')).toEqual({
+      eyebrow: inner(250, 95),
+      title: inner(398, 250),
+      rows: inner(700, 670),
+      ask: inner(1382, 150),
+      pill: inner(1544, 72),
+    });
+    expect([0, 1, 2, 3, 4].map((slot) => weekRowRect('story', slot))).toEqual([
+      inner(700, 122),
+      inner(837, 122),
+      inner(974, 122),
+      inner(1111, 122),
+      inner(1248, 122),
+    ]);
+    expect(photoFrame('story', 'week'), 'a week flyer has no photo frame').toBeNull();
   });
+
+  it("WhatsApp's week, signed off 2026-09-29: the title at 162/250, five rows from 464 to 1134, 30 px above the ask", () => {
+    const inner = (top: number, height: number) => ({ left: 40, top, width: 1000, height });
+    expect(weekGroups('whatsapp')).toMatchObject({ title: inner(162, 250), rows: inner(464, 670), ask: inner(1164, 150) });
+    expect(weekRowRect('whatsapp', 4)).toEqual(inner(1012, 122));
+  });
+
+  it("a flyer's body is its photo mode, or the week's rows whatever its photo mode says", () => {
+    expect(bodyOf({ template: 'activity', photoMode: 'band' })).toBe('band');
+    expect(bodyOf({ template: 'activity', photoMode: 'none' })).toBe('none');
+    expect(bodyOf({ template: 'week', photoMode: 'bleed' })).toBe('week');
+  });
+
+  for (const canvas of CANVAS_IDS) {
+    it(`${canvas} / week: groups never overlap and stay in the safe box, and five rows end at least 12 px above the ask`, () => {
+      const groups = Object.entries(weekGroups(canvas));
+      for (const [name, rect] of groups) expect(inside(rect!, safeBox(canvas)), name).toBe(true);
+      for (let i = 0; i < groups.length; i++)
+        for (let j = i + 1; j < groups.length; j++)
+          expect(overlaps(groups[i][1]!, groups[j][1]!), `${groups[i][0]} × ${groups[j][0]}`).toBe(false);
+      const { week: w, activity: a } = CANVASES[canvas];
+      const last = weekRowRect(canvas, WEEK_ROWS_MAX - 1);
+      expect(last.top + last.height, 'the rows box holds exactly five rows').toBe(w.rows.top + w.rows.height);
+      expect(last.top + last.height + 12).toBeLessThanOrEqual(a.ask.top);
+      expect(w.title.top, 'the title starts below the eyebrow').toBeGreaterThanOrEqual(a.eyebrow.top + a.eyebrow.height);
+      for (let slot = 1; slot < WEEK_ROWS_MAX; slot++) {
+        const [prev, next] = [weekRowRect(canvas, slot - 1), weekRowRect(canvas, slot)];
+        expect(next.top - (prev.top + prev.height), `gap before row ${slot}`).toBe(15);
+        expect(next.height).toBe(122);
+      }
+    });
+  }
 });
 
 describe('photo crop', () => {
@@ -282,7 +337,7 @@ function artInk(slug: string) {
 }
 
 /** Where a piece's ink lands, as canvas points, placed as Flyer.tsx places it (rotate, then flip, about the centre). */
-function inkPoints(d: ArtPlacement, canvas: CanvasId, mode: PhotoMode): [number, number][] {
+function inkPoints(d: ArtPlacement, canvas: CanvasId, mode: Body): [number, number][] {
   const art = artInk(d.slug);
   const { left, top, width: w } = placeArt(d, artAnchors(canvas, mode));
   const h = (w * art.height) / art.width;
@@ -297,7 +352,7 @@ function inkPoints(d: ArtPlacement, canvas: CanvasId, mode: PhotoMode): [number,
 }
 
 /** Share of a piece's ink that lands on the canvas. */
-function inkOnCanvas(d: ArtPlacement, canvas: CanvasId, mode: PhotoMode): number {
+function inkOnCanvas(d: ArtPlacement, canvas: CanvasId, mode: Body): number {
   const { width, height } = CANVASES[canvas];
   const ink = inkPoints(d, canvas, mode);
   return ink.filter(([x, y]) => x >= 0 && x < width && y >= 0 && y < height).length / ink.length;
@@ -375,6 +430,17 @@ describe('template art', () => {
       }
     });
 
+    it(`${canvas}: on a week flyer the sparks' ink never enters the title box, whatever the title says, and stays on the canvas`, () => {
+      const { title } = CANVASES[canvas].week;
+      const sparks = resolveDoodles(DEFAULT_DOODLES).filter((d) => d.anchor === 'photoLeft' || d.anchor === 'photoRight');
+      expect(sparks).toHaveLength(2);
+      for (const d of sparks) {
+        const inTitle = inkPoints(d, canvas, 'week').filter(([x, y]) => x >= title.left && x < title.left + title.width && y >= title.top && y < title.top + title.height);
+        expect(inTitle.length, `${d.slug} ink in the title box`).toBe(0);
+        expect(inkOnCanvas(d, canvas, 'week'), d.slug).toBe(1);
+      }
+    });
+
     it(`${canvas}: the template art keeps at least as much of its ink on canvas as on the story`, () => {
       for (const mode of MODES)
         resolveDoodles(DEFAULT_DOODLES).forEach((d) => {
@@ -382,6 +448,16 @@ describe('template art', () => {
         });
     });
   }
+
+  it("on a week flyer the photo-corner sparks hang from the first row's top corners, in as on the band and 7 px lower (signed off 2026-09-29); the rest of the art stays put", () => {
+    expect(artAnchors('story', 'week')).toMatchObject({ photoLeft: { x: 70, y: 707, scale: 1 }, photoRight: { x: 1010, y: 707, scale: 1 } });
+    expect(artAnchors('whatsapp', 'week')).toMatchObject({ photoLeft: { x: 54, y: 471, scale: 1 }, photoRight: { x: 1026, y: 471, scale: 1 } });
+    for (const canvas of CANVAS_IDS) {
+      const { photoLeft: _l, photoRight: _r, ...week } = artAnchors(canvas, 'week');
+      const { photoLeft: _bl, photoRight: _br, ...band } = artAnchors(canvas, 'band');
+      expect(week, canvas).toEqual(band);
+    }
+  });
 
   it('the clock is gone and the bottom spark sits off the pill', () => {
     expect(DEFAULT_DOODLES.map((d) => d.slug)).not.toContain('icon-clock');
@@ -450,6 +526,57 @@ describe('copy rules', () => {
     const d = base();
     d.text.headline2 = 'POOL PARTY.';
     expect(lintFlyer(d).map((l) => l.field)).toContain('headline2');
+  });
+
+  const week = () => {
+    const d = newFlyerData('week');
+    d.week = [
+      { day: 'Fridays', name: 'Two hours of fun waves', time: '15:00', cost: '40€ a class' },
+      { day: 'Saturday 19/9', name: 'A long name nobody reads', time: '15:00', cost: 'Free', shortName: 'Pool party' },
+    ];
+    // Kept for switching back to Activity, never printed here.
+    d.chips[0].value = 'Mon/Tue · 15:00';
+    d.extras = ['Towels • drinks'];
+    return d;
+  };
+
+  it('a week flyer lints its title and rows, never the chips and extras it keeps for switching back', () => {
+    expect(lintFlyer(week())).toEqual([]);
+    const d = week();
+    d.week[0].cost = '40€/class';
+    d.text.headline2 = 'THIS WEEK.';
+    const lints = lintFlyer(d);
+    expect(lints.map((l) => l.field).sort()).toEqual(['headline2', 'week.0.cost']);
+    expect(lints.find((l) => l.field === 'week.0.cost')!.message, 'the warning names the row').toMatch(/^Row 1: /);
+  });
+
+  it('a row prints its short name when it has one, so that is what is linted', () => {
+    const d = week();
+    d.week[1].name = 'Book now: pool/party';
+    expect(lintFlyer(d)).toEqual([]);
+    d.week[1].shortName = 'Pool/party';
+    expect(lintFlyer(d).map((l) => l.field)).toEqual(['week.1.shortName']);
+  });
+
+  it('rows spend the same exclamation budget as the rest of the copy', () => {
+    const d = week();
+    d.week[0].name = `Two hours of fun waves${marks(MAX_EXCLAMATIONS)}`;
+    expect(warnsOfMarks(d)).toBe(false);
+    d.week[1].shortName = 'Pool party!';
+    expect(warnsOfMarks(d)).toBe(true);
+  });
+
+  it('an all-caps event name is flagged like a headline', () => {
+    const d = week();
+    d.week[0].name = 'SURF LESSON';
+    const lint = lintFlyer(d).find((l) => l.field === 'week.0.name');
+    expect(lint?.message).toMatch(/^Row 1: Sentence case/);
+  });
+
+  it('an Activity flyer ignores the rows it keeps for switching back', () => {
+    const d = base();
+    d.week = [{ day: 'Mon/Tue', name: 'BOOK NOW', time: '', cost: '5€!!!!' }];
+    expect(lintFlyer(d)).toEqual([]);
   });
 });
 

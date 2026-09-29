@@ -1,9 +1,10 @@
 # Nest Branded Flyers Generator
 
-Internal mini-app: staff pick a flyer template, fill in the event details, drop a photo, and
-download it as an Instagram story (1080 × 1920) or a WhatsApp image (1080 × 1440, 3:4): one
-flyer, two output canvases, switched in the editor's toolbar. Flyers are saved to a shared
-library and can be reopened and edited later.
+Internal mini-app: staff pick a flyer template — **Activity** (one event, with a photo) or
+**This week** (up to five of the week's activities) — fill in the details, and download it as
+an Instagram story (1080 × 1920) or a WhatsApp image (1080 × 1440, 3:4): one flyer, two output
+canvases, switched in the editor's toolbar. Flyers are saved to a shared library and can be
+reopened and edited later.
 
 Built from a design handoff — **read `design_handoff_flyer_generator/README.md` first.** It
 carries exact geometry, colours, type, the text-fitting behaviour, the data model, the API
@@ -58,7 +59,7 @@ npm install
 npx playwright install chromium
 cp .env.example .env          # optional; defaults are fine for dev
 npm run seed:dev              # hostels + built-in doodles into ./data/flyers.db
-npm run seed:samples          # the six design records, incl. the stress test (dev only)
+npm run seed:samples          # the six design records and three This week flyers, both stress tests included (dev only)
 npm run dev                   # http://127.0.0.1:8787 — API, editor and render page on one port
 ```
 
@@ -72,7 +73,7 @@ export renderer works in dev too.
 | `npm run typecheck` | client and server compile |
 | `npm test` | shared logic (`·` split, layout, crop maths, copy rules, schema), the editor's history guard, the shared test vectors, the storage contract on every driver, SQLite migrations, and that generated files are current |
 | `npm run test:contract` | the HTTP contract (`docs/api-contract.md`) against every backend, the PHP one also behind a staff login (`php-basic`), and the access rule itself over HTTP (`php-access`: 401, 403, 503). `CONTRACT_BASE_URL` in `.env` points it at a deployment instead (`docs/deploy.md`) |
-| `npm run test:render` | builds, then renders every sample in all three photo modes on every canvas: every block where `layout.ts` puts it, inside the safe box, no overlapping blocks, no clipped text, real fonts loaded, highlighter clone, exports each canvas at its exact size as PNG/JPG, cached per canvas until a save; the in-browser client export matches the server export (`fidelity.spec.ts`, ≤ 0.5 % per feature). `tests/render/baseline.spec.ts` is opt-in (`RENDER_BASELINE=capture\|check`): byte-identical PNGs of the story before and after a refactor |
+| `npm run test:render` | builds, then renders every Activity sample in all three photo modes, and every This week sample once, on every canvas: every block where `layout.ts` puts it, inside the safe box, no overlapping blocks, no clipped text, real fonts loaded, highlighter clone, each week row printing what `src/shared/week.ts` says (short names, two-line prices, empty cells collapsed), exports each canvas at its exact size as PNG/JPG, cached per canvas until a save; the in-browser client export matches the server export (`fidelity.spec.ts`, ≤ 0.5 % per feature). `tests/render/baseline.spec.ts` is opt-in (`RENDER_BASELINE=capture\|check`): byte-identical PNGs of the Activity story before and after a refactor |
 | `npm run test:php` | the PHP backend's own tests (PHPUnit). `composer test` in `php/` does the same; `PHP_BIN` picks the interpreter |
 | `npm run test:php-smoke` | builds, serves the release layout with `php -S`, and drives the editor on the PHP backend in a browser |
 | `npm run build:php` | the release to upload to a PHP host, in `release/php/`, and the preflight page beside it (`docs/deploy.md`) |
@@ -99,6 +100,26 @@ Numbers live in `src/shared/layout.ts` (boxes) and `src/shared/defaults.ts` (art
   own is free. It supersedes §12's first bullet, one per flyer, which the pill always spent.
 - The editor is a focus page: no shared bar, a sticky "← Library" at the top of its form, and a question
   before unsaved work is left (see the top bar, below).
+
+### This week template (2026-09-29) — where the app departs from the handoff and the prototype
+
+The report is `docs/reports/week-template.md`; the owner's decisions are quoted there.
+
+- Rows are **122px, 15px apart** (§2). §3's "22px between week rows" is stale: at 138/22 the fifth
+  row crossed the ask.
+- The title lines (`What’s on` / `this week.` / the Spanish line) are **prefilled and editable**, in
+  the headline's own fields; the prototype fixed them. The Spanish line names the hostel picked,
+  until someone edits it.
+- Rows are typed, or **taken from a saved Activity flyer** (a copy: its WHEN, its whole name, its
+  first price). Fewer than five sit at the top. A price with a `·` prints on two lines.
+- A row's time and price are capped at 250px and shrink when long, instead of squeezing the event
+  name to nothing; the name may shrink below its longest word; every empty cell collapses.
+- The two sparks hang from the **first row's corners**, 7px lower than on a photo so their ink stays
+  out of the title. On WhatsApp the title sits at 162 and the rows run 464 → 1134.
+- Switching template keeps every field: the photo, chips and extras wait on a week flyer, the rows
+  on an Activity one. The title is the headline's lines, so it travels with the flyer.
+- English and Spanish fields carry a small drawn flag in the editor (emoji flags show as letters
+  on Windows).
 
 The export checklist items that need eyes (5px strokes everywhere, the highlighter behind the
 full WHEN line) — download the stress-test flyer and look.
@@ -283,12 +304,13 @@ Shipped: handoff build steps 1–6 — Activity template pixel-matched to the pr
 Playwright export (PNG/JPG, cached), text fields with live preview and shrink-to-fit, photo
 upload with three photo modes, drag-to-reposition and zoom, library with hostel filter, reopen,
 duplicate and archive. Then output canvases: every flyer previews and downloads as an Instagram
-story or a WhatsApp 3:4 image (`docs/reports/output-canvases.md`).
+story or a WhatsApp 3:4 image (`docs/reports/output-canvases.md`). Then handoff step 8, the
+**This week** template, on both canvases and both backends (`docs/reports/week-template.md`).
 
-Next (handoff steps 7–9): per-element drag/nudge with snapping and safe-box clamping, font-size
-multipliers, contrast-checked colour swatches, block reorder, Reset to template; the
-**This week** template; the doodle picker and staff doodle uploads. The data model already
-stores `overrides`, `colors`, `week[]` and `doodles[]` for them.
+Next (handoff steps 7 and 9): per-element drag/nudge with snapping and safe-box clamping,
+font-size multipliers, contrast-checked colour swatches, block reorder, Reset to template; the
+doodle picker and staff doodle uploads. The data model already stores `overrides`, `colors` and
+`doodles[]` for them.
 
 Open items: the other 10 hostel names · per-hostel logo variants (`hostel.logo_path`; default is
 the teal Nests wordmark) · licensed event photos · whether `pill-teal.png` from the Canva

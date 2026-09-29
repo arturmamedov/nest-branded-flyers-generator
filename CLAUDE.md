@@ -9,7 +9,7 @@ geometry, tokens, fit algorithm, data model, API, export) before changing anythi
 ```sh
 npm run dev            # Express + Vite middleware on http://127.0.0.1:8787 (API, editor, render page)
 npm run seed:dev       # hostels + built-in doodles into ./data/flyers.db (idempotent)
-npm run seed:samples   # the six design records incl. the stress test (dev only)
+npm run seed:samples   # the six design records and three This week flyers, both stress tests included (dev only)
 npm run typecheck      # client + server
 npm test               # Vitest: shared logic, shared vectors, the editor's history guard, storage contract per driver,
                        # generated files current
@@ -37,10 +37,13 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
 - `src/flyer/fit.ts` — the prototype's `_fit()` ported verbatim (two-pass shrink-to-fit). Keep the
   `data-fit*` attributes. `ready.ts` loads fonts/images and fits before any export.
 - `src/shared/` — DOM-free, used by client **and** server: `schema.ts` (zod, source of truth for the data
-  shape), `layout.ts` (the `CANVASES` registry: every canvas's size, safe zones, box positions and art
-  anchor points; a new canvas is one entry), `defaults.ts` (tokens + template art), `chips.ts` (the `·`
-  convention), `photo.ts` (crop maths), `copyRules.ts`, `writeGuard.ts` (the write header, and the methods that
-  need none). Relative imports here use `.js` extensions (NodeNext).
+  shape), `layout.ts` (the `CANVASES` registry: every canvas's size, safe zones, both templates' box positions
+  and art anchor points; a new canvas is one entry), `defaults.ts` (tokens, template art, each template's
+  defaults and the switch between them), `chips.ts` (the `·` convention), `week.ts` (the This week rows: their
+  limits, a row taken from a saved flyer, what a row prints — zod-free, so the client imports it and `schema.ts`
+  takes its limits from it), `photo.ts` (crop maths), `copyRules.ts`, `writeGuard.ts` (the write header, and the
+  methods that need none). Relative imports here use `.js` extensions (NodeNext). The client never imports a
+  value from `schema.ts`: that would bundle zod into the editor and the export page.
 - `src/editor/` — editor + library UI. `render.html` + `src/render/` — the bare page headless Chromium shoots.
 - The library's top bar is `<nest-nav tool="flyers">` (`App.tsx`), the bar every Nests tool shares.
   - It is loaded `async` from `https://nestpass.ai/kit/nest-nav.js`. That file lives in the
@@ -107,6 +110,22 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
     `defaults.ts`; §1 item 4 said full bleed);
   - the copy may use `MAX_EXCLAMATIONS` exclamation marks (`copyRules.ts`), and the tag pill's own
     is free (§12 bullet 1 allowed one per flyer, which the pill always spent).
+- The This week template (2026-09-29, `docs/reports/week-template.md`; the owner's answers are quoted there):
+  - §3's "22px between week rows" is superseded: 15 px, as §2 explains (at 138/22 the fifth row crossed the ask).
+  - The title lines are the headline's fields (`text.headline1/2/headlineEs`), prefilled and editable; the
+    Spanish line follows the hostel while it still reads as the default. The handoff's §6 table marked those
+    fields Activity-only and the prototype fixed the lines: both superseded.
+  - Rows are typed, or taken from a saved Activity flyer as a copy. Fewer than five sit at the top of the
+    five-row box. Switching template keeps every field; only untouched defaults follow (`switchTemplate`).
+  - A price with a `·` prints on two lines, as the COST chip does.
+  - The row departs from the prototype in three places (`Flyer.tsx`, `WeekRow`): the time and price are capped
+    at 250 px so a long one shrinks instead of squeezing the name, the name can shrink below its longest word,
+    and every empty cell collapses.
+  - The photo-corner sparks hang from the first row's corners, 7 px lower (`artDrop`: their tilted ink
+    otherwise reaches into the title box). WhatsApp's week: title 162/250, rows 464 → 1134. Both signed off
+    from proof sheets on 2026-09-29.
+  - English and Spanish fields carry a drawn flag in the editor (`LangFlag.tsx`; emoji flags are letters on
+    Windows). Nothing of it reaches a flyer.
 
 ## How to work here
 
@@ -125,14 +144,15 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
 ## Status
 
 - Done: handoff build steps 1–6 (branch `feat/flyer-generator-mvp`).
+- Done: step 8, the This week template, on every canvas and both backends (branch `feat/week-template`,
+  2026-09-29). The brief is `docs/prompts/week-template.md`, the report `docs/reports/week-template.md`.
 - Waiting, don't start unasked: step 7 (drag/nudge everything on the canvas, sizes, colours, order, reset),
-  step 8 (This week template; its brief is `docs/prompts/week-template.md`), step 9 (doodle picker + icon
-  uploads). With two canvases: step 7's stored
-  `overrides` (dx/dy) are shared by every canvas, so it must decide how they apply per canvas; step 8's
-  `WEEK` boxes are story-only today; step 9, when it stores the render-only anchors (`bottomLeft`,
-  `bottomRight`, `floor`), must add a JSON migration id so an older release refuses the store cleanly.
+  step 9 (doodle picker + icon uploads). With two canvases and two templates: step 7's stored `overrides`
+  (dx/dy) are shared by every canvas, so it must decide how they apply per canvas; step 9, when it stores
+  the render-only anchors (`bottomLeft`, `bottomRight`, `floor`), must add a JSON migration id so an older
+  release refuses the store cleanly.
 - Next, once Artur supplies its prototype: a second flyer style, chosen in the editor while making a flyer.
-  Not designed yet; step 8 comes first.
+  Not designed yet.
 - Done: output canvases, Instagram story 9:16 + WhatsApp 3:4 (branch `feat/output-canvases`, 2026-09-23).
   The review is `docs/reports/output-canvases-review.md`, the report `docs/reports/output-canvases.md`.
 - Done: the PHP shared-hosting port, phases 2–5 (branch `feat/php-shared-hosting`): the seams, the PHP
