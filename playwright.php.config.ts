@@ -1,5 +1,6 @@
 import { defineConfig } from '@playwright/test';
 import { contractTarget, describeTarget } from './scripts/env.js';
+import { EDITOR_VIEWPORT } from './tests/editor.js';
 
 /* The PHP smoke test (npm run test:php-smoke): the real editor from the Vite
    build, driving the PHP backend. Locally, scripts/php/serve.ts stages php/web
@@ -25,7 +26,7 @@ export default defineConfig({
   use: {
     baseURL,
     ...(remote?.basicAuth ? { httpCredentials: { username: remote.basicAuth.user, password: remote.basicAuth.password } } : {}),
-    viewport: { width: 1440, height: 900 },
+    viewport: EDITOR_VIEWPORT,
     acceptDownloads: true,
     // A failed smoke run is hard to read from the list alone; the trace shows each step's page.
     trace: 'retain-on-failure',

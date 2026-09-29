@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import type { APIRequestContext, APIResponse, Page } from '@playwright/test';
 import { expect, test } from '../browser';
+import { EDITOR_VIEWPORT } from '../editor';
 import sharp from 'sharp';
 import { apiError, type ApiErrorKey } from '../../src/shared/errors';
 import { flyerFilename } from '../../src/shared/filename';
@@ -231,7 +232,7 @@ test('the editor previews, fits and downloads every canvas, through the server e
   page.on('request', (r) => {
     if (r.method() === 'POST' && /\/api\/render\/\d+$/.test(r.url())) renders.push(r.postData() ?? '');
   });
-  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.setViewportSize(EDITOR_VIEWPORT);
   await page.goto(`/#/flyers/${flyer.id}`);
   await expect.poll(async () => page.evaluate(() => document.fonts.status)).toBe('loaded');
   const preview = page.locator('.stage-canvas [data-flyer]');

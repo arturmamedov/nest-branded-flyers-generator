@@ -1,4 +1,5 @@
-import { artAnchors, type ArtAnchor } from './layout.js';
+import { artAnchors, type ArtAnchor, type PhotoMode } from './layout.js';
+import { DEFAULT_CROP } from './photo.js';
 import type { Colors, DoodlePlacement, FlyerData, FlyerText, Template } from './schema.js';
 
 /* Design tokens (handoff README §3). */
@@ -83,12 +84,16 @@ export const DEFAULT_TEXT: FlyerText = {
   tag: '¡TAG US!',
 };
 
+/** A new flyer's photo sits in the drawn frame, and so does a photo dropped while "No photo" is on (Editor.tsx) —
+    hence never 'none'. The owner's choice (2026-09-28), superseding handoff §1 item 4 ("full bleed (default)"). */
+export const DEFAULT_PHOTO_MODE: Exclude<PhotoMode, 'none'> = 'band';
+
 export function newFlyerData(template: Template = 'activity'): FlyerData {
   return {
     v: 1,
     template,
-    photoMode: 'bleed',
-    photoCrop: { x: 0.5, y: 0.5, zoom: 1 },
+    photoMode: DEFAULT_PHOTO_MODE,
+    photoCrop: { ...DEFAULT_CROP },
     showPill: true,
     text: { ...DEFAULT_TEXT, eyebrow: template === 'week' ? 'THIS WEEK' : 'NEXT ACTIVITY' },
     chips: [

@@ -1,8 +1,10 @@
 import { randomBytes } from 'node:crypto';
-import { join } from 'node:path';
-import type { APIRequestContext, Locator, Page, Response as PwResponse } from '@playwright/test';
+import type { APIRequestContext, Page, Response as PwResponse } from '@playwright/test';
 import { expect, test } from '../browser';
+import { POOL_PARTY, WRITE, apiCall, backToLibrary, dropFile, status, type FilePayload } from '../editor';
 import sharp from 'sharp';
+import { PHOTO_MODE_LABEL } from '../../src/editor/photoModes';
+import { DEFAULT_PHOTO_MODE } from '../../src/shared/defaults';
 import { apiError } from '../../src/shared/errors';
 import { flyerFilename } from '../../src/shared/filename';
 import { CANVASES, CANVAS_IDS } from '../../src/shared/layout';
@@ -29,14 +31,6 @@ import {
 
 type Limits = ApiConfig['limits'];
 
-interface FilePayload {
-  name: string;
-  mimeType: string;
-  buffer: Buffer;
-}
-
-const WRITE = { 'X-Nest-Flyers': '1' };
-const POOL_PARTY = join(import.meta.dirname, '../../fixtures/photos/flyer-pool-party.png');
 /** Below this the host's upload limit is shared-hosting sized (serve.ts runs with 2M), so the big photo is made to be
     over it and only the editor's shrink-before-upload can get it through. */
 const SMALL_LIMIT = 5 * 1024 * 1024;
@@ -57,18 +51,8 @@ test.afterEach(async ({ request }) => {
   leftovers.clear();
 });
 
-/** Matches the editor's own API call by method, path and exact query, whatever folder the app is installed in. */
-const apiCall =
-  (method: string, path: string, search = '') =>
-  (res: PwResponse) => {
-    if (res.request().method() !== method) return false;
-    const url = new URL(res.url());
-    return url.pathname.endsWith(`/api/${path}`) && url.search === search;
-  };
-
 const exactly = (text: string) => new RegExp(`^${text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`);
 
-const status = (page: Page) => page.locator('.toolbar .status');
 const errorNote = (page: Page) => page.locator('.notes .note-error');
 const fileInput = (page: Page) => page.locator('input[type=file]');
 /** A library card by its exact title, so "smoke 1" never matches "smoke 1 (copy)". */
@@ -94,20 +78,6 @@ async function save(page: Page, id: number) {
 async function choosePhoto(page: Page, file: string | FilePayload): Promise<PwResponse> {
   const [res] = await Promise.all([page.waitForResponse(apiCall('POST', 'photos')), fileInput(page).setInputFiles(file)]);
   return res;
-}
-
-/** Drops a file on the preview the way the OS does: a drop event carrying a DataTransfer with the file in it. */
-async function dropFile(page: Page, target: Locator, file: FilePayload) {
-  const dataTransfer = await page.evaluateHandle(
-    ({ name, mimeType, base64 }) => {
-      const dt = new DataTransfer();
-      dt.items.add(new File([Uint8Array.from(atob(base64), (c) => c.charCodeAt(0))], name, { type: mimeType }));
-      return dt;
-    },
-    { name: file.name, mimeType: file.mimeType, base64: file.buffer.toString('base64') },
-  );
-  await target.dispatchEvent('dragover', { dataTransfer });
-  await target.dispatchEvent('drop', { dataTransfer });
 }
 
 /** The stored file is served from its app-relative url and is what the API says it is. */
@@ -195,11 +165,12 @@ test('the editor on the PHP backend: create, photos, crop, reopen, library, down
       ['cost', COPY.cost],
     ]);
     expect(p.flyer.data.extras).toEqual([COPY.extra]);
+    expect(p.flyer.data.photoMode, 'a new flyer starts in the default photo mode').toBe(DEFAULT_PHOTO_MODE);
     return saved.id;
   });
 
   const firstPhoto = await test.step('2. upload a photo in Full bleed', async () => {
-    await page.getByRole('button', { name: 'Full bleed', exact: true }).click();
+    await page.getByRole('button', { name: PHOTO_MODE_LABEL.bleed, exact: true }).click();
     const res = await choosePhoto(page, POOL_PARTY);
     expect(res.status(), await res.text()).toBe(201);
     const photo = PhotoInfoSchema.parse(await res.json());
@@ -215,12 +186,8 @@ test('the editor on the PHP backend: create, photos, crop, reopen, library, down
   });
 
   await test.step('3. switch the photo mode, saving each one', async () => {
-    const modes = [
-      ['In a frame', 'band'],
-      ['No photo', 'none'],
-      ['Full bleed', 'bleed'],
-    ] as const;
-    for (const [label, mode] of modes) {
+    for (const mode of ['band', 'none', 'bleed'] as const) {
+      const label = PHOTO_MODE_LABEL[mode];
       await page.getByRole('button', { name: label, exact: true }).click();
       await save(page, id);
       const p = await payload(request, id);
@@ -303,7 +270,7 @@ test('the editor on the PHP backend: create, photos, crop, reopen, library, down
   });
 
   await test.step('8. library: filter, duplicate, archive the copy', async () => {
-    await page.getByRole('link', { name: 'Library', exact: true }).click();
+    await backToLibrary(page).click();
     const mine = card(page, title);
     await expect(mine).toBeVisible();
     await expect(mine.locator('.card-meta')).toContainText(hostel.name);
@@ -332,7 +299,7 @@ test('the editor on the PHP backend: create, photos, crop, reopen, library, down
     expect(copy.flyer).toMatchObject({ title: copyTitle, hostel: hostel.slug, photoId: original.flyer.photoId });
     expect(copy.flyer.data).toEqual(original.flyer.data);
 
-    await page.getByRole('link', { name: 'Library', exact: true }).click();
+    await backToLibrary(page).click();
     const copyCard = card(page, copyTitle);
     await expect(copyCard).toBeVisible();
     let asked = '';

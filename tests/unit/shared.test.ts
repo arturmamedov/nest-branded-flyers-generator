@@ -2,8 +2,8 @@ import { readFileSync } from 'node:fs';
 import { PNG } from 'pngjs';
 import { describe, expect, it } from 'vitest';
 import { deriveChips, splitDot } from '../../src/shared/chips.js';
-import { lintFlyer } from '../../src/shared/copyRules.js';
-import { DEFAULT_DOODLES, PROTOTYPE_DOODLES, newFlyerData, resolveDoodles, sameDoodles, type ArtPlacement } from '../../src/shared/defaults.js';
+import { MAX_EXCLAMATIONS, lintFlyer } from '../../src/shared/copyRules.js';
+import { DEFAULT_DOODLES, DEFAULT_TEXT, PROTOTYPE_DOODLES, newFlyerData, resolveDoodles, sameDoodles, type ArtPlacement } from '../../src/shared/defaults.js';
 import {
   CANVASES,
   CANVAS_IDS,
@@ -404,16 +404,37 @@ describe('copy rules', () => {
     return d;
   };
 
-  it('a clean flyer has no warnings (the pill spends the one !)', () => {
+  const marks = (n: number) => '!'.repeat(n);
+  const warnsOfMarks = (d: ReturnType<typeof base>) => lintFlyer(d).some((l) => l.field === 'text');
+
+  it("a clean flyer has no warnings (the pill's own ! is free)", () => {
     expect(lintFlyer(base())).toEqual([]);
   });
 
-  it('a second exclamation mark warns; hiding the pill frees one', () => {
+  it('the copy may spend MAX_EXCLAMATIONS marks; one more warns, pill or no pill', () => {
+    for (const showPill of [true, false]) {
+      const d = base();
+      d.showPill = showPill;
+      d.text.headline2 = `pool party${marks(MAX_EXCLAMATIONS)}`;
+      expect(lintFlyer(d), `pill ${showPill}`).toEqual([]);
+      d.text.askEn = 'Sign up at reception!';
+      expect(warnsOfMarks(d), `pill ${showPill}`).toBe(true);
+    }
+  });
+
+  it("only the tag's own marks are free: more typed into it count, and a tag without them frees none", () => {
     const d = base();
-    d.text.headline2 = 'pool party!';
-    expect(lintFlyer(d).map((l) => l.field)).toContain('text');
-    d.showPill = false;
-    expect(lintFlyer(d)).toEqual([]);
+    d.text.tag = DEFAULT_TEXT.tag + '!';
+    d.text.headline2 = `pool party${marks(MAX_EXCLAMATIONS - 1)}`;
+    expect(warnsOfMarks(d)).toBe(false);
+    d.text.headline2 = `pool party${marks(MAX_EXCLAMATIONS)}`;
+    expect(warnsOfMarks(d)).toBe(true);
+
+    d.text.tag = DEFAULT_TEXT.tag.replaceAll('!', '');
+    d.text.headline2 = `pool party${marks(MAX_EXCLAMATIONS)}`;
+    expect(warnsOfMarks(d)).toBe(false);
+    d.text.askEn = 'Sign up at reception!';
+    expect(warnsOfMarks(d)).toBe(true);
   });
 
   it('flags book now, bullets and separator slashes, but not dates', () => {

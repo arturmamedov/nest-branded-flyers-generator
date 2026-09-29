@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { FlyerListItem, Hostel } from '../shared/schema';
 import { api } from './api';
-import { go } from './App';
+import { go, onPage } from './route';
 import { localStorageGet, localStorageSet } from './prefs';
 
 const when = (iso: string) =>
@@ -39,7 +39,7 @@ export function Library({ hostels }: { hostels: Hostel[] }) {
         data: p.flyer.data,
         photoId: p.flyer.photoId,
       });
-      go(`#/flyers/${newId}`);
+      if (onPage('library')) go(`#/flyers/${newId}`); // saved either way; it opens only if the user is still here
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
       setBusyId(null);

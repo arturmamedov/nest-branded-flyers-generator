@@ -70,7 +70,7 @@ export renderer works in dev too.
 | Command | What it proves |
 |---|---|
 | `npm run typecheck` | client and server compile |
-| `npm test` | shared logic (`·` split, layout, crop maths, copy rules, schema), the shared test vectors, the storage contract on every driver, SQLite migrations, and that generated files are current |
+| `npm test` | shared logic (`·` split, layout, crop maths, copy rules, schema), the editor's history guard, the shared test vectors, the storage contract on every driver, SQLite migrations, and that generated files are current |
 | `npm run test:contract` | the HTTP contract (`docs/api-contract.md`) against every backend, the PHP one also behind a staff login (`php-basic`), and the access rule itself over HTTP (`php-access`: 401, 403, 503). `CONTRACT_BASE_URL` in `.env` points it at a deployment instead (`docs/deploy.md`) |
 | `npm run test:render` | builds, then renders every sample in all three photo modes on every canvas: every block where `layout.ts` puts it, inside the safe box, no overlapping blocks, no clipped text, real fonts loaded, highlighter clone, exports each canvas at its exact size as PNG/JPG, cached per canvas until a save; the in-browser client export matches the server export (`fidelity.spec.ts`, ≤ 0.5 % per feature). `tests/render/baseline.spec.ts` is opt-in (`RENDER_BASELINE=capture\|check`): byte-identical PNGs of the story before and after a refactor |
 | `npm run test:php` | the PHP backend's own tests (PHPUnit). `composer test` in `php/` does the same; `PHP_BIN` picks the interpreter |
@@ -90,6 +90,16 @@ export renderer works in dev too.
 
 Numbers live in `src/shared/layout.ts` (boxes) and `src/shared/defaults.ts` (art).
 
+### Editor pass (2026-09-28) — where the app departs from the handoff
+
+- A new flyer starts **In a frame**, and so does a photo dropped while "No photo" is on (`DEFAULT_PHOTO_MODE`
+  in `src/shared/defaults.ts`). It supersedes handoff §1 item 4, "full bleed (default)". Saved flyers keep
+  their mode.
+- The copy may use up to `MAX_EXCLAMATIONS` exclamation marks (`src/shared/copyRules.ts`), and the tag pill's
+  own is free. It supersedes §12's first bullet, one per flyer, which the pill always spent.
+- The editor is a focus page: no shared bar, a sticky "← Library" at the top of its form, and a question
+  before unsaved work is left (see the top bar, below).
+
 The export checklist items that need eyes (5px strokes everywhere, the highlighter behind the
 full WHEN line) — download the stress-test flyer and look.
 
@@ -100,7 +110,7 @@ full WHEN line) — download the stress-test flyer and look.
 | `src/flyer/Flyer.tsx` | **the** renderer — used by the editor preview and the export page. Transcribed 1:1 from the prototype |
 | `src/flyer/fit.ts` | the two-pass shrink-to-fit, ported verbatim from the prototype's `_fit()` |
 | `src/shared/` | DOM-free logic shared by client and server: schema, layout numbers, `·` parsing, crop maths, copy rules |
-| `src/editor/` | the editor and library UI. Its top bar is `<nest-nav tool="flyers">`, the bar every Nests tool shares; see below |
+| `src/editor/` | the editor and library UI. The library's top bar is `<nest-nav tool="flyers">`, the bar every Nests tool shares; see below |
 | `render.html`, `src/render/` | the bare page headless Chromium screenshots: one flyer on one canvas (`?canvas=`) |
 | `server/` | Express API, migrations, photo processing, export renderer |
 | `server/storage/` | the storage seam: the SQLite and JSON-file drivers, seeding, the copy tool |
@@ -127,6 +137,21 @@ To swap Shantell Sans for More Sugar (if a licence is ever bought): change `HEAD
   nestpass.ai is down) at the same 54 px.
 - The browser specs block the script (`tests/browser.ts`). `tests/render/chrome.spec.ts` checks both
   states.
+
+**The editor has no bar.** The bar shows on the library; the editor (`#/new`, `#/flyers/:id`) keeps the
+whole window for the form and the save and download toolbar, with a sticky "← Library" at the top of the
+form. The bar comes back only if the app can't reach its server.
+
+Unsaved work asks before it is left (`src/editor/leaveGuard.ts`, `tests/render/editor.spec.ts`):
+- "← Library", the browser's Back and Forward (and jumps from their menus), a typed `#/…`: the app's
+  own question. A refused move is cancelled before it happens (`src/editor/route.ts`, the Navigation
+  API, in every major browser since January 2026), so the history stays as it was. A browser may refuse
+  to let the page cancel a Back pressed with no fresh interaction on the page; that one happens and is
+  stepped straight back. Browsers without the API (Safari before 26.2, Firefox before 147) ask on
+  "← Library" and on leaving the page.
+- Closing or reloading the tab: the browser's own question. Desktop browsers ask; phones (iOS Safari
+  above all) may close without asking.
+- A photo dropped beside the preview is refused instead of opening in the tab.
 
 ---
 

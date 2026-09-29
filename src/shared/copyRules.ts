@@ -1,6 +1,15 @@
+import { DEFAULT_TEXT } from './defaults.js';
 import type { FlyerData } from './schema.js';
 
 /* Nests brand-voice rules (handoff README §12), as gentle warnings. */
+
+/** Exclamation marks the copy may spend, not counting the tag pill's own (DEFAULT_TEXT.tag). The owner's number
+    (2026-09-28), superseding §12's "one per flyer": the pill always spent that one, so the copy had none. */
+export const MAX_EXCLAMATIONS: number = 3;
+
+const bangs = (s: string) => (s.match(/!/g) || []).length;
+// The template's sign-off carries its own marks; the pill spends those for free.
+const PILL_OWN = bangs(DEFAULT_TEXT.tag);
 
 export interface Lint {
   field: string;
@@ -31,14 +40,13 @@ export function lintFlyer(d: FlyerData): Lint[] {
   const lints: Lint[] = [];
   const fields = textFields(d);
 
-  const bangs = fields.reduce((n, f) => n + (f.value.match(/!/g) || []).length, 0);
-  if (bangs > 1) {
-    lints.push({
-      field: 'text',
-      message: d.showPill
-        ? 'One exclamation mark per flyer — the ¡TAG US! pill already spends it.'
-        : 'One exclamation mark per flyer, maximum.',
-    });
+  // Up to the template's own marks in the tag are free; any more typed into it count like the copy's.
+  const pillFree = d.showPill ? Math.min(bangs(d.text.tag), PILL_OWN) : 0;
+  const spent = fields.reduce((n, f) => n + bangs(f.value), 0) - pillFree;
+  if (spent > MAX_EXCLAMATIONS) {
+    // "On the flyer": extra marks typed into the tag count too.
+    const limit = `At most ${MAX_EXCLAMATIONS} exclamation ${MAX_EXCLAMATIONS === 1 ? 'mark' : 'marks'} on the flyer`;
+    lints.push({ field: 'text', message: pillFree ? `${limit}, besides the tag pill's own.` : `${limit}.` });
   }
 
   for (const f of fields) {

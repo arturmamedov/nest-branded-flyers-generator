@@ -39,12 +39,12 @@ body {
   flex-direction: column;
 }
 
-/* The top bar is <nest-nav>, which every Nests tool shares and loads from nestpass.ai
-   (the nestpass-tools repo). Its shadow root draws the bar and the links to the other tools;
-   this file styles only what the editor puts inside it:
+/* The library's top bar is <nest-nav>, which every Nests tool shares and loads from nestpass.ai
+   (the nestpass-tools repo); the editor has none (App.tsx). Its shadow root draws the bar and the
+   links to the other tools; this file styles only what the app puts inside it:
    - the fallback brand, shown while the element is undefined (the script hasn't run yet, or
      nestpass.ai can't be reached);
-   - the editor's own links.
+   - the app's own links.
    The fallback keeps the shared bar's 54 px, so the upgrade moves nothing. */
 nest-nav {
   flex: 0 0 auto;
@@ -186,11 +186,30 @@ nest-nav > nav a:not(.btn):hover {
 }
 
 .panel {
+  --panel-head: 48px;
   flex: 0 0 380px;
   overflow-y: auto;
   background: var(--paper);
   border-right: 1px solid var(--line);
-  padding: 8px 20px 40px;
+  padding: 0 20px 40px;
+  /* A field focused from the keyboard never scrolls under the sticky head. */
+  scroll-padding-top: var(--panel-head);
+}
+
+/* The editor has no top bar (App.tsx), so its way back stays in view while the form scrolls.
+   The panel has no top padding, so top: 0 is flush with its edge. */
+.panel-head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  height: var(--panel-head);
+  margin: 0 -20px;
+  padding: 0 10px;
+  background: var(--paper);
+  border-bottom: 1px solid var(--line);
 }
 
 .section {

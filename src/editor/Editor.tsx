@@ -3,13 +3,16 @@ import type { FitReport } from '../flyer/fit';
 import { deriveChip } from '../shared/chips';
 import { ACCEPTED_PHOTO_TYPES } from '../shared/limits';
 import { lintFlyer } from '../shared/copyRules';
-import { newFlyerData } from '../shared/defaults';
-import { CANVASES, CANVAS_IDS, isCanvasId, photoFrame, type CanvasId } from '../shared/layout';
-import { ZOOM_MAX, ZOOM_MIN, clampCrop, wholePhotoZoom, zoomCrop } from '../shared/photo';
+import { DEFAULT_PHOTO_MODE, newFlyerData } from '../shared/defaults';
+import { CANVASES, CANVAS_IDS, isCanvasId, photoFrame, type CanvasId, type PhotoMode } from '../shared/layout';
+import { DEFAULT_CROP, ZOOM_MAX, ZOOM_MIN, clampCrop, wholePhotoZoom, zoomCrop } from '../shared/photo';
 import type { Chip, ChipKey, Crop, FlyerData, FlyerInput, FlyerText, Hostel, PhotoInfo } from '../shared/schema';
 import { api, ApiError } from './api';
 import type { FlyerExporter } from './export';
+import { mayLeave, useLeaveGuard } from './leaveGuard';
+import { PHOTO_MODE_LABEL } from './photoModes';
 import { preparePhoto, type PhotoLimits } from './photoPrep';
+import { replaceHash } from './route';
 import { localStorageGet, localStorageSet } from './prefs';
 import { Preview } from './Preview';
 
@@ -72,12 +75,8 @@ export function Editor({ id, hostels, exporter, limits }: { id: number | null; h
   }, [id]);
 
   const dirty = draft ? JSON.stringify(toInput(draft)) !== savedJson : false;
-  useEffect(() => {
-    if (!dirty) return;
-    const warn = (e: BeforeUnloadEvent) => e.preventDefault();
-    window.addEventListener('beforeunload', warn);
-    return () => window.removeEventListener('beforeunload', warn);
-  }, [dirty]);
+  // A photo still uploading is unsaved work too.
+  useLeaveGuard(dirty || busy === 'upload');
 
   const hostel = useMemo(() => hostels.find((h) => h.slug === draft?.hostel) ?? null, [hostels, draft?.hostel]);
   const lints = useMemo(() => (draft ? lintFlyer(draft.data) : []), [draft]);
@@ -91,7 +90,12 @@ export function Editor({ id, hostels, exporter, limits }: { id: number | null; h
     localStorageSet(CANVAS_PREF, c);
   };
 
-  if (loadError) return <div className="banner banner-error">{loadError} <a href="#/">Back to the library</a></div>;
+  if (loadError)
+    return (
+      <div className="banner banner-error">
+        {loadError} <BackToLibrary />
+      </div>
+    );
   if (!draft) return <div className="loading">Loading flyer…</div>;
 
   const set = (patch: Partial<Draft>) => setDraft((d) => (d ? { ...d, ...patch } : d));
@@ -119,8 +123,9 @@ export function Editor({ id, hostels, exporter, limits }: { id: number | null; h
     if (draft!.title.trim() === '') set({ title: input.title });
     if (flyerId == null) {
       setFlyerId(res.id);
-      // Keep this editor mounted; just make the URL reopenable.
-      history.replaceState(null, '', `#/flyers/${res.id}`);
+      // Keep this editor mounted; just make the URL reopenable. Only while the new flyer is still the page
+      // on screen: a save that answers after the user has moved on leaves their URL alone.
+      replaceHash('#/new', `#/flyers/${res.id}`);
     }
     return res.id;
   }
@@ -159,7 +164,7 @@ export function Editor({ id, hostels, exporter, limits }: { id: number | null; h
       const { blob, name } = await preparePhoto(file, limits);
       const photo = await api.uploadPhoto(blob, name);
       setDraft((d) =>
-        d ? { ...d, photo, data: { ...d.data, photoCrop: { x: 0.5, y: 0.5, zoom: 1 }, photoMode: d.data.photoMode === 'none' ? 'bleed' : d.data.photoMode } } : d,
+        d ? { ...d, photo, data: { ...d.data, photoCrop: DEFAULT_CROP, photoMode: d.data.photoMode === 'none' ? DEFAULT_PHOTO_MODE : d.data.photoMode } } : d,
       );
     });
 
@@ -169,6 +174,10 @@ export function Editor({ id, hostels, exporter, limits }: { id: number | null; h
   return (
     <div className="editor">
       <aside className="panel">
+        {/* The editor has no shared bar (App.tsx): the way back stays at the top of the form. */}
+        <div className="panel-head">
+          <BackToLibrary className="btn btn-quiet" />
+        </div>
         <Section title="Flyer">
           <Field label="Hostel" help="Prints in the WHERE block and tags the flyer in the library">
             <select value={draft.hostel ?? ''} onChange={(e) => set({ hostel: e.target.value || null })}>
@@ -224,13 +233,7 @@ export function Editor({ id, hostels, exporter, limits }: { id: number | null; h
 
         <Section title="Photo">
           <div className="seg">
-            {(
-              [
-                ['bleed', 'Full bleed'],
-                ['band', 'In a frame'],
-                ['none', 'No photo'],
-              ] as const
-            ).map(([mode, label]) => (
+            {(Object.entries(PHOTO_MODE_LABEL) as [PhotoMode, string][]).map(([mode, label]) => (
               <button key={mode} type="button" className={draft.data.photoMode === mode ? 'on' : ''} onClick={() => setData({ photoMode: mode })}>
                 {label}
               </button>
@@ -334,7 +337,7 @@ export function Editor({ id, hostels, exporter, limits }: { id: number | null; h
               <div className="note note-warn">
                 Add a photo, or{' '}
                 <button type="button" className="linkish" onClick={() => setData({ photoMode: 'none' })}>
-                  switch to No photo
+                  switch to {PHOTO_MODE_LABEL.none}
                 </button>{' '}
                 — the empty photo band would print as a blank strip.
               </div>
@@ -365,6 +368,23 @@ export function Editor({ id, hostels, exporter, limits }: { id: number | null; h
         />
       </main>
     </div>
+  );
+}
+
+/** The editor's one way back. A plain link, so it opens in a new tab too; a plain click asks first
+    when there is unsaved work (route.ts would too, but not in a browser without the Navigation API). */
+function BackToLibrary({ className }: { className?: string }) {
+  return (
+    <a
+      className={className}
+      href="#/"
+      onClick={(e) => {
+        const plain = e.button === 0 && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey;
+        if (plain && !mayLeave()) e.preventDefault();
+      }}
+    >
+      <span aria-hidden="true">←</span> Library
+    </a>
   );
 }
 
@@ -457,7 +477,7 @@ function PhotoControls({ photo, data, canvas, onCrop }: { photo: PhotoInfo; data
         />
       </Field>
       <div className="photo-row">
-        <button type="button" className="btn btn-quiet" onClick={() => onCrop(() => ({ x: 0.5, y: 0.5, zoom: 1 }))}>
+        <button type="button" className="btn btn-quiet" onClick={() => onCrop(() => DEFAULT_CROP)}>
           Fill frame
         </button>
         <button type="button" className="btn btn-quiet" onClick={() => onCrop(() => ({ x: 0.5, y: 0.5, zoom: wholePhotoZoom(photo, frame) }))}>

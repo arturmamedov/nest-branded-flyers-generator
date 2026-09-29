@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { DEFAULT_CROP, ZOOM_MAX, ZOOM_MIN } from './photo.js';
 
 /* The flyer.data JSON, one shape for both templates (handoff README §7).
    Field names and the `·` convention are kept from flyer-data.js.
@@ -24,7 +25,7 @@ export type Template = z.infer<typeof TemplateSchema>;
 export const CropSchema = z.object({
   x: z.number().min(-2).max(3),
   y: z.number().min(-2).max(3),
-  zoom: z.number().min(0.25).max(4),
+  zoom: z.number().min(ZOOM_MIN).max(ZOOM_MAX),
 });
 export type Crop = z.infer<typeof CropSchema>;
 
@@ -81,7 +82,7 @@ export const FlyerDataSchema = z.object({
   v: z.literal(1).default(1),
   template: TemplateSchema,
   photoMode: PhotoModeSchema,
-  photoCrop: CropSchema.default({ x: 0.5, y: 0.5, zoom: 1 }),
+  photoCrop: CropSchema.default(() => ({ ...DEFAULT_CROP })),
   showPill: z.boolean().default(true),
   text: TextSchema,
   chips: z.array(ChipSchema).max(3),

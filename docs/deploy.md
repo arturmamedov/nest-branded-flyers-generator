@@ -137,9 +137,10 @@ PNG, once with **Story 9:16** and once with **WhatsApp 3:4** picked in the toolb
 they are 1080 × 1920 and 1080 × 1440 and in the right typeface (compare the story with one from
 the old app). The PNGs are drawn by your own browser.
 
-The top bar, with the links to the other Nests tools, is loaded from `https://nestpass.ai/kit/`.
-That folder is uploaded from the `nestpass-tools` repo, not from this release. Until it is there,
-the bar shows only "Flyers", and that is expected.
+The library's top bar, with the links to the other Nests tools, is loaded from
+`https://nestpass.ai/kit/`. That folder is uploaded from the `nestpass-tools` repo, not from this
+release. Until it is there, the bar shows only "Flyers", and that is expected. The editor has no
+bar, by design: its way back is "← Library" at the top of the form.
 
 **5b. Move the library in** (once). A developer, on the computer with the checkout, copies the
 current library into a folder that looks like the host's:

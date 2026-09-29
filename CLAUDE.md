@@ -11,7 +11,8 @@ npm run dev            # Express + Vite middleware on http://127.0.0.1:8787 (API
 npm run seed:dev       # hostels + built-in doodles into ./data/flyers.db (idempotent)
 npm run seed:samples   # the six design records incl. the stress test (dev only)
 npm run typecheck      # client + server
-npm test               # Vitest: shared logic, shared vectors, storage contract per driver, generated files current
+npm test               # Vitest: shared logic, shared vectors, the editor's history guard, storage contract per driver,
+                       # generated files current
 npm run test:contract  # HTTP contract suite on every backend, php-basic (behind a login), php-access (the lock over
                        # HTTP), cross; CONTRACT_BASE_URL (+ _BASIC_USER/_PASSWORD) in .env targets a deployment
 npm run gen            # regenerate schema/*.json, seed/samples.json, the error table in docs/api-contract.md
@@ -40,15 +41,28 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
   anchor points; a new canvas is one entry), `defaults.ts` (tokens + template art), `chips.ts` (the `·`
   convention), `photo.ts` (crop maths), `copyRules.ts`. Relative imports here use `.js` extensions (NodeNext).
 - `src/editor/` — editor + library UI. `render.html` + `src/render/` — the bare page headless Chromium shoots.
-- The editor's top bar is `<nest-nav tool="flyers">` (`App.tsx`), the bar every Nests tool shares.
+- The library's top bar is `<nest-nav tool="flyers">` (`App.tsx`), the bar every Nests tool shares.
   - It is loaded `async` from `https://nestpass.ai/kit/nest-nav.js`. That file lives in the
     `nestpass-tools` repo (`A:\serverpath\laragon\nestpass-tools`), with the list of tools and the
     contract.
-  - Its shadow root draws the bar. `editor.css` styles only the editor's own links (the default
+  - Its shadow root draws the bar. `editor.css` styles only the app's own links (the default
     slot) and the `slot="fallback"` brand, which shows at the same 54 px until the script runs or
     if it can't be reached.
+  - The editor (`#/new`, `#/flyers/:id`) renders no bar: it is a focus page. Its way back is the
+    panel's sticky "← Library"; the bar comes back only if the app can't load.
   - Browser specs import `test`/`expect` from `tests/browser.ts`, which blocks the script.
-    `tests/render/chrome.spec.ts` holds both states.
+    `tests/render/chrome.spec.ts` holds both states; `tests/editor.ts` has the helpers that drive
+    the editor (the render suite and the PHP smoke test share them).
+- Leaving the editor with unsaved work asks first, on every way out (`src/editor/leaveGuard.ts`).
+  `src/editor/route.ts` cancels a refused move in the Navigation API's `navigate` event (every major
+  browser since January 2026), so it never happens. A Back or Forward the browser won't let the page
+  cancel (no fresh interaction) is let through, the page on screen stays, and the tab returns to its
+  entry by key. Replace the current entry's URL through `replaceHash(from, to)` (the editor's first
+  save), never with `history.replaceState` directly: it skips a page the user has left, and waits while
+  such an undo is on its way. A late answer checks the page in the URL (`onPage`), not React's unmount,
+  which comes a few tasks after the move. Browsers without the API route on `hashchange` and ask only
+  on "← Library" and on leaving the page. `tests/unit/route.test.ts` drives `createMoveGuard` through
+  every case, the uncancellable Back included; `tests/render/editor.spec.ts` drives Chromium.
 - `server/` — Express 5 API, append-only SQLite migrations (`server/db/migrations.ts`), photo processing
   (sharp), Playwright export with a content-hash cache. Storage lives behind `server/storage/` (the
   `sqlite` and `json` drivers, chosen by `STORAGE` in `server/composition.ts`) and the copy tool.
@@ -85,6 +99,12 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
   each canvas through render-only anchors (`resolveDoodles`), so stored doodles never changed and an older
   release still reads every flyer. Every canvas is fitted in the editor, the others offscreen with the same
   `<Flyer>`. The story renders byte-identical to before (`tests/render/baseline.spec.ts`, opt-in).
+- The owner's editor pass (2026-09-28) supersedes two handoff lines; the handoff itself stays as
+  delivered:
+  - a new flyer, and a photo dropped on "No photo", land "In a frame" (`DEFAULT_PHOTO_MODE` in
+    `defaults.ts`; §1 item 4 said full bleed);
+  - the copy may use `MAX_EXCLAMATIONS` exclamation marks (`copyRules.ts`), and the tag pill's own
+    is free (§12 bullet 1 allowed one per flyer, which the pill always spent).
 
 ## How to work here
 
@@ -128,6 +148,9 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
     QR's part is on its branch `claude/shared-nav-7477311f`.
   - Still open: this app answered without a password on 2026-09-28 (`allowPublic`), while the public
     tools page links to it. The lock is `docs/deploy.md` steps 3–4.
+- Built: the editor as a focus page (branch `feat/editor-focus`, 2026-09-28, cut from `feat/shared-nav`).
+  The bar shows on the library only; the editor has a back link, a guard on unsaved work, "In a frame" by
+  default and an exclamation budget (the design decisions above).
 - **Not live, by the owner's decision:** the host is IONOS (`https://nestpass.ai/activities/`), and the app
   goes public only once a real login exists. That login (Supabase, or the Laravel app as the issuer) is its
   own brief, and is not to be started unasked. It will have to exempt a sign-in route from the access check,
