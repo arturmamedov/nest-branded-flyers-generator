@@ -25,6 +25,15 @@
       "msf1"
     ]
   },
+  "writeGuard": {
+    "header": "X-Nest-Flyers",
+    "value": "1",
+    "safeMethods": [
+      "GET",
+      "HEAD",
+      "OPTIONS"
+    ]
+  },
   "errors": {
     "malformed": {
       "status": 400,

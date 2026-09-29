@@ -9,6 +9,7 @@ import { startStage, writeTestConfig, type ServedStage } from '../../scripts/php
 import { FIXTURE_PHOTOS_DIR } from '../../server/paths.js';
 import { FlyerSavedSchema, FlyerListItemSchema, PhotoInfoSchema, type PhotoInfo } from '../../src/shared/schema.js';
 import { SAMPLE_FLYERS } from '../../src/shared/samples.js';
+import { WRITE_HEADERS } from '../../src/shared/writeGuard.js';
 
 /* "Copy data/ and uploads/ back" as a rehearsed fact rather than a sentence:
    a PHP deployment makes a flyer and stores a photo, deploy:backup copies the
@@ -21,7 +22,6 @@ const SAMPLE = SAMPLE_FLYERS.find((s) => s.photo)!;
 let served: ServedStage;
 const sha256 = (bytes: ArrayBuffer | Buffer) => createHash('sha256').update(new Uint8Array(bytes)).digest('hex');
 const at = (path: string) => new URL(path, served.server.baseUrl);
-const WRITE = { 'X-Nest-Flyers': '1' };
 
 beforeAll(async () => {
   served = await startStage({ prefix: 'nest-flyers-drill-' });
@@ -45,7 +45,7 @@ describe('back up, wipe, restore', () => {
 
     const form = new FormData();
     form.append('photo', new Blob([new Uint8Array(readFileSync(join(FIXTURE_PHOTOS_DIR, SAMPLE.photo!)))]), SAMPLE.photo!);
-    const uploaded = await fetch(at('api/photos'), { method: 'POST', headers: WRITE, body: form });
+    const uploaded = await fetch(at('api/photos'), { method: 'POST', headers: WRITE_HEADERS, body: form });
     expect(uploaded.status, await uploaded.clone().text()).toBe(201);
     const photo: PhotoInfo = PhotoInfoSchema.parse(await uploaded.json());
     const photoBytes = sha256(await (await fetch(at(photo.url))).arrayBuffer());
@@ -53,7 +53,7 @@ describe('back up, wipe, restore', () => {
     const title = `Restore drill ${Date.now().toString(36)}`;
     const created = await fetch(at('api/flyers'), {
       method: 'POST',
-      headers: { ...WRITE, 'Content-Type': 'application/json' },
+      headers: { ...WRITE_HEADERS, 'Content-Type': 'application/json' },
       body: JSON.stringify({ title, hostel: SAMPLE.hostel, template: 'activity', data: SAMPLE.data, photoId: photo.id }),
     });
     expect(created.status, await created.clone().text()).toBe(201);

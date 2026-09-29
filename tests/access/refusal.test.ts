@@ -1,7 +1,8 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { EXCLUDED_RANGE, startStage, writeTestConfig, type ServedStage } from '../../scripts/php/serve.js';
 import { ApiConfigSchema } from '../../src/shared/schema.js';
-import { basicAuthHeader, fails, flyerInput, ok, WRITE } from '../contract/client.js';
+import { WRITE_HEADERS } from '../../src/shared/writeGuard.js';
+import { basicAuthHeader, fails, flyerInput, ok } from '../contract/client.js';
 import { TEST_LOGIN } from '../contract/setup/credentials.js';
 
 /* "Never publicly reachable without an access rule", over real HTTP. Until
@@ -54,7 +55,7 @@ describe('behind a staff login (basicAuth only)', () => {
   });
 
   it('challenges a write too, before anything else is looked at', async () => {
-    await fails(post('api/flyers', WRITE), 'unauthorized');
+    await fails(post('api/flyers', WRITE_HEADERS), 'unauthorized');
   });
 
   it('lets the staff login in', async () => {
@@ -75,7 +76,7 @@ describe('with config.sample.php copied as it ships (a config.php with no rule)'
   });
 
   it('answers every write with 503 not_configured', async () => {
-    await fails(post('api/flyers', WRITE), 'not_configured');
+    await fails(post('api/flyers', WRITE_HEADERS), 'not_configured');
   });
 });
 
@@ -87,7 +88,7 @@ describe('with no config.php at all', () => {
   });
 
   it('answers every write with 503 not_configured', async () => {
-    await fails(post('api/flyers', WRITE), 'not_configured');
+    await fails(post('api/flyers', WRITE_HEADERS), 'not_configured');
   });
 });
 

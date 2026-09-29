@@ -16,6 +16,7 @@ use NestFlyers\Json;
 use NestFlyers\Shared;
 use NestFlyers\Tests\Support\Paths;
 use NestFlyers\Tests\Support\TempDir;
+use NestFlyers\Tests\Support\WriteHeader;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use stdClass;
@@ -23,6 +24,7 @@ use stdClass;
 /** The order of checks (docs/api-contract.md): access, boot, parse, guard, route, handler. */
 final class KernelTest extends TestCase
 {
+    private Shared $shared;
     private ErrorCatalog $errors;
     private int $boots = 0;
     /** @var list<array{params: array<string, string>, body: mixed}> */
@@ -32,7 +34,8 @@ final class KernelTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->errors = ErrorCatalog::fromShared(Shared::fromFile(Paths::schema('shared.json')));
+        $this->shared = Shared::fromFile(Paths::schema('shared.json'));
+        $this->errors = ErrorCatalog::fromShared($this->shared);
     }
 
     protected function tearDown(): void
@@ -88,7 +91,7 @@ final class KernelTest extends TestCase
 
     public function testABodyThatIsNotJsonReachesTheHandlerAsNull(): void
     {
-        $headers = ['x-nest-flyers' => '1', 'content-type' => 'text/plain', 'content-length' => '3'];
+        $headers = WriteHeader::headers() + ['content-type' => 'text/plain', 'content-length' => '3'];
         $request = new Request('POST', '/api/flyers', [], $headers, 'abc', [], ['REMOTE_ADDR' => '127.0.0.1']);
         self::assertSame(200, $this->kernel()->handle($request)->status);
         self::assertNull($this->calls[0]['body']);
@@ -125,7 +128,7 @@ final class KernelTest extends TestCase
         $kernel = new Kernel(
             $this->errors,
             new AccessGuard(AccessRule::fromArray(['allowPublic' => true]), $this->errors),
-            new WriteGuard($this->errors),
+            new WriteGuard($this->shared, $this->errors),
             fn (): Router => throw $this->errors->make('storage_too_new'),
         );
         $this->assertError($kernel->handle(self::plain('GET', '/api/hostels')), 500, 'server_error', $this->errors->make('storage_too_new')->getMessage());
@@ -156,7 +159,7 @@ final class KernelTest extends TestCase
         return new Kernel(
             $this->errors,
             new AccessGuard($rule ?? AccessRule::fromArray(['allowIps' => ['127.0.0.1']]), $this->errors),
-            new WriteGuard($this->errors),
+            new WriteGuard($this->shared, $this->errors),
             function () use ($router): Router {
                 $this->boots++;
                 return $router;
@@ -164,9 +167,10 @@ final class KernelTest extends TestCase
         );
     }
 
-    /** @param array<string, string> $headers */
-    private static function json(string $method, string $path, string $body, array $headers = ['x-nest-flyers' => '1']): Request
+    /** @param array<string, string>|null $headers null: the write header */
+    private static function json(string $method, string $path, string $body, ?array $headers = null): Request
     {
+        $headers ??= WriteHeader::headers();
         $headers += ['content-type' => 'application/json', 'content-length' => (string) strlen($body)];
         return new Request($method, $path, [], $headers, $body, [], ['REMOTE_ADDR' => '127.0.0.1']);
     }

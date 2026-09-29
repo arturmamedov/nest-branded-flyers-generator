@@ -5,6 +5,7 @@
    apiError(). */
 
 import { CANVAS_IDS } from './layout.js';
+import { WRITE_GUARD } from './writeGuard.js';
 
 /** "story or whatsapp": the canvas list as the error message reads it, from the registry. */
 const canvasList = CANVAS_IDS.length > 1 ? `${CANVAS_IDS.slice(0, -1).join(', ')} or ${CANVAS_IDS.at(-1)}` : CANVAS_IDS.join('');
@@ -25,7 +26,7 @@ export const API_ERRORS = {
   bad_format: { status: 400, code: 'invalid', message: 'format must be png or jpg.' },
   bad_canvas: { status: 400, code: 'invalid', message: `canvas must be ${canvasList}.` },
   unauthorized: { status: 401, code: 'unauthorized', message: 'Sign in to use the flyer generator.' },
-  forbidden: { status: 403, code: 'forbidden', message: 'Missing X-Nest-Flyers header.' },
+  forbidden: { status: 403, code: 'forbidden', message: `Missing ${WRITE_GUARD.header} header.` },
   ip_forbidden: { status: 403, code: 'forbidden', message: 'This network is not allowed to use the flyer generator.' },
   no_such_flyer: { status: 404, code: 'not_found', message: 'No such flyer.' },
   no_such_endpoint: { status: 404, code: 'not_found', message: 'No such endpoint.' },

@@ -7,6 +7,7 @@ import { flyerFilename } from '../../src/shared/filename';
 import { CANVASES, CANVAS_IDS, type CanvasId, type PhotoMode } from '../../src/shared/layout';
 import { SAMPLE_FLYERS } from '../../src/shared/samples';
 import type { FlyerListItem, FlyerPayload, FlyerSaved } from '../../src/shared/schema';
+import { WRITE_HEADERS } from '../../src/shared/writeGuard';
 import { THRESHOLD, compare, failures, highlighterWrapSample, jpegQuality, readRegions, type Regions } from './pixels';
 
 /* The permanent export-fidelity check (brief Phase 2, from the approved spike):
@@ -17,7 +18,6 @@ import { THRESHOLD, compare, failures, highlighterWrapSample, jpegQuality, readR
    case; DPR 2 (a Retina laptop) three story cases and one per other canvas,
    or all with FIDELITY_FULL=1. */
 
-const HDR = { 'X-Nest-Flyers': '1' };
 const MODES: PhotoMode[] = ['bleed', 'band', 'none'];
 const RETINA = new Set([
   'story | Highlighter wrap / band',
@@ -73,7 +73,7 @@ async function seed(request: APIRequestContext, page: Page) {
       const title = `fidelity-${label}`;
       const saved = await json<FlyerSaved>(
         request.post('api/flyers', {
-          headers: HDR,
+          headers: WRITE_HEADERS,
           data: {
             title,
             hostel: s.hostel,
@@ -85,7 +85,7 @@ async function seed(request: APIRequestContext, page: Page) {
       );
       // One saved flyer, a golden per canvas: the same data on every canvas, as in the editor.
       for (const canvas of CANVAS_IDS) {
-        const render = await request.post(`api/render/${saved.id}`, { headers: HDR, data: { format: 'png', canvas } });
+        const render = await request.post(`api/render/${saved.id}`, { headers: WRITE_HEADERS, data: { format: 'png', canvas } });
         expect(render.status(), `golden ${canvas} ${label}`).toBe(200);
         const key = `${canvas} | ${label}`;
         cases.set(key, { label: key, canvas, mode, id: saved.id, title, golden: PNG.sync.read(await render.body()), regions: await regionsOf(page, saved.id, canvas) });
@@ -103,7 +103,7 @@ test.beforeAll(async ({ request, browser }) => {
 });
 
 test.afterAll(async ({ request }) => {
-  for (const id of new Set([...cases.values()].map((c) => c.id))) await request.delete(`api/flyers/${id}`, { headers: HDR });
+  for (const id of new Set([...cases.values()].map((c) => c.id))) await request.delete(`api/flyers/${id}`, { headers: WRITE_HEADERS });
 });
 
 /** The editor with only the in-browser exporter: Node has both, PHP only this one.

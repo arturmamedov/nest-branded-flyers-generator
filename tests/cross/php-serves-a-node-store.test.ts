@@ -24,6 +24,7 @@ import {
   StoredFlyerSchema,
   UPLOADS_DIR,
 } from '../../src/shared/storage.js';
+import { WRITE_HEADERS } from '../../src/shared/writeGuard.js';
 import { added, changed, removed, sha256, snapshot, type Snapshot } from './snapshot.js';
 
 /* The cross-backend proof: one data folder, both backends.
@@ -276,7 +277,7 @@ async function seedSamples(baseUrl: string): Promise<{ ids: number[]; photos: Ph
     ids.push(saved.id);
   }
   // An archived flyer, so the index carries an archived row both backends must hide.
-  const archived = await fetch(new URL(`api/flyers/${ids[0]}`, baseUrl), { method: 'DELETE', headers: { 'X-Nest-Flyers': '1' } });
+  const archived = await fetch(new URL(`api/flyers/${ids[0]}`, baseUrl), { method: 'DELETE', headers: WRITE_HEADERS });
   expect(archived.status, await archived.text()).toBe(204);
   return { ids, photos: [...photos.values()] };
 }
@@ -292,7 +293,7 @@ const flyerInput = (title: string): FlyerInput => ({
 async function uploadPhoto(baseUrl: string, file: string): Promise<PhotoInfo> {
   const form = new FormData();
   form.append('photo', new Blob([new Uint8Array(readFileSync(join(FIXTURE_PHOTOS_DIR, file)))]), file);
-  const res = await fetch(new URL('api/photos', baseUrl), { method: 'POST', headers: { 'X-Nest-Flyers': '1' }, body: form });
+  const res = await fetch(new URL('api/photos', baseUrl), { method: 'POST', headers: WRITE_HEADERS, body: form });
   const text = await res.text();
   expect(res.status, text).toBe(201);
   return PhotoInfoSchema.parse(JSON.parse(text));
@@ -301,7 +302,7 @@ async function uploadPhoto(baseUrl: string, file: string): Promise<PhotoInfo> {
 async function createFlyer(baseUrl: string, input: FlyerInput): Promise<{ id: number; flyer: unknown }> {
   const res = await fetch(new URL('api/flyers', baseUrl), {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-Nest-Flyers': '1' },
+    headers: { 'Content-Type': 'application/json', ...WRITE_HEADERS },
     body: JSON.stringify(input),
   });
   const text = await res.text();

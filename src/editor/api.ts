@@ -1,5 +1,6 @@
 import { apiUrl } from '../flyer/urls';
 import type { ApiConfig, FlyerInput, FlyerListItem, FlyerPayload, FlyerSaved, Hostel, PhotoInfo } from '../shared/schema';
+import { WRITE_HEADERS } from '../shared/writeGuard';
 
 /* Every write carries X-Nest-Flyers: the server's cross-site-write guard.
    Paths are relative to the app root, so a subfolder install works. */
@@ -21,11 +22,11 @@ export async function errorFrom(res: Response, fallback: string): Promise<ApiErr
 }
 
 async function call<T>(method: string, path: string, body?: unknown): Promise<T> {
-  const init: RequestInit = { method, headers: { 'X-Nest-Flyers': '1' } };
+  const init: RequestInit = { method, headers: WRITE_HEADERS };
   if (body instanceof FormData) init.body = body;
   else if (body !== undefined) {
     init.body = JSON.stringify(body);
-    (init.headers as Record<string, string>)['Content-Type'] = 'application/json';
+    init.headers = { ...WRITE_HEADERS, 'Content-Type': 'application/json' };
   }
   const res = await fetch(apiUrl(path), init);
   if (!res.ok) throw await errorFrom(res, 'Request failed');

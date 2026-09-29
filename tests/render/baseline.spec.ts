@@ -9,6 +9,7 @@ import { PROTOTYPE_DOODLES } from '../../src/shared/defaults';
 import type { Rect } from '../../src/shared/layout';
 import { SAMPLE_FLYERS } from '../../src/shared/samples';
 import type { Crop, DoodlePlacement, FlyerData, FlyerListItem, FlyerPayload, FlyerSaved } from '../../src/shared/schema';
+import { WRITE_HEADERS } from '../../src/shared/writeGuard';
 import { highlighterWrapSample } from './pixels';
 
 /* Opt-in pixel baseline of the story canvas: proof that a refactor leaves the
@@ -26,7 +27,6 @@ import { highlighterWrapSample } from './pixels';
 
 const MODE = process.env.RENDER_BASELINE as 'capture' | 'check' | undefined;
 const DIR = process.env.RENDER_BASELINE_DIR || join(tmpdir(), 'nest-story-baseline');
-const HDR = { 'X-Nest-Flyers': '1' };
 const MODES = ['bleed', 'band', 'none'] as const;
 
 test.skip(!MODE, 'opt-in: set RENDER_BASELINE=capture|check');
@@ -145,13 +145,13 @@ test('story baseline: every case renders byte-identical to the captured PNGs', a
   const problems: string[] = [];
   for (const c of cases()) {
     const input = { title: `baseline-${c.name}`, hostel: c.hostel, template: 'activity', data: c.data, photoId: c.photo ? photo : null };
-    const saved = (await (await request.post('/api/flyers', { headers: HDR, data: input })).json()) as FlyerSaved;
+    const saved = (await (await request.post('/api/flyers', { headers: WRITE_HEADERS, data: input })).json()) as FlyerSaved;
 
     // The export, as the editor's server exporter asks for it. Saving the flyer
     // again empties its render cache, so every shot is a fresh render.
     const exportPng = (body: Record<string, unknown>) => async () => {
-      expect((await request.put(`/api/flyers/${saved.id}`, { headers: HDR, data: input })).status()).toBe(200);
-      const res = await request.post(`/api/render/${saved.id}`, { headers: HDR, data: body });
+      expect((await request.put(`/api/flyers/${saved.id}`, { headers: WRITE_HEADERS, data: input })).status()).toBe(200);
+      const res = await request.post(`/api/render/${saved.id}`, { headers: WRITE_HEADERS, data: body });
       expect(res.status(), c.name).toBe(200);
       return res.body();
     };
@@ -177,7 +177,7 @@ test('story baseline: every case renders byte-identical to the captured PNGs', a
         (await check(`${c.name}.safe`, '.story', overlay('&canvas=story'))) ?? '',
       );
     }
-    await request.delete(`/api/flyers/${saved.id}`, { headers: HDR });
+    await request.delete(`/api/flyers/${saved.id}`, { headers: WRITE_HEADERS });
   }
   expect(problems.filter(Boolean), `baseline in ${DIR}`).toEqual([]);
 });

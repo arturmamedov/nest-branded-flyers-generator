@@ -30,6 +30,7 @@ use NestFlyers\Photos\UploadLimits;
 use NestFlyers\Shared;
 use NestFlyers\Tests\Support\Paths;
 use NestFlyers\Tests\Support\TempDir;
+use NestFlyers\Tests\Support\WriteHeader;
 use NestFlyers\Validation\FlyerValidator;
 use NestFlyers\Validation\SchemaNormalizer;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -151,7 +152,7 @@ final class ApiTest extends TestCase
         $error = $this->error($this->send('POST', 'api/flyers', []), 400, 'invalid');
         self::assertSame(['_'], array_keys((array) $error->fields));
         // Not sent as JSON: Node's req.body is undefined, reported at "_" too.
-        $request = new Request('POST', '/api/flyers', [], ['x-nest-flyers' => '1', 'content-type' => 'text/plain', 'content-length' => '2'], '{}');
+        $request = new Request('POST', '/api/flyers', [], WriteHeader::headers() + ['content-type' => 'text/plain', 'content-length' => '2'], '{}');
         $error = $this->error($this->kernel->handle($request), 400, 'invalid');
         self::assertSame(['_'], array_keys((array) $error->fields));
     }
@@ -307,7 +308,7 @@ final class ApiTest extends TestCase
         return new Kernel(
             $this->errors,
             new AccessGuard(AccessRule::fromArray(self::PUBLIC), $this->errors),
-            new WriteGuard($this->errors),
+            new WriteGuard($this->shared, $this->errors),
             static fn (): Router => $router,
         );
     }
@@ -359,7 +360,7 @@ final class ApiTest extends TestCase
     /** @param array<string, string> $query */
     private static function request(string $method, string $path, mixed $json = null, array $query = []): Request
     {
-        $headers = ['x-nest-flyers' => '1'];
+        $headers = WriteHeader::headers();
         $body = '';
         if ($json !== null) {
             $body = is_string($json) ? $json : Json::encode($json);

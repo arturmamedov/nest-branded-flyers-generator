@@ -35,9 +35,10 @@ final class WriteGuardTest extends TestCase
     #[DataProvider('requests')]
     public function testGuard(string $method, array $headers, bool $passes): void
     {
-        $errors = ErrorCatalog::fromShared(Shared::fromFile(Paths::schema('shared.json')));
+        $shared = Shared::fromFile(Paths::schema('shared.json'));
+        $errors = ErrorCatalog::fromShared($shared);
         try {
-            (new WriteGuard($errors))->check(new Request($method, '/api/flyers', [], $headers));
+            (new WriteGuard($shared, $errors))->check(new Request($method, '/api/flyers', [], $headers));
             self::assertTrue($passes, 'the write was let through');
         } catch (HttpError $e) {
             self::assertFalse($passes, 'the request was refused');

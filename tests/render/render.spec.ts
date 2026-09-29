@@ -9,13 +9,13 @@ import { resolveDoodles } from '../../src/shared/defaults';
 import { CANVASES, CANVAS_IDS, activityGroups, artAnchors, placeArt, safeBox, type CanvasId } from '../../src/shared/layout';
 import { SAMPLE_FLYERS } from '../../src/shared/samples';
 import type { FlyerListItem, FlyerPayload } from '../../src/shared/schema';
+import { WRITE_HEADERS } from '../../src/shared/writeGuard';
 
 /* The automatable half of the handoff's export checklist (README §9), for
    every sample flyer — the stress test included — in all three photo modes,
    on every output canvas. */
 
 const MODES = ['bleed', 'band', 'none'] as const;
-const H = { 'X-Nest-Flyers': '1' };
 
 const SAMPLE_TITLES = new Set(SAMPLE_FLYERS.map((s) => s.title));
 
@@ -143,12 +143,12 @@ for (const canvas of CANVAS_IDS) {
 test('export API returns every canvas at its exact size as PNG and JPG, each cached until the flyer changes', async ({ request }) => {
   const list = (await (await request.get('/api/flyers')).json()) as FlyerListItem[];
   const stress = list.find((f) => f.title === 'Long copy · stress test')!;
-  const post = (canvas: CanvasId, format: 'png' | 'jpg') => request.post(`/api/render/${stress.id}`, { headers: H, data: { format, canvas } });
+  const post = (canvas: CanvasId, format: 'png' | 'jpg') => request.post(`/api/render/${stress.id}`, { headers: WRITE_HEADERS, data: { format, canvas } });
   const payload = (await (await request.get(`/api/flyers/${stress.id}`)).json()) as FlyerPayload;
   // Saving empties the flyer's render cache, whatever other tests asked for.
   const save = async () => {
     const put = await request.put(`/api/flyers/${stress.id}`, {
-      headers: H,
+      headers: WRITE_HEADERS,
       data: { title: payload.flyer.title, hostel: payload.flyer.hostel, template: 'activity', data: payload.flyer.data, photoId: payload.flyer.photoId },
     });
     expect(put.status()).toBe(200);
@@ -169,7 +169,7 @@ test('export API returns every canvas at its exact size as PNG and JPG, each cac
 
   for (const canvas of CANVAS_IDS) expect((await post(canvas, 'png')).headers()['x-render-cache'], canvas).toBe('hit');
   // No canvas at all (an editor from before canvases) is the story, from the same cache.
-  const legacy = await request.post(`/api/render/${stress.id}`, { headers: H, data: { format: 'png' } });
+  const legacy = await request.post(`/api/render/${stress.id}`, { headers: WRITE_HEADERS, data: { format: 'png' } });
   expect(legacy.headers()['x-render-cache']).toBe('hit');
   expect((await sharp(await legacy.body()).metadata()).height).toBe(CANVASES.story.height);
 
@@ -180,7 +180,7 @@ test('export API returns every canvas at its exact size as PNG and JPG, each cac
 test('the export route checks the id, then the format, then the canvas, then the flyer (docs/api-contract.md)', async ({ request }) => {
   const list = (await (await request.get('/api/flyers')).json()) as FlyerListItem[];
   const id = list.find((f) => SAMPLE_TITLES.has(f.title))!.id;
-  const post = (path: string, data: unknown, headers: Record<string, string> = H) => request.post(path, { headers, data });
+  const post = (path: string, data: unknown, headers: Record<string, string> = WRITE_HEADERS) => request.post(path, { headers, data });
   const fails = async (res: APIResponse, key: ApiErrorKey) => {
     const spec = apiError(key);
     const { error } = (await res.json()) as { error: { code: string; message: string } };

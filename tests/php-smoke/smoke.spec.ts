@@ -1,7 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import type { APIRequestContext, Page, Response as PwResponse } from '@playwright/test';
 import { expect, test } from '../browser';
-import { POOL_PARTY, WRITE, apiCall, backToLibrary, dropFile, status, type FilePayload } from '../editor';
+import { POOL_PARTY, apiCall, backToLibrary, dropFile, status, type FilePayload } from '../editor';
 import sharp from 'sharp';
 import { PHOTO_MODE_LABEL } from '../../src/editor/photoModes';
 import { DEFAULT_PHOTO_MODE } from '../../src/shared/defaults';
@@ -19,6 +19,7 @@ import {
   type FlyerPayload,
   type PhotoInfo,
 } from '../../src/shared/schema';
+import { WRITE_HEADERS } from '../../src/shared/writeGuard';
 
 /* The PHP smoke test (playwright.php.config.ts): one staff session through the
    real editor against the PHP backend — create, upload in every photo mode,
@@ -47,7 +48,7 @@ const COPY = {
 const leftovers = new Set<number>();
 
 test.afterEach(async ({ request }) => {
-  for (const id of leftovers) await request.delete(`api/flyers/${id}`, { headers: WRITE }).catch(() => undefined);
+  for (const id of leftovers) await request.delete(`api/flyers/${id}`, { headers: WRITE_HEADERS }).catch(() => undefined);
   leftovers.clear();
 });
 
@@ -352,7 +353,7 @@ test('the editor on the PHP backend: create, photos, crop, reopen, library, down
   });
 
   await test.step('10. clean up: archive the flyer through the API', async () => {
-    const res = await request.delete(`api/flyers/${id}`, { headers: WRITE });
+    const res = await request.delete(`api/flyers/${id}`, { headers: WRITE_HEADERS });
     expect(res.status(), await res.text()).toBe(204);
     leftovers.delete(id);
     expect((await request.get(`api/flyers/${id}`)).status()).toBe(404);

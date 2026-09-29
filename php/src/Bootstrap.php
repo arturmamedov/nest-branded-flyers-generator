@@ -105,7 +105,7 @@ final class Bootstrap
         $this->kernel ??= new Kernel(
             $errors,
             new AccessGuard($config->access, $errors),
-            new WriteGuard($errors),
+            new WriteGuard($this->shared(), $errors),
             fn (): Router => $this->boot($config, $errors),
         );
         return $this->kernel->handle($request);

@@ -19,6 +19,7 @@ import {
   type PhotoInfo,
 } from '../src/shared/schema.js';
 import type { StoredDoodle, StoredPhoto } from '../src/shared/storage.js';
+import { WRITE_GUARD } from '../src/shared/writeGuard.js';
 import type { StorageDriver } from './config.js';
 import { HttpError } from './errors.js';
 import { ASSETS_DIR, DIST_DIR, ROBOTS_FILE } from './paths.js';
@@ -69,7 +70,7 @@ export function createApp(deps: AppDeps) {
   // No login by design, so block cross-site writes: a custom header cannot be
   // sent from another origin without a CORS preflight we never grant.
   api.use((req, _res, next) => {
-    if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method) && req.get('X-Nest-Flyers') !== '1') {
+    if (!WRITE_GUARD.safeMethods.includes(req.method) && req.get(WRITE_GUARD.header) !== WRITE_GUARD.value) {
       return next(new HttpError('forbidden'));
     }
     next();

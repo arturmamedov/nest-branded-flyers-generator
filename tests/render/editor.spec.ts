@@ -1,12 +1,13 @@
 import { readFileSync } from 'node:fs';
 import type { Page } from '@playwright/test';
 import { expect, test } from '../browser';
-import { EDITOR_VIEWPORT, POOL_PARTY, WRITE, apiCall, backToLibrary, dropFile, status, type FilePayload } from '../editor';
+import { EDITOR_VIEWPORT, POOL_PARTY, apiCall, backToLibrary, dropFile, status, type FilePayload } from '../editor';
 import { LEAVE_PROMPT } from '../../src/editor/leaveGuard';
 import { PHOTO_MODE_LABEL } from '../../src/editor/photoModes';
 import { DEFAULT_PHOTO_MODE } from '../../src/shared/defaults';
 import type { PhotoMode } from '../../src/shared/layout';
 import { FlyerSavedSchema } from '../../src/shared/schema';
+import { WRITE_HEADERS } from '../../src/shared/writeGuard';
 
 /* The editor is a focus page (App.tsx, Editor.tsx): the whole window, no shared bar, one way
    back at the top of its form, and every way out with unsaved work asks first (leaveGuard.ts,
@@ -25,7 +26,7 @@ const modeButton = (page: Page, mode: PhotoMode) => page.getByRole('button', { n
 /** Flyers a test saved: archived afterwards, so the specs after this one find the library as seeded. */
 const saved: number[] = [];
 test.afterEach(async ({ request }) => {
-  for (const id of saved.splice(0)) await request.delete(`/api/flyers/${id}`, { headers: WRITE });
+  for (const id of saved.splice(0)) await request.delete(`/api/flyers/${id}`, { headers: WRITE_HEADERS });
 });
 
 /** Opens a new flyer from the library, so the history holds the library entry behind it. */

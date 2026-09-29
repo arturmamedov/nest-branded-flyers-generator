@@ -11,6 +11,7 @@ use NestFlyers\Json;
 use NestFlyers\Shared;
 use NestFlyers\Tests\Support\Paths;
 use NestFlyers\Tests\Support\TempDir;
+use NestFlyers\Tests\Support\WriteHeader;
 use PHPUnit\Framework\TestCase;
 use stdClass;
 
@@ -193,7 +194,7 @@ final class BootstrapTest extends TestCase
         $image = imagecreatetruecolor(40, 30);
         imagepng($image, $tmp);
         $files = ['photo' => ['name' => 'photo.png', 'type' => 'image/png', 'tmp_name' => $tmp, 'error' => UPLOAD_ERR_OK, 'size' => filesize($tmp)]];
-        $request = new Request('POST', '/api/photos', [], ['x-nest-flyers' => '1', 'content-type' => 'multipart/form-data; boundary=x', 'content-length' => '500'], '', $files, ['REMOTE_ADDR' => self::LOOPBACK, 'CONTENT_LENGTH' => '500']);
+        $request = new Request('POST', '/api/photos', [], WriteHeader::headers() + ['content-type' => 'multipart/form-data; boundary=x', 'content-length' => '500'], '', $files, ['REMOTE_ADDR' => self::LOOPBACK, 'CONTENT_LENGTH' => '500']);
 
         $photo = $this->ok($this->app()->handle($request), 201);
         self::assertSame(['id', 'url', 'width', 'height'], array_keys((array) $photo));
@@ -274,7 +275,7 @@ final class BootstrapTest extends TestCase
      */
     private static function request(string $method, string $path, mixed $json = null, array $query = [], string $ip = self::LOOPBACK, ?array $headers = null): Request
     {
-        $headers ??= ['x-nest-flyers' => '1'];
+        $headers ??= WriteHeader::headers();
         $body = '';
         if ($json !== null) {
             $body = is_string($json) ? $json : Json::encode($json);

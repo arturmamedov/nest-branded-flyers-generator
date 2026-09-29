@@ -54,6 +54,12 @@ final class Shared
         return $this->data['heic'];
     }
 
+    /** @return array{header:string, value:string, safeMethods:list<string>} */
+    public function writeGuard(): array
+    {
+        return $this->data['writeGuard'];
+    }
+
     /** @return array<string, array{status:int, code:string, message:string, fields?:array<string,string>}> */
     public function errors(): array
     {

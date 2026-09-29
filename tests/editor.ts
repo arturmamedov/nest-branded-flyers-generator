@@ -8,9 +8,6 @@ import type { Locator, Page, Response as PwResponse } from '@playwright/test';
 /** A desktop window where the editor's form overflows its panel, like a staff laptop. */
 export const EDITOR_VIEWPORT = { width: 1440, height: 900 };
 
-/** Every write carries it: the server's cross-site-write guard. */
-export const WRITE = { 'X-Nest-Flyers': '1' };
-
 export const POOL_PARTY = join(import.meta.dirname, '../fixtures/photos/flyer-pool-party.png');
 
 export interface FilePayload {

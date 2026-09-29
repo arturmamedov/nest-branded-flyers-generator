@@ -7,6 +7,7 @@ import { API_ERRORS, apiError, type ApiErrorKey } from '../../src/shared/errors.
 import { SAMPLE_FLYERS } from '../../src/shared/samples.js';
 import { SeedFileSchema } from '../../src/shared/seed.js';
 import { ApiConfigSchema, ErrorEnvelopeSchema, FlyerSavedSchema, type ApiConfig, type FlyerInput } from '../../src/shared/schema.js';
+import { WRITE_HEADERS } from '../../src/shared/writeGuard.js';
 
 /* The HTTP contract suite's client. Every backend (Node, PHP, a live deploy via
    CONTRACT_BASE_URL) is reached the same way: paths relative to the app root,
@@ -31,7 +32,6 @@ export const base = () => {
   return b.endsWith('/') ? b : b + '/';
 };
 export const url = (path: string) => new URL(path.replace(/^\/+/, ''), base()).href;
-export const WRITE = { 'X-Nest-Flyers': '1' };
 
 /** The Authorization header for a Basic login. A credential in the URL is no alternative: fetch() refuses such a URL. */
 export const basicAuthHeader = ({ user, password }: BasicAuth) => ({
@@ -45,7 +45,7 @@ const signedIn = (): Record<string, string> => {
   return login ? basicAuthHeader(login) : {};
 };
 
-export async function send(method: string, path: string, body?: unknown, headers: Record<string, string> = WRITE): Promise<Response> {
+export async function send(method: string, path: string, body?: unknown, headers: Record<string, string> = WRITE_HEADERS): Promise<Response> {
   const init: RequestInit = { method, headers: { ...signedIn(), ...headers } };
   if (body instanceof FormData) init.body = body;
   else if (typeof body === 'string') {

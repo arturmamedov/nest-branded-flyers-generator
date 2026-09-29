@@ -27,6 +27,7 @@ import {
   StoredFlyerSchema,
   UPLOADS_DIR,
 } from '../src/shared/storage.js';
+import { WRITE_GUARD } from '../src/shared/writeGuard.js';
 
 /* Derived copies of the shared sources of truth, for PHP and the docs. Run
    `npm run gen` after changing src/shared; tests/unit/generated.test.ts fails
@@ -87,6 +88,7 @@ export function generate(read: (rel: string) => string = (rel) => readFileSync(j
         acceptedPhotoTypes: ACCEPTED_PHOTO_TYPES,
       },
       heic: HEIC,
+      writeGuard: WRITE_GUARD,
       errors: API_ERRORS,
       storage: {
         formatVersion: STORAGE_FORMAT_VERSION,

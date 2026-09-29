@@ -1,5 +1,6 @@
 import { apiUrl } from '../../flyer/urls';
 import { flyerFilename } from '../../shared/filename';
+import { WRITE_HEADERS } from '../../shared/writeGuard';
 import { errorFrom } from '../api';
 import type { ExportRequest, FlyerExporter } from './types';
 
@@ -8,7 +9,7 @@ export class ServerExporter implements FlyerExporter {
   async export({ id, format, canvas }: ExportRequest) {
     const res = await fetch(apiUrl(`render/${id}`), {
       method: 'POST',
-      headers: { 'X-Nest-Flyers': '1', 'Content-Type': 'application/json' },
+      headers: { ...WRITE_HEADERS, 'Content-Type': 'application/json' },
       body: JSON.stringify({ format, canvas }),
     });
     if (!res.ok) throw await errorFrom(res, 'Export failed');
