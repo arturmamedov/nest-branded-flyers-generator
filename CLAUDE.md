@@ -39,7 +39,8 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
 - `src/shared/` — DOM-free, used by client **and** server: `schema.ts` (zod, source of truth for the data
   shape), `layout.ts` (the `CANVASES` registry: every canvas's size, safe zones, box positions and art
   anchor points; a new canvas is one entry), `defaults.ts` (tokens + template art), `chips.ts` (the `·`
-  convention), `photo.ts` (crop maths), `copyRules.ts`. Relative imports here use `.js` extensions (NodeNext).
+  convention), `photo.ts` (crop maths), `copyRules.ts`, `writeGuard.ts` (the write header, and the methods that
+  need none). Relative imports here use `.js` extensions (NodeNext).
 - `src/editor/` — editor + library UI. `render.html` + `src/render/` — the bare page headless Chromium shoots.
 - The library's top bar is `<nest-nav tool="flyers">` (`App.tsx`), the bar every Nests tool shares.
   - It is loaded `async` from `https://nestpass.ai/kit/nest-nav.js`. That file lives in the
@@ -82,8 +83,9 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
 - Fonts are self-hosted (@fontsource, pinned); family names only in `src/shared/fonts.ts`.
 - Optional fields collapse — no placeholders, no empty boxes, no dangling `·`.
 - The hand-drawn style deliberately departs from the Nests website design system. Keep it.
-- No login by design, so: loopback bind by default, every write needs the `X-Nest-Flyers: 1` header, and
-  the app must never be publicly reachable without an access rule.
+- No login by design, so: loopback bind by default, every write needs the `X-Nest-Flyers: 1` header
+  (defined once in `src/shared/writeGuard.ts`; PHP reads it from `schema/shared.json`), and the app must never
+  be publicly reachable without an access rule.
 - Never invent hostel names — only Artur supplies them (`seed/hostels.json`).
 
 ## Design decisions already made
@@ -124,10 +126,13 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
 
 - Done: handoff build steps 1–6 (branch `feat/flyer-generator-mvp`).
 - Waiting, don't start unasked: step 7 (drag/nudge everything on the canvas, sizes, colours, order, reset),
-  step 8 (This week template), step 9 (doodle picker + icon uploads). With two canvases: step 7's stored
+  step 8 (This week template; its brief is `docs/prompts/week-template.md`), step 9 (doodle picker + icon
+  uploads). With two canvases: step 7's stored
   `overrides` (dx/dy) are shared by every canvas, so it must decide how they apply per canvas; step 8's
   `WEEK` boxes are story-only today; step 9, when it stores the render-only anchors (`bottomLeft`,
   `bottomRight`, `floor`), must add a JSON migration id so an older release refuses the store cleanly.
+- Next, once Artur supplies its prototype: a second flyer style, chosen in the editor while making a flyer.
+  Not designed yet; step 8 comes first.
 - Done: output canvases, Instagram story 9:16 + WhatsApp 3:4 (branch `feat/output-canvases`, 2026-09-23).
   The review is `docs/reports/output-canvases-review.md`, the report `docs/reports/output-canvases.md`.
 - Done: the PHP shared-hosting port, phases 2–5 (branch `feat/php-shared-hosting`): the seams, the PHP
@@ -146,11 +151,16 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
     website repo `H-Nests/www_cur/tools/vanity-links`), and the tools page `nestpass.ai/` lists them.
   - Live since 2026-09-28: SSL, the tools page and the kit, and Flyers and Newsletter with the bar.
     QR's part is on its branch `claude/shared-nav-7477311f`.
-  - Still open: this app answered without a password on 2026-09-28 (`allowPublic`), while the public
-    tools page links to it. The lock is `docs/deploy.md` steps 3–4.
+  - Still open: this app answers without a password (`allowPublic`; seen 2026-09-28, still so on
+    2026-09-29), while the public tools page links to it. The lock is `docs/deploy.md` steps 3–4.
 - Built: the editor as a focus page (branch `feat/editor-focus`, 2026-09-28, cut from `feat/shared-nav`).
   The bar shows on the library only; the editor has a back link, a guard on unsaved work, "In a frame" by
   default and an exclamation budget (the design decisions above).
+- Done: the write guard is one constant (branch `refactor/write-header-constant`, 2026-09-29). The header,
+  its value and the methods that need none live in `src/shared/writeGuard.ts`. `npm run gen` copies them to
+  `schema/shared.json`, and `Shared::writeGuard()` feeds PHP's `WriteGuard`. Both backends, the editor and
+  every test read them; only `WriteGuardTest` spells the header out, to pin the rule. PHP reads that block on
+  every request, reads included, so upload a release whole: a stale `shared.json` answers 500.
 - **Not live, by the owner's decision:** the host is IONOS (`https://nestpass.ai/activities/`), and the app
   goes public only once a real login exists. That login (Supabase, or the Laravel app as the issuer) is its
   own brief, and is not to be started unasked. It will have to exempt a sign-in route from the access check,
