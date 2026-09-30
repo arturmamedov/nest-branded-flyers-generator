@@ -573,6 +573,33 @@ describe('copy rules', () => {
     expect(lint?.message).toMatch(/^Row 1: Sentence case/);
   });
 
+  it("a row's day and time are linted, and each warning names its row", () => {
+    const d = week();
+    d.week[0].day = 'Mon/Tue';
+    d.week[1].time = '15:00 • 17:00';
+    const lints = lintFlyer(d);
+    // Row 2's day, Saturday 19/9, still passes: a slash inside a date is allowed.
+    expect(lints.map((l) => l.field)).toEqual(['week.0.day', 'week.1.time']);
+    expect(lints[0].message).toMatch(/^Row 1: .*slashes/);
+    expect(lints[1].message).toMatch(/^Row 2: .*bullets/);
+  });
+
+  it("marks in a row's day and time spend the flyer's exclamation budget", () => {
+    const d = week();
+    d.week[0].day = `Fridays${marks(MAX_EXCLAMATIONS)}`;
+    expect(warnsOfMarks(d)).toBe(false);
+    d.week[1].time = '15:00!';
+    expect(warnsOfMarks(d)).toBe(true);
+  });
+
+  it('a day or a time in capitals is not held to sentence case: it is not a headline (the owner, 2026-09-30)', () => {
+    const d = week();
+    // More than three letters each, so the rule's short-label exemption can't be what lets them through.
+    d.week[0].day = 'FRIDAYS';
+    d.week[0].time = '15:00 TILL LATE';
+    expect(lintFlyer(d)).toEqual([]);
+  });
+
   it('an Activity flyer ignores the rows it keeps for switching back', () => {
     const d = base();
     d.week = [{ day: 'Mon/Tue', name: 'BOOK NOW', time: '', cost: '5€!!!!' }];
