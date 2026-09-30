@@ -2,7 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import type { APIRequestContext, Page, Response as PwResponse } from '@playwright/test';
 import { expect, test } from '../browser';
-import { POOL_PARTY, apiCall, backToLibrary, dropFile, rowField, status, templateButton, type FilePayload } from '../editor';
+import { POOL_PARTY, apiCall, backToLibrary, dropFile, filterLibrary, libraryCard as card, rowField, saveNew, status, templateButton, type FilePayload } from '../editor';
 import sharp from 'sharp';
 import { PHOTO_MODE_LABEL } from '../../src/editor/photoModes';
 import { TEMPLATE_LABEL } from '../../src/editor/templates';
@@ -55,13 +55,8 @@ test.afterEach(async ({ request }) => {
   leftovers.clear();
 });
 
-const exactly = (text: string) => new RegExp(`^${text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`);
-
 const errorNote = (page: Page) => page.locator('.notes .note-error');
 const fileInput = (page: Page) => page.locator('input[type=file]');
-/** A library card by its exact title, so "smoke 1" never matches "smoke 1 (copy)". */
-const card = (page: Page, title: string) =>
-  page.locator('li.card').filter({ has: page.locator('.card-title', { hasText: exactly(title) }) });
 
 async function payload(request: APIRequestContext, id: number): Promise<FlyerPayload> {
   const res = await request.get(`api/flyers/${id}`);
@@ -109,13 +104,6 @@ async function bigPhoto(limits: Limits): Promise<FilePayload> {
   return { name: 'big-party.jpg', mimeType: 'image/jpeg', buffer };
 }
 
-/** Sets the library's hostel filter and waits until the list for exactly that query is on screen. */
-async function filterLibrary(page: Page, option: { value: string } | { label: string }, search: string) {
-  const [res] = await Promise.all([page.waitForResponse(apiCall('GET', 'flyers', search)), page.getByLabel('Hostel').selectOption(option)]);
-  expect(res.status(), `GET api/flyers${search}`).toBe(200);
-  await expect(page.getByText('Loading…', { exact: true })).toHaveCount(0);
-}
-
 test('the editor on the PHP backend: create, photos, crop, reopen, library, download', async ({ page, request }) => {
   const pageErrors: string[] = [];
   page.on('pageerror', (e) => pageErrors.push(e.message));
@@ -149,15 +137,8 @@ test('the editor on the PHP backend: create, photos, crop, reopen, library, down
     await page.getByLabel('Nice to know 1', { exact: true }).fill(COPY.extra);
     await expect(status(page)).toHaveText('Unsaved changes');
 
-    const [res] = await Promise.all([
-      page.waitForResponse(apiCall('POST', 'flyers')),
-      page.getByRole('button', { name: 'Save', exact: true }).click(),
-    ]);
-    expect(res.status(), await res.text()).toBe(201);
-    const saved = FlyerSavedSchema.parse(await res.json());
-    leftovers.add(saved.id);
-    await expect(page).toHaveURL(new RegExp(`#/flyers/${saved.id}$`));
-    await expect(status(page)).toHaveText('Saved');
+    // It returns once the URL reopens the flyer and nothing is unsaved.
+    const saved = await saveNew(page, (id) => leftovers.add(id));
 
     const p = await payload(request, saved.id);
     expect(p.flyer).toMatchObject({ title, hostel: hostel.slug, template: 'activity', photoId: null });
@@ -279,12 +260,12 @@ test('the editor on the PHP backend: create, photos, crop, reopen, library, down
     await expect(mine).toBeVisible();
     await expect(mine.locator('.card-meta')).toContainText(hostel.name);
 
-    await filterLibrary(page, { value: hostel.slug }, `?hostel=${encodeURIComponent(hostel.slug)}`);
+    await filterLibrary(page, 'Hostel', { value: hostel.slug }, `?hostel=${encodeURIComponent(hostel.slug)}`);
     await expect(mine).toBeVisible();
-    await filterLibrary(page, { label: 'Chain-wide only' }, '?hostel=none');
+    await filterLibrary(page, 'Hostel', { label: 'Chain-wide only' }, '?hostel=none');
     await expect(mine).toHaveCount(0);
     // Back to everything: the library remembers its filter, and the copy is looked for below.
-    await filterLibrary(page, { label: 'All flyers' }, '');
+    await filterLibrary(page, 'Hostel', { label: 'All flyers' }, '');
     await expect(mine).toBeVisible();
 
     const original = await payload(request, id);
@@ -380,10 +361,7 @@ test('a This week flyer on the PHP backend: made, refused a photo, reopened and 
     await rowField(page, 1, 'event').fill(row.name);
     await rowField(page, 1, 'time').fill(row.time);
     await rowField(page, 1, 'cost').fill(row.cost);
-    const [res] = await Promise.all([page.waitForResponse(apiCall('POST', 'flyers')), page.getByRole('button', { name: 'Save', exact: true }).click()]);
-    expect(res.status(), await res.text()).toBe(201);
-    const saved = FlyerSavedSchema.parse(await res.json());
-    leftovers.add(saved.id);
+    const saved = await saveNew(page, (id) => leftovers.add(id));
     expect([saved.flyer.template, saved.flyer.data.template]).toEqual(['week', 'week']);
     return saved.id;
   });

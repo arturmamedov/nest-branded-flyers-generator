@@ -1,13 +1,29 @@
 import { readFileSync } from 'node:fs';
-import type { Locator, Page } from '@playwright/test';
+import type { APIRequestContext, Locator, Page } from '@playwright/test';
 import sharp from 'sharp';
 import { expect, test } from '../browser';
-import { EDITOR_VIEWPORT, POOL_PARTY, apiCall, backToLibrary, dropFile, rowField as row, status, templateButton, type FilePayload } from '../editor';
+import {
+  EDITOR_VIEWPORT,
+  POOL_PARTY,
+  apiCall,
+  apiRoute,
+  backToLibrary,
+  cutOff,
+  cutOffOn,
+  dropFile,
+  filterLibrary,
+  libraryCard as card,
+  rowField as row,
+  saveNew,
+  status,
+  templateButton,
+  type FilePayload,
+} from '../editor';
 import { LEAVE_PROMPT } from '../../src/editor/leaveGuard';
 import { PHOTO_MODE_LABEL } from '../../src/editor/photoModes';
 import { TEMPLATE_LABEL } from '../../src/editor/templates';
 import { DEFAULT_PHOTO_MODE } from '../../src/shared/defaults';
-import { CANVASES, CANVAS_IDS, type PhotoMode } from '../../src/shared/layout';
+import { CANVASES, CANVAS_IDS, type CanvasId, type PhotoMode } from '../../src/shared/layout';
 import { FlyerPayloadSchema, FlyerSavedSchema, type FlyerListItem } from '../../src/shared/schema';
 import { WRITE_HEADERS } from '../../src/shared/writeGuard';
 
@@ -27,9 +43,34 @@ const modeButton = (page: Page, mode: PhotoMode) => page.getByRole('button', { n
 
 /** Flyers a test saved: archived afterwards, so the specs after this one find the library as seeded. */
 const saved: number[] = [];
+const keep = (id: number) => saved.push(id);
 test.afterEach(async ({ request }) => {
   for (const id of saved.splice(0)) await request.delete(`/api/flyers/${id}`, { headers: WRITE_HEADERS });
 });
+
+/** A saved copy of the seeded Pool party, its data and photo, made through the API (and archived afterwards). */
+async function poolPartyCopy(request: APIRequestContext, title: string): Promise<number> {
+  const list = (await (await request.get('/api/flyers?template=activity')).json()) as FlyerListItem[];
+  const pool = FlyerPayloadSchema.parse(await (await request.get(`/api/flyers/${list.find((f) => f.title === 'Pool party')!.id}`)).json());
+  const res = await request.post('/api/flyers', {
+    headers: WRITE_HEADERS,
+    data: { title: `${title} ${Date.now()}`, hostel: pool.flyer.hostel, template: 'activity', data: pool.flyer.data, photoId: pool.flyer.photoId },
+  });
+  const { id } = FlyerSavedSchema.parse(await res.json());
+  keep(id);
+  return id;
+}
+
+/** Holds a request the route predicate matches until the returned release() is called. */
+async function hold(page: Page, url: (url: URL) => boolean, method = 'GET'): Promise<() => void> {
+  let release = () => {};
+  const held = new Promise<void>((resolve) => (release = resolve));
+  await page.route(url, async (route) => {
+    if (route.request().method() === method) await held;
+    await route.continue();
+  });
+  return release;
+}
 
 /** Opens a new flyer from the library, so the history holds the library entry behind it. */
 async function newFlyerFromLibrary(page: Page) {
@@ -150,10 +191,7 @@ test('a clean editor, and one just saved, leave without asking', async ({ page }
   await page.getByRole('link', { name: 'New flyer' }).click();
   await page.getByLabel('Library name').fill(`editor spec ${Date.now()}`);
   await makeUnsaved(page);
-  const [res] = await Promise.all([page.waitForResponse(apiCall('POST', 'flyers')), page.getByRole('button', { name: 'Save', exact: true }).click()]);
-  expect(res.status(), await res.text()).toBe(201);
-  saved.push(FlyerSavedSchema.parse(await res.json()).id);
-  await expect(status(page)).toHaveText('Saved');
+  await saveNew(page, keep);
   await pressBack(page);
   expect(dialogs, 'no prompt').toEqual([]);
   await expect(library(page)).toBeVisible();
@@ -163,12 +201,7 @@ test('a first save that answers after the user has left keeps their URL', async 
   await newFlyerFromLibrary(page);
   await page.getByLabel('Library name').fill(`editor spec ${Date.now()}`);
   await makeUnsaved(page);
-  let release = () => {};
-  const held = new Promise<void>((resolve) => (release = resolve));
-  await page.route('**/api/flyers', async (route) => {
-    if (route.request().method() === 'POST') await held;
-    await route.continue();
-  });
+  const release = await hold(page, apiRoute('flyers'), 'POST');
   const answered = page.waitForResponse(apiCall('POST', 'flyers'));
   await page.getByRole('button', { name: 'Save', exact: true }).click();
 
@@ -178,6 +211,26 @@ test('a first save that answers after the user has left keeps their URL', async 
   saved.push(FlyerSavedSchema.parse(await (await answered).json()).id);
   await expect(library(page)).toBeVisible();
   expect(new URL(page.url()).hash, 'still the library').toBe('#/');
+});
+
+test('a first save returns once its URL reopens the flyer, however late the page takes the answer', async ({ page }) => {
+  // The page takes the POST's answer a second after the network has it. page.route can't make that gap: it delays the
+  // network and the page alike, and saveNew waits on the network.
+  await page.addInitScript(() => {
+    const fetch = window.fetch.bind(window);
+    window.fetch = async (input, init) => {
+      const res = await fetch(input, init);
+      if (init?.method === 'POST' && new URL(String(input), location.href).pathname.endsWith('/api/flyers')) await new Promise((r) => setTimeout(r, 1_000));
+      return res;
+    };
+  });
+  await page.goto('/#/new');
+  const title = `editor spec ${Date.now()}`;
+  await page.getByLabel('Library name').fill(title);
+  const { id } = await saveNew(page, keep);
+  expect(new URL(page.url()).hash, 'a reload now reopens the flyer').toBe(`#/flyers/${id}`);
+  await page.reload();
+  await expect(page.getByLabel('Library name')).toHaveValue(title);
 });
 
 test('closing the tab with unsaved work asks the browser to confirm', async ({ page }) => {
@@ -218,14 +271,6 @@ test('a jump over several entries, from the Back button menu, is refused as a wh
 const hostelSelect = (page: Page) => page.getByLabel('Hostel', { exact: true });
 const button = (page: Page, name: string) => page.getByRole('button', { name, exact: true });
 
-async function saveNew(page: Page): Promise<number> {
-  const [res] = await Promise.all([page.waitForResponse(apiCall('POST', 'flyers')), button(page, 'Save').click()]);
-  expect(res.status(), await res.text()).toBe(201);
-  const { id } = FlyerSavedSchema.parse(await res.json());
-  saved.push(id);
-  return id;
-}
-
 test('This week: a new flyer switches to the week prefilled, and switching back leaves nothing unsaved', async ({ page }) => {
   await page.goto('/#/new');
   await expect(templateButton(page, 'activity')).toHaveAttribute('aria-pressed', 'true');
@@ -260,6 +305,83 @@ test('This week: the Spanish line names the hostel picked, until someone edits i
   await expect(page.getByLabel('Spanish line')).toHaveValue('Nuestra semana.');
 });
 
+test('This week: switching template with a hostel picked names it, and takes the lines away again', async ({ page }) => {
+  const spanish = page.getByLabel('Spanish line');
+  const lines = async () => [await page.getByLabel('Line 1').inputValue(), await page.getByLabel('Line 2').inputValue(), await spanish.inputValue()];
+  await page.goto('/#/new');
+  await hostelSelect(page).selectOption({ label: 'Duque Nest' });
+  await templateButton(page, 'week').click();
+  await expect(spanish, 'picked before the switch').toHaveValue('El plan de la semana en Duque Nest.');
+  await templateButton(page, 'activity').click();
+  await expect(spanish).toHaveValue('');
+  expect(await lines(), 'the untouched title goes with the week').toEqual(['', '', '']);
+
+  await hostelSelect(page).selectOption({ label: 'Los Amigos Nest' });
+  await templateButton(page, 'week').click();
+  await expect(spanish, 'picked on Activity').toHaveValue('El plan de la semana en Los Amigos Nest.');
+  await hostelSelect(page).selectOption({ label: 'Duque Nest' });
+  await expect(spanish, 'picked on the week').toHaveValue('El plan de la semana en Duque Nest.');
+  await templateButton(page, 'activity').click();
+  await expect(spanish).toHaveValue('');
+  expect(await lines()).toEqual(['', '', '']);
+});
+
+const canvasButton = (page: Page, canvas: CanvasId) => button(page, CANVASES[canvas].label);
+// Too wide at its floor on every canvas: render.spec's "cut at its column" test.
+const LONG_TIME = 'Mon–Fri 10:00–13:00';
+
+test('This week: a row edit, and a switch of template alone, refit the canvas offscreen as well as the one on screen', async ({ page }) => {
+  await page.goto('/#/new');
+  await expect(canvasButton(page, 'story')).toHaveAttribute('aria-pressed', 'true');
+  await templateButton(page, 'week').click();
+  await button(page, '+ Add row').click();
+  await row(page, 1, 'day').fill('Fridays');
+  await row(page, 1, 'event').fill('Surf');
+  await row(page, 1, 'time').fill(LONG_TIME);
+  await expect(cutOff(page)).toContainText(cutOffOn(...CANVAS_IDS));
+  await row(page, 1, 'time').fill('15:00');
+  await expect(cutOff(page)).toHaveCount(0);
+
+  await row(page, 1, 'time').fill(LONG_TIME);
+  await expect(cutOff(page)).toContainText(cutOffOn(...CANVAS_IDS));
+  // Made our own, the eyebrow and title stay across a switch (switchTemplate): only the template changes in the fit.
+  await page.getByLabel('Eyebrow').fill('OUR WEEK');
+  await page.getByLabel('Line 1').fill('Our plans');
+  await templateButton(page, 'activity').click();
+  await expect(cutOff(page)).toHaveCount(0);
+  await templateButton(page, 'week').click();
+  await expect(cutOff(page)).toContainText(cutOffOn(...CANVAS_IDS));
+});
+
+test('This week: the cut-off note names only the canvas that clips', async ({ page }) => {
+  await page.goto('/#/new');
+  await canvasButton(page, 'whatsapp').click(); // the story is fitted offscreen
+  await templateButton(page, 'week').click();
+  await button(page, '+ Add row').click();
+  await row(page, 1, 'day').fill('Fridays');
+  await row(page, 1, 'time').fill('10:00 – 13:00'); // reaches the time's 250 px cap uncut
+  // One word, lowercase (capitals would add a lint note): at the name's floor, wider than the room the story's row
+  // leaves it (about 320 px), narrower than WhatsApp's (about 380).
+  const word = 'electroencephalography';
+  await row(page, 1, 'event').fill(word);
+  const name = page.locator('.stage-canvas [data-row="0"] [data-cell=name]');
+  const atFloor = await name.evaluate(async (el) => {
+    await document.fonts.ready;
+    const probe = el.cloneNode(true) as HTMLElement;
+    Object.assign(probe.style, { fontSize: `${44 * 0.6}px`, whiteSpace: 'nowrap', position: 'absolute', visibility: 'hidden' });
+    el.parentElement!.appendChild(probe);
+    // Layout px: the preview is scaled by a transform, which getBoundingClientRect would count.
+    const px = probe.offsetWidth;
+    probe.remove();
+    return px;
+  });
+  expect(atFloor, `"${word}" at the name's floor, in px`).toBeGreaterThanOrEqual(330);
+  expect(atFloor, `"${word}" at the name's floor, in px`).toBeLessThanOrEqual(370);
+  await expect(cutOff(page)).toContainText(cutOffOn('story'));
+  await row(page, 1, 'event').fill('Surf');
+  await expect(cutOff(page)).toHaveCount(0);
+});
+
 test('This week: rows typed, taken from a saved flyer, reordered and removed are what the flyer saves', async ({ page }) => {
   await page.goto('/#/new');
   await templateButton(page, 'week').click();
@@ -292,7 +414,7 @@ test('This week: rows typed, taken from a saved flyer, reordered and removed are
   await button(page, 'Remove row 2').click();
   await expect(button(page, 'Remove row 2')).toBeFocused();
 
-  const id = await saveNew(page);
+  const { id } = await saveNew(page, keep);
   const stored = FlyerPayloadSchema.parse(await (await page.request.get(`/api/flyers/${id}`)).json());
   expect(stored.flyer.template).toBe('week');
   expect(stored.flyer.data.week).toEqual([
@@ -343,14 +465,7 @@ test('This week: the · button never pushes a price past its limit, where Save w
 });
 
 test('This week: a dropped photo is refused with a reason, and an Activity flyer switched to the week and back is as it was saved', async ({ page, request }) => {
-  const list = (await (await request.get('/api/flyers?template=activity')).json()) as FlyerListItem[];
-  const pool = FlyerPayloadSchema.parse(await (await request.get(`/api/flyers/${list.find((f) => f.title === 'Pool party')!.id}`)).json());
-  const res = await request.post('/api/flyers', {
-    headers: WRITE_HEADERS,
-    data: { title: `week spec switch ${Date.now()}`, hostel: pool.flyer.hostel, template: 'activity', data: pool.flyer.data, photoId: pool.flyer.photoId },
-  });
-  const { id } = FlyerSavedSchema.parse(await res.json());
-  saved.push(id);
+  const id = await poolPartyCopy(request, 'week spec switch');
 
   await page.goto(`/#/flyers/${id}`);
   await expect(status(page)).toHaveText('Saved');
@@ -381,7 +496,7 @@ test('This week: reopened and saved again it is still a week flyer, and it downl
   await button(page, '+ Add row').click();
   await row(page, 1, 'day').fill('Fridays');
   await row(page, 1, 'event').fill('Two hours of fun waves');
-  const id = await saveNew(page);
+  const { id } = await saveNew(page, keep);
 
   await page.reload();
   await expect(templateButton(page, 'week')).toHaveAttribute('aria-pressed', 'true');
@@ -447,5 +562,22 @@ test('the library filters by template, labels each card, and remembers the choic
   await expect(metas.first()).toBeVisible();
   for (const meta of await metas.allTextContents()) expect(meta).toContain(` · ${TEMPLATE_LABEL.week} · `);
   await page.reload();
+  await expect(page.getByLabel('Template')).toHaveValue('week');
+});
+
+test('the library filters by hostel and template together, and remembers both', async ({ page }) => {
+  const both = '?hostel=duque-nest&template=week';
+  // Each filter changes only once the list before it is in, so no answer can come back out of order here.
+  await Promise.all([page.waitForResponse(apiCall('GET', 'flyers')), page.goto('/')]);
+  await filterLibrary(page, 'Hostel', { label: 'Duque Nest' }, '?hostel=duque-nest');
+  await filterLibrary(page, 'Template', { label: TEMPLATE_LABEL.week }, both);
+  await expect(card(page, 'This week · Duque Nest')).toBeVisible();
+  await expect(card(page, 'Pool party')).toHaveCount(0);
+  await expect(card(page, 'This week · stress test')).toHaveCount(0);
+  for (const meta of await page.locator('.card-meta').allTextContents()) expect(meta.startsWith(`Duque Nest · ${TEMPLATE_LABEL.week} · `), meta).toBe(true);
+
+  const [again] = await Promise.all([page.waitForResponse(apiCall('GET', 'flyers', both)), page.reload()]);
+  expect(again.status()).toBe(200);
+  await expect(page.getByLabel('Hostel')).toHaveValue('duque-nest');
   await expect(page.getByLabel('Template')).toHaveValue('week');
 });
