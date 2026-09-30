@@ -1,3 +1,4 @@
+import seed from '../../seed/hostels.json' with { type: 'json' };
 import { newFlyerData, weekTitle } from './defaults.js';
 import type { FlyerData, WeekRow } from './schema.js';
 
@@ -6,7 +7,11 @@ import type { FlyerData, WeekRow } from './schema.js';
    worst case of the Activity template at once, "This week · stress test"
    every worst case of a week row — keep both as seed records and visual
    regression fixtures. The week ones come last: other suites take the first
-   sample, and the first with a photo, as an Activity flyer. */
+   sample, and the first with a photo, as an Activity flyer.
+
+   The hostels' names come from seed/hostels.json, the one list Artur keeps.
+   So nothing the browser loads may import this file: Vite would bundle the
+   whole seed with it (Node, the CLI and the tests import it). */
 
 export interface SampleFlyer {
   title: string;
@@ -107,8 +112,6 @@ const SOURCES: Src[] = [
 interface WeekSrc {
   title: string;
   hostel: string | null;
-  /** The hostel's name as seed/hostels.json spells it, for the Spanish title line (shared.test.ts checks it). */
-  hostelName: string | null;
   /** Keys in the schema's order (day, name, time, cost, shortName): PHP round-trips samples byte for byte. */
   rows: WeekRow[];
 }
@@ -117,7 +120,6 @@ const WEEK_SOURCES: WeekSrc[] = [
   {
     title: 'This week · Duque Nest',
     hostel: 'duque-nest',
-    hostelName: 'Duque Nest',
     rows: [
       { day: 'Fridays', name: 'Two hours of fun waves', time: '15:00', cost: '40€ a class' },
       { day: 'Fridays', name: 'Family dinner, every Friday', time: '20:30', cost: '8€ with a drink' },
@@ -130,7 +132,6 @@ const WEEK_SOURCES: WeekSrc[] = [
     // any row, with its short name, on a two-line day; a long time; no day; no time; no price.
     title: 'This week · stress test',
     hostel: 'los-amigos-nest',
-    hostelName: 'Los Amigos Nest',
     rows: [
       { day: 'Saturday 27/9', name: 'Sunrise hike above the sea of clouds', time: '05:30', cost: '25€ · 18€ without breakfast' },
       {
@@ -148,13 +149,21 @@ const WEEK_SOURCES: WeekSrc[] = [
   {
     title: 'This week · sparse',
     hostel: null,
-    hostelName: null,
     rows: [
       { day: 'Fridays', name: 'Two hours of fun waves', time: '', cost: '40€ a class' },
       { day: 'Most mornings', name: 'Step off and fly', time: '', cost: '90€' },
     ],
   },
 ];
+
+/** The seed's name for a hostel, for the Spanish title line; null for a chain-wide flyer. A slug the seed lacks
+    throws: falling back to the chain would print "Nests Hostels" on a hostel's flyer. */
+function hostelName(slug: string | null): string | null {
+  if (slug === null) return null;
+  const hostel = seed.hostels.find((h) => h.slug === slug);
+  if (!hostel) throw new Error(`Sample hostel "${slug}" is not in seed/hostels.json`);
+  return hostel.name;
+}
 
 export const SAMPLE_FLYERS: SampleFlyer[] = [
   ...SOURCES.map((s) => {
@@ -171,7 +180,7 @@ export const SAMPLE_FLYERS: SampleFlyer[] = [
   }),
   ...WEEK_SOURCES.map((s) => {
     const data = newFlyerData('week');
-    data.text = { ...data.text, ...weekTitle(s.hostelName) };
+    data.text = { ...data.text, ...weekTitle(hostelName(s.hostel)) };
     data.week = s.rows.map((r) => ({ ...r }));
     return { title: s.title, hostel: s.hostel, photo: null, data };
   }),

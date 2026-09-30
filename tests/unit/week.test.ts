@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { followHostel, newFlyerData, switchTemplate, weekTitle } from '../../src/shared/defaults.js';
 import { SAMPLE_FLYERS } from '../../src/shared/samples.js';
 import { FlyerDataSchema, type WeekRow } from '../../src/shared/schema.js';
@@ -212,6 +212,27 @@ describe('the week samples', () => {
       expect(name, s.title).toBeDefined();
       expect(s.data.text.headlineEs, s.title).toBe(`El plan de la semana en ${name}.`);
       expect(s.photo, s.title).toBeNull();
+    }
+  });
+
+  it('take those names from seed/hostels.json: a respelled one flows through, and a missing one fails by its slug', async () => {
+    type Seed = { hostels: { slug: string; name: string }[] };
+    const seed = JSON.parse(readFileSync(new URL('../../seed/hostels.json', import.meta.url), 'utf8')) as Seed;
+    const samplesWith = async (list: Seed['hostels']) => {
+      vi.resetModules();
+      vi.doMock('../../seed/hostels.json', () => ({ default: { ...seed, hostels: list } }));
+      return (await import('../../src/shared/samples.js')).SAMPLE_FLYERS;
+    };
+    try {
+      // Respelled, never invented: the seed's own names, in capitals.
+      const loud = await samplesWith(seed.hostels.map((h) => ({ ...h, name: h.name.toUpperCase() })));
+      const named = loud.filter((s) => s.data.template === 'week' && s.hostel);
+      expect(named.length).toBeGreaterThan(0);
+      for (const s of named) expect(s.data.text.headlineEs, s.title).toBe(`El plan de la semana en ${hostels.get(s.hostel!)!.toUpperCase()}.`);
+      await expect(samplesWith(seed.hostels.filter((h) => h.slug !== 'duque-nest'))).rejects.toThrow(/duque-nest/);
+    } finally {
+      vi.doUnmock('../../seed/hostels.json');
+      vi.resetModules();
     }
   });
 
