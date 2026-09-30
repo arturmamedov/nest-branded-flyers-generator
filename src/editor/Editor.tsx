@@ -7,7 +7,8 @@ import { DEFAULT_PHOTO_MODE, followHostel, newFlyerData, switchTemplate, weekTit
 import { CANVASES, CANVAS_IDS, bodyOf, isCanvasId, photoFrame, type CanvasId, type PhotoMode } from '../shared/layout';
 import { DEFAULT_CROP, ZOOM_MAX, ZOOM_MIN, clampCrop, wholePhotoZoom, zoomCrop } from '../shared/photo';
 import type { Chip, ChipKey, Crop, FlyerData, FlyerInput, FlyerListItem, FlyerText, Hostel, PhotoInfo, Template, WeekRow } from '../shared/schema';
-import { WEEK_ROWS_MAX, WEEK_ROW_LIMITS, eventName, isPrintable, rowFromActivity } from '../shared/week';
+import { TITLE_MAX, libraryName } from '../shared/names';
+import { WEEK_ROWS_MAX, WEEK_ROW_LIMITS, isPrintable, rowFromActivity } from '../shared/week';
 import { api, ApiError } from './api';
 import type { FlyerExporter } from './export';
 import { LangFlag, type Lang } from './LangFlag';
@@ -28,10 +29,14 @@ interface Draft {
 
 const blankDraft = (): Draft => ({ title: '', hostel: null, data: newFlyerData('activity'), photo: null });
 
-const autoTitle = (d: Draft) => d.title.trim() || eventName(d.data.text) || 'Untitled flyer';
+/** The name a save writes: the one typed in the field, else the flyer's own (names.ts), dated today. Only an untitled
+    week flyer's name reads the day, and such a draft already differs from the blank one it started as, so the
+    unsaved-changes check never turns on the clock. The hostels come in whole: the draft names a hostel by slug. */
+const autoTitle = (d: Draft, hostels: Hostel[], now = new Date()) =>
+  d.title.trim() || libraryName(d.data, hostels.find((h) => h.slug === d.hostel)?.name ?? null, now);
 
-const toInput = (d: Draft): FlyerInput => ({
-  title: autoTitle(d),
+const toInput = (d: Draft, hostels: Hostel[]): FlyerInput => ({
+  title: autoTitle(d, hostels),
   hostel: d.hostel,
   template: d.data.template,
   data: d.data,
@@ -70,7 +75,7 @@ const CHIP_HELP: Record<ChipKey, { placeholder: string; help: string }> = {
 
 export function Editor({ id, hostels, exporter, limits }: { id: number | null; hostels: Hostel[]; exporter: FlyerExporter; limits: PhotoLimits }) {
   const [draft, setDraft] = useState<Draft | null>(id == null ? blankDraft() : null);
-  const [savedJson, setSavedJson] = useState<string>(() => (id == null ? JSON.stringify(toInput(blankDraft())) : 'loading'));
+  const [savedJson, setSavedJson] = useState<string>(() => (id == null ? JSON.stringify(toInput(blankDraft(), hostels)) : 'loading'));
   const [flyerId, setFlyerId] = useState<number | null>(id);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [fits, setFits] = useState<Partial<Record<CanvasId, FitReport>>>({});
@@ -88,13 +93,13 @@ export function Editor({ id, hostels, exporter, limits }: { id: number | null; h
         // The record's template wins over data.template, as it does on every write (normalize.ts).
         const d: Draft = { title: p.flyer.title, hostel: p.flyer.hostel, data: { ...p.flyer.data, template: p.flyer.template }, photo: p.photo };
         setDraft(d);
-        setSavedJson(JSON.stringify(toInput(d)));
+        setSavedJson(JSON.stringify(toInput(d, hostels)));
       },
       (e) => setLoadError(e instanceof ApiError && e.status === 404 ? 'This flyer does not exist or was archived.' : String(e.message)),
     );
   }, [id]);
 
-  const dirty = draft ? JSON.stringify(toInput(draft)) !== savedJson : false;
+  const dirty = draft ? JSON.stringify(toInput(draft, hostels)) !== savedJson : false;
   // A photo still uploading is unsaved work too.
   useLeaveGuard(dirty || busy === 'upload');
 
@@ -154,7 +159,7 @@ export function Editor({ id, hostels, exporter, limits }: { id: number | null; h
   });
 
   async function save(): Promise<number> {
-    const input = toInput(draft!);
+    const input = toInput(draft!, hostels);
     const res = flyerId == null ? await api.create(input) : await api.update(flyerId, input);
     setSavedJson(JSON.stringify(input));
     if (draft!.title.trim() === '') set({ title: input.title });
@@ -266,7 +271,7 @@ export function Editor({ id, hostels, exporter, limits }: { id: number | null; h
             </select>
           </Field>
           <Field label="Library name" help="Only for finding it again — not printed">
-            <input value={draft.title} placeholder={autoTitle({ ...draft, title: '' })} maxLength={80} onChange={(e) => set({ title: e.target.value })} />
+            <input value={draft.title} placeholder={autoTitle({ ...draft, title: '' }, hostels)} maxLength={TITLE_MAX} onChange={(e) => set({ title: e.target.value })} />
           </Field>
         </Section>
 

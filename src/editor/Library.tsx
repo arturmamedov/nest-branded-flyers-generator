@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { copyTitle, libraryDate } from '../shared/names';
 import type { FlyerListItem, Hostel, Template } from '../shared/schema';
 import { api } from './api';
 import { go, onPage } from './route';
@@ -10,8 +11,7 @@ const savedTemplate = (): Template | '' => {
   return isTemplate(v) ? v : '';
 };
 
-const when = (iso: string) =>
-  new Date(iso).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+const when = (iso: string) => libraryDate(new Date(iso), true);
 
 export function Library({ hostels }: { hostels: Hostel[] }) {
   const [filter, setFilter] = useState<string>(() => localStorageGet('library.hostel') ?? '');
@@ -49,7 +49,7 @@ export function Library({ hostels }: { hostels: Hostel[] }) {
     try {
       const p = await api.flyer(id);
       const { id: newId } = await api.create({
-        title: `${p.flyer.title} (copy)`.slice(0, 80),
+        title: copyTitle(p.flyer.title),
         hostel: p.flyer.hostel,
         template: p.flyer.template,
         data: p.flyer.data,

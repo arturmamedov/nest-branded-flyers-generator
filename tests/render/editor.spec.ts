@@ -334,6 +334,20 @@ test('This week: the Spanish line names the hostel picked, until someone edits i
   await expect(page.getByLabel('Spanish line')).toHaveValue('Nuestra semana.');
 });
 
+test('This week: an untitled week flyer is named for its hostel and the day of its first save', async ({ page }) => {
+  // The day is frozen, so the name doesn't depend on when the suite runs; timers keep running.
+  await page.clock.setFixedTime(new Date('2026-09-30T12:00:00'));
+  await page.goto('/#/new');
+  await templateButton(page, 'week').click();
+  await hostelSelect(page).selectOption({ label: 'Duque Nest' });
+  const name = page.getByLabel('Library name');
+  await expect(name).toHaveAttribute('placeholder', 'This week · Duque Nest · 30 Sept');
+
+  const { flyer } = await saveNew(page, keep);
+  expect(flyer.title).toBe('This week · Duque Nest · 30 Sept');
+  await expect(name).toHaveValue('This week · Duque Nest · 30 Sept');
+});
+
 test('This week: switching template with a hostel picked names it, and takes the lines away again', async ({ page }) => {
   const spanish = page.getByLabel('Spanish line');
   const lines = async () => [await page.getByLabel('Line 1').inputValue(), await page.getByLabel('Line 2').inputValue(), await spanish.inputValue()];

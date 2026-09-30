@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { TITLE_MAX } from './names.js';
 import { DEFAULT_CROP, ZOOM_MAX, ZOOM_MIN } from './photo.js';
 import { WEEK_ROWS_MAX, WEEK_ROW_LIMITS } from './week.js';
 
@@ -103,7 +104,7 @@ export type FlyerData = z.infer<typeof FlyerDataSchema>;
 const trimmedString = (min: number, max: number) => z.string().trim().min(min).max(max).meta({ 'x-nest-trim': true });
 
 export const FlyerInputSchema = z.object({
-  title: trimmedString(1, 80),
+  title: trimmedString(1, TITLE_MAX),
   hostel: z.string().max(60).nullable(),
   template: TemplateSchema,
   data: FlyerDataSchema,

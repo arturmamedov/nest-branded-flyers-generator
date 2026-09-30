@@ -15,7 +15,7 @@ export const WEEK_ROW_LIMITS = { day: 30, name: 80, time: 20, cost: 30, shortNam
 
 /** Cut to a limit by code points, as the limits count: a UTF-16 cut can leave half of a surrogate pair, which PHP
     refuses. (An emoji built of several code points, a flag say, can still lose its tail: it saves, and staff see it.) */
-const clamp = (value: string, max: number) => Array.from(value).slice(0, max).join('').trim();
+export const clamp = (value: string, max: number) => Array.from(value).slice(0, max).join('').trim();
 
 /** An event's whole name from its headline, "Two hours" + "of fun waves." → "Two hours of fun waves":
     §6 — a row's name is the whole name, never headline2 alone ("of fun waves"). */
