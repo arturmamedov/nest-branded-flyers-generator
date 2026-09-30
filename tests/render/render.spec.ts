@@ -7,7 +7,7 @@ import { bodiesOf, groupsOf, highlighterWrapSample } from './pixels';
 import sharp from 'sharp';
 import { apiError, type ApiErrorKey } from '../../src/shared/errors';
 import { flyerFilename } from '../../src/shared/filename';
-import { resolveDoodles } from '../../src/shared/defaults';
+import { marksFor, resolveDoodles } from '../../src/shared/defaults';
 import { CANVASES, CANVAS_IDS, artAnchors, placeArt, safeBox, weekRowRect, type CanvasId } from '../../src/shared/layout';
 import { SAMPLE_FLYERS } from '../../src/shared/samples';
 import type { FlyerListItem, FlyerPayload } from '../../src/shared/schema';
@@ -37,6 +37,18 @@ async function renderPayload(page: Page, payload: FlyerPayload, canvas: CanvasId
     return w.__FLYER_READY || w.__FLYER_ERROR;
   });
   expect(await page.evaluate(() => (window as unknown as { __FLYER_ERROR?: string }).__FLYER_ERROR)).toBeUndefined();
+}
+
+/** Runs in the page: the eyebrow's marks, left to right, and where its text (the calendar and the words) ends. */
+function readMarks() {
+  const eyebrow = document.querySelector('[data-group=eyebrow]')!;
+  return {
+    textRight: eyebrow.firstElementChild!.getBoundingClientRect().right,
+    marks: [...eyebrow.querySelectorAll<HTMLImageElement>('img[data-logo]')].map((img) => {
+      const r = img.getBoundingClientRect();
+      return { logo: img.dataset.logo, path: new URL(img.src).pathname, alt: img.alt, drawn: img.complete && img.naturalWidth > 0, left: r.left, right: r.right, top: r.top, bottom: r.bottom, width: r.width, height: r.height };
+    }),
+  };
 }
 
 for (const canvas of CANVAS_IDS) {
@@ -115,8 +127,11 @@ for (const canvas of CANVAS_IDS) {
               px: parseFloat(el.style.fontSize),
               floor: parseFloat(el.dataset.fit!) * parseFloat(el.dataset.fitMin ?? 'NaN'),
             }));
-            // The eyebrow row's children don't shrink: the logo's right edge is where it really ends.
-            const logo = document.querySelector('[data-group=eyebrow] img[alt="Nests Hostels"]')!.getBoundingClientRect();
+            // The marks at the eyebrow's right, in order: their right edges are where the row really ends.
+            const logos = [...document.querySelectorAll<HTMLImageElement>('[data-group=eyebrow] img[data-logo]')].map((img) => ({
+              logo: img.dataset.logo,
+              right: img.getBoundingClientRect().right,
+            }));
             // The flyer's own art (the pencil in the ask box is part of the block, not a doodle).
             const art = [...document.querySelectorAll<HTMLElement>('[data-flyer] > img[data-art]')].map((el) => ({
               left: parseFloat(el.style.left),
@@ -128,7 +143,7 @@ for (const canvas of CANVAS_IDS) {
               clips,
               drawn: document.querySelector<HTMLElement>('[data-flyer]')!.dataset.canvas,
               groups,
-              logoRight: logo.right,
+              logos,
               faces,
               floors,
               fit: (window as unknown as { __FLYER_FIT: { clippedBoxes: number; entries: { text: string; base: number; finalPx: number; overflowX: boolean }[] } }).__FLYER_FIT,
@@ -164,8 +179,9 @@ for (const canvas of CANVAS_IDS) {
             ] as const)
               expect(Math.abs(g[edge] - value), `${label}: ${g.name} ${edge}`).toBeLessThanOrEqual(0.5);
           }
-
-          expect(r.logoRight, `${label}: the eyebrow row ends inside the safe box`).toBeLessThanOrEqual(safe.left + safe.width + 0.5);
+          // The marks the setting asks for at this flyer's hostel (defaults.ts), ending inside the safe box.
+          expect(r.logos.map((m) => m.logo), `${label}: the eyebrow's marks`).toEqual(marksFor(!!payload.hostel?.logoPath).map((m) => (m === 'badge' ? 'hostel' : 'nests')));
+          for (const m of r.logos) expect(m.right, `${label}: the ${m.logo} mark ends inside the safe box`).toBeLessThanOrEqual(safe.left + safe.width + 0.5);
 
           // The art where the registry hangs it, from data that went through the store: the template set
           // is recognised and follows the canvas (the blobs to its corners, the spark to the pill).
@@ -394,7 +410,89 @@ for (const canvas of CANVAS_IDS) {
     for (const line of r.lines) expect(line.px, `${line.text}: at its floor`).toBeCloseTo(line.floor, 2);
   });
 
+  test(`${canvas}: a flyer at a hostel with a badge prints the marks as set, in the eyebrow and the safe box, a long eyebrow too`, async ({ page, request }) => {
+    const pool = (await samples(request)).find((p) => p.flyer.title === 'Pool party')!;
+    const eyebrow = CANVASES[canvas].activity.eyebrow;
+    const safe = safeBox(canvas);
+    const want = marksFor(true).map((m) => (m === 'badge' ? 'hostel' : 'nests'));
+    // The default eyebrow, then 18 of the widest letters, which leave the marks less room than they need: they give
+    // way, rather than leave the box.
+    for (const text of ['NEXT ACTIVITY', 'M'.repeat(18)]) {
+      const payload: FlyerPayload = structuredClone(pool);
+      payload.hostel = { ...payload.hostel!, logoPath: 'assets/logos/duque-nest.png' };
+      payload.flyer.data.text.eyebrow = text;
+      await renderPayload(page, payload, canvas);
+      const r = await page.evaluate(readMarks);
+      const label = `${canvas} / ${text}`;
+      expect(r.marks.map((m) => m.logo), `${label}: the marks`).toEqual(want);
+      for (const m of r.marks) {
+        expect(m.drawn, `${label}: ${m.logo} drawn`).toBe(true);
+        expect(m.top >= eyebrow.top - 0.5 && m.bottom <= eyebrow.top + eyebrow.height + 0.5, `${label}: ${m.logo} inside the eyebrow box`).toBe(true);
+        expect(m.right, `${label}: ${m.logo} inside the eyebrow and the safe box`).toBeLessThanOrEqual(Math.min(safe.left + safe.width, eyebrow.left + eyebrow.width) + 0.5);
+      }
+      expect(r.marks[0].left - r.textRight, `${label}: the text keeps its 24 px from the marks`).toBeGreaterThanOrEqual(23.5);
+      for (let i = 1; i < r.marks.length; i++) expect(r.marks[i].left, `${label}: the marks side by side`).toBeGreaterThanOrEqual(r.marks[i - 1].right);
+      if (text !== 'NEXT ACTIVITY') continue;
+      // With room, each mark keeps its size: 56 px tall, the badge square.
+      for (const m of r.marks) expect(m.height, `${label}: ${m.logo} 56 px tall`).toBeCloseTo(56, 0);
+      const badge = r.marks.find((m) => m.logo === 'hostel');
+      if (badge) expect([badge.path, badge.alt, Math.round(badge.width)], `${label}: the badge`).toEqual(['/assets/logos/duque-nest.png', 'Duque Nest', 56]);
+      const nests = r.marks.find((m) => m.logo === 'nests');
+      if (nests) expect([nests.path, nests.alt], `${label}: the wordmark`).toEqual(['/assets/nest-logo-teal.png', 'Nests Hostels']);
+    }
+  });
 }
+
+test('a badge that fails to load leaves the Nests wordmark in its place, drawn by the time the page is ready', async ({ browser, baseURL, request }) => {
+  const payload: FlyerPayload = structuredClone((await samples(request)).find((p) => p.flyer.title === 'Pool party')!);
+  // A path with no file behind it: /assets answers 404 (it never falls through).
+  payload.hostel = { ...payload.hostel!, logoPath: 'assets/logos/missing.png' };
+  const context = await browser.newContext({ baseURL, viewport: { width: CANVASES.story.width, height: CANVASES.story.height } });
+  try {
+    let delayed = 0;
+    // The badge fails late, once the page is already waiting for its images (the fonts load first), and the wordmark
+    // that takes its place arrives later still. When the badge prints alone ('hostel'), a page that stopped waiting
+    // when the badge failed is caught out here; at 'both' the wordmark is in the page from the start, so there is
+    // nothing to wait for, and the test holds the fallback alone.
+    await context.route('**/assets/logos/missing.png', async (route) => {
+      await new Promise((resolve) => setTimeout(resolve, 400));
+      await route.continue();
+    });
+    await context.route('**/assets/nest-logo-teal.png', async (route) => {
+      delayed++;
+      await new Promise((resolve) => setTimeout(resolve, 800));
+      await route.continue();
+    });
+    const page = await context.newPage();
+    // Records the eyebrow's images (all but its calendar icon) at the very moment the page reports ready.
+    await page.addInitScript((p) => {
+      const w = window as unknown as Record<string, unknown>;
+      w.__FLYER_PAYLOAD = p;
+      let ready: unknown;
+      Object.defineProperty(window, '__FLYER_READY', {
+        configurable: true,
+        get: () => ready,
+        set: (value) => {
+          w.__MARKS_AT_READY = [...document.querySelectorAll<HTMLImageElement>('[data-group=eyebrow] img')]
+            .filter((img) => !img.src.includes('icon-calendar'))
+            .map((img) => ({ logo: img.dataset.logo ?? null, path: new URL(img.src).pathname, drawn: img.complete && img.naturalWidth > 0 }));
+          ready = value;
+        },
+      });
+    }, payload);
+    await page.goto('/render.html?canvas=story');
+    await page.waitForFunction(() => {
+      const w = window as unknown as { __FLYER_READY?: boolean; __FLYER_ERROR?: string };
+      return w.__FLYER_READY || w.__FLYER_ERROR;
+    });
+    expect(delayed, 'the wordmark was asked for, and held back').toBeGreaterThan(0);
+    expect(await page.evaluate(() => (window as unknown as { __MARKS_AT_READY: unknown }).__MARKS_AT_READY)).toEqual([
+      { logo: 'nests', path: '/assets/nest-logo-teal.png', drawn: true },
+    ]);
+  } finally {
+    await context.close();
+  }
+});
 
 test('the export waits for every image a week flyer draws: a slow clock is decoded when the page says it is ready', async ({ browser, baseURL, request }) => {
   const stress = (await samples(request)).find((p) => p.flyer.title === 'This week · stress test')!;

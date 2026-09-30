@@ -13,6 +13,19 @@ export const PHOTO_PLACEHOLDER = '#E7E0CE';
 
 export const DEFAULT_COLORS: Colors = { bg: CREAM, ink: INK, accent: DEEP_TEAL, mark: YELLOW };
 
+/** The marks at the eyebrow's right, on a flyer whose hostel has a badge (its logo_path in seed/hostels.json):
+    'nests', the Nests wordmark alone, as before the badges; 'hostel', the hostel's badge alone; 'both', the badge
+    beside the wordmark. One setting for every flyer, changed here and never per flyer: the owner picked 'both' for a
+    pilot, and will settle on one format after it (2026-09-30). */
+export type EyebrowMarks = 'nests' | 'hostel' | 'both';
+export const EYEBROW_MARKS: EyebrowMarks = 'both';
+
+/** The marks a flyer prints, left to right. Chain-wide, or at a hostel with no badge, only the wordmark can print. */
+export function marksFor(hasBadge: boolean, marks: EyebrowMarks = EYEBROW_MARKS): ('badge' | 'nests')[] {
+  if (!hasBadge || marks === 'nests') return ['nests'];
+  return marks === 'hostel' ? ['badge'] : ['badge', 'nests'];
+}
+
 /* The template's art. Team design pass (2026-09-18), departing from the
    prototype: the two sparks moved from the top margin onto the photo's top
    corners (anchored, so they follow the photo slot — band/bleed at 24,657 and

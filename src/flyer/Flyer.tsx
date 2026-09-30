@@ -1,6 +1,6 @@
-import { Fragment, type CSSProperties, type ReactNode, type Ref } from 'react';
+import { Fragment, useState, type CSSProperties, type ReactNode, type Ref } from 'react';
 import { deriveChips, DEFAULT_CHIP_ORDER } from '../shared/chips';
-import { BRIGHT_TEAL, MUTED, PHOTO_PLACEHOLDER, resolveDoodles, type ArtPlacement } from '../shared/defaults';
+import { BRIGHT_TEAL, MUTED, PHOTO_PLACEHOLDER, marksFor, resolveDoodles, type ArtPlacement } from '../shared/defaults';
 import { BODY_FONT, HEADLINE_FONT } from '../shared/fonts';
 import { CANVASES, artAnchors, bodyOf, photoFrame, placeArt, safeBox, type ArtAnchor, type ArtPoint, type CanvasId, type Rect, type WeekBoxes } from '../shared/layout';
 import { coverRect } from '../shared/photo';
@@ -48,8 +48,25 @@ function doodleStyle(d: ArtPlacement, anchors: Record<ArtAnchor, ArtPoint>): CSS
   return { position: 'absolute', ...placeArt(d, anchors), transform: t || undefined, opacity: d.opacity };
 }
 
-function logoUrl(hostel: Hostel | null): string {
-  return assetUrl(hostel?.logoPath || 'assets/nest-logo-teal.png');
+/** A mark at the eyebrow's right: 56 px tall, the Nests wordmark's size. A long eyebrow leaves the marks less room than
+    they need (18 of the widest letters): they shrink in their row, their art contained, rather than leave the box. */
+const MARK: CSSProperties = { height: 56, width: 'auto', flex: '0 1 auto', minWidth: 0, objectFit: 'contain', marginTop: 6 };
+
+/** The eyebrow's marks, as the setting in defaults.ts asks: the Nests wordmark, the hostel's badge, or the badge beside
+    the wordmark. A badge that fails to load drops out, so an export never shows a broken image; ready.ts waits for
+    the wordmark that may then come in its place. */
+function Marks({ hostel }: { hostel: Hostel | null }) {
+  const badge = hostel?.logoPath ? assetUrl(hostel.logoPath) : null;
+  const [failed, setFailed] = useState<string | null>(null);
+  const marks = marksFor(badge !== null && failed !== badge).map((m) =>
+    m === 'badge' ? (
+      <img key="badge" data-logo="hostel" src={badge!} alt={hostel!.name} onError={() => setFailed(badge)} style={{ ...MARK, width: 56 }} />
+    ) : (
+      <img key="nests" data-logo="nests" src={assetUrl('assets/nest-logo-teal.png')} alt="Nests Hostels" style={MARK} />
+    ),
+  );
+  // One mark sits in the eyebrow row where the wordmark always has; two share a row of their own, 20 px apart.
+  return marks.length === 1 ? marks[0] : <div style={{ display: 'flex', alignItems: 'flex-start', gap: 20, flex: '0 1 auto', minWidth: 0 }}>{marks}</div>;
 }
 
 /** A block's horizontal edges as left/right insets, the way the story has always been written. */
@@ -245,7 +262,7 @@ export function Flyer({ data, canvas, hostel, photo, showSafeZones = false, ref 
             </div>
           )}
         </div>
-        <img src={logoUrl(hostel)} alt="Nests Hostels" style={{ height: 56, width: 'auto', flex: '0 0 auto', marginTop: 6 }} />
+        <Marks hostel={hostel} />
       </div>
 
       {body === 'week' ? (

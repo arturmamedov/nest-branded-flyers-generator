@@ -3,7 +3,7 @@ import type { FitReport } from '../flyer/fit';
 import { deriveChip, splitBigSub } from '../shared/chips';
 import { ACCEPTED_PHOTO_TYPES } from '../shared/limits';
 import { lintFlyer } from '../shared/copyRules';
-import { DEFAULT_PHOTO_MODE, followHostel, newFlyerData, switchTemplate, weekTitle } from '../shared/defaults';
+import { DEFAULT_PHOTO_MODE, followHostel, marksFor, newFlyerData, switchTemplate, weekTitle } from '../shared/defaults';
 import { CANVASES, CANVAS_IDS, bodyOf, isCanvasId, photoFrame, type CanvasId, type PhotoMode } from '../shared/layout';
 import { DEFAULT_CROP, ZOOM_MAX, ZOOM_MIN, clampCrop, wholePhotoZoom, zoomCrop } from '../shared/photo';
 import type { Chip, ChipKey, Crop, FlyerData, FlyerInput, FlyerListItem, FlyerText, Hostel, PhotoInfo, Template, WeekRow } from '../shared/schema';
@@ -254,7 +254,10 @@ export function Editor({ id, hostels, exporter, limits }: { id: number | null; h
               ))}
             </div>
           </div>
-          <Field label="Hostel" help={week ? 'Named in the Spanish title line, and tags the flyer in the library' : 'Prints in the WHERE block and tags the flyer in the library'}>
+          <Field
+            label="Hostel"
+            help={`${hostel?.logoPath && marksFor(true).includes('badge') ? 'Its badge prints at the top. ' : ''}${week ? 'Named in the Spanish title line, and tags the flyer in the library' : 'Prints in the WHERE block and tags the flyer in the library'}`}
+          >
             <select aria-label="Hostel" value={draft.hostel ?? ''} onChange={(e) => chooseHostel(e.target.value || null)}>
               <option value="">All hostels (chain-wide)</option>
               {[...new Set(hostels.map((h) => h.island))].map((island) => (

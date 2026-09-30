@@ -22,7 +22,7 @@ import {
 import { LEAVE_PROMPT } from '../../src/editor/leaveGuard';
 import { PHOTO_MODE_LABEL } from '../../src/editor/photoModes';
 import { TEMPLATE_LABEL } from '../../src/editor/templates';
-import { DEFAULT_PHOTO_MODE } from '../../src/shared/defaults';
+import { DEFAULT_PHOTO_MODE, marksFor } from '../../src/shared/defaults';
 import { CANVASES, CANVAS_IDS, type CanvasId, type PhotoMode } from '../../src/shared/layout';
 import { FlyerPayloadSchema, FlyerSavedSchema, type FlyerListItem } from '../../src/shared/schema';
 import { WEEK_ROWS_MAX } from '../../src/shared/week';
@@ -332,6 +332,15 @@ test('This week: the Spanish line names the hostel picked, until someone edits i
   await page.getByLabel('Spanish line').fill('Nuestra semana.');
   await hostelSelect(page).selectOption({ label: 'Los Amigos Nest' });
   await expect(page.getByLabel('Spanish line')).toHaveValue('Nuestra semana.');
+});
+
+test('the hostel help says its badge prints at the top, when the setting prints badges', async ({ page }) => {
+  await page.goto('/#/new');
+  const help = page.getByText(/Prints in the WHERE block/);
+  await expect(help, 'chain-wide: no badge').not.toContainText('badge');
+  await hostelSelect(page).selectOption({ label: 'Duque Nest' });
+  if (marksFor(true).includes('badge')) await expect(help).toContainText('Its badge prints at the top.');
+  else await expect(help).not.toContainText('badge');
 });
 
 test('This week: an untitled week flyer is named for its hostel and the day of its first save', async ({ page }) => {

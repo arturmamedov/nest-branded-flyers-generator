@@ -212,6 +212,19 @@ backup → wipe → restore brings back a flyer and its photo byte for byte.
 5. Reload the app. If a release ever changes the store's format, the app says so rather than
    half-reading it.
 
+## The hostels' badges
+
+- Each hostel's badge is `assets/logos/<slug>.png`, and `seed/hostels.json` points the hostel at it
+  (`logo_path`; `null` prints the Nests wordmark alone). Both ship in the release.
+- The PHP app refreshes its hostel list from `seed/hostels.json` by itself, on the first request
+  after an upload that changed the file. A Node deployment needs `npm run seed` after the build
+  (`npm run seed:dev` in development).
+- To change a badge, give the new file a new name and point `logo_path` at it. The Node server
+  caches exports by the hostel's record, not by the file, so a file replaced under the same name can
+  keep coming back from its cache. The PHP host exports in the browser and has no such cache.
+- Which marks print, the wordmark, the badge or both, is one setting in the code
+  (`EYEBROW_MARKS` in `src/shared/defaults.ts`): it changes with a release, never on the host.
+
 ## Rolling back
 
 Extract the previous release's zip (from the office drive) over the app folder, additively,
