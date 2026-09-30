@@ -137,21 +137,25 @@ Deferred, minor, for Artur to decide (on 2026-09-30 he asked for all of them: `d
 
 - The height pass of `fit.ts` (the prototype's `_fit()`, ported verbatim) scales a box's copy down to 0.55 without
   looking at `data-fit-min`, so a name can end below §3's "never below 26px". Pre-existing, on both templates; not
-  changed here.
+  changed here. **Done** on 2026-09-30: each line now stops at its own floor (`docs/reports/open-items.md`, item 1).
 - The proof-sheet script is not committed (it was the last time too): `npm run sheets` is still only a proposal in
   `docs/prompts/output-canvases-followup.md`.
-- An untitled week flyer is named "What’s on this week" in the library, from its title lines.
+- An untitled week flyer is named "What’s on this week" in the library, from its title lines. **Done**: it is
+  `This week · <hostel> · <day>` (`docs/reports/open-items.md`, item 2).
 - `tests/storage/copy.test.ts` can time out at vitest's 5 s default when the machine is busy — on `a24442b` too.
+  **Done**: the file has a 30 s timeout of its own (`docs/reports/open-items.md`, item 4).
 - The safe-zone overlays of `baseline.spec.ts` (not the exports) come back slightly different on this machine than
   when they were captured — on the untouched `a24442b` build too. Still so on 2026-09-30, on every check run of the
-  follow-up, before and after its renderer change.
+  follow-up, before and after its renderer change. **Done**: the fixture's route made Chrome's raster vary from load
+  to load; the overlays are now shot from a context with none (`docs/reports/open-items.md`, item 5).
 - From the follow-up (2026-09-30):
   - **A slash between two times** (`15:00/17:00`, also in the WHEN chip) still passes the copy rules: Artur declined
     flagging it (Part 0, question 3).
   - **A shrunk day that wraps again** can end its highlighter a few pixels past its column (6 px for
     `Tuesday Friday Monday Sunday`), in the empty gap before the name. `fit.ts` then reports it as overflowing, and
     the editor calls the copy cut off, though nothing is. Artur accepted the note rather than changing `fit.ts` or
-    where every day wraps. It needs a day of three lines or more.
+    where every day wraps. It needs a day of three lines or more. Asked again with the fit's floors (2026-09-30):
+    kept as accepted (`docs/reports/open-items.md`, item 1 bis).
   - Seen once: a golden server render answered 500 in `fidelity.spec.ts`'s `beforeAll`, after four failures (a
     mutation run) had restarted its worker. The rerun, and every other run, rendered it.
 

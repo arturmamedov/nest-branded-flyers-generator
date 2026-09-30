@@ -34,15 +34,18 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
 - `src/flyer/Flyer.tsx` — **the only renderer.** The editor preview and the export page both mount it.
   Never create a second renderer (canvas redraw, server template, etc.): if preview and export can drift,
   they will.
-- `src/flyer/fit.ts` — the prototype's `_fit()` ported verbatim (two-pass shrink-to-fit). Keep the
-  `data-fit*` attributes. `ready.ts` loads fonts/images and fits before any export.
+- `src/flyer/fit.ts` — the prototype's `_fit()` (two-pass shrink-to-fit), with one departure: the height pass stops
+  each line at its own `data-fit-min` floor, where `_fit()` scaled the whole box down to 0.55 (the owner's call,
+  2026-09-30). Keep the `data-fit*` attributes. `ready.ts` loads fonts/images and fits before any export.
 - `src/shared/` — DOM-free, used by client **and** server: `schema.ts` (zod, source of truth for the data
   shape), `layout.ts` (the `CANVASES` registry: every canvas's size, safe zones, both templates' box positions
   and art anchor points; a new canvas is one entry), `defaults.ts` (tokens, template art, each template's
-  defaults and the switch between them), `chips.ts` (the `·` convention), `week.ts` (the This week rows: their
-  limits, a row taken from a saved flyer, what a row prints — zod-free, so the client imports it and `schema.ts`
-  takes its limits from it), `photo.ts` (crop maths), `copyRules.ts`, `writeGuard.ts` (the write header, and the
-  methods that need none), `samples.ts` (the seed and test flyers). Relative imports here use `.js` extensions
+  defaults and the switch between them, and `EYEBROW_MARKS`, which marks print at the eyebrow's right),
+  `chips.ts` (the `·` convention), `week.ts` (the This week rows: their limits, a row taken from a saved flyer,
+  what a row prints — zod-free, so the client imports it and `schema.ts` takes its limits from it), `names.ts`
+  (what a flyer is called in the library: an untitled flyer's name, the title's limit, the library's date — also
+  zod-free), `photo.ts` (crop maths), `copyRules.ts`, `writeGuard.ts` (the write header, and the methods that need
+  none), `samples.ts` (the seed and test flyers). Relative imports here use `.js` extensions
   (NodeNext). The client never imports a value from `schema.ts`: that would bundle zod into the editor and the
   export page. Nothing the browser loads imports `samples.ts` either: it imports `seed/hostels.json` for the
   hostels' names, and Vite would bundle the whole seed.
@@ -131,6 +134,19 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
     from proof sheets on 2026-09-29.
   - English and Spanish fields carry a drawn flag in the editor (`LangFlag.tsx`; emoji flags are letters on
     Windows). Nothing of it reaches a flyer.
+- The open items (2026-09-30, `docs/reports/open-items.md`; the owner's answers are quoted there):
+  - The fit's height pass stops each line at its floor (`fit.ts`). At its floors the stress sample's address takes
+    three lines, and on the story its WHERE chip runs 2 px into its own padding, so it counts as clipped and the
+    editor says so: accepted by the owner, and the render tests expect exactly that chip.
+  - An untitled week flyer whose English title lines are still the defaults is named `This week · <hostel> · <day>`
+    (`libraryName`, `names.ts`); every automatic name is cut to the title's 80 code points.
+  - Per-hostel badges: one round "ONE PASS · Nest" badge per hostel, in its colour, at `assets/logos/<slug>.png`
+    (256 px PNG, transparent outside the disc; the handoff's `uploads/logos/` is superseded: the release ships
+    `assets/`). A hostel prints its badge through `logo_path` in `seed/hostels.json` (all 14 on). Which marks print
+    is `EYEBROW_MARKS` in `defaults.ts`: `'nests'`, `'hostel'` or `'both'` (the badge beside the wordmark, 20 px
+    apart), one setting for every flyer and never per flyer; the owner chose `'both'` for a pilot and will settle on
+    one after it. A badge that fails to load drops out, and `ready.ts` waits for what takes its place. The marks may
+    shrink in their 56 px row, so the widest eyebrow never pushes them past the safe edge.
 
 ## How to work here
 
@@ -159,6 +175,10 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
   - The samples read the hostels' names from `seed/hostels.json`, and eight gaps in the tests are closed.
   - `baseline.spec.ts` takes every sample, lists its cases in `manifest.json`, and names what it skips.
   - Declined by Artur: flagging a slash between two times (`15:00/17:00`).
+- Done: the open items (branch `feat/open-items`, 2026-09-30; brief `docs/prompts/open-items.md`, report
+  `docs/reports/open-items.md`): the fit's floors, an untitled week flyer's name, the per-hostel badges (a pilot
+  at `'both'`), `copy.test.ts`'s timeout, and the baseline's overlays, which are now shot from a context with no
+  route (a route made Chrome's raster vary from load to load). Both proof sheets signed off; committed, unpushed.
 - Waiting, don't start unasked: step 7 (drag/nudge everything on the canvas, sizes, colours, order, reset),
   step 9 (doodle picker + icon uploads). With two canvases and two templates: step 7's stored `overrides`
   (dx/dy) are shared by every canvas, so it must decide how they apply per canvas; step 9, when it stores
@@ -209,7 +229,7 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
   only, with the https redirect first (taken from `THE_REQUEST`, because of MultiViews).
   `.htaccess-minimal`, step 1b and the separate https example are gone. The lock's `<If>` lines
   (http 403 → redirect) may be refused there too; the block says to delete them if so.
-- Open: per-hostel logos; whether the login reaches PHP under FastCGI (the preflight page's *Login*
-  line, once a lock is on). The local Laragon deploy
+- Open: whether the login reaches PHP under FastCGI (the preflight page's *Login* line, once a lock is
+  on); the final format of the eyebrow's marks, after the pilot (`EYEBROW_MARKS`). The local Laragon deploy
   (`nest-flyers-php`) still runs `allowPublic`, so the contract row that forbids it fails there by design.
   The branch is unpushed, by the owner's choice.

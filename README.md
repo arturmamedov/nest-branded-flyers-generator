@@ -129,7 +129,7 @@ full WHEN line) — download the stress-test flyer and look.
 | Path | What |
 |---|---|
 | `src/flyer/Flyer.tsx` | **the** renderer — used by the editor preview and the export page. Transcribed 1:1 from the prototype |
-| `src/flyer/fit.ts` | the two-pass shrink-to-fit, ported verbatim from the prototype's `_fit()` |
+| `src/flyer/fit.ts` | the two-pass shrink-to-fit, from the prototype's `_fit()`; its height pass keeps each line's floor |
 | `src/shared/` | DOM-free logic shared by client and server: schema, layout numbers, `·` parsing, crop maths, copy rules |
 | `src/editor/` | the editor and library UI. The library's top bar is `<nest-nav tool="flyers">`, the bar every Nests tool shares; see below |
 | `render.html`, `src/render/` | the bare page headless Chromium screenshots: one flyer on one canvas (`?canvas=`) |
@@ -312,6 +312,9 @@ font-size multipliers, contrast-checked colour swatches, block reorder, Reset to
 doodle picker and staff doodle uploads. The data model already stores `overrides`, `colors` and
 `doodles[]` for them.
 
-Open items: the other 10 hostel names · per-hostel logo variants (`hostel.logo_path`; default is
-the teal Nests wordmark) · licensed event photos · whether `pill-teal.png` from the Canva
-export should join the built-in art.
+Each hostel's badge prints beside the Nests wordmark, for a pilot: `assets/logos/<slug>.png`,
+switched on per hostel by `logo_path` in `seed/hostels.json`, and one setting for every flyer,
+`EYEBROW_MARKS` in `src/shared/defaults.ts` (`docs/reports/open-items.md`).
+
+Open items: the eyebrow's final format after the pilot · licensed event photos · whether
+`pill-teal.png` from the Canva export should join the built-in art.
