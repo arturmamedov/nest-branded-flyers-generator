@@ -42,8 +42,10 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
   defaults and the switch between them), `chips.ts` (the `·` convention), `week.ts` (the This week rows: their
   limits, a row taken from a saved flyer, what a row prints — zod-free, so the client imports it and `schema.ts`
   takes its limits from it), `photo.ts` (crop maths), `copyRules.ts`, `writeGuard.ts` (the write header, and the
-  methods that need none). Relative imports here use `.js` extensions (NodeNext). The client never imports a
-  value from `schema.ts`: that would bundle zod into the editor and the export page.
+  methods that need none), `samples.ts` (the seed and test flyers). Relative imports here use `.js` extensions
+  (NodeNext). The client never imports a value from `schema.ts`: that would bundle zod into the editor and the
+  export page. Nothing the browser loads imports `samples.ts` either: it imports `seed/hostels.json` for the
+  hostels' names, and Vite would bundle the whole seed.
 - `src/editor/` — editor + library UI. `render.html` + `src/render/` — the bare page headless Chromium shoots.
 - The library's top bar is `<nest-nav tool="flyers">` (`App.tsx`), the bar every Nests tool shares.
   - It is loaded `async` from `https://nestpass.ai/kit/nest-nav.js`. That file lives in the
@@ -73,8 +75,9 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
 - `php/` — **the second backend**: the same API on PHP 8.1+ with the JSON store, for shared hosting with no
   Node. `php/web/` is the release root (api.php, router.php, the .htaccess hardening); `npm run build:php`
   assembles `release/php/`. It is a peer of `server/`, never a fork: both answer `docs/api-contract.md`.
-- `schema/`, `seed/samples.json` — **generated** (`npm run gen`) from `src/shared/`. PHP reads them at
-  runtime, so a rule is written once in TypeScript and never hand-copied into PHP.
+- `schema/`, `seed/samples.json` — **generated** (`npm run gen`) from `src/shared/`. PHP reads `schema/` at
+  runtime, so a rule is written once in TypeScript and never hand-copied into PHP; `seed/samples.json` is read
+  only by PHP's tests.
 - The export runs in the browser where a backend has no renderer (`src/editor/export/`): same `<Flyer>`,
   same `prepareFlyer()`, modern-screenshot. `tests/render/fidelity.spec.ts` holds it to the server export.
 
@@ -118,9 +121,11 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
   - Rows are typed, or taken from a saved Activity flyer as a copy. Fewer than five sit at the top of the
     five-row box. Switching template keeps every field; only untouched defaults follow (`switchTemplate`).
   - A price with a `·` prints on two lines, as the COST chip does.
-  - The row departs from the prototype in three places (`Flyer.tsx`, `WeekRow`): the time and price are capped
+  - The row departs from the prototype in four places (`Flyer.tsx`, `WeekRow`): the time and price are capped
     at 250 px so a long one shrinks instead of squeezing the name, the name can shrink below its longest word,
-    and every empty cell collapses.
+    every empty cell collapses, and the day wraps in its own fit box (114 px, 2026-09-30), so a day too tall for
+    the row shrinks instead of spilling out. A shrunk day that wraps again can end its highlighter a few px past
+    the column, and the editor then calls it cut off: accepted by the owner rather than changing `fit.ts`.
   - The photo-corner sparks hang from the first row's corners, 7 px lower (`artDrop`: their tilted ink
     otherwise reaches into the title box). WhatsApp's week: title 162/250, rows 464 → 1134. Both signed off
     from proof sheets on 2026-09-29.
@@ -146,9 +151,14 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
 - Done: handoff build steps 1–6 (branch `feat/flyer-generator-mvp`).
 - Done: step 8, the This week template, on every canvas and both backends (branch `feat/week-template`,
   2026-09-29). The brief is `docs/prompts/week-template.md`, the report `docs/reports/week-template.md`.
-- Next, when Artur starts it: `docs/prompts/week-template-followup.md`, the review's deferred items and four problems
-  found while writing it (a slash between two times, a long day spilling out of its row, an upload overlapping
-  another action, the library's out-of-order answers). Part 0 asks him which of the four join.
+- Done: the This week follow-up (branch `feat/week-template-followup`, 2026-09-30; brief
+  `docs/prompts/week-template-followup.md`, report: the "Follow-up" section of `docs/reports/week-template.md`).
+  - Staff see a named red note when a taken row can't join, a "Try again" when the saved flyers can't load, and
+    one action at a time in the editor (a photo dropped meanwhile is refused with a reason).
+  - The library applies only its latest answer, and a long day shrinks inside its row.
+  - The samples read the hostels' names from `seed/hostels.json`, and eight gaps in the tests are closed.
+  - `baseline.spec.ts` takes every sample, lists its cases in `manifest.json`, and names what it skips.
+  - Declined by Artur: flagging a slash between two times (`15:00/17:00`).
 - Waiting, don't start unasked: step 7 (drag/nudge everything on the canvas, sizes, colours, order, reset),
   step 9 (doodle picker + icon uploads). With two canvases and two templates: step 7's stored `overrides`
   (dx/dy) are shared by every canvas, so it must decide how they apply per canvas; step 9, when it stores

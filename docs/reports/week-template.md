@@ -119,7 +119,8 @@ Re-graded by what staff would meet, and by the owner's standing rules, these wer
   ask and pill boxes once in `layout.ts` (`sharedGroups`); the browser specs share `templateButton`, `rowField` and
   `bodiesOf`.
 
-Deferred, minor, for Artur to decide (on 2026-09-30 he asked for all of them: `docs/prompts/week-template-followup.md`):
+Deferred, minor, for Artur to decide (on 2026-09-30 he asked for all of them: `docs/prompts/week-template-followup.md`).
+**All done on 2026-09-30:** see "Follow-up" below.
 
 - "Added … from …" is shown even in the rare race where the week filled up (or the template changed) while the
   saved flyer was on its way, so the row was not added.
@@ -142,4 +143,134 @@ Deferred, minor, for Artur to decide (on 2026-09-30 he asked for all of them: `d
 - An untitled week flyer is named "What’s on this week" in the library, from its title lines.
 - `tests/storage/copy.test.ts` can time out at vitest's 5 s default when the machine is busy — on `a24442b` too.
 - The safe-zone overlays of `baseline.spec.ts` (not the exports) come back slightly different on this machine than
-  when they were captured — on the untouched `a24442b` build too.
+  when they were captured — on the untouched `a24442b` build too. Still so on 2026-09-30, on every check run of the
+  follow-up, before and after its renderer change.
+- From the follow-up (2026-09-30):
+  - **A slash between two times** (`15:00/17:00`, also in the WHEN chip) still passes the copy rules: Artur declined
+    flagging it (Part 0, question 3).
+  - **A shrunk day that wraps again** can end its highlighter a few pixels past its column (6 px for
+    `Tuesday Friday Monday Sunday`), in the empty gap before the name. `fit.ts` then reports it as overflowing, and
+    the editor calls the copy cut off, though nothing is. Artur accepted the note rather than changing `fit.ts` or
+    where every day wraps. It needs a day of three lines or more.
+  - Seen once: a golden server render answered 500 in `fidelity.spec.ts`'s `beforeAll`, after four failures (a
+    mutation run) had restarted its worker. The rerun, and every other run, rendered it.
+
+## Follow-up (2026-09-30)
+
+In one line: the review's eleven deferred items are done, and so are three of the four problems found while writing
+their brief. Brief: `docs/prompts/week-template-followup.md`. Branch `feat/week-template-followup`, from
+`feat/week-template` (`be57d0e`).
+
+### Part 0: Artur's answers (2026-09-30, quoted as given)
+
+| # | Question | Answer | What it became |
+|---|---|---|---|
+| 1 | Item 1: the note when a taken row arrives too late | «Nome + cosa fare (Consigliato)» | `“Saturday is a pool party” was not added: a week holds 5 rows. Remove one, then add it again.` and `… this is an Activity flyer now. Switch back to This week, then add it again.` |
+| 2 | Item 2: the saved flyers can't be loaded | «Messaggio + Try again (Consigliato)» | `Could not load the saved flyers` in the picker, and a `Try again` button beside it. No automatic retry. |
+| 3 | Item 12: flag a slash between two times? | «No, lascia così» | Not done: under "Left open". |
+| 4 | Item 13: a long day spilling out of its row | «Sì, box di fit (Consigliato)» | The day's own fit box (below). |
+| 5 | Item 14: two actions at once | «Sì, un'azione alla volta (Consigliato)» | One action at a time. A photo dropped meanwhile gets `Still working on the last action — drop the photo again in a moment.` |
+| 6 | Item 15: the library's out-of-order answers | «Sì, invisibile (Consigliato)» | Only the latest answer is applied. |
+| 7 | Item 8: a day or time in capitals, still unflagged? | «Sì, nessun avviso (Consigliato)» | Pinned by a test: capitals in a day or a time get no sentence-case warning. |
+| + | His dev server, before the first edits | «No, vai pure» | No open draft to lose. |
+| + | Item 13, found while building it: a shrunk day that wraps again reported as cut off | «Accetta la nota (Consigliato)» | Kept as is: under "Left open". |
+
+### What changed, per item
+
+1. **A taken row that can't join says so** (`Editor.tsx`). `takeRefusal(d)` is the one rule, asked in three places:
+   - when the flyer is picked, where it throws the reason alone (a guard, since the picker is off then anyway);
+   - when the flyer arrives, against `latestDraft` (a ref set in a layout effect), where it throws the named note;
+   - inside the functional update that appends the row.
+2. **A failed load of the saved flyers says so** (`WeekRowsField`). A `failed` flag keeps `saved` null, so the picker
+   stays off. The first option reads the failure, and `Try again` bumps an `attempt` counter in the effect's deps.
+3. **The week samples read the hostels' names from `seed/hostels.json`** (`samples.ts`: the codebase's first JSON
+   import, with the `type: 'json'` attribute). A slug the seed lacks throws. `seed/samples.json` came out
+   byte-identical (`npm run gen`: up to date). `tsc` now emits `dist-server/seed/hostels.json`, which the render
+   suite's seeding reads under plain Node. The browser bundle doesn't contain the seed.
+4. **Tests: the canvas offscreen refits after a week edit and after a template switch alone**, and the cut-off note
+   names only the canvas that clips. The word `electroencephalography` is 344 px at the name's floor, so it clips on
+   the story (about 320 px of room) and not on WhatsApp (about 380). `cutOff` and `cutOffOn` are shared helpers.
+5. **Test: a template switch with a hostel picked**, in five steps with Duque Nest and Los Amigos Nest.
+6. **The fidelity cases check that they draw their own template.** Each checks the golden's blocks against
+   `groupsOf` (`pixels.ts`, now shared with `render.spec.ts`), and the photo's box, or the no-photo rule's, within
+   0.5 px.
+7. **Test: the library's two filters together**: the exact combined query, the cards' meta, and both kept after a
+   reload. `filterLibrary` and `libraryCard` moved into `tests/editor.ts` from the smoke spec.
+8. **Tests: a row's day and time are linted**: each warning names its row, both spend the exclamation budget, and
+   capitals are not held to sentence case.
+9. **`baseline.spec.ts` takes every sample**: 32 cases, the three week samples included, each by its own template
+   and with no photo.
+   - A capture requires `RENDER_BASELINE_DIR`. It deletes the folder's labels first and writes `manifest.json`
+     (`{ capturedFrom, cases }`) after its last shot.
+   - A check skips, by name, a case its list lacks, and reports a listed case whose PNG is missing, then goes on.
+   - A folder from before the list (`captured-from.txt`) is checked where it has the PNGs. No capture fails at once,
+     and so does a check that compared nothing. One test, with a `test.step` per case and one summary line.
+   - Two captures in a row failed on a safe-zone overlay whose three renders all disagreed (the known overlay
+     noise). A capture now renders until two renders agree, five at most, and says how they differ when none do.
+10. **`saveNew` is the one first-save helper** (`tests/editor.ts`). It hands the id to `keep` first, then waits for
+    `#/flyers/<id>` and `Saved`. Both suites use it: the render suite in four places, the smoke spec in two. A new
+    test delays the page's own read of the POST's answer by a second, behind a `window.fetch` wrapper, and
+    reloads.
+11. **Tests: a template change saved by a PUT, on every backend.**
+    - The HTTP contract (`node`, `node-json`, `php`): to week and back, the way back with `data.template` left at
+      week, so the column must win on an update too.
+    - The storage contract on both Node drivers, and its PHP twin: `get` and every list follow the template.
+    - `docs/api-contract.md` now says an update replaces the template and the hostel.
+12. *Declined* (Part 0, question 3).
+13. **A long day shrinks inside its row** (`Flyer.tsx`, `WeekRow`). The day sits in its own fit box: 114 px, centred
+    in the 122 px row, with 122 − 114 even, so one- and two-line days land on the same pixels as before. It doesn't
+    clip, since the highlighter reaches 8 px left of the cell. The boxes are named (`data-fit-box="day"`, `"name"`),
+    and `render.spec.ts` selects the name's box by name.
+    - Measured: the highlighter's stroke reaches past its line boxes, and the height pass measures it. So a
+      three-line day also shrinks, to 30.6 px, and keeps its stroke inside the row, where at 34 px it crossed the
+      frame by 1–3 px. `Tuesday Friday Monday Sunday` goes from four lines at 34 px to three at 30.6.
+    - A box tall enough for three lines at 34 px (about 126 px) would be taller than the row, and the four-line day
+      would still cross the frame. The brief expected three lines to fit at full size; they don't.
+14. **One action at a time** (`Editor.tsx`). A drop while anything is out is refused with the approved line. The
+    photo button is off while any action is out (`disabled={!!busy}`), and so is the saved-flyer picker
+    (`WeekRowsField`'s `taking` became `busy`).
+15. **The library applies only its latest answer** (`Library.tsx`). Each load is numbered in a ref, which covers
+    the reload after an archive too.
+
+### The red and mutation runs (each one seen failing, then reverted with the editor)
+
+| Item | Run | Seen |
+|---|---|---|
+| 9 | today's spec looping over every sample, against a copy of `nest-week-baseline` | `ENOENT … This_week_Duque_Nest_-_bleed.png`, the run ends there |
+| 9 | capture / check / a case off the list / `Pool_party_-_bleed.png` deleted / a copy of `nest-week-baseline` / only `captured-from.txt` / an empty folder | 64 PNGs and 32 listed / 32 compared / 31 compared, the case skipped by name / fails naming the file, 31 compared, no `ENOENT` / 29 compared, the 3 week cases skipped as legacy / 0 compared, fails "nothing compared" / fails at once "no capture" |
+| 9 | a listed case's missing file treated as a skip; the list lookup always true; the nothing-compared guard dropped | the missing file no longer reported (skipped instead); the off-list case fails as missing files instead of skipping; the label-only run passes |
+| 10 | the new test, with `saveNew` not yet waiting | red: the hash reads `#/new` |
+| 10 | `replaceHash` removed from the first save | all four `saveNew` callers fail at the URL wait |
+| 1 | both new tests on `be57d0e`'s bundle | red at the red note |
+| 1 | the check after the fetch reading `draft`; the rule's template branch deleted; the layout effect deleted | both new tests fail; the second fails; the existing take test fails (and the first new one) |
+| 2 | the new test on `be57d0e`'s bundle | red: `No saved Activity flyers yet` |
+| 2 | deps back to `[]`; the rejection mapped to `[]`; `Try again` shown for an empty list | the retry never fetches; the option's text; the characterization test fails |
+| 4 | `fitKey` without `d.week`; without `d.template`; the note naming every canvas | both tests fail; test A fails at the switch; test B fails |
+| 5 | `switchTemplate(…, null)`; the name passed only on the way to the week; `followHostel(d.data, null, …)` | step 1 fails; step 2; step 4 |
+| 7 | `api.ts` dropping the template when a hostel is set; `Library.tsx` ignoring the stored hostel; not saving it | the combined query never comes; the reload's query differs, twice |
+| 14 | the new test on `be57d0e`'s bundle | red at the refusal |
+| 15 | the new test on `be57d0e`'s bundle | red: `Pool party` shown under Duque Nest · This week |
+| 3 | the new test on `be57d0e` | `expected 'El plan de la semana en Duque Nest.' to be '… DUQUE NEST.'` |
+| 3 | a `hostelName` that falls back instead of throwing | the missing-slug half fails (the import resolves) |
+| 8 | the day's lint line deleted; the time's; `row: i` dropped from the day; day and time added to sentence case | the first two tests fail, twice; the first fails; the third fails |
+| 6 | the renderer drawing every flyer as Activity (`Flyer.tsx`), rebuilt, then reverted and rebuilt | all 7 week runs fail at the blocks check |
+| 6 | the spec posting the week samples as Activity with no photo; every body posted in the sample's own photo mode | all 7 week runs fail at the blocks check (a first run also met the one-off 500 in "Left open"); Pool party's band and none fail at the photo's box, on both canvases |
+| 11 | the SQLite UPDATE without `template`; the Node JSON file keeping the old template; its index row keeping it | the storage case (SQLite) and the `node` HTTP case fail; the storage case fails on `get`; it fails on every list |
+| 11 | the PHP JSON repository keeping the old template | the PHP twin and the `php` HTTP case fail |
+| 11 | the Node PUT without normalisation; the PHP PUT with the validator alone | `node` and `node-json` fail at the switch back; `php` fails there, and `BootstrapTest::testAFlyerFromCreateToArchive` answers 500 |
+| 13 | the new test on today's renderer | red on both canvases: the day's stroke starts 21 px above its row |
+| 13 | a box that clips the day without shrinking it | red on both canvases |
+
+### What was verified, and how
+
+| Check | Result |
+|---|---|
+| **The story is unchanged** | `baseline.spec.ts` with its new cases, captured into a fresh folder after item 9 and before item 13, checked on the final build: 32 cases compared, every **export** byte-identical, the three week cases included. The only differences are safe-zone overlays: the known noise, in the same spots and on random cases, on runs before the renderer change too. |
+| **The week on WhatsApp is unchanged** | The three week samples exported on both canvases from the scratch instance before item 13 and after it, each re-saved first so the export cache couldn't answer: 6 of 6 byte-identical. |
+| `npm run typecheck` | clean |
+| `npm test` | 186 tests, green (180 before; new: three copy-rule tests, the samples reading the seed, the template change on both Node drivers) |
+| `npm run test:contract` | 328 passed, 184 skipped (the remote rows), 325 before: the template change by PUT on `node`, `node-json` and `php`. |
+| `npm run test:render` | 99 passed, 1 skipped (the opt-in baseline), 86 before: eleven editor tests (items 1, 2, 4, 5, 7, 10, 14, 15) and the long day on both canvases; the fidelity cases now check their own blocks. |
+| `npm run test:php` | 607 tests, 37 skipped (environment), 606 before: the storage contract's template case. The sample round trip passes on the regenerated, byte-identical `seed/samples.json`. |
+| `npm run test:php-smoke` | 2 passed, both first saves through the shared `saveNew`. |
+| Chrome (Playwright), the dev server on a scratch folder | Item 1 with the picked flyer's GET held while the week filled: the named red note. Item 2: the list aborted gave `Could not load the saved flyers`, the picker off and `Try again`; let through and retried, the six saved flyers, no button. Item 14: Download held at the server's render, a photo dropped, the refusal, `Replace photo` off and no upload; released, the download done and the button back. Item 13: a week with the long day on its fifth row, previewed and downloaded as PNG on both canvases, the day in three lines inside its row and the ask clear, with the cut-off note as accepted. The library: Duque Nest and This week together, one card, both kept after a reload. |
