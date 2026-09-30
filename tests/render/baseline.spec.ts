@@ -3,7 +3,7 @@ import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node
 import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
 import type { APIRequestContext } from '@playwright/test';
-import { expect, test } from '../browser';
+import { KIT_URL, expect, test } from '../browser';
 import { PNG } from 'pngjs';
 import { PROTOTYPE_DOODLES } from '../../src/shared/defaults';
 import type { Rect } from '../../src/shared/layout';
@@ -125,9 +125,15 @@ const TRIES = 3;
 
 const flake = (d: Difference) => d.box !== null && d.pixels <= 1000 && d.box.width <= 64 && d.box.height <= 64;
 
-/** A capture renders until two renders agree byte for byte: the safe-zone overlay can take more than three on this
-    machine (two captures in a row failed at three, 2026-09-30). */
+/** A capture keeps a render once another agrees with it byte for byte, rendering up to five times. */
 const CAPTURE_TRIES = 5;
+
+/* The overlays are shot from a context of their own, with no route in it. The fixture's context blocks the nav kit
+   with a route, and a route makes Playwright intercept every request, the flyer's images included: the timing that
+   adds changed how Chrome rasterised a chip frame's edge, the WHEN calendar icon and the corner sparks from one load
+   to the next (on 20 of 32 cases across three passes; with no route, on none, 2026-09-30). The server's exporter
+   installs no route, which is why the exports held. render.html never loads the kit, and the test checks that. */
+const KIT_PATH = new URL(KIT_URL).pathname;
 
 async function capture(name: string, shoot: () => Promise<Buffer>): Promise<Buffer> {
   const shots: Buffer[] = [];
@@ -177,8 +183,14 @@ function readCapture(): Capture | null {
   return null;
 }
 
-test('story baseline: every case renders byte-identical to the captured PNGs', async ({ request, page }) => {
+test('story baseline: every case renders byte-identical to the captured PNGs', async ({ request, browser, baseURL }) => {
   test.setTimeout(1_200_000);
+  const overlays = await browser.newContext({ baseURL, viewport: { width: 1080, height: 1920 }, deviceScaleFactor: 1 });
+  const page = await overlays.newPage();
+  const kit: string[] = [];
+  page.on('request', (r) => {
+    if (r.url().includes(KIT_PATH)) kit.push(r.url());
+  });
   const held = MODE === 'check' ? readCapture() : null;
   if (MODE === 'capture') {
     // A capture relabels its folder, so it never falls back to the default one, which may hold an older capture.
@@ -253,6 +265,8 @@ test('story baseline: every case renders byte-identical to the captured PNGs', a
       await request.delete(`/api/flyers/${saved.id}`, { headers: WRITE_HEADERS });
     });
   }
+  await overlays.close();
+  expect(kit, 'the render page asked for the nav kit, which its unrouted context would fetch').toEqual([]);
   if (MODE === 'capture') {
     writeFileSync(LIST, JSON.stringify({ capturedFrom: from, cases: done } satisfies Manifest, null, 2) + '\n');
     console.log(`Captured ${done.length} cases from ${from} into ${DIR}`);
