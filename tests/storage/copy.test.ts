@@ -93,7 +93,10 @@ async function withStore<T>(storage: StorageDriver, dir: string, use: (repos: Re
   }
 }
 
-describe('copy', () => {
+// Each test copies a real library into a JSON store that fsyncs every file it writes. Alone a test takes under a
+// second; beside the rest of `npm test` and a render suite the first one took 5.4 s, past vitest's 5 s default.
+// The hooks keep their own 10 s.
+describe('copy', { timeout: 30_000 }, () => {
   let root: string;
   let sourceDir: string;
   let targetDir: string;
