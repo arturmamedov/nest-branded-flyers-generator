@@ -82,7 +82,7 @@ for (const canvas of CANVAS_IDS) {
               return {
                 slot: Number(el.dataset.row),
                 box: edges(el),
-                nameBox: edges(el.querySelector('[data-fit-box]')!),
+                nameBox: edges(el.querySelector('[data-fit-box=name]')!),
                 nameCell: name ? edges(name) : null,
                 cells: [...el.querySelectorAll('[data-cell]')].map(edges),
                 day: el.querySelector('[data-cell=day]')?.textContent ?? '',
@@ -263,7 +263,7 @@ for (const canvas of CANVAS_IDS) {
       const fit = (window as unknown as { __FLYER_FIT: { entries: { text: string; finalPx: number; overflowX: boolean }[] } }).__FLYER_FIT;
       return {
         title: [...document.querySelectorAll('[data-group=title] [data-fit]')].map((el) => el.textContent),
-        nameBox: edges(row.querySelector('[data-fit-box]')!),
+        nameBox: edges(row.querySelector('[data-fit-box=name]')!),
         name: edges(row.querySelector('[data-cell=name]')!),
         word: fit.entries.find((e) => e.text === 'Strandvolleyball')!,
       };
@@ -299,6 +299,41 @@ for (const canvas of CANVAS_IDS) {
     let inked = 0;
     for (let i = 0; i < shot.data.length; i += 4) if (Math.min(shot.data[i], shot.data[i + 1], shot.data[i + 2]) < 235) inked++;
     expect(inked, `ink between the column and the frame (${JSON.stringify(strip)})`).toBe(0);
+  });
+
+  test(`${canvas}: a day too long for three lines shrinks inside its row, even the fifth, and is not cut off`, async ({ page, request }) => {
+    const sparse = (await samples(request)).find((p) => p.flyer.title === 'This week · sparse')!;
+    const payload: FlyerPayload = structuredClone(sparse);
+    // 28 of the day's 30 characters, four lines at 34 px: they spilled 14 px above and below a 122 px row, and from the
+    // story's fifth row 2 px into the ask's box.
+    const day = 'Tuesday Friday Monday Sunday';
+    const [a, b] = payload.flyer.data.week;
+    payload.flyer.data.week = [a, b, a, b, { day, name: 'Surf', time: '10:00', cost: '40€' }];
+    await renderPayload(page, payload, canvas);
+    const r = await page.evaluate((text) => {
+      const edges = (b: DOMRect) => ({ top: b.top, bottom: b.bottom, right: b.right });
+      const fit = (window as unknown as { __FLYER_FIT: { clippedBoxes: number; entries: { text: string; finalPx: number; overflowX: boolean }[] } }).__FLYER_FIT;
+      return {
+        row: edges(document.querySelector('[data-row="4"]')!.getBoundingClientRect()),
+        column: edges(document.querySelector('[data-row="4"] [data-cell=day]')!.getBoundingClientRect()),
+        // The highlighter's line boxes: the day's ink, padding included.
+        lines: [...document.querySelector('[data-row="4"] [data-cell=day] > span')!.getClientRects()].map(edges),
+        day: fit.entries.find((e) => e.text === text)!,
+        clipped: fit.clippedBoxes,
+        cut: fit.entries.filter((e) => e.overflowX).map((e) => e.text),
+      };
+    }, day);
+    expect(r.lines.length, 'the day drew its highlighter').toBeGreaterThan(0);
+    for (const line of r.lines) {
+      expect(line.top >= r.row.top - 0.5 && line.bottom <= r.row.bottom + 0.5, `a line of the day ${JSON.stringify(line)} inside its row ${JSON.stringify(r.row)}`).toBe(true);
+      // Shrunk, the day wraps again, and a line's highlighter can end up to its own 10 px padding past the column, in
+      // the gap before the name: fit.ts then reports the day as overflowing, and the editor calls it cut off. Accepted
+      // by the owner (2026-09-30) rather than changing the fit or where every day wraps.
+      expect(line.right, 'at most the highlighter’s padding past the column').toBeLessThanOrEqual(r.column.right + 10.5);
+    }
+    expect(r.day.finalPx, 'the day shrank').toBeLessThan(34);
+    expect(r.clipped, 'no box reported clipped').toBe(0);
+    expect(r.cut.filter((t) => t !== day), 'nothing else cut sideways').toEqual([]);
   });
 }
 

@@ -93,6 +93,11 @@ function Highlight({ children }: { children: ReactNode }) {
 
 /** A week row's fixed day column (the prototype's), and the cap on its right-hand time and price. */
 const DAY_WIDTH = 250;
+/** The day's fit box, about three lines at 34 px. The highlighter's stroke reaches past its line boxes, and the height
+    pass measures it, so a third line already shrinks a little (to 30.6 px) and keeps the stroke inside the row's frame;
+    one or two lines keep 34 px. Centred in a 122 px row, with 122 − 114 even, so they land on the same pixels as
+    before the box. */
+const DAY_BOX = 114;
 
 /** One row of the This week template (.dc.html's isWeek block). Every cell collapses when it has
     nothing to print: an empty highlighter or a lone clock would print as a mark with no copy. */
@@ -102,12 +107,18 @@ function WeekRow({ slot, row, height, ink, accent }: { slot: number; row: Printe
       <WonkyBox fill="#ffffff" stroke={ink} />
       <div style={{ position: 'relative', zIndex: 1, height: '100%', boxSizing: 'border-box', padding: '0 34px', display: 'flex', alignItems: 'center', gap: 26 }}>
         {row.day && (
-          <div data-cell="day" data-fit="34" data-fit-min="0.7" style={{ flex: `0 0 ${DAY_WIDTH}px`, ...HL, fontWeight: 700, fontSize: 34, lineHeight: 1.1, color: ink }}>
-            <Highlight>{row.day}</Highlight>
+          /* The day wraps too, in its own box (a departure): a day too tall for it shrinks through the height pass
+             instead of spilling out of the row, and one still too tall reaches the editor's cut-off note. The box
+             doesn't clip, since the highlighter reaches 8 px left of the cell, and the cell keeps the column's width,
+             so the width pass still sees a word too long for it. */
+          <div data-fit-box="day" style={{ flex: `0 0 ${DAY_WIDTH}px`, height: DAY_BOX, display: 'flex', alignItems: 'center' }}>
+            <div data-cell="day" data-fit="34" data-fit-min="0.7" style={{ flex: `0 0 ${DAY_WIDTH}px`, ...HL, fontWeight: 700, fontSize: 34, lineHeight: 1.1, color: ink }}>
+              <Highlight>{row.day}</Highlight>
+            </div>
           </div>
         )}
         {/* The name wraps, in its own 96 px box (the prototype's): two lines fit, a third shrinks through the height pass (§2). */}
-        <div data-fit-box="1" style={{ flex: '1 1 auto', minWidth: 0, height: 96, overflow: 'hidden', display: 'flex', alignItems: 'center' }}>
+        <div data-fit-box="name" style={{ flex: '1 1 auto', minWidth: 0, height: 96, overflow: 'hidden', display: 'flex', alignItems: 'center' }}>
           {row.name && (
             /* minWidth 0 on the name itself (a departure): a flex item otherwise grows to its longest word, so a
                word too long for the box would be clipped by it with no width pass and no cut-off warning. */
