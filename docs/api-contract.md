@@ -140,7 +140,8 @@ path, is 404 `no_such_endpoint`.
   - An empty parameter means no filter.
 - **A flyer record** is `{id, hostel (slug or null), template, title, data, photoId, createdAt, updatedAt}`.
   `GET api/flyers/:id` adds the resolved `hostel` (full object or null) and `photo` (`{id, url, width, height}` or null).
-- **Create** sets `createdAt = updatedAt`. **Update** keeps `createdAt` and bumps `updatedAt`.
+- **Create** sets `createdAt = updatedAt`. **Update** keeps `createdAt` and bumps `updatedAt`. It replaces every other
+  field, the template and the hostel included, after the same normalisation as a create.
 - **DELETE is a soft delete** (archive). It bumps `updatedAt`. From then on the flyer gives 404 to GET, PUT and DELETE,
   and drops out of the list.
 - **Ids in the path:** anything that is not a positive integer gives 404 `no_such_flyer`, as does an unknown id.

@@ -85,6 +85,31 @@ describe('flyers', () => {
     expect(await listed(ids, '?hostel=none&template=activity')).toEqual([]);
   });
 
+  it('a PUT changes the template, both ways, and the template column wins on an update too', async () => {
+    const created = await mine.create(flyerInput({ hostel: 'duque-nest' }));
+    const { id, title } = created.flyer;
+    expect(created.flyer.template).toBe('activity');
+    const week = structuredClone(SAMPLE_FLYERS.find((s) => s.title === 'This week · Duque Nest')!.data);
+    // As the editor saves a switch: the hostel again (a PUT replaces it), the column and data.template agreeing.
+    const toWeek = await ok(send('PUT', `api/flyers/${id}`, flyerInput({ title, hostel: 'duque-nest', template: 'week', data: week })), FlyerSavedSchema);
+    expect([toWeek.flyer.template, toWeek.flyer.data.template]).toEqual(['week', 'week']);
+    expect(toWeek.flyer.data.week).toEqual(week.week);
+    expect((await ok(send('GET', `api/flyers/${id}`), FlyerPayloadSchema)).flyer).toEqual(toWeek.flyer);
+    expect((await listed([id], '?template=week')).map((f) => f.id)).toEqual([id]);
+    expect((await listed([id], '?hostel=duque-nest&template=week')).map((f) => f.id)).toEqual([id]);
+    expect(await listed([id], '?template=activity')).toEqual([]);
+
+    // Back with the column at activity and data.template left at week, on purpose: the only check that a PUT applies
+    // the template rule (the column wins, on an update as on a create), and on Node the only one that a PUT normalises
+    // its input at all.
+    const back = await ok(send('PUT', `api/flyers/${id}`, flyerInput({ title, hostel: 'duque-nest', template: 'activity', data: week })), FlyerSavedSchema);
+    expect([back.flyer.template, back.flyer.data.template]).toEqual(['activity', 'activity']);
+    const again = await ok(send('GET', `api/flyers/${id}`), FlyerPayloadSchema);
+    expect([again.flyer.template, again.flyer.data.template]).toEqual(['activity', 'activity']);
+    expect((await listed([id], '?template=activity')).map((f) => f.id)).toEqual([id]);
+    expect(await listed([id], '?template=week')).toEqual([]);
+  });
+
   it('DELETE archives (204): gone from reads, lists and writes', async () => {
     const { id } = await mine.create();
     const res = await send('DELETE', `api/flyers/${id}`);

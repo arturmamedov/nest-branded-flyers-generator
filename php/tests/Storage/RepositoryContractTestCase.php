@@ -204,6 +204,27 @@ abstract class RepositoryContractTestCase extends TestCase
         self::assertFalse($this->repos->flyers->update(9999, self::input()));
     }
 
+    public function testFlyerUpdateChangesTheTemplateAndGetAndEveryListFollowItBothWays(): void
+    {
+        $this->addHostels();
+        $id = $this->repos->flyers->create(self::input(['hostel' => 'duque-nest']));
+        // The JSON store keeps the template twice, in the flyer's file and in the index: every read must agree.
+        $seen = fn (): array => [
+            'get' => $this->repos->flyers->get($id)['template'] ?? null,
+            'all' => array_column($this->repos->flyers->list(null, null), 'template', 'id')[$id] ?? null,
+            'week' => array_column($this->repos->flyers->list(null, 'week'), 'id'),
+            'activity' => array_column($this->repos->flyers->list(null, 'activity'), 'id'),
+            'both' => array_column($this->repos->flyers->list('duque-nest', 'week'), 'id'),
+        ];
+        $week = self::sampleData();
+        $week->template = 'week';
+
+        self::assertTrue($this->repos->flyers->update($id, self::input(['hostel' => 'duque-nest', 'template' => 'week', 'data' => $week])));
+        self::assertSame(['get' => 'week', 'all' => 'week', 'week' => [$id], 'activity' => [], 'both' => [$id]], $seen());
+        self::assertTrue($this->repos->flyers->update($id, self::input(['hostel' => 'duque-nest'])));
+        self::assertSame(['get' => 'activity', 'all' => 'activity', 'week' => [], 'activity' => [$id], 'both' => []], $seen());
+    }
+
     public function testFlyerArchiveIsASoftDeleteThatHidesTheFlyer(): void
     {
         $this->addHostels();

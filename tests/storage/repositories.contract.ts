@@ -168,6 +168,22 @@ export function describeRepositoryContract(name: string, factory: RepositoryFact
         expect(await repos.flyers.update(9999, input())).toBe(false);
       });
 
+      it('update changes the template, and get and every list follow it, both ways', async () => {
+        const id = await repos.flyers.create(input({ hostel: 'duque-nest' }));
+        // The JSON drivers keep the template twice, in the flyer's file and in the index: every read must agree.
+        const seen = async () => ({
+          get: (await repos.flyers.get(id))?.template,
+          all: (await repos.flyers.list({})).find((f) => f.id === id)?.template,
+          week: (await repos.flyers.list({ template: 'week' })).map((f) => f.id),
+          activity: (await repos.flyers.list({ template: 'activity' })).map((f) => f.id),
+          both: (await repos.flyers.list({ hostel: 'duque-nest', template: 'week' })).map((f) => f.id),
+        });
+        expect(await repos.flyers.update(id, input({ hostel: 'duque-nest', template: 'week', data: { ...data, template: 'week' } }))).toBe(true);
+        expect(await seen()).toEqual({ get: 'week', all: 'week', week: [id], activity: [], both: [id] });
+        expect(await repos.flyers.update(id, input({ hostel: 'duque-nest' }))).toBe(true);
+        expect(await seen()).toEqual({ get: 'activity', all: 'activity', week: [], activity: [id], both: [] });
+      });
+
       it('archive is a soft delete that bumps updatedAt and hides the flyer', async () => {
         const id = await repos.flyers.create(input());
         clock.tick();
