@@ -3,7 +3,7 @@ import type { APIRequestContext, APIResponse, Page } from '@playwright/test';
 import { PNG } from 'pngjs';
 import { expect, test } from '../browser';
 import { EDITOR_VIEWPORT, cutOff, cutOffOn } from '../editor';
-import { bodiesOf, groupsOf } from './pixels';
+import { bodiesOf, groupsOf, highlighterWrapSample } from './pixels';
 import sharp from 'sharp';
 import { apiError, type ApiErrorKey } from '../../src/shared/errors';
 import { flyerFilename } from '../../src/shared/filename';
@@ -43,6 +43,11 @@ for (const canvas of CANVAS_IDS) {
   test(`${canvas}: every sample, every photo mode: where layout.ts says, in the safe box, no overlaps, no clipped text, real fonts`, async ({ page, request }) => {
     const all = await samples(request);
     expect(all.length).toBeGreaterThanOrEqual(6);
+    // The highlighter wrap keeps every stress-test worst case and wraps its WHEN line: drawn as the stress flyer is.
+    const wrap = highlighterWrapSample();
+    const stress = all.find((p) => p.flyer.title === 'Long copy · stress test')!;
+    expect(stress.flyer.hostel).toBe(wrap.hostel);
+    all.push({ ...structuredClone(stress), flyer: { ...structuredClone(stress.flyer), title: wrap.title, data: wrap.data } });
     const withPhoto = all.find((p) => p.photo)!;
     const { width: W, height: HT } = CANVASES[canvas];
     const safe = safeBox(canvas);
@@ -99,6 +104,17 @@ for (const canvas of CANVAS_IDS) {
             const rowDots = [...document.querySelectorAll('[data-group=rows] *')].filter((el) => el.children.length === 0 && el.textContent!.trim() === '·').length;
             // The headline's lines as printed: the Activity headline, or the week's title.
             const lines = [...document.querySelectorAll('[data-group=title] [data-fit], [data-group=headline] [data-fit]')].map((el) => el.textContent ?? '');
+            // The fit boxes still too tall after the fit, and by how much (the WHERE chip is the one with the pin).
+            const clips = [...document.querySelectorAll<HTMLElement>('[data-fit-box]')]
+              .filter((b) => b.scrollHeight > b.clientHeight + 1)
+              .map((b) => ({ box: b.querySelector('img[src*="icon-pin"]') ? 'WHERE' : (b.closest('[data-group]')?.getAttribute('data-group') ?? '?'), over: b.scrollHeight - b.clientHeight }));
+            // Every fitted line's final size, against its own floor (data-fit × data-fit-min).
+            const floors = [...document.querySelectorAll<HTMLElement>('[data-fit]')].map((el) => ({
+              text: (el.textContent ?? '').trim(),
+              min: el.dataset.fitMin ?? null,
+              px: parseFloat(el.style.fontSize),
+              floor: parseFloat(el.dataset.fit!) * parseFloat(el.dataset.fitMin ?? 'NaN'),
+            }));
             // The eyebrow row's children don't shrink: the logo's right edge is where it really ends.
             const logo = document.querySelector('[data-group=eyebrow] img[alt="Nests Hostels"]')!.getBoundingClientRect();
             // The flyer's own art (the pencil in the ask box is part of the block, not a doodle).
@@ -109,10 +125,12 @@ for (const canvas of CANVAS_IDS) {
             }));
             return {
               art,
+              clips,
               drawn: document.querySelector<HTMLElement>('[data-flyer]')!.dataset.canvas,
               groups,
               logoRight: logo.right,
               faces,
+              floors,
               fit: (window as unknown as { __FLYER_FIT: { clippedBoxes: number; entries: { text: string; base: number; finalPx: number; overflowX: boolean }[] } }).__FLYER_FIT,
               marks,
               rows,
@@ -146,6 +164,7 @@ for (const canvas of CANVAS_IDS) {
             ] as const)
               expect(Math.abs(g[edge] - value), `${label}: ${g.name} ${edge}`).toBeLessThanOrEqual(0.5);
           }
+
           expect(r.logoRight, `${label}: the eyebrow row ends inside the safe box`).toBeLessThanOrEqual(safe.left + safe.width + 0.5);
 
           // The art where the registry hangs it, from data that went through the store: the template set
@@ -174,7 +193,19 @@ for (const canvas of CANVAS_IDS) {
               expect(overlap, `${label}: ${a.name} overlaps ${b.name}`).toBe(false);
             }
 
-          expect(r.fit.clippedBoxes, `${label}: clipped boxes`).toBe(0);
+          // Each line stops at its own floor, in the height pass too (the owner's call, 2026-09-30).
+          expect(r.floors.filter((f) => f.min === null).map((f) => f.text), `${label}: fitted lines without a floor`).toEqual([]);
+          expect(
+            r.floors.filter((f) => f.px < f.floor - 0.005).map((f) => `${f.text}: ${f.px} px, floor ${f.floor.toFixed(2)}`),
+            `${label}: lines below their floor`,
+          ).toEqual([]);
+          // At their floors the stress copy's address takes three lines, and on the story its WHERE chip reaches 2 px
+          // into its own bottom padding: nothing visible is cut, but the chip counts as clipped and the editor says so.
+          // Accepted by the owner (2026-09-30) rather than shortening the sample's copy or lowering the floor.
+          const stressWhere = canvas === 'story' && ['Long copy · stress test', 'Highlighter wrap'].includes(base.flyer.title);
+          expect(r.clips.map((c) => c.box), `${label}: clipped boxes`).toEqual(stressWhere ? ['WHERE'] : []);
+          for (const c of r.clips) expect(c.over, `${label}: how far the ${c.box} chip runs over`).toBeLessThanOrEqual(2);
+          expect(r.fit.clippedBoxes, `${label}: clipped boxes reported`).toBe(r.clips.length);
           expect(r.fit.entries.filter((e) => e.overflowX).map((e) => e.text), `${label}: overflowing lines`).toEqual([]);
           for (const face of ['Shantell Sans 700', 'Shantell Sans 800', 'Montserrat 600', 'Montserrat 700']) {
             expect(r.faces, `${label}: ${face}`).toContain(face);
@@ -335,6 +366,34 @@ for (const canvas of CANVAS_IDS) {
     expect(r.clipped, 'no box reported clipped').toBe(0);
     expect(r.cut.filter((t) => t !== day), 'nothing else cut sideways').toEqual([]);
   });
+
+  test(`${canvas}: a WHEN chip too full for its lines' floors stops them there, clips, and says so`, async ({ page, request }) => {
+    const paragliding = (await samples(request)).find((p) => p.flyer.title === 'Paragliding')!;
+    const payload: FlyerPayload = structuredClone(paragliding);
+    // A day that wraps, and a time: at their floors (27.6 and 28 px) the two lines need about 107 px, and 74 are free.
+    payload.flyer.data.chips = payload.flyer.data.chips.map((c) => (c.key === 'when' ? { ...c, value: 'Saturdays and Sundays, mornings and evenings · 05:30' } : c));
+    await renderPayload(page, payload, canvas);
+    const r = await page.evaluate(() => {
+      const over = [...document.querySelectorAll<HTMLElement>('[data-fit-box]')].filter((b) => b.scrollHeight > b.clientHeight + 1);
+      return {
+        clipped: (window as unknown as { __FLYER_FIT: { clippedBoxes: number } }).__FLYER_FIT.clippedBoxes,
+        // The WHEN chip is the one with the calendar icon.
+        over: over.map((b) => (b.querySelector('img[src*="icon-calendar"]') ? 'WHEN' : (b.textContent ?? '').slice(0, 40))),
+        lines: over.flatMap((b) =>
+          [...b.querySelectorAll<HTMLElement>('[data-fit]')].map((el) => ({
+            text: (el.textContent ?? '').trim(),
+            px: parseFloat(el.style.fontSize),
+            floor: parseFloat(el.dataset.fit!) * parseFloat(el.dataset.fitMin!),
+          })),
+        ),
+      };
+    });
+    expect(r.over, 'the box still too tall').toEqual(['WHEN']);
+    expect(r.clipped, 'counted, so the editor says so').toBe(1);
+    expect(r.lines.map((l) => l.text)).toEqual(['Saturdays and Sundays, mornings and evenings', '05:30']);
+    for (const line of r.lines) expect(line.px, `${line.text}: at its floor`).toBeCloseTo(line.floor, 2);
+  });
+
 }
 
 test('the export waits for every image a week flyer draws: a slow clock is decoded when the page says it is ready', async ({ browser, baseURL, request }) => {
@@ -514,12 +573,14 @@ test('the editor previews, fits and downloads every canvas, through the server e
   await page.reload();
   await expect(toggle('story')).toHaveAttribute('aria-pressed', 'true');
 
-  // Copy that is cut off says so, naming every canvas it is cut off on, and the warning goes when it fits again.
+  // Copy that is cut off says so, naming every canvas it is cut off on, and the warning shrinks when it fits again: to
+  // the story alone, whose WHERE chip this copy fills 2 px past its padding at its floors (accepted, 2026-09-30).
   const line2 = page.getByLabel('Line 2');
   const before = await line2.inputValue();
-  await line2.fill('W'.repeat(40));
   const warning = cutOff(page);
+  await expect(warning).toContainText(cutOffOn('story'));
+  await line2.fill('W'.repeat(40));
   await expect(warning).toContainText(cutOffOn(...CANVAS_IDS));
   await line2.fill(before);
-  await expect(warning).toHaveCount(0);
+  await expect(warning).toContainText(cutOffOn('story'));
 });
