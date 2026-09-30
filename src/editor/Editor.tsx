@@ -40,6 +40,14 @@ const toInput = (d: Draft): FlyerInput => ({
 
 const EMPTY_ROW: WeekRow = { day: '', name: '', time: '', cost: '' };
 
+/** Why a row taken from a saved flyer can't join this draft now, or null when it can. Asked when it is picked, and
+    again when it arrives, since the rows and the template can change while it is on its way. */
+function takeRefusal(d: FlyerData): string | null {
+  if (d.template !== 'week') return `this is an ${TEMPLATE_LABEL.activity} flyer now. Switch back to ${TEMPLATE_LABEL.week}, then add it again.`;
+  if (d.week.length >= WEEK_ROWS_MAX) return `a week holds ${WEEK_ROWS_MAX} rows. Remove one, then add it again.`;
+  return null;
+}
+
 /** A row with its short name set, or without the key at all when cleared: an empty one would
     print nothing different but make a saved flyer read as changed. */
 function withShortName(row: WeekRow, shortName: string): WeekRow {
@@ -89,6 +97,13 @@ export function Editor({ id, hostels, exporter, limits }: { id: number | null; h
   const dirty = draft ? JSON.stringify(toInput(draft)) !== savedJson : false;
   // A photo still uploading is unsaved work too.
   useLeaveGuard(dirty || busy === 'upload');
+
+  // The draft as last rendered, for an answer that lands after the render its action started from (takeRow). Set in
+  // a layout effect, never during render: a render React throws away must not leave its draft here.
+  const latestDraft = useRef(draft);
+  useLayoutEffect(() => {
+    latestDraft.current = draft;
+  });
 
   const hostel = useMemo(() => hostels.find((h) => h.slug === draft?.hostel) ?? null, [hostels, draft?.hostel]);
   const lints = useMemo(() => (draft ? lintFlyer(draft.data) : []), [draft]);
@@ -190,20 +205,26 @@ export function Editor({ id, hostels, exporter, limits }: { id: number | null; h
       );
     });
 
-  // A week flyer has no photo: a drop gets a reason, never an upload.
-  const onDrop = (file: File) =>
-    week ? setMessage({ kind: 'error', text: `A ${TEMPLATE_LABEL.week} flyer has no photo — switch to ${TEMPLATE_LABEL.activity} to use one.` }) : onFile(file);
+  // A week flyer has no photo: a drop gets a reason, never an upload. Nor does a drop while another action is out:
+  // one action at a time, since each one's end empties `busy`, and with it the upload's state and the leave guard.
+  const onDrop = (file: File) => {
+    if (week) setMessage({ kind: 'error', text: `A ${TEMPLATE_LABEL.week} flyer has no photo — switch to ${TEMPLATE_LABEL.activity} to use one.` });
+    else if (busy) setMessage({ kind: 'error', text: 'Still working on the last action — drop the photo again in a moment.' });
+    else onFile(file);
+  };
 
   // A row from a saved Activity flyer: a copy, never a link. It joins the rows as they are when it
-  // arrives (they may have changed while it was on its way), and only while there is room.
+  // arrives (they may have changed while it was on its way), and only while there is room. The picker
+  // empties itself once a flyer is picked, so a row that can't join says so, by name.
   const takeRow = (id: number) =>
     run('row', async () => {
-      if (draft.data.week.length >= WEEK_ROWS_MAX) throw new Error(`A week holds ${WEEK_ROWS_MAX} rows: remove one first.`);
+      const now = takeRefusal(draft.data);
+      if (now) throw new Error(now[0].toUpperCase() + now.slice(1));
       const p = await api.flyer(id);
       const row = rowFromActivity(p.flyer.data, p.flyer.title);
-      setDraft((d) =>
-        d && d.data.template === 'week' && d.data.week.length < WEEK_ROWS_MAX ? { ...d, data: { ...d.data, week: [...d.data.week, row] } } : d,
-      );
+      const late = takeRefusal(latestDraft.current!.data);
+      if (late) throw new Error(`“${row.name}” was not added: ${late}`);
+      setDraft((d) => (d && !takeRefusal(d.data) ? { ...d, data: { ...d.data, week: [...d.data.week, row] } } : d));
       return `Added “${row.name}” from ${p.flyer.title}.`;
     });
 
@@ -275,7 +296,7 @@ export function Editor({ id, hostels, exporter, limits }: { id: number | null; h
 
         {week ? (
           <Section title={`${TEMPLATE_LABEL.week}’s rows`} hint={`Up to ${WEEK_ROWS_MAX}. Type them, or take one from a saved ${TEMPLATE_LABEL.activity} flyer and change it.`}>
-            <WeekRowsField rows={draft.data.week} onChange={updateWeek} onTake={takeRow} taking={busy === 'row'} />
+            <WeekRowsField rows={draft.data.week} onChange={updateWeek} onTake={takeRow} busy={busy !== null} />
           </Section>
         ) : (
           <>
@@ -312,7 +333,7 @@ export function Editor({ id, hostels, exporter, limits }: { id: number | null; h
             {draft.data.photoMode !== 'none' && (
               <>
                 <div className="photo-row">
-                  <button type="button" className="btn" disabled={busy === 'upload'} onClick={() => fileInput.current?.click()}>
+                  <button type="button" className="btn" disabled={!!busy} onClick={() => fileInput.current?.click()}>
                     {busy === 'upload' ? 'Uploading…' : draft.photo ? 'Replace photo' : 'Choose photo'}
                   </button>
                   {draft.photo && (
@@ -540,23 +561,27 @@ function ChipField({ chip, hostelName, onChange }: { chip: Chip; hostelName: str
 type RowFocus = { slot: number; want: 'up' | 'down' | 'remove' } | 'add';
 
 /* This week's rows: typed, or taken from a saved Activity flyer (a copy, then edited like any other).
-   Every change is a function of the rows as they are (updateWeek), never of the list this render saw. */
-function WeekRowsField({ rows, onChange, onTake, taking }: { rows: WeekRow[]; onChange: (fn: (rows: WeekRow[]) => WeekRow[]) => void; onTake: (id: number) => void; taking: boolean }) {
+   Every change is a function of the rows as they are (updateWeek), never of the list this render saw.
+   `busy`: the editor has an action out, and takes one at a time. */
+function WeekRowsField({ rows, onChange, onTake, busy }: { rows: WeekRow[]; onChange: (fn: (rows: WeekRow[]) => WeekRow[]) => void; onTake: (id: number) => void; busy: boolean }) {
   const [saved, setSaved] = useState<FlyerListItem[] | null>(null);
+  // Apart from `saved`, which stays null: a failure is not an empty library, and the picker stays off.
+  const [failed, setFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
   const root = useRef<HTMLDivElement>(null);
   const focus = useRef<RowFocus | null>(null);
 
-  // The saved Activity flyers to take a row from, fetched when the rows are first shown.
+  // The saved Activity flyers to take a row from, fetched when the rows are first shown, and again on "Try again".
   useEffect(() => {
     let live = true;
     api.flyers({ template: 'activity' }).then(
       (list) => live && setSaved(list),
-      () => live && setSaved([]),
+      () => live && setFailed(true),
     );
     return () => {
       live = false;
     };
-  }, []);
+  }, [attempt]);
 
   // After a move or a removal: the moved row keeps the focus (its other arrow when this one is off at an end),
   // a removal hands it to the row that took its place, or to "+ Add row".
@@ -656,19 +681,33 @@ function WeekRowsField({ rows, onChange, onTake, taking }: { rows: WeekRow[]; on
         <select
           aria-label="Add from a saved flyer"
           value=""
-          disabled={full || taking || !saved?.length}
+          disabled={full || busy || !saved?.length}
           onChange={(e) => {
             const id = Number(e.target.value);
             if (id) onTake(id);
           }}
         >
-          <option value="">{saved === null ? 'Loading saved flyers…' : saved.length ? 'Add from a saved flyer…' : `No saved ${TEMPLATE_LABEL.activity} flyers yet`}</option>
+          <option value="">
+            {failed ? 'Could not load the saved flyers' : saved === null ? 'Loading saved flyers…' : saved.length ? 'Add from a saved flyer…' : `No saved ${TEMPLATE_LABEL.activity} flyers yet`}
+          </option>
           {saved?.map((f) => (
             <option key={f.id} value={f.id}>
               {f.hostelName ? `${f.title} · ${f.hostelName}` : f.title}
             </option>
           ))}
         </select>
+        {failed && (
+          <button
+            type="button"
+            className="btn btn-quiet"
+            onClick={() => {
+              setFailed(false);
+              setAttempt((n) => n + 1);
+            }}
+          >
+            Try again
+          </button>
+        )}
       </div>
     </div>
   );

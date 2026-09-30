@@ -25,6 +25,7 @@ import { TEMPLATE_LABEL } from '../../src/editor/templates';
 import { DEFAULT_PHOTO_MODE } from '../../src/shared/defaults';
 import { CANVASES, CANVAS_IDS, type CanvasId, type PhotoMode } from '../../src/shared/layout';
 import { FlyerPayloadSchema, FlyerSavedSchema, type FlyerListItem } from '../../src/shared/schema';
+import { WEEK_ROWS_MAX } from '../../src/shared/week';
 import { WRITE_HEADERS } from '../../src/shared/writeGuard';
 
 /* The editor is a focus page (App.tsx, Editor.tsx): the whole window, no shared bar, one way
@@ -149,6 +150,34 @@ test('a photo dropped beside the preview is refused, never opened in the tab', a
     });
   });
   expect(prevented, 'dragover and drop both refused').toEqual([true, true]);
+});
+
+test('one action at a time: a photo dropped while a download is out is refused, and the photo button waits for it', async ({ page, request }) => {
+  const id = await poolPartyCopy(request, 'editor spec busy');
+  await page.goto(`/#/flyers/${id}`);
+  await expect(status(page)).toHaveText('Saved');
+  // A download saves first (a PUT), then asks the server to render: held, the download stays out.
+  const release = await hold(page, apiRoute(`render/${id}`), 'POST');
+  const uploads: string[] = [];
+  page.on('request', (r) => {
+    if (r.method() === 'POST' && /\/api\/photos$/.test(new URL(r.url()).pathname)) uploads.push(r.url());
+  });
+  const photoButton = page.getByRole('button', { name: 'Replace photo', exact: true });
+  await expect(photoButton).toBeEnabled();
+
+  const downloaded = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Download PNG', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Rendering…', exact: true }), 'the download is out').toBeDisabled();
+  await dropFile(page, page.locator('.stage'), PHOTO);
+  // Checked now: when the download ends, its own note takes the refusal's place.
+  await expect(page.locator('.notes .note-error')).toHaveText('Still working on the last action — drop the photo again in a moment.');
+  expect(uploads, 'nothing uploaded').toEqual([]);
+  await expect(photoButton).toBeDisabled();
+
+  release();
+  await downloaded;
+  await expect(page.locator('.notes .note-ok')).toContainText('Downloaded');
+  await expect(photoButton).toBeEnabled();
 });
 
 test('unsaved work: the Library link asks; staying keeps the draft and leaves no entry behind', async ({ page }) => {
@@ -400,6 +429,7 @@ test('This week: rows typed, taken from a saved flyer, reordered and removed are
   await expect(row(page, 2, 'day')).toHaveValue('Saturday 19/9');
   await expect(row(page, 2, 'time')).toHaveValue('15:00');
   await expect(row(page, 2, 'cost')).toHaveValue('Free');
+  await expect(page.locator('.notes .note-ok')).toHaveText('Added “Saturday is a pool party” from Pool party.');
 
   await button(page, '+ Add row').click();
   await row(page, 3, 'event').fill('Open mic night');
@@ -444,6 +474,82 @@ test('This week: rows typed, taken from a saved flyer, reordered and removed are
   await button(page, 'Remove row 5').click();
   await expect(button(page, '+ Add row')).toBeVisible();
   await expect(page.getByLabel('Add from a saved flyer', { exact: true })).toBeEnabled();
+});
+
+/* A row taken from a saved flyer joins the rows as they are when it arrives. The picker empties itself as soon as a
+   flyer is picked, so a row that can't join says so in the note, by name, with what to do. */
+
+const picker = (page: Page) => page.getByLabel('Add from a saved flyer', { exact: true });
+// The GET of the picked flyer only: anchored, so the list of saved flyers (?template=activity) is never held.
+const pickedFlyer = (url: URL) => /\/api\/flyers\/\d+$/.test(url.pathname) && url.search === '';
+
+test('This week: a row taken from a saved flyer is refused, by name, when the week filled while it was on its way', async ({ page }) => {
+  await page.goto('/#/new');
+  await templateButton(page, 'week').click();
+  await expect(picker(page)).toBeEnabled();
+  const release = await hold(page, pickedFlyer);
+  const took = page.waitForResponse((r) => r.request().method() === 'GET' && pickedFlyer(new URL(r.url())));
+  await picker(page).selectOption({ label: 'Pool party · Duque Nest' });
+  for (let i = 0; i < WEEK_ROWS_MAX; i++) await button(page, '+ Add row').click();
+  await expect(row(page, WEEK_ROWS_MAX, 'event')).toBeVisible();
+  release();
+  expect((await took).status()).toBe(200);
+
+  await expect(page.locator('.notes .note-error')).toHaveText(
+    `“Saturday is a pool party” was not added: a week holds ${WEEK_ROWS_MAX} rows. Remove one, then add it again.`,
+  );
+  await expect(page.locator('.notes .note-ok')).toHaveCount(0);
+  await expect(page.locator('.week-row')).toHaveCount(WEEK_ROWS_MAX);
+  for (let n = 1; n <= WEEK_ROWS_MAX; n++) await expect(row(page, n, 'event'), `row ${n}`).toHaveValue('');
+});
+
+test('This week: a row taken from a saved flyer is refused, by name, when the flyer turned Activity while it was on its way', async ({ page }) => {
+  await page.goto('/#/new');
+  await templateButton(page, 'week').click();
+  await expect(picker(page)).toBeEnabled();
+  const release = await hold(page, pickedFlyer);
+  const took = page.waitForResponse((r) => r.request().method() === 'GET' && pickedFlyer(new URL(r.url())));
+  await picker(page).selectOption({ label: 'Pool party · Duque Nest' });
+  await templateButton(page, 'activity').click();
+  release();
+  expect((await took).status()).toBe(200);
+
+  await expect(page.locator('.notes .note-error')).toHaveText(
+    `“Saturday is a pool party” was not added: this is an ${TEMPLATE_LABEL.activity} flyer now. Switch back to ${TEMPLATE_LABEL.week}, then add it again.`,
+  );
+  await expect(page.locator('.notes .note-ok')).toHaveCount(0);
+  await templateButton(page, 'week').click();
+  await expect(picker(page)).toBeVisible();
+  await expect(row(page, 1, 'event')).toHaveCount(0);
+});
+
+test('This week: saved flyers that could not be loaded say so, and Try again loads them', async ({ page }) => {
+  let failing = true;
+  await page.route(apiRoute('flyers', '?template=activity'), (route) => (failing ? route.abort() : route.continue()));
+  await page.goto('/#/new');
+  await templateButton(page, 'week').click();
+  const first = picker(page).locator('option').first();
+  const again = button(page, 'Try again');
+  await expect(first).toHaveText('Could not load the saved flyers');
+  await expect(picker(page)).toBeDisabled();
+  await expect(again).toBeVisible();
+
+  failing = false;
+  await again.click();
+  await expect(picker(page)).toBeEnabled();
+  await expect(first).toHaveText('Add from a saved flyer…');
+  await expect(again).toHaveCount(0);
+  await picker(page).selectOption({ label: 'Pool party · Duque Nest' });
+  await expect(row(page, 1, 'event')).toHaveValue('Saturday is a pool party');
+});
+
+test('This week: with no saved Activity flyers the picker says so, and offers nothing to try again', async ({ page }) => {
+  await page.route(apiRoute('flyers', '?template=activity'), (route) => route.fulfill({ json: [] }));
+  await page.goto('/#/new');
+  await templateButton(page, 'week').click();
+  await expect(picker(page).locator('option').first()).toHaveText(`No saved ${TEMPLATE_LABEL.activity} flyers yet`);
+  await expect(picker(page)).toBeDisabled();
+  await expect(button(page, 'Try again')).toHaveCount(0);
 });
 
 test('This week: the · button never pushes a price past its limit, where Save would refuse it', async ({ page }) => {
@@ -580,4 +686,20 @@ test('the library filters by hostel and template together, and remembers both', 
   expect(again.status()).toBe(200);
   await expect(page.getByLabel('Hostel')).toHaveValue('duque-nest');
   await expect(page.getByLabel('Template')).toHaveValue('week');
+});
+
+test('the library shows the latest filter’s list, whatever order the answers come back in', async ({ page }) => {
+  const release = await hold(page, apiRoute('flyers', '?hostel=duque-nest'));
+  await Promise.all([page.waitForResponse(apiCall('GET', 'flyers')), page.goto('/')]);
+  await page.getByLabel('Hostel').selectOption({ label: 'Duque Nest' });
+  await page.getByLabel('Template').selectOption({ label: TEMPLATE_LABEL.week });
+  await expect(card(page, 'This week · Duque Nest')).toBeVisible();
+
+  // The earlier filter's answer lands last. An idle callback alone can run before it is back.
+  const late = page.waitForResponse(apiCall('GET', 'flyers', '?hostel=duque-nest'));
+  release();
+  await (await late).finished();
+  await page.evaluate(() => new Promise((resolve) => requestIdleCallback(resolve)));
+  await expect(card(page, 'Pool party')).toHaveCount(0);
+  await expect(card(page, 'This week · Duque Nest')).toBeVisible();
 });

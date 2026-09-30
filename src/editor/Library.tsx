@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { FlyerListItem, Hostel, Template } from '../shared/schema';
 import { api } from './api';
 import { go, onPage } from './route';
@@ -20,14 +20,22 @@ export function Library({ hostels }: { hostels: Hostel[] }) {
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<number | null>(null);
 
-  const load = () =>
-    api.flyers({ hostel: filter || undefined, template: template || undefined }).then(
+  // Answers can come back out of order (a slow host, two quick changes of filter): only the latest load's answer is
+  // applied, or an earlier filter's list would show under the later choice.
+  const latest = useRef(0);
+  const load = () => {
+    const n = ++latest.current;
+    return api.flyers({ hostel: filter || undefined, template: template || undefined }).then(
       (list) => {
+        if (n !== latest.current) return;
         setItems(list);
         setError(null);
       },
-      (e) => setError(e.message),
+      (e) => {
+        if (n === latest.current) setError(e.message);
+      },
     );
+  };
 
   useEffect(() => {
     localStorageSet('library.hostel', filter);
