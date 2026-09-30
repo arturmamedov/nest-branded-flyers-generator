@@ -119,7 +119,7 @@ Re-graded by what staff would meet, and by the owner's standing rules, these wer
   ask and pill boxes once in `layout.ts` (`sharedGroups`); the browser specs share `templateButton`, `rowField` and
   `bodiesOf`.
 
-Deferred, minor, for Artur to decide:
+Deferred, minor, for Artur to decide (on 2026-09-30 he asked for all of them: `docs/prompts/week-template-followup.md`):
 
 - "Added … from …" is shown even in the rare race where the week filled up (or the template changed) while the
   saved flyer was on its way, so the row was not added.

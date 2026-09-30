@@ -146,6 +146,9 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
 - Done: handoff build steps 1–6 (branch `feat/flyer-generator-mvp`).
 - Done: step 8, the This week template, on every canvas and both backends (branch `feat/week-template`,
   2026-09-29). The brief is `docs/prompts/week-template.md`, the report `docs/reports/week-template.md`.
+- Next, when Artur starts it: `docs/prompts/week-template-followup.md`, the review's deferred items and four problems
+  found while writing it (a slash between two times, a long day spilling out of its row, an upload overlapping
+  another action, the library's out-of-order answers). Part 0 asks him which of the four join.
 - Waiting, don't start unasked: step 7 (drag/nudge everything on the canvas, sizes, colours, order, reset),
   step 9 (doodle picker + icon uploads). With two canvases and two templates: step 7's stored `overrides`
   (dx/dy) are shared by every canvas, so it must decide how they apply per canvas; step 9, when it stores

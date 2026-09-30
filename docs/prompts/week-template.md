@@ -1,8 +1,8 @@
 # Brief: handoff step 8 — the “This week” template
 
-> **Status: done, 2026-09-29.** Built on `feat/week-template` (from `a24442b`; uncommitted until Artur asks). Part 0's
-> answers and the WhatsApp sign-off are recorded in the report, `docs/reports/week-template.md`. Everything below is the
-> brief as written, kept for the record.
+> **Status: done, 2026-09-29.** Committed as `65f3ed3` on `feat/week-template` (from `a24442b`). Part 0's answers and
+> the WhatsApp sign-off are recorded in the report, `docs/reports/week-template.md`. The review's deferred items are
+> `docs/prompts/week-template-followup.md`. Everything below is the brief as written, kept for the record.
 
 You are working in the Nest Branded Flyers Generator repo. Read `CLAUDE.md`, `README.md` and
 `design_handoff_flyer_generator/README.md` first (§1, §2 “This week template”, §5, §6, §12). This brief closes the
