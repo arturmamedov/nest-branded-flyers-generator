@@ -8,7 +8,7 @@ import { CANVASES, CANVAS_IDS, type Body, type CanvasId } from '../../src/shared
 import { SAMPLE_FLYERS } from '../../src/shared/samples';
 import type { FlyerListItem, FlyerPayload, FlyerSaved } from '../../src/shared/schema';
 import { WRITE_HEADERS } from '../../src/shared/writeGuard';
-import { THRESHOLD, bodiesOf, compare, failures, highlighterWrapSample, jpegQuality, readRegions, type Regions } from './pixels';
+import { THRESHOLD, bodiesOf, compare, failures, groupsOf, highlighterWrapSample, jpegQuality, readRegions, type Regions } from './pixels';
 
 /* The permanent export-fidelity check (brief Phase 2, from the approved spike):
    every Activity sample in every photo mode, and every This week sample once
@@ -17,7 +17,13 @@ import { THRESHOLD, bodiesOf, compare, failures, highlighterWrapSample, jpegQual
    flyer, ≤ 0.5 % differing pixels outside the photo band and inside each
    feature's boxes, on every output canvas. DPR 1 covers every case; DPR 2 (a
    Retina laptop) four story cases and one per other canvas, or all with
-   FIDELITY_FULL=1. */
+   FIDELITY_FULL=1.
+
+   Each case first checks that the golden drew its own template: exactly the
+   blocks layout.ts gives it, and the photo (or the rule drawn when there is
+   none) where its mode puts it. The pixel
+   comparison alone can't tell: a renderer that drew every flyer as Activity
+   would draw both exports alike, and they would agree. */
 
 const RETINA = new Set([
   'story | Highlighter wrap / band',
@@ -140,6 +146,12 @@ for (const { label, dpr } of runs) {
   test(`client export matches the server export: ${label} @${dpr}x`, async ({ browser, baseURL }) => {
     test.setTimeout(120_000);
     const c = cases.get(label)!;
+    const want = groupsOf(c.canvas, c.mode);
+    expect(c.regions.groups.map((g) => g.name).sort(), `${label}: the golden drew exactly its template's blocks`).toEqual(Object.keys(want).sort());
+    // The photo, or the rule a flyer with no photo draws in its place. The story's bleed and band differ only in left
+    // and width, so every edge is checked.
+    const photo = c.regions.groups.find((g) => g.name === 'photo');
+    if (photo) for (const edge of ['left', 'top', 'width', 'height'] as const) expect(Math.abs(photo[edge] - want.photo![edge]), `${label}: photo ${edge}`).toBeLessThanOrEqual(0.5);
     const { context, page, overridden } = await clientOnlyEditor(browser, baseURL, dpr);
     try {
       await page.goto(`./#/flyers/${c.id}`);

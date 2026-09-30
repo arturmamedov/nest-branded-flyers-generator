@@ -3,12 +3,12 @@ import type { APIRequestContext, APIResponse, Page } from '@playwright/test';
 import { PNG } from 'pngjs';
 import { expect, test } from '../browser';
 import { EDITOR_VIEWPORT, cutOff, cutOffOn } from '../editor';
-import { bodiesOf } from './pixels';
+import { bodiesOf, groupsOf } from './pixels';
 import sharp from 'sharp';
 import { apiError, type ApiErrorKey } from '../../src/shared/errors';
 import { flyerFilename } from '../../src/shared/filename';
 import { resolveDoodles } from '../../src/shared/defaults';
-import { CANVASES, CANVAS_IDS, activityGroups, artAnchors, placeArt, safeBox, weekGroups, weekRowRect, type CanvasId } from '../../src/shared/layout';
+import { CANVASES, CANVAS_IDS, artAnchors, placeArt, safeBox, weekRowRect, type CanvasId } from '../../src/shared/layout';
 import { SAMPLE_FLYERS } from '../../src/shared/samples';
 import type { FlyerListItem, FlyerPayload } from '../../src/shared/schema';
 import { printedRows } from '../../src/shared/week';
@@ -124,7 +124,7 @@ for (const canvas of CANVAS_IDS) {
 
           expect(r.drawn, `${label}: the page drew this canvas`).toBe(canvas);
           // Every block where the registry puts it: a leftover story number would pass the safe box, not this.
-          const table = body === 'week' ? weekGroups(canvas) : activityGroups(canvas, body);
+          const table = groupsOf(canvas, body);
           // Exactly this template's blocks, each once: none missing (a week flyer's title, say), none extra (a photo).
           expect(r.groups.map((g) => g.name).sort(), `${label}: exactly this template's blocks`).toEqual(Object.keys(table).sort());
           const t = payload.flyer.data.text;

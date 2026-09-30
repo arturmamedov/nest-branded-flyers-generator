@@ -1,6 +1,6 @@
 import pixelmatch from 'pixelmatch';
 import { PNG } from 'pngjs';
-import { CANVASES, type Body, type CanvasId, type PhotoMode, type Rect } from '../../src/shared/layout';
+import { CANVASES, activityGroups, weekGroups, type Body, type CanvasId, type PhotoMode, type Rect } from '../../src/shared/layout';
 import { SAMPLE_FLYERS, type SampleFlyer } from '../../src/shared/samples';
 import type { FlyerData } from '../../src/shared/schema';
 
@@ -8,6 +8,9 @@ import type { FlyerData } from '../../src/shared/schema';
     (it has no photo, whatever its photo mode says). */
 export const bodiesOf = (data: Pick<FlyerData, 'template'>): Body[] =>
   data.template === 'week' ? ['week'] : (['bleed', 'band', 'none'] satisfies PhotoMode[]);
+
+/** The blocks a flyer drawn as `body` has on `canvas`, exactly, and where the registry (layout.ts) puts each one. */
+export const groupsOf = (canvas: CanvasId, body: Body) => (body === 'week' ? weekGroups(canvas) : activityGroups(canvas, body));
 
 /* Pixel comparison of a client export against the server export, lifted from
    the approved Phase 1 spike (docs/spikes/client-export.md): the same diff,
@@ -20,6 +23,8 @@ export const bodiesOf = (data: Pick<FlyerData, 'template'>): Body[] =>
 export const THRESHOLD = 0.5;
 
 export interface Regions {
+  /** Every block the flyer drew ([data-group]), with its box: which template it drew, and where. */
+  groups: (Rect & { name: string })[];
   /** Line boxes of the WHEN highlighter: clone only shows when it wraps. */
   markLines: number;
   art: Rect[];
@@ -55,6 +60,7 @@ export function readRegions(): Regions {
   const styled = [...root.querySelectorAll<HTMLElement>('[style*="url("]')];
   const marks = styled.filter((el) => el.style.backgroundImage.includes('mark-yellow'));
   return {
+    groups: [...root.querySelectorAll<HTMLElement>('[data-group]')].map((el) => ({ name: el.dataset.group!, ...rel(el.getBoundingClientRect()) })),
     markLines: marks.reduce((n, el) => n + el.getClientRects().length, 0),
     art: styled.filter((el) => !el.style.backgroundImage.includes('mark-yellow')).map((el) => rel(el.getBoundingClientRect())),
     mark: marks.flatMap((el) => [...el.getClientRects()].map(rel)),
