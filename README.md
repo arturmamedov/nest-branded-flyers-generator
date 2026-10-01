@@ -78,6 +78,7 @@ export renderer works in dev too.
 | `npm run test:php-smoke` | builds, serves the release layout with `php -S`, and drives the editor on the PHP backend in a browser |
 | `npm run build:php` | the release to upload to a PHP host, in `release/php/`, and the preflight page beside it (`docs/deploy.md`) |
 | `npm run deploy:backup` / `deploy:restore` / `deploy:reset` | a local deployment's library out to a dated folder, back in, or emptied (`docs/deploy.md`, *Backups*) |
+| `npm run flyers:post` | saves flyers from staff-text briefs on a site through its API (`FLYERS_BASE_URL`, or `--to`; `--dry-run` checks only). Idempotent; `docs/ai-flyers/README.md` |
 | `npm run copy` | moves a library between storage drivers (SQLite ⇄ JSON files) |
 | `npm run compare:design` | with `npm run dev` running and samples seeded: pixel-diffs the app against the design prototype (needs internet for the prototype's React). Diff images in `test-results/design-compare/`. The MVP matched it to 0 pixels; since the design pass below it differs on purpose in the headline and art — check nothing else moved |
 

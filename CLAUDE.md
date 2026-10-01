@@ -44,8 +44,11 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
   `chips.ts` (the `·` convention), `week.ts` (the This week rows: their limits, a row taken from a saved flyer,
   what a row prints — zod-free, so the client imports it and `schema.ts` takes its limits from it), `names.ts`
   (what a flyer is called in the library: an untitled flyer's name, the title's limit, the library's date — also
-  zod-free), `photo.ts` (crop maths), `copyRules.ts`, `writeGuard.ts` (the write header, and the methods that need
-  none), `samples.ts` (the seed and test flyers). Relative imports here use `.js` extensions
+  zod-free), `share.ts` (the share text's limit: a caption saved with the flyer, shown under the preview with a
+  copy button, never printed), `brief.ts` (`flyerFromBrief`: a flyer from its copy alone, the shape the staff-text
+  workflow in `docs/ai-flyers/` writes — zod-free; `BriefSchema` is in `schema.ts`), `photo.ts` (crop maths),
+  `copyRules.ts`, `writeGuard.ts` (the write header, and the methods that need none), `samples.ts` (the seed and
+  test flyers). Relative imports here use `.js` extensions
   (NodeNext). The client never imports a value from `schema.ts`: that would bundle zod into the editor and the
   export page. Nothing the browser loads imports `samples.ts` either: it imports `seed/hostels.json` for the
   hostels' names, and Vite would bundle the whole seed.
@@ -179,6 +182,18 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
   `docs/reports/open-items.md`): the fit's floors, an untitled week flyer's name, the per-hostel badges (a pilot
   at `'both'`), `copy.test.ts`'s timeout, and the baseline's overlays, which are now shot from a context with no
   route (a route made Chrome's raster vary from load to load). Both proof sheets signed off; committed, unpushed.
+- Built: flyers from staff text, and the share text (branch `feat/flyer-briefs`, 2026-10-01; the plan's record is
+  `docs/ai-flyers/README.md`).
+  - `data.share` is a caption saved with the flyer, shown under the preview with "Copy text", and never printed. It
+    is defaulted, so no migration; an older release drops it. The live release must be redeployed before it keeps
+    captions.
+  - `npm run flyers:post` saves briefs on a site through its API (`FLYERS_BASE_URL`, or `--to`). It is idempotent,
+    and it records each save in the example file.
+  - `docs/ai-flyers/` holds the rules that become the editor's future AI assistant's system prompt, and every staff
+    text with its brief (`examples/`): its few-shot and eval set. Add a correction there every time Artur makes one.
+  - The AI assistant itself (a modal with a textarea in the editor) is not built: not to be started unasked.
+  - Seen 2026-10-01: the live host reported `Disk quota exceeded` on `data/` and `uploads/` (`api/config`), so
+    nothing could be saved there until the IONOS space is freed.
 - Waiting, don't start unasked: step 7 (drag/nudge everything on the canvas, sizes, colours, order, reset),
   step 9 (doodle picker + icon uploads). With two canvases and two templates: step 7's stored `overrides`
   (dx/dy) are shared by every canvas, so it must decide how they apply per canvas; step 9, when it stores
