@@ -122,7 +122,7 @@ final class FlyerValidatorTest extends TestCase
     {
         $sample = self::samples()[0]->data;
         $data = clone $sample;
-        unset($data->v, $data->photoCrop, $data->showPill, $data->week, $data->overrides);
+        unset($data->v, $data->photoCrop, $data->showPill, $data->week, $data->overrides, $data->share);
         $data->junk = (object) ['deep' => true];
         $data->text = (object) ((array) $sample->text + ['junk' => 'x']);
         $data->doodles = [(object) ['slug' => 'spark-teal', 'x' => 1, 'y' => 2, 'w' => 50, 'extra' => true]];
@@ -133,7 +133,7 @@ final class FlyerValidatorTest extends TestCase
 
         $input = $this->validator->validate($body);
 
-        // The first sample holds the default v, photoCrop, showPill and week, so it is what zod would give back.
+        // The first sample holds the default v, photoCrop, showPill, week and share, so it is what zod would give back.
         $expected = self::samples()[0]->data;
         $expected->doodles = Json::decode('[{"slug":"spark-teal","x":1,"y":2,"w":50,"rot":0}]');
         $expected->overrides = Json::decode('{"headline":{"dx":0,"dy":5,"scale":1},"chips":{"dx":0,"dy":0,"scale":1,"order":["cost"]}}');
@@ -144,7 +144,7 @@ final class FlyerValidatorTest extends TestCase
     public function testDefaultsAreTheOnesZodFills(): void
     {
         $body = self::body();
-        unset($body->data->v, $body->data->photoCrop, $body->data->showPill, $body->data->week, $body->data->overrides);
+        unset($body->data->v, $body->data->photoCrop, $body->data->showPill, $body->data->week, $body->data->overrides, $body->data->share);
 
         $data = $this->validator->validate($body)['data'];
 
@@ -155,6 +155,7 @@ final class FlyerValidatorTest extends TestCase
         self::assertSame([], $data->week);
         self::assertInstanceOf(stdClass::class, $data->overrides);
         self::assertSame('{}', Json::encode($data->overrides));
+        self::assertSame('', $data->share);
     }
 
     public function testKeepsAnEmptyObjectAsAnObjectAndAnEmptyArrayAsAnArray(): void
@@ -275,7 +276,7 @@ final class FlyerValidatorTest extends TestCase
         self::assertSame(Json::encode($stored), Json::encode($this->validator->normalizeData($stored)));
 
         $old = self::samples()[1]->data;
-        unset($old->v, $old->showPill, $old->overrides);
+        unset($old->v, $old->showPill, $old->overrides, $old->share);
         $old->legacy = 'x';
         $before = Json::encode($old);
 

@@ -1,6 +1,7 @@
 import { afterAll, describe, expect, it } from 'vitest';
 import { newFlyerData } from '../../src/shared/defaults.js';
-import { FlyerPayloadSchema } from '../../src/shared/schema.js';
+import { FlyerPayloadSchema, FlyerSavedSchema } from '../../src/shared/schema.js';
+import { SHARE_MAX } from '../../src/shared/share.js';
 import { fails, flyerInput, flyers, ok, send } from './client.js';
 
 /* What every backend does to a flyer body: zod's rules (src/shared/schema.ts,
@@ -26,7 +27,7 @@ describe('normalisation', () => {
   });
 
   it('fills defaults, strips unknown keys at every level, and keeps record keys', async () => {
-    const { v: _v, photoCrop: _c, showPill: _s, week: _w, overrides: _o, ...data } = newFlyerData('activity');
+    const { v: _v, photoCrop: _c, showPill: _s, week: _w, overrides: _o, share: _h, ...data } = newFlyerData('activity');
     const body = {
       ...flyerInput(),
       junk: 1,
@@ -106,6 +107,17 @@ describe('validation', () => {
     expect(await invalidFields(withRows([noTime]))).toEqual(['data.week.0.time']);
     const { flyer } = await mine.create(withRows([row, { ...row, shortName: 'Surf' }]));
     expect(flyer.data.week).toEqual([row, { ...row, shortName: 'Surf' }]);
+  });
+
+  it('keeps the share text as typed, line breaks and emoji included, and holds it to its limit', async () => {
+    const share = '🐱‍🏍¡HOY tenemos plan al atardecer! 🧘‍♀️✨\n\n🕖 19:00 h\n📍 Zona de la piscina\n\n---\n\n🌅 TODAY we have a sunset plan!';
+    const { id, flyer } = await mine.create(flyerInput({ data: { ...d, share } }));
+    expect(flyer.data.share).toBe(share);
+    const updated = await ok(send('PUT', `api/flyers/${id}`, flyerInput({ data: { ...d, share: `${share}\n💙` } })), FlyerSavedSchema);
+    expect(updated.flyer.data.share).toBe(`${share}\n💙`);
+    // Counted in code points, as every other limit: a long caption of emoji fits exactly.
+    expect((await mine.create(flyerInput({ data: { ...d, share: '🌅'.repeat(SHARE_MAX) } }))).flyer.data.share).toBe('🌅'.repeat(SHARE_MAX));
+    expect(await invalidFields(flyerInput({ data: { ...d, share: '🌅'.repeat(SHARE_MAX + 1) } }))).toEqual(['data.share']);
   });
 
   it('reports every bad field at once', async () => {

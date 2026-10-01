@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { TITLE_MAX } from './names.js';
 import { DEFAULT_CROP, ZOOM_MAX, ZOOM_MIN } from './photo.js';
+import { SHARE_MAX } from './share.js';
 import { WEEK_ROWS_MAX, WEEK_ROW_LIMITS } from './week.js';
 
 /* The flyer.data JSON, one shape for both templates (handoff README §7).
@@ -95,6 +96,8 @@ export const FlyerDataSchema = z.object({
   colors: ColorsSchema,
   overrides: z.record(z.string(), OverrideSchema).default({}),
   doodles: z.array(DoodlePlacementSchema).max(40),
+  /* Not printed (share.ts). Defaulted, so every flyer saved before it reads back with none, on both backends. */
+  share: z.string().max(SHARE_MAX).default(''),
 });
 export type FlyerData = z.infer<typeof FlyerDataSchema>;
 
@@ -111,6 +114,24 @@ export const FlyerInputSchema = z.object({
   photoId: z.number().int().positive().nullable(),
 });
 export type FlyerInput = z.infer<typeof FlyerInputSchema>;
+
+/* ---- A brief: a flyer described by its copy alone (brief.ts) ---- */
+
+/** Strict, so a misspelt key in a brief file is an error, never a field silently left at its default. The limits
+    are checked on the flyer it builds (FlyerInputSchema), where they are defined. */
+export const BriefSchema = z.strictObject({
+  hostel: z.string().nullable(),
+  template: TemplateSchema,
+  title: z.string().optional(),
+  text: TextSchema.partial().strict().optional(),
+  when: z.string().optional(),
+  where: z.string().optional(),
+  cost: z.string().optional(),
+  extras: z.array(z.string()).optional(),
+  week: z.array(WeekRowSchema.strict()).optional(),
+  share: z.string().optional(),
+});
+export type Brief = z.infer<typeof BriefSchema>;
 
 /* ---- API responses: the contract suite parses every answer with these, on every backend ---- */
 

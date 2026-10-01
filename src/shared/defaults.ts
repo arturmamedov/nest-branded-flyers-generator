@@ -151,5 +151,6 @@ export function newFlyerData(template: Template = 'activity'): FlyerData {
     colors: { ...DEFAULT_COLORS },
     overrides: {},
     doodles: DEFAULT_DOODLES.map((d) => ({ ...d })),
+    share: '',
   };
 }

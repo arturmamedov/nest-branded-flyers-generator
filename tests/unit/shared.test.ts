@@ -3,7 +3,7 @@ import { PNG } from 'pngjs';
 import { describe, expect, it } from 'vitest';
 import { deriveChips, splitBigSub, splitDot } from '../../src/shared/chips.js';
 import { MAX_EXCLAMATIONS, lintFlyer } from '../../src/shared/copyRules.js';
-import { DEFAULT_DOODLES, DEFAULT_TEXT, PROTOTYPE_DOODLES, newFlyerData, resolveDoodles, sameDoodles, type ArtPlacement } from '../../src/shared/defaults.js';
+import { DEFAULT_DOODLES, DEFAULT_TEXT, PROTOTYPE_DOODLES, newFlyerData, resolveDoodles, sameDoodles, switchTemplate, type ArtPlacement } from '../../src/shared/defaults.js';
 import {
   CANVASES,
   CANVAS_IDS,
@@ -25,6 +25,7 @@ import {
 import { clampCrop, coverRect, panCrop, wholePhotoZoom, zoomCrop } from '../../src/shared/photo.js';
 import { SAMPLE_FLYERS } from '../../src/shared/samples.js';
 import { FlyerDataSchema } from '../../src/shared/schema.js';
+import { SHARE_MAX } from '../../src/shared/share.js';
 import { WEEK_ROWS_MAX } from '../../src/shared/week.js';
 
 const HOSTELS: Record<string, string> = {
@@ -617,5 +618,18 @@ describe('schema', () => {
     const d = newFlyerData();
     d.extras = ['a', 'b', 'c', 'd', 'e'];
     expect(FlyerDataSchema.safeParse(d).success).toBe(false);
+  });
+
+  it('gives a flyer saved before the share text none, and holds the text to its limit', () => {
+    const { share: _, ...older } = newFlyerData();
+    expect(FlyerDataSchema.parse(older).share).toBe('');
+    expect(FlyerDataSchema.safeParse({ ...newFlyerData(), share: 'x'.repeat(SHARE_MAX) }).success).toBe(true);
+    expect(FlyerDataSchema.safeParse({ ...newFlyerData(), share: 'x'.repeat(SHARE_MAX + 1) }).success).toBe(false);
+  });
+
+  it('keeps the share text across a template switch', () => {
+    const d = { ...newFlyerData(), share: '¡HOY tenemos plan! 🌅\n\n---\n\nTODAY we have a plan! 🌅' };
+    expect(switchTemplate(d, 'week', 'Duque Nest').share).toBe(d.share);
+    expect(switchTemplate(switchTemplate(d, 'week', null), 'activity', null)).toEqual(d);
   });
 });

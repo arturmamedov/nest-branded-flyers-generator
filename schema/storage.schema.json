@@ -554,6 +554,11 @@
                 ],
                 "additionalProperties": false
               }
+            },
+            "share": {
+              "default": "",
+              "type": "string",
+              "maxLength": 2200
             }
           },
           "required": [
@@ -568,7 +573,8 @@
             "week",
             "colors",
             "overrides",
-            "doodles"
+            "doodles",
+            "share"
           ],
           "additionalProperties": false
         },

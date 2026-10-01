@@ -726,3 +726,35 @@ test('the library shows the latest filter’s list, whatever order the answers c
   await expect(card(page, 'Pool party')).toHaveCount(0);
   await expect(card(page, 'This week · Duque Nest')).toBeVisible();
 });
+
+test('the share text: saved with the flyer, shown under the preview, copied as typed, and never printed', async ({ page }) => {
+  test.setTimeout(120_000);
+  await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
+  const share = '🐱‍🏍¡HOY tenemos plan al atardecer! 🧘‍♀️✨\n\n🕖 19:00 h\n📍 Zona de la piscina\n\n---\n\n🌅 TODAY we have a sunset plan!';
+  const card = page.locator('.share');
+  await page.goto('/#/new');
+  await page.getByLabel('Library name').fill(`share spec ${Date.now()}`);
+  await line1(page).fill('Stretching +');
+  await modeButton(page, 'none').click();
+  await expect(card, 'no caption, no box').toHaveCount(0);
+
+  await page.getByLabel('Caption').fill(share);
+  await expect(card.locator('.share-text')).toHaveText(share, { useInnerText: true });
+  await button(page, 'Copy text').click();
+  await expect(card.getByRole('status')).toHaveText('Copied');
+  // On Windows the clipboard holds the platform's line breaks (CRLF), which is what a paste there expects.
+  expect((await page.evaluate(() => navigator.clipboard.readText())).replace(/\r\n/g, '\n')).toBe(share);
+
+  const { id } = await saveNew(page, keep);
+  expect(FlyerPayloadSchema.parse(await (await page.request.get(`/api/flyers/${id}`)).json()).flyer.data.share).toBe(share);
+
+  // The same flyer with and without its caption prints the same pixels: it never reaches <Flyer>.
+  const png = async () => {
+    const [download] = await Promise.all([page.waitForEvent('download'), button(page, 'Download PNG').click()]);
+    return readFileSync(await download.path());
+  };
+  const withShare = await png();
+  await page.getByLabel('Caption').fill('');
+  await expect(card).toHaveCount(0);
+  expect((await png()).equals(withShare), 'the export is the same without the caption').toBe(true);
+});

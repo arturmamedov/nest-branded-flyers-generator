@@ -156,8 +156,9 @@ live in `src/shared/schema.ts`. How a backend applies them:
 2. **Validate.** String lengths count code points: 21 emoji fit a 40-character line. Numbers must be finite, so a JSON
    `1e400` is invalid at its path.
 3. **Normalise.**
-   - Missing defaulted keys are filled (`data.v`, `photoCrop`, `showPill`, `week`, `overrides`, override
-     `dx`/`dy`/`scale`, doodle `rot`).
+   - Missing defaulted keys are filled (`data.v`, `photoCrop`, `showPill`, `week`, `overrides`, `share`, override
+     `dx`/`dy`/`scale`, doodle `rot`). `data.share` is the share text: saved with the flyer and never printed
+     (`src/shared/share.ts`).
    - Unknown keys are dropped at every level, except inside `data.overrides`, which is a record keyed by block.
    - Then `src/shared/normalize.ts` applies: an empty `hostel` means chain-wide (null), and the `template` column wins
      over `data.template`.

@@ -8,6 +8,7 @@ import { CANVASES, CANVAS_IDS, bodyOf, isCanvasId, photoFrame, type CanvasId, ty
 import { DEFAULT_CROP, ZOOM_MAX, ZOOM_MIN, clampCrop, wholePhotoZoom, zoomCrop } from '../shared/photo';
 import type { Chip, ChipKey, Crop, FlyerData, FlyerInput, FlyerListItem, FlyerText, Hostel, PhotoInfo, Template, WeekRow } from '../shared/schema';
 import { TITLE_MAX, libraryName } from '../shared/names';
+import { SHARE_MAX } from '../shared/share';
 import { WEEK_ROWS_MAX, WEEK_ROW_LIMITS, isPrintable, rowFromActivity } from '../shared/week';
 import { api, ApiError } from './api';
 import type { FlyerExporter } from './export';
@@ -390,6 +391,18 @@ export function Editor({ id, hostels, exporter, limits }: { id: number | null; h
             </div>
           )}
         </Section>
+
+        <Section title="Share text" hint="Not printed. The caption to paste when you post or send the flyer: copy it from under the preview.">
+          <Field label="Caption" optional>
+            <textarea
+              rows={8}
+              value={draft.data.share}
+              maxLength={SHARE_MAX}
+              placeholder={'¡HOY tenemos plan! 🌅\n🕖 19:00 h · 📍 La piscina\n\n---\n\nTODAY we have a plan! 🌅'}
+              onChange={(e) => setData({ share: e.target.value })}
+            />
+          </Field>
+        </Section>
       </aside>
 
       <main className="workspace">
@@ -466,6 +479,8 @@ export function Editor({ id, hostels, exporter, limits }: { id: number | null; h
           onCrop={setCrop}
           onDropFile={onDrop}
         />
+
+        {draft.data.share.trim() && <ShareCard text={draft.data.share} />}
       </main>
     </div>
   );
@@ -485,6 +500,31 @@ function BackToLibrary({ className }: { className?: string }) {
     >
       <span aria-hidden="true">←</span> Library
     </a>
+  );
+}
+
+/** The share text under the preview, ready to copy: beside the flyer, never on it (share.ts). */
+function ShareCard({ text }: { text: string }) {
+  const [copied, setCopied] = useState<'ok' | 'error' | null>(null);
+  useEffect(() => setCopied(null), [text]);
+  const copy = () =>
+    navigator.clipboard.writeText(text).then(
+      () => setCopied('ok'),
+      () => setCopied('error'),
+    );
+  return (
+    <section className="share" aria-label="Share text">
+      <div className="share-head">
+        <span>Share text</span>
+        <span className="share-status" role="status">
+          {copied === 'ok' ? 'Copied' : copied === 'error' ? 'Couldn’t copy: select the text instead' : ''}
+        </span>
+        <button type="button" className="btn btn-accent" onClick={copy}>
+          Copy text
+        </button>
+      </div>
+      <pre className="share-text">{text}</pre>
+    </section>
   );
 }
 

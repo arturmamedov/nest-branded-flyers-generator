@@ -555,6 +555,43 @@ nest-nav > nav a:not(.btn):hover {
   box-shadow: 0 18px 50px rgba(0, 0, 0, 0.45);
 }
 
+/* The share text under the preview. Capped, so a long caption scrolls in its box and the flyer keeps the stage. */
+.share {
+  flex: 0 0 auto;
+  margin: 0 16px 16px;
+  border-radius: 10px;
+  background: var(--paper);
+  color: var(--ink);
+}
+
+.share-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 6px 6px 14px;
+  border-bottom: 1px solid var(--line);
+  font-weight: 600;
+}
+
+.share-status {
+  flex: 1 1 auto;
+  color: var(--ok-ink);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.share-text {
+  margin: 0;
+  max-height: 16vh;
+  overflow: auto;
+  padding: 10px 14px 12px;
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 .photo-handle {
   position: absolute;
   display: flex;

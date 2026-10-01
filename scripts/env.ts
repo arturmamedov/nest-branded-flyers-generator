@@ -43,39 +43,58 @@ export interface BasicAuth {
   password: string;
 }
 
-export interface ContractTarget {
+/** A deployment reached over HTTP: its app root, and its staff login when it is behind one. */
+export interface RemoteSite {
   /** The deployment's app root, ending in '/'. */
   baseUrl: string;
-  /** That deployment's folder on this machine, so security.test.ts can plant files in it. */
-  deployDir?: string;
   /** The staff login, for a deployment behind Basic auth. */
   basicAuth?: BasicAuth;
-  /** Where CONTRACT_BASE_URL came from: a value left in .env silently turns every local run into a remote one. */
+  /** Where <PREFIX>_BASE_URL came from: a value left in .env silently turns every local run into a remote one. */
   source: EnvSource;
 }
 
-/** The deployment the contract suite and the smoke test run against (CONTRACT_BASE_URL), or null for the local backends. */
-export function contractTarget(): ContractTarget | null {
-  const base = envSetting('CONTRACT_BASE_URL');
+/** The deployment named by <prefix>_BASE_URL, with <prefix>_BASIC_USER and _PASSWORD, or null when unset. */
+function remoteSite(prefix: string): RemoteSite | null {
+  const base = envSetting(`${prefix}_BASE_URL`);
   if (!base) return null;
   // fetch() refuses a URL that carries credentials (a TypeError on every request), so say where they go instead.
   const parsed = new URL(base.value);
   if (parsed.username || parsed.password) {
-    throw new Error('CONTRACT_BASE_URL must not contain a user or password: set CONTRACT_BASIC_USER and CONTRACT_BASIC_PASSWORD.');
+    throw new Error(`${prefix}_BASE_URL must not contain a user or password: set ${prefix}_BASIC_USER and ${prefix}_BASIC_PASSWORD.`);
   }
-  const user = envValue('CONTRACT_BASIC_USER');
-  const password = envValue('CONTRACT_BASIC_PASSWORD');
+  const user = envValue(`${prefix}_BASIC_USER`);
+  const password = envValue(`${prefix}_BASIC_PASSWORD`);
   if ((user === undefined) !== (password === undefined)) {
-    throw new Error('Set both CONTRACT_BASIC_USER and CONTRACT_BASIC_PASSWORD, or neither.');
+    throw new Error(`Set both ${prefix}_BASIC_USER and ${prefix}_BASIC_PASSWORD, or neither.`);
   }
-  const deployDir = envValue('CONTRACT_DEPLOY_DIR');
   return {
     baseUrl: base.value.endsWith('/') ? base.value : `${base.value}/`,
-    ...(deployDir ? { deployDir } : {}),
     ...(user && password ? { basicAuth: { user, password } } : {}),
     source: base.source,
   };
 }
+
+/** The Authorization header for a Basic login. A credential in the URL is no alternative: fetch() refuses such a URL. */
+export const basicAuthHeader = ({ user, password }: BasicAuth) => ({
+  Authorization: `Basic ${Buffer.from(`${user}:${password}`, 'utf8').toString('base64')}`,
+});
+
+export interface ContractTarget extends RemoteSite {
+  /** That deployment's folder on this machine, so security.test.ts can plant files in it. */
+  deployDir?: string;
+}
+
+/** The deployment the contract suite and the smoke test run against (CONTRACT_BASE_URL), or null for the local backends. */
+export function contractTarget(): ContractTarget | null {
+  const site = remoteSite('CONTRACT');
+  if (!site) return null;
+  const deployDir = envValue('CONTRACT_DEPLOY_DIR');
+  return { ...site, ...(deployDir ? { deployDir } : {}) };
+}
+
+/** Where `npm run flyers:post` sends flyers (FLYERS_BASE_URL), or null: then it needs --to. Its own setting, never
+    CONTRACT_BASE_URL, which may name the same live site for a read-only check and must not start writing there. */
+export const flyersTarget = (): RemoteSite | null => remoteSite('FLYERS');
 
 /** One line for the start of a run: which deployment, and why. */
 export function describeTarget(target: ContractTarget): string {

@@ -26,7 +26,8 @@
     "build:php": "tsx scripts/build-php.ts",
     "deploy:backup": "tsx scripts/php/backup-deploy.ts",
     "deploy:restore": "tsx scripts/php/restore-deploy.ts",
-    "deploy:reset": "tsx scripts/php/reset-deploy.ts"
+    "deploy:reset": "tsx scripts/php/reset-deploy.ts",
+    "flyers:post": "tsx scripts/flyers/post.ts"
   },
   "dependencies": {
     "@fontsource/montserrat": "5.3.0",

@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { expect, inject } from 'vitest';
 import type { z } from 'zod';
-import type { BasicAuth } from '../../scripts/env.js';
+import { basicAuthHeader, type BasicAuth } from '../../scripts/env.js';
 import { SEED_FILE } from '../../server/paths.js';
 import { API_ERRORS, apiError, type ApiErrorKey } from '../../src/shared/errors.js';
 import { SAMPLE_FLYERS } from '../../src/shared/samples.js';
@@ -33,10 +33,8 @@ export const base = () => {
 };
 export const url = (path: string) => new URL(path.replace(/^\/+/, ''), base()).href;
 
-/** The Authorization header for a Basic login. A credential in the URL is no alternative: fetch() refuses such a URL. */
-export const basicAuthHeader = ({ user, password }: BasicAuth) => ({
-  Authorization: `Basic ${Buffer.from(`${user}:${password}`, 'utf8').toString('base64')}`,
-});
+/** Defined beside the logins it is made from, so the scripts send the same header (scripts/env.ts). */
+export { basicAuthHeader };
 
 /** The login travels on every request, apart from `headers`: a test that drops the write header (`{}`) must still
     get past the lock, or it would prove the lock instead of the write guard. */
