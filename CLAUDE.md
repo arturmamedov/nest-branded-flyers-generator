@@ -44,8 +44,8 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
   `chips.ts` (the `·` convention), `week.ts` (the This week rows: their limits, a row taken from a saved flyer,
   what a row prints — zod-free, so the client imports it and `schema.ts` takes its limits from it), `names.ts`
   (what a flyer is called in the library: an untitled flyer's name, the title's limit, the library's date — also
-  zod-free), `share.ts` (the share text's limit: a caption saved with the flyer, shown under the preview with a
-  copy button, never printed), `brief.ts` (`flyerFromBrief`: a flyer from its copy alone, the shape the staff-text
+  zod-free), `share.ts` (the share text's limit: a caption saved with the flyer, copied from the panel or the
+  button floating by the preview, never printed), `brief.ts` (`flyerFromBrief`: a flyer from its copy alone, the shape the staff-text
   workflow in `docs/ai-flyers/` writes — zod-free; `BriefSchema` is in `schema.ts`), `photo.ts` (crop maths),
   `copyRules.ts`, `writeGuard.ts` (the write header, and the methods that need none), `samples.ts` (the seed and
   test flyers). Relative imports here use `.js` extensions
@@ -184,16 +184,18 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
   route (a route made Chrome's raster vary from load to load). Both proof sheets signed off; committed, unpushed.
 - Built: flyers from staff text, and the share text (branch `feat/flyer-briefs`, 2026-10-01; the plan's record is
   `docs/ai-flyers/README.md`).
-  - `data.share` is a caption saved with the flyer, shown under the preview with "Copy text", and never printed. It
-    is defaulted, so no migration; an older release drops it. The live release must be redeployed before it keeps
-    captions.
+  - `data.share` is a caption saved with the flyer, and never printed. It is defaulted, so no migration; an older
+    release drops it (live has kept captions since release `d1f7ddb40170`, 2026-10-01).
+  - Staff copy it with "Copy text" under the caption in the panel. A small "Share text" pill also floats over the
+    stage's corner and copies it in one tap: bottom-left on desktop, bottom-right on a phone. It takes no layout
+    space, so the flyer keeps the whole stage (Artur's markup, 2026-10-01: a card under the preview took too much).
   - `npm run flyers:post` saves briefs on a site through its API (`FLYERS_BASE_URL`, or `--to`). It is idempotent,
     and it records each save in the example file.
   - `docs/ai-flyers/` holds the rules that become the editor's future AI assistant's system prompt, and every staff
     text with its brief (`examples/`): its few-shot and eval set. Add a correction there every time Artur makes one.
   - The AI assistant itself (a modal with a textarea in the editor) is not built: not to be started unasked.
-  - Seen 2026-10-01: the live host reported `Disk quota exceeded` on `data/` and `uploads/` (`api/config`), so
-    nothing could be saved there until the IONOS space is freed.
+  - Seen 2026-10-01: the live host reported `Disk quota exceeded` on `data/` and `uploads/`. Artur freed the IONOS
+    space the same day.
 - Waiting, don't start unasked: step 7 (drag/nudge everything on the canvas, sizes, colours, order, reset),
   step 9 (doodle picker + icon uploads). With two canvases and two templates: step 7's stored `overrides`
   (dx/dy) are shared by every canvas, so it must decide how they apply per canvas; step 9, when it stores

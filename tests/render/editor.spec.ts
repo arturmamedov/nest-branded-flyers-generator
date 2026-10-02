@@ -727,23 +727,32 @@ test('the library shows the latest filter’s list, whatever order the answers c
   await expect(card(page, 'This week · Duque Nest')).toBeVisible();
 });
 
-test('the share text: saved with the flyer, shown under the preview, copied as typed, and never printed', async ({ page }) => {
+test('the share text: saved with the flyer, copied as typed from the panel or the button by the preview, and never printed', async ({ page }) => {
   test.setTimeout(120_000);
   await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
   const share = '🐱‍🏍¡HOY tenemos plan al atardecer! 🧘‍♀️✨\n\n🕖 19:00 h\n📍 Zona de la piscina\n\n---\n\n🌅 TODAY we have a sunset plan!';
-  const card = page.locator('.share');
+  const panelCopy = button(page, 'Copy text');
+  const fab = page.getByRole('button', { name: 'Copy the share text', exact: true });
+  // On Windows the clipboard holds the platform's line breaks (CRLF), which is what a paste there expects.
+  const clipboard = async () => (await page.evaluate(() => navigator.clipboard.readText())).replace(/\r\n/g, '\n');
   await page.goto('/#/new');
   await page.getByLabel('Library name').fill(`share spec ${Date.now()}`);
   await line1(page).fill('Stretching +');
   await modeButton(page, 'none').click();
-  await expect(card, 'no caption, no box').toHaveCount(0);
+  await expect(fab, 'no caption, no reminder').toHaveCount(0);
+  await expect(panelCopy).toBeDisabled();
 
   await page.getByLabel('Caption').fill(share);
-  await expect(card.locator('.share-text')).toHaveText(share, { useInnerText: true });
-  await button(page, 'Copy text').click();
-  await expect(card.getByRole('status')).toHaveText('Copied');
-  // On Windows the clipboard holds the platform's line breaks (CRLF), which is what a paste there expects.
-  expect((await page.evaluate(() => navigator.clipboard.readText())).replace(/\r\n/g, '\n')).toBe(share);
+  await panelCopy.click();
+  await expect(page.locator('.share-copy').getByRole('status')).toHaveText('Copied');
+  expect(await clipboard()).toBe(share);
+
+  // The reminder floats over the stage: the flyer keeps the whole stage, and one tap copies the caption too.
+  await page.evaluate(() => navigator.clipboard.writeText(''));
+  await fab.click();
+  await expect(fab).toHaveText('Copied');
+  expect(await clipboard()).toBe(share);
+  expect(await fab.evaluate((el) => getComputedStyle(el).position)).toBe('absolute');
 
   const { id } = await saveNew(page, keep);
   expect(FlyerPayloadSchema.parse(await (await page.request.get(`/api/flyers/${id}`)).json()).flyer.data.share).toBe(share);
@@ -755,6 +764,7 @@ test('the share text: saved with the flyer, shown under the preview, copied as t
   };
   const withShare = await png();
   await page.getByLabel('Caption').fill('');
-  await expect(card).toHaveCount(0);
+  await expect(fab).toHaveCount(0);
+  await expect(panelCopy).toBeDisabled();
   expect((await png()).equals(withShare), 'the export is the same without the caption').toBe(true);
 });
