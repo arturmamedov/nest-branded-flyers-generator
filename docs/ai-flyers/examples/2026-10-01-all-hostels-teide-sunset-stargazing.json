@@ -1,0 +1,46 @@
+{
+  "source": "🌋 Teide Sunset Picnic & Stargazing Tour ✨✨⛰️\n(Nest hostel Family)\n\nToday 2 spots left ✨\n\nExperience an unforgettable evening at Mount Teide (3,718 m), the highest peak in Spain. Explore volcanic landscapes, enjoy a sunset picnic, and discover the night sky under some of the clearest skies in the world.\n\n🚐 Pick-up & Drop-off Schedule\n\n-Everyday at Duque Nest\nPick up 5:45pm/drop off 11pm\n\n💰 Price\n70€ per person - transport incluided - 9 - seater Van\n\n🌟 Highlights\n• Roques de García – unique rock formations\n• Paseo Lunar – scenic volcanic trail\n• Mirador de Samara – sunset picnic (cheese, tortilla & more)\n• Stargazing – introduction to the night sky\n\n✔️ Included\n• Food & drinks\n• Transport\n\n🎒 What to bring\n• Warm clothes\n• Comfortable shoes\n\n🎟️ Limited spots available – reserve your place now ✨\n\n📞 Contact us: \n+34 641 658 863 \n+34 689 544 217",
+  "brief": {
+    "hostel": null,
+    "template": "activity",
+    "text": {
+      "eyebrow": "EVERY DAY",
+      "headline1": "Teide sunset",
+      "headline2": "& stargazing.",
+      "headlineEs": "Picnic al atardecer en el Teide (3.718 m) y noche de estrellas bajo uno de los cielos más limpios del mundo.",
+      "askEn": "Reserve: +34 641 658 863",
+      "askEs": "Reserva: +34 641 658 863"
+    },
+    "when": "Every day · 17:45",
+    "where": "Duque Nest · Pick-up point",
+    "cost": "70€ · transport & picnic",
+    "extras": [
+      "Warm clothes",
+      "Comfy shoes",
+      "Only 9 seats"
+    ],
+    "share": "🌋 Picnic al atardecer y estrellas en el Teide ✨✨⛰️\n(Familia Nest Hostels)\n\n🔥 Hoy quedan solo 2 plazas ✨\n\nVive una tarde inolvidable en el Teide (3.718 m), el pico más alto de España. Explora paisajes volcánicos, disfruta de un picnic al atardecer y descubre el cielo nocturno bajo uno de los cielos más limpios del mundo. 🌌\n\n🚐 Todos los días desde Duque Nest\n🕠 Recogida 17:45 h · regreso 23:00 h\n💶 70 € por persona · transporte incluido (furgoneta de 9 plazas)\n\n🌟 Lo mejor\n• Roques de García: formaciones rocosas únicas\n• Paseo Lunar: sendero volcánico con vistas\n• Mirador de Samara: picnic al atardecer (queso, tortilla y más)\n• Estrellas: introducción al cielo nocturno\n\n✔️ Incluye comida, bebida y transporte\n🎒 Trae ropa de abrigo y calzado cómodo\n\n🎟️ Plazas limitadas: ¡reserva la tuya! ✨\n\n📞 Contacto:\n+34 641 658 863\n+34 689 544 217\n\n---\n\n🌋 Teide Sunset Picnic & Stargazing Tour ✨✨⛰️\n(Nest Hostels family)\n\n🔥 Today: only 2 spots left ✨\n\nExperience an unforgettable evening at Mount Teide (3,718 m), the highest peak in Spain. Explore volcanic landscapes, enjoy a sunset picnic, and discover the night sky under some of the clearest skies in the world. 🌌\n\n🚐 Every day from Duque Nest\n🕠 Pick-up 17:45 h · drop-off 23:00 h\n💶 70 € per person · transport included (9-seater van)\n\n🌟 Highlights\n• Roques de García: unique rock formations\n• Paseo Lunar: scenic volcanic trail\n• Mirador de Samara: sunset picnic (cheese, tortilla & more)\n• Stargazing: introduction to the night sky\n\n✔️ Included: food & drinks, transport\n🎒 Bring warm clothes and comfortable shoes\n\n🎟️ Limited spots: reserve your place now ✨\n\n📞 Contact us:\n+34 641 658 863\n+34 689 544 217"
+  },
+  "asked": [
+    {
+      "question": "It says \"(Nest hostel Family)\" and picks up at Duque Nest. Which hostel is the flyer for?",
+      "answer": "All hostels, with pick-up at Duque Nest"
+    },
+    {
+      "question": "It says both \"Today 2 spots left\" and \"Everyday\". A flyer for every day, or for today only?",
+      "answer": "Every day, reusable; \"2 spots left\" only in the share text"
+    },
+    {
+      "question": "How should the flyer tell people to reserve: at reception, or with the phone number?",
+      "answer": "The phone number on the flyer"
+    }
+  ],
+  "notes": "Chain-wide (hostel null): the tour is offered to the whole Nest family, and Duque Nest is only the pick-up point, so WHERE carries it as the place (\"Pick-up point\": \"Pick-up & drop-off\" broke as \"drop- / off\" in the chip). WHEN prints the pick-up time alone: \"17:45 – 23:00\" broke over two lines in the chip, so the 23:00 return is in the share text only. Evergreen: the tour runs every day, so the flyer says EVERY DAY and stays valid; today's urgency (2 spots left) lives only in the share text, where staff can change it. The ask prints the first number (Artur's answer); both numbers are in the share text. Times turned to 24 h (5:45pm → 17:45, 11pm → 23:00). Cost: transport and the picnic are what the price buys; the 9-seat van became the extra \"Only 9 seats\". The highlights (Roques de García, Paseo Lunar, Mirador de Samara) don't fit the flyer's four short extras and stay in the share text. The staff's \"reserve your place now\" kept in the share text (not \"Book now\").",
+  "posted": [
+    {
+      "site": "https://nestpass.ai/activities/",
+      "id": 5,
+      "at": "2026-10-01T18:24:36.665Z"
+    }
+  ]
+}

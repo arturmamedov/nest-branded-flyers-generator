@@ -76,6 +76,12 @@ and Ibiza, with young international guests.
   `{ day, name, time, cost }`, plus `shortName` only when `name` is too long to print.
 - **`hostel`.** The slug of the hostel the text is from, or `null` for every hostel (chain-wide). The slugs are the
   site's own list (`api/hostels`).
+  - **A tour for the whole Nest family that leaves from one hostel** ("Nest hostel Family", pick-up at Duque
+    Nest) is chain-wide: `hostel: null`, and that hostel is the place, as in `where: "Duque Nest · Pick-up point"`
+    (Artur, 2026-10-01).
+- **One day, or every day.** An event that runs every day gets a reusable flyer: eyebrow `EVERY DAY`, and
+  `when: "Every day · 17:45"`. Today-only urgency ("2 spots left today") goes only in the share text, where staff
+  can change it (Artur, 2026-10-01).
 - **`title`.** Usually leave it out: the flyer is named after its headline. Give one only when two flyers would share
   a headline (e.g. "Arepas · Monday 5/10").
 
@@ -93,6 +99,7 @@ unanswered takes its default. Never make a fact up.
 | The place | "Where do you meet?" | At a hostel, leave it out (the hostel's name prints alone). Chain-wide: ask again |
 | The price | "Is it free? If not, how much?" | `Ask at reception`. Use `Ask your guide` or `Ask the instructor` when the text names one |
 | How to join | Don't ask | The template's ask: sign up at reception |
+| A phone number is given | "Print the number on the flyer, or send people to reception?" | Reception. When printed: one number in the ask (`Reserve: +34 …` / `Reserva: +34 …`). Every number goes in the share text either way (Artur, 2026-10-01: printed) |
 
 - **Don't over-ask.** Ask only when an answer changes the flyer. Something the text already says, even in passing
   ("HOY", "en la piscina"), is answered.
@@ -107,8 +114,8 @@ unanswered takes its default. Never make a fact up.
 | `text.headline1` | The lead-in, black | English, sentence case. About 18 characters before it shrinks |
 | `text.headline2` | The punch, big and teal | English, sentence case, usually ends with a full stop. About 15 characters |
 | `text.headlineEs` | The same idea in Spanish | One sentence, written fresh in natural Spanish, not word for word |
-| `when` | Day · time | `Today · 19:00`, `Saturday 3/10 · 20:30`. Big line `·` small line |
-| `where` | The spot | Just the spot (`Pool area`, `The rooftop`): the hostel's name prints by itself on the big line. Chain-wide: `Place · detail` |
+| `when` | Day · time | `Today · 19:00`, `Saturday 3/10 · 20:30`. Big line `·` small line. Always 24 h (5:45pm → `17:45`). One time, the start: a range (`17:45 – 23:00`) breaks over two lines in the chip, so the end time goes in the share text |
+| `where` | The spot | Just the spot (`Pool area`, `The rooftop`): the hostel's name prints by itself on the big line. Chain-wide: `Place · detail`. Short small lines: a chip is narrow, and a hyphenated word splits (`Pick-up & drop-off` printed `drop- / off`; `Pick-up point` fits) |
 | `cost` | Price · what it includes | `10€ · drinks included`, `Free`. A free event says `Free`. Unknown: see the defaults above |
 | `extras` | 0–4 short facts | 2–3 words each, English: `Bring a towel`, `Comfy clothes`. No sentences, no dots (the flyer adds them) |
 | `text.askEn` / `text.askEs` | The one thing to do | Default: sign up at reception. Change it only when the text names another place (`Sign up at the kitchen` / `Apúntate en la cocina`) |

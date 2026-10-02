@@ -31,5 +31,12 @@
       "answer": "Free"
     }
   ],
-  "notes": "Artur's own model text, already in both languages, so the share text is his text as it came. The team had made an image for it elsewhere (headline 'Clase de ESTIRAMIENTOS y SUNSET', 19:00 h, HOY, lleva una toalla, lleva agua, quedamos en la zona de la piscina, '¡Muévete, respira y disfruta del atardecer!'): the headlines follow it, in English first. No sign-up in the text, so the ask is the text's own 'See you there' / '¡Te esperamos!' instead of the reception default. 'Today' and 'TODAY' only read right on the day: a flyer for a later day says the weekday and date."
+  "notes": "Artur's own model text, already in both languages, so the share text is his text as it came. The team had made an image for it elsewhere (headline 'Clase de ESTIRAMIENTOS y SUNSET', 19:00 h, HOY, lleva una toalla, lleva agua, quedamos en la zona de la piscina, '¡Muévete, respira y disfruta del atardecer!'): the headlines follow it, in English first. No sign-up in the text, so the ask is the text's own 'See you there' / '¡Te esperamos!' instead of the reception default. 'Today' and 'TODAY' only read right on the day: a flyer for a later day says the weekday and date.",
+  "posted": [
+    {
+      "site": "https://nestpass.ai/activities/",
+      "id": 4,
+      "at": "2026-10-01T17:03:20.989Z"
+    }
+  ]
 }
