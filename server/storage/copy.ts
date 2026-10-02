@@ -1,13 +1,14 @@
 import { randomBytes } from 'node:crypto';
 import { copyFileSync, existsSync, mkdirSync, renameSync, rmSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { UPLOADS_DIR, type StoredPhoto } from '../../src/shared/storage.js';
-import type { DoodleRepository, FlyerRepository, HostelRepository, PhotoRepository } from './types.js';
+import { UPLOADS_DIR, type StoredAiUsage, type StoredPhoto } from '../../src/shared/storage.js';
+import type { AiUsageRepository, DoodleRepository, FlyerRepository, HostelRepository, PhotoRepository } from './types.js';
 
 /* Moving a library from one driver to another (SQLite <-> JSON files), through
    the storage seam so neither side knows what the other is. Ids, timestamps and
    `archived` survive: the result is the same library, not a re-import. The photo
-   records travel here, their image files with copyUploads(). */
+   records travel here, their image files with copyUploads(); the AI ledger too,
+   since it is the eval set and the day's count. */
 
 /** What copying reads — nothing more (ISP), so a snapshot, a live store or a fake all fit. */
 export interface CopySource {
@@ -15,14 +16,17 @@ export interface CopySource {
   doodles: Pick<DoodleRepository, 'list'>;
   photos: Pick<PhotoRepository, 'all'>;
   flyers: Pick<FlyerRepository, 'all'>;
+  aiUsage: Pick<AiUsageRepository, 'all'>;
 }
 
-/** What copying writes: `put` is the id-preserving insert-or-replace every driver implements. */
+/** What copying writes: `put` is the id-preserving insert-or-replace every driver implements. The ledger has no ids,
+    so it is appended, and read first so a second run (--force) does not double it. */
 export interface CopyTarget {
   hostels: Pick<HostelRepository, 'put'>;
   doodles: Pick<DoodleRepository, 'put'>;
   photos: Pick<PhotoRepository, 'put'>;
   flyers: Pick<FlyerRepository, 'put'>;
+  aiUsage: Pick<AiUsageRepository, 'record' | 'all'>;
 }
 
 export interface CopyCounts {
@@ -30,7 +34,11 @@ export interface CopyCounts {
   doodles: number;
   photos: number;
   flyers: number;
+  aiUsage: number;
 }
+
+/** A ledger record's identity: the instant, the actor and the feature (one actor makes at most one call at a time). */
+const ledgerKey = (r: StoredAiUsage) => `${r.at}|${r.actorId}|${r.feature}`;
 
 export interface UploadCounts {
   copied: number;
@@ -56,7 +64,13 @@ export async function copy(from: CopySource, to: CopyTarget): Promise<CopyCounts
   const flyers = await from.flyers.all();
   for (const flyer of flyers) await to.flyers.put(flyer);
 
-  return { hostels: hostels.length, doodles: doodles.length, photos: photos.length, flyers: flyers.length };
+  const ledger = await from.aiUsage.all();
+  const there = new Set((await to.aiUsage.all()).map(ledgerKey));
+  for (const record of ledger) {
+    if (!there.has(ledgerKey(record))) await to.aiUsage.record(record);
+  }
+
+  return { hostels: hostels.length, doodles: doodles.length, photos: photos.length, flyers: flyers.length, aiUsage: ledger.length };
 }
 
 const PREFIX = `${UPLOADS_DIR}/`;

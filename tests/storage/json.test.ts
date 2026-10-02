@@ -13,6 +13,7 @@ import { API_ERRORS } from '../../src/shared/errors.js';
 import { SAMPLE_FLYERS } from '../../src/shared/samples.js';
 import type { FlyerInput } from '../../src/shared/schema.js';
 import {
+  AiUsageFileSchema,
   DoodlesFileSchema,
   FlyerIndexFileSchema,
   HostelsFileSchema,
@@ -141,6 +142,42 @@ describe('the JSON store on disk', () => {
     ]);
     // Belt and braces wherever the data folder lives: it denies itself, with the bytes the PHP driver writes.
     expect(text(dir, '.htaccess')).toContain('Require all denied');
+  });
+
+  it('keeps the AI ledger in one file per month, made on the first append, in the schema’s key order', async () => {
+    const { dir, repos } = fresh();
+    await fill(repos);
+    const ledgerFiles = () => tree(dir).filter((f) => f.startsWith(`${STORAGE_FILES.aiUsageDir}/`)).sort();
+    // A read never writes: a count on a store without a ledger makes no folder and no file.
+    expect(await repos.aiUsage.countOk('anonymous', '2026-09-18')).toBe(0);
+    expect(ledgerFiles()).toEqual([]);
+
+    // The keys deliberately out of order: the file keeps the schema's, whichever driver wrote the record.
+    const entry = {
+      output: '{"brief":{}}',
+      input: 'Yoga at 9',
+      ok: true,
+      tokens: { output: 20, input: 10 },
+      model: 'fake-1',
+      provider: 'fake',
+      feature: 'flyer' as const,
+      actorId: 'anonymous',
+      day: '2026-09-18',
+      at: clock.now(),
+    };
+    await repos.aiUsage.record({ ...entry, ok: false, tokens: null, output: null });
+    await repos.aiUsage.record(entry);
+    await repos.aiUsage.record({ ...entry, day: '2026-10-01' });
+
+    expect(ledgerFiles()).toEqual([`${STORAGE_FILES.aiUsageDir}/2026-09.json`, `${STORAGE_FILES.aiUsageDir}/2026-10.json`]);
+    const september = json(dir, `${STORAGE_FILES.aiUsageDir}/2026-09.json`) as Record<string, unknown>[];
+    expect(AiUsageFileSchema.parse(september)).toStrictEqual(september);
+    expect(text(dir, `${STORAGE_FILES.aiUsageDir}/2026-09.json`)).toBe(JSON.stringify(september, null, 4) + '\n');
+    expect(september).toHaveLength(2);
+    for (const record of september) expect(Object.keys(record)).toEqual(Object.keys(AiUsageFileSchema.element.shape));
+    expect(Object.keys(september[1].tokens as object)).toEqual(['input', 'output']);
+    expect(await repos.aiUsage.all()).toHaveLength(3);
+    expect(await repos.aiUsage.countOk('anonymous', '2026-09-18')).toBe(1);
   });
 
   it('keeps an empty object empty through a write and a read', async () => {

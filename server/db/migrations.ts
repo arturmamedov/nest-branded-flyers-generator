@@ -76,4 +76,28 @@ export const MIGRATIONS: Migration[] = [
       }
     },
   },
+  {
+    version: 3,
+    name: 'the AI ledger',
+    // One row per generation the AI assistant attempted (docs/prompts/ai-assistant.md; $defs.aiUsage is the JSON
+    // store's twin). The daily cap is the count of a day's ok rows for the actor, hence the index.
+    up: `
+      CREATE TABLE ai_usage (
+        id            INTEGER PRIMARY KEY,
+        at            TEXT NOT NULL,
+        day           TEXT NOT NULL,
+        actor_id      TEXT NOT NULL,
+        feature       TEXT NOT NULL,
+        provider      TEXT NOT NULL,
+        model         TEXT NOT NULL,
+        input_tokens  INTEGER,
+        output_tokens INTEGER,
+        ok            INTEGER NOT NULL,
+        input         TEXT NOT NULL,
+        output        TEXT
+      );
+
+      CREATE INDEX idx_ai_usage_quota ON ai_usage(actor_id, day, ok);
+    `,
+  },
 ];

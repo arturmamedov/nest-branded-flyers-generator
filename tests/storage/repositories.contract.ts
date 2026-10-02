@@ -4,6 +4,7 @@ import { applySeedFile } from '../../server/storage/seed.js';
 import { MissingReferenceError, type Clock, type Repositories } from '../../server/storage/types.js';
 import { SAMPLE_FLYERS } from '../../src/shared/samples.js';
 import type { FlyerInput } from '../../src/shared/schema.js';
+import type { StoredAiUsage } from '../../src/shared/storage.js';
 
 /* One behaviour for every storage driver (Liskov): each driver's test file
    calls describeRepositoryContract with a factory for a fresh, empty store.
@@ -250,6 +251,43 @@ export function describeRepositoryContract(name: string, factory: RepositoryFact
         await repos.flyers.put({ ...stored[1], title: 'twelve again' });
         expect((await repos.flyers.get(12))!.title).toBe('twelve again');
         await expect(repos.flyers.put({ ...stored[1], id: 13, hostel: 'nowhere' })).rejects.toBeInstanceOf(MissingReferenceError);
+      });
+    });
+
+    describe('aiUsage', () => {
+      const entry = (over: Partial<StoredAiUsage> = {}): StoredAiUsage => ({
+        at: clock.now(),
+        day: '2026-09-18',
+        actorId: 'anonymous',
+        feature: 'flyer',
+        provider: 'fake',
+        model: 'fake-1',
+        tokens: { input: 10, output: 20 },
+        ok: true,
+        input: 'Yoga at 9',
+        output: '{"brief":{}}',
+        ...over,
+      });
+
+      it('appends records and reads them all back as given, oldest first', async () => {
+        const first = entry();
+        clock.tick();
+        const second = entry({ feature: 'share', tokens: null, ok: false, input: 'the fields', output: null });
+        await repos.aiUsage.record(first);
+        await repos.aiUsage.record(second);
+        expect(await repos.aiUsage.all()).toEqual([first, second]);
+      });
+
+      it('counts only the actor’s ok records of the day', async () => {
+        await repos.aiUsage.record(entry());
+        await repos.aiUsage.record(entry({ feature: 'share' }));
+        await repos.aiUsage.record(entry({ ok: false }));
+        await repos.aiUsage.record(entry({ actorId: 'someone-else' }));
+        await repos.aiUsage.record(entry({ day: '2026-09-19' }));
+        expect(await repos.aiUsage.countOk('anonymous', '2026-09-18')).toBe(2);
+        expect(await repos.aiUsage.countOk('someone-else', '2026-09-18')).toBe(1);
+        expect(await repos.aiUsage.countOk('anonymous', '2026-09-19')).toBe(1);
+        expect(await repos.aiUsage.countOk('nobody', '2026-09-18')).toBe(0);
       });
     });
 

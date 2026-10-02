@@ -1,5 +1,6 @@
 import { openDb } from '../../db/open.js';
 import { systemClock, type Clock, type Repositories } from '../types.js';
+import { SqliteAiUsageRepository } from './aiUsage.js';
 import { SqliteDoodleRepository } from './doodles.js';
 import { SqliteFlyerRepository } from './flyers.js';
 import { SqliteHostelRepository } from './hostels.js';
@@ -14,6 +15,7 @@ export function createSqliteRepositories(opts: { file: string; clock?: Clock }):
     doodles: new SqliteDoodleRepository(db),
     photos: new SqlitePhotoRepository(db, clock),
     flyers: new SqliteFlyerRepository(db, clock),
+    aiUsage: new SqliteAiUsageRepository(db),
     async close() {
       db.close();
     },

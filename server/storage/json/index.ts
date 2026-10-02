@@ -2,6 +2,7 @@ import { join } from 'node:path';
 import type { Hostel } from '../../../src/shared/schema.js';
 import { STORAGE_FILES, type FlyerIndexEntry, type StoredDoodle, type StoredPhoto } from '../../../src/shared/storage.js';
 import { systemClock, type Clock, type Repositories } from '../types.js';
+import { JsonAiUsageRepository } from './aiUsage.js';
 import { JsonDoodleRepository } from './doodles.js';
 import { JsonFiles } from './files.js';
 import { JsonFlyerRepository } from './flyers.js';
@@ -44,6 +45,7 @@ export function createJsonRepositories(opts: { dir: string; clock?: Clock }): Re
       photos,
       STORAGE_FILES.flyerDir,
     ),
+    aiUsage: new JsonAiUsageRepository(files, store, STORAGE_FILES.aiUsageDir),
     // Nothing to close: every call releases the lock before it returns, and files are opened only while they are read
     // or written. The method is here because the seam promises it (SQLite closes its database handle).
     async close() {},

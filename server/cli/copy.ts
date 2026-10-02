@@ -174,6 +174,7 @@ async function refuseExisting(repos: Repositories, to: CopyEndpoint): Promise<vo
   count((await repos.doodles.list()).length, 'doodle');
   count((await repos.photos.all()).length, 'photo');
   count((await repos.flyers.all()).length, 'flyer');
+  count((await repos.aiUsage.all()).length, 'AI generation');
   if (held.length > 0) {
     throw new Error(`${to.path} already holds ${held.join(', ')}. Copy into an empty store, or pass --force to write into this one.`);
   }
@@ -210,7 +211,13 @@ if (entryPoint && resolve(entryPoint) === import.meta.filename) {
       const options = parseArgs(argv);
       const { counts, uploads } = await runCopy(options);
       console.log(`Copied ${options.from.driver} ${options.from.path} to ${options.to.driver} ${options.to.path}`);
-      const records = [plural(counts.hostels, 'hostel'), plural(counts.doodles, 'doodle'), plural(counts.photos, 'photo'), plural(counts.flyers, 'flyer')];
+      const records = [
+        plural(counts.hostels, 'hostel'),
+        plural(counts.doodles, 'doodle'),
+        plural(counts.photos, 'photo'),
+        plural(counts.flyers, 'flyer'),
+        plural(counts.aiUsage, 'AI generation'),
+      ];
       console.log(`  ${records.join(', ')} (archived flyers included)`);
       console.log(`  ${plural(uploads.copied, 'photo file')} copied to ${options.uploadsTo}, ${uploads.skipped} already there`);
       console.log('A data folder is served by one backend at a time: point the app at the copy, not at both.');

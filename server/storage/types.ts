@@ -1,5 +1,5 @@
 import type { FlyerInput, FlyerListItem, FlyerRecord, Hostel } from '../../src/shared/schema.js';
-import type { StoredDoodle, StoredFlyer, StoredPhoto } from '../../src/shared/storage.js';
+import type { StoredAiUsage, StoredDoodle, StoredFlyer, StoredPhoto } from '../../src/shared/storage.js';
 
 /* The storage seam. Every driver (SQLite, JSON files) implements these, and
    tests/storage/repositories.contract.ts proves they are interchangeable.
@@ -65,11 +65,22 @@ export interface FlyerRepository {
   put(f: StoredFlyer): Promise<void>;
 }
 
+/** The AI ledger (docs/json-storage.md, "The AI ledger"): append-only, one record per generation attempted. */
+export interface AiUsageRepository {
+  /** Appends; nothing is ever edited or removed. */
+  record(entry: StoredAiUsage): Promise<void>;
+  /** The actor's generations that count for a day (aiDay in src/shared/ai.ts): the `ok` ones. */
+  countOk(actorId: string, day: string): Promise<number>;
+  /** Every record, oldest first (the copy tool, and the eval set to be). */
+  all(): Promise<StoredAiUsage[]>;
+}
+
 export interface Repositories {
   hostels: HostelRepository;
   doodles: DoodleRepository;
   photos: PhotoRepository;
   flyers: FlyerRepository;
+  aiUsage: AiUsageRepository;
   close(): Promise<void>;
 }
 

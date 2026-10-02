@@ -9,6 +9,7 @@ import { dataPaths } from '../../server/paths.js';
 import type { Clock, Repositories } from '../../server/storage/types.js';
 import { SAMPLE_FLYERS } from '../../src/shared/samples.js';
 import {
+  AiUsageFileSchema,
   DoodlesFileSchema,
   FlyerIndexFileSchema,
   HostelsFileSchema,
@@ -69,6 +70,19 @@ async function writeFixture(dir: string): Promise<void> {
     archived: false,
   });
   await repos.flyers.create({ title: 'Made the usual way', hostel: 'flamingo-nest', template: 'activity', data, photoId: null });
+  // The AI ledger travels with the library: it is the eval set, and the day's count on the copy.
+  await repos.aiUsage.record({
+    at: '2026-03-05T06:07:08.901Z',
+    day: '2026-03-05',
+    actorId: 'anonymous',
+    feature: 'flyer',
+    provider: 'openai',
+    model: 'gpt-6-luna',
+    tokens: { input: 3000, output: 600 },
+    ok: true,
+    input: 'Pool party sat 19/9',
+    output: '{"brief":{}}',
+  });
   await repos.close();
   for (const path of [photoPath(2), photoPath(9), STRAY_UPLOAD]) writeDataFile(dir, path, `bytes of ${path}`);
 }
@@ -81,6 +95,7 @@ async function readAll(repos: Repositories) {
     photos: await repos.photos.all(),
     flyers: await repos.flyers.all(),
     library: await repos.flyers.list({}),
+    aiUsage: await repos.aiUsage.all(),
   };
 }
 
@@ -112,7 +127,7 @@ describe('copy', { timeout: 30_000 }, () => {
 
   it('gives the JSON store the same records, ids, timestamps and archived flags', async () => {
     const report = await runCopy(args());
-    expect(report.counts).toEqual({ hostels: 2, doodles: 2, photos: 2, flyers: 3 });
+    expect(report.counts).toEqual({ hostels: 2, doodles: 2, photos: 2, flyers: 3, aiUsage: 1 });
 
     const before = await withStore('sqlite', sourceDir, readAll);
     const after = await withStore('json', targetDir, readAll);
@@ -153,7 +168,7 @@ describe('copy', { timeout: 30_000 }, () => {
     rmSync(join(sourceDir, ...photoPath(9).split('/')));
     await expect(runCopy(args())).rejects.toThrow(/1 of 2 photo files are missing/);
     const after = await withStore('json', targetDir, readAll);
-    expect(after).toEqual({ hostels: [], doodles: [], photos: [], flyers: [], library: [] });
+    expect(after).toEqual({ hostels: [], doodles: [], photos: [], flyers: [], library: [], aiUsage: [] });
     expect(existsSync(join(targetDir, ...photoPath(2).split('/')))).toBe(false);
   });
 
@@ -187,13 +202,15 @@ describe('copy', { timeout: 30_000 }, () => {
       const flyer = read(`${STORAGE_FILES.flyerDir}/${id}.json`);
       expect(StoredFlyerSchema.parse(flyer)).toStrictEqual(flyer);
     }
+    const ledger = read(`${STORAGE_FILES.aiUsageDir}/2026-03.json`);
+    expect(AiUsageFileSchema.parse(ledger)).toStrictEqual(ledger);
   });
 
   it('round-trips back to SQLite with the same records and files', async () => {
     await runCopy(args());
     const backDir = join(root, 'back');
     const report = await runCopy(parseArgs(['--from-json', targetDir, '--to-sqlite', join(backDir, 'flyers.db')]));
-    expect(report).toEqual({ counts: { hostels: 2, doodles: 2, photos: 2, flyers: 3 }, uploads: { copied: 2, skipped: 0 } });
+    expect(report).toEqual({ counts: { hostels: 2, doodles: 2, photos: 2, flyers: 3, aiUsage: 1 }, uploads: { copied: 2, skipped: 0 } });
     expect(await withStore('sqlite', backDir, readAll)).toEqual(await withStore('sqlite', sourceDir, readAll));
     expect(readFileSync(join(backDir, ...photoPath(2).split('/')), 'utf8')).toBe(`bytes of ${photoPath(2)}`);
   });
