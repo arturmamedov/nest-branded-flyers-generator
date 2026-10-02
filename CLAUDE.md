@@ -193,7 +193,10 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
     and it records each save in the example file.
   - `docs/ai-flyers/` holds the rules that become the editor's future AI assistant's system prompt, and every staff
     text with its brief (`examples/`): its few-shot and eval set. Add a correction there every time Artur makes one.
-  - The AI assistant itself (a modal with a textarea in the editor) is not built: not to be started unasked.
+  - The AI assistant itself is being built on `feat/ai-assistant` (brief `docs/prompts/ai-assistant.md`; a
+    "Create with AI" page and a "Write with AI" button, not a modal). Phases 1–2 are done (the shared sources, the
+    contract, the Node provider seam, service, ledger and routes); the next session continues with
+    `docs/prompts/ai-assistant-continue.md` at Phase 3 (PHP). The Phase 6 docs pass will rewrite this entry.
   - Seen 2026-10-01: the live host reported `Disk quota exceeded` on `data/` and `uploads/`. Artur freed the IONOS
     space the same day.
 - Waiting, don't start unasked: step 7 (drag/nudge everything on the canvas, sizes, colours, order, reset),
