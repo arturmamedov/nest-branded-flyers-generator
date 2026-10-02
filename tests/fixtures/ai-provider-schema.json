@@ -1,0 +1,177 @@
+{
+  "_note": "How the shared JSON Schema of a model's answer becomes what each provider's structured output takes (server/ai/providerSchema.ts; PHP Ai\\ProviderSchema). OpenAI's strict mode wants every property required and optional ones as a null union; Anthropic allows optional properties but rejects length limits, which move into the description. Both get additionalProperties: false on every object and lose $schema and x-* keywords. dropNulls turns an OpenAI null back into an absent key wherever the original schema did not require the key.",
+  "cases": [
+    {
+      "name": "optional, nullable and limited fields",
+      "input": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "hostel": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+          "template": { "type": "string", "enum": ["activity", "week"] },
+          "title": { "type": "string", "maxLength": 80, "x-nest-trim": true },
+          "text": {
+            "type": "object",
+            "properties": { "eyebrow": { "type": "string", "maxLength": 18 } },
+            "additionalProperties": false
+          },
+          "extras": { "type": "array", "items": { "type": "string", "maxLength": 32 }, "maxItems": 4 }
+        },
+        "required": ["hostel", "template"],
+        "additionalProperties": false
+      },
+      "openai": {
+        "type": "object",
+        "properties": {
+          "hostel": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+          "template": { "type": "string", "enum": ["activity", "week"] },
+          "title": { "anyOf": [{ "type": "string", "maxLength": 80 }, { "type": "null" }] },
+          "text": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": { "eyebrow": { "anyOf": [{ "type": "string", "maxLength": 18 }, { "type": "null" }] } },
+                "required": ["eyebrow"],
+                "additionalProperties": false
+              },
+              { "type": "null" }
+            ]
+          },
+          "extras": { "anyOf": [{ "type": "array", "items": { "type": "string", "maxLength": 32 }, "maxItems": 4 }, { "type": "null" }] }
+        },
+        "required": ["hostel", "template", "title", "text", "extras"],
+        "additionalProperties": false
+      },
+      "anthropic": {
+        "type": "object",
+        "properties": {
+          "hostel": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+          "template": { "type": "string", "enum": ["activity", "week"] },
+          "title": { "type": "string", "description": "At most 80 characters." },
+          "text": {
+            "type": "object",
+            "properties": { "eyebrow": { "type": "string", "description": "At most 18 characters." } },
+            "additionalProperties": false
+          },
+          "extras": { "type": "array", "items": { "type": "string", "description": "At most 32 characters." }, "description": "At most 4 items." }
+        },
+        "required": ["hostel", "template"],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "a description keeps its words before the limit, and an object without additionalProperties gets it",
+      "input": {
+        "type": "object",
+        "properties": {
+          "headline1": { "type": "string", "description": "The lead-in.", "minLength": 1, "maxLength": 40 },
+          "count": { "type": "integer", "minimum": 0, "maximum": 12 }
+        },
+        "required": ["headline1", "count"]
+      },
+      "openai": {
+        "type": "object",
+        "properties": {
+          "headline1": { "type": "string", "description": "The lead-in.", "minLength": 1, "maxLength": 40 },
+          "count": { "type": "integer", "minimum": 0, "maximum": 12 }
+        },
+        "required": ["headline1", "count"],
+        "additionalProperties": false
+      },
+      "anthropic": {
+        "type": "object",
+        "properties": {
+          "headline1": { "type": "string", "description": "The lead-in. At least 1 character. At most 40 characters." },
+          "count": { "type": "integer", "description": "At least 0. At most 12." }
+        },
+        "required": ["headline1", "count"],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "rows: an array of objects with an optional member",
+      "input": {
+        "type": "object",
+        "properties": {
+          "week": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "day": { "type": "string", "maxLength": 30 },
+                "name": { "type": "string" },
+                "shortName": { "type": "string", "maxLength": 60 }
+              },
+              "required": ["day", "name"],
+              "additionalProperties": false
+            },
+            "maxItems": 5
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "openai": {
+        "type": "object",
+        "properties": {
+          "week": {
+            "anyOf": [
+              {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "day": { "type": "string", "maxLength": 30 },
+                    "name": { "type": "string" },
+                    "shortName": { "anyOf": [{ "type": "string", "maxLength": 60 }, { "type": "null" }] }
+                  },
+                  "required": ["day", "name", "shortName"],
+                  "additionalProperties": false
+                },
+                "maxItems": 5
+              },
+              { "type": "null" }
+            ]
+          }
+        },
+        "required": ["week"],
+        "additionalProperties": false
+      },
+      "anthropic": {
+        "type": "object",
+        "properties": {
+          "week": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "day": { "type": "string", "description": "At most 30 characters." },
+                "name": { "type": "string" },
+                "shortName": { "type": "string", "description": "At most 60 characters." }
+              },
+              "required": ["day", "name"],
+              "additionalProperties": false
+            },
+            "description": "At most 5 items."
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      }
+    }
+  ],
+  "dropNulls": [
+    {
+      "name": "a null stands for an absent key only where the key is optional",
+      "case": "optional, nullable and limited fields",
+      "in": { "hostel": null, "template": "activity", "title": null, "text": { "eyebrow": null }, "extras": null },
+      "out": { "hostel": null, "template": "activity", "text": {} }
+    },
+    {
+      "name": "inside an array of rows too, and a required key keeps its null for the validator to refuse",
+      "case": "rows: an array of objects with an optional member",
+      "in": { "week": [{ "day": "Mon", "name": null, "shortName": null }, { "day": "Tue", "name": "Surf", "shortName": "S" }] },
+      "out": { "week": [{ "day": "Mon", "name": null }, { "day": "Tue", "name": "Surf", "shortName": "S" }] }
+    }
+  ]
+}

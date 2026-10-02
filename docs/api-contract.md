@@ -6,7 +6,8 @@ every backend (`npm run test:contract`), or against a deployment with `CONTRACT_
 
 The shapes are zod schemas in `src/shared/schema.ts` (`FlyerInputSchema` for requests, and the `…Schema` response
 objects). The contract suite parses every answer with them, so a backend cannot add, drop or retype a field unnoticed.
-PHP validates requests against the generated `schema/flyer.schema.json`.
+PHP validates requests against the generated `schema/flyer.schema.json`, and the AI's requests and answers against
+`schema/ai.json`.
 
 ## Conventions
 
@@ -60,19 +61,24 @@ errors. The catalogue is `src/shared/errors.ts`, which PHP reads from `schema/sh
 | `no_photo_field` | 400 | `invalid` | Attach the photo as the "photo" field. |
 | `bad_format` | 400 | `invalid` | format must be png or jpg. |
 | `bad_canvas` | 400 | `invalid` | canvas must be story or whatsapp. |
+| `ai_input` | 400 | `invalid` | Write the idea first: a few lines about the event, up to {max} characters. |
 | `unauthorized` | 401 | `unauthorized` | Sign in to use the flyer generator. |
 | `forbidden` | 403 | `forbidden` | Missing X-Nest-Flyers header. |
 | `ip_forbidden` | 403 | `forbidden` | This network is not allowed to use the flyer generator. |
+| `ai_forbidden` | 403 | `forbidden` | Your account can’t use the AI. |
 | `no_such_flyer` | 404 | `not_found` | No such flyer. |
 | `no_such_endpoint` | 404 | `not_found` | No such endpoint. |
 | `not_found` | 404 | `not_found` | Not found. |
+| `ai_off` | 404 | `not_found` | The AI is switched off on this site. |
 | `too_large` | 413 | `too_large` | That photo is over {mb} MB. Use a smaller JPG. |
 | `too_many_pixels` | 413 | `too_large` | That photo has too many pixels to process here. Use a smaller JPG. |
 | `heic` | 415 | `heic` | iPhone HEIC photos are not supported — export it as JPG (Settings › Camera › Formats › Most Compatible) and try again. |
 | `unreadable` | 415 | `unsupported` | That file is not an image we can read. Use a JPG, PNG or WebP. |
 | `unsupported_format` | 415 | `unsupported` | {format} files are not supported. Use a JPG, PNG or WebP. |
+| `ai_quota` | 429 | `ai_quota` | Today’s {limit} AI generations are used up. They come back at midnight, Canary Islands time. |
 | `server_error` | 500 | `server_error` | Something went wrong on the server. |
 | `storage_too_new` | 500 | `server_error` | The data folder was written by a newer version of this app. Update the app before using it. |
+| `ai_failed` | 502 | `ai_failed` | The AI didn’t answer properly. Try again in a moment. |
 | `not_configured` | 503 | `not_configured` | This app is not set up yet: add an access rule to config.php. |
 <!-- gen:errors:end -->
 
@@ -97,6 +103,8 @@ errors. The catalogue is `src/shared/errors.ts`, which PHP reads from `schema/sh
 | `DELETE api/flyers/:id` | **204**, empty body | `forbidden`, `no_such_flyer` |
 | `POST api/photos` (multipart, field `photo`) | **201** `PhotoInfo` | `forbidden`, `no_photo_field`, `too_large`, `too_many_pixels`, `heic`, `unsupported_format`, `unreadable` |
 | `POST api/render/:id` `{format, canvas}` | 200, the image | `malformed`, `forbidden`, `no_such_flyer` (bad id), `bad_format`, `bad_canvas`, `no_such_flyer` |
+| `POST api/ai/flyer` `{text, hostel?}` | 200 `{brief, assumptions, remaining}` | `malformed`, `forbidden`, `ai_off`, `ai_forbidden`, `ai_input`, `unknown_hostel`, `ai_quota`, `ai_failed` |
+| `POST api/ai/share` `{hostel, template, data, idea?}` | 200 `{share, remaining}` | `malformed`, `forbidden`, `ai_off`, `ai_forbidden`, `ai_input`, `unknown_hostel`, `ai_quota`, `ai_failed` |
 
 Each row lists its errors in the order they are checked. Anything else under `api/`, including a wrong method on a known
 path, is 404 `no_such_endpoint`.
@@ -107,11 +115,15 @@ path, is 404 `no_such_endpoint`.
 { backend: 'node' | 'php', storage: 'sqlite' | 'json',
   exporters: ['client'] | ['client', 'server'],
   limits: { maxUploadBytes, maxPhotoEdge },
-  server: { …free-form diagnostics } }
+  server: { …free-form diagnostics },
+  ai: { enabled: false } | { enabled: true, limit, remaining } }
 ```
 
 - The editor picks its exporter from `exporters`: server if it is listed, else client.
 - `limits` drives photo preparation in the browser.
+- `ai` is what the AI assistant is for the caller (the actor, see below): nothing beyond `enabled: false` when it is
+  off, else the actor's daily limit and how many generations are left of it today. Never the provider, the model or the
+  key.
 - `maxUploadBytes` is the largest upload this backend accepts. Node: 15 MiB. PHP: the smallest of 15 MiB,
   `upload_max_filesize`, and `post_max_size` minus 64 KiB.
 - `server` is diagnostics only: nothing reads it to decide anything. Node reports `node`. PHP reports `php`,
@@ -203,6 +215,39 @@ live in `src/shared/schema.ts`. How a backend applies them:
   `Content-Disposition: attachment; filename="<slug><suffix>.<format>"`. The slug and the canvas's suffix (none for the
   story, `-whatsapp` for WhatsApp) come from `src/shared/filename.ts`, which the client exporter uses too.
   `X-Render-Cache: hit|miss` is also set; each canvas and format is cached apart, and saving the flyer empties them all.
+
+### The AI assistant: `POST api/ai/flyer` and `POST api/ai/share`
+
+Both are writes: they need the write header and pass the access rule. The shapes are `AiFlyerRequestSchema` /
+`AiFlyerResultSchema` and `AiShareRequestSchema` / `AiShareResultSchema` in `src/shared/schema.ts`; the model's own
+answers (`AiFlyerAnswerSchema`, `AiShareAnswerSchema`) are generated into `schema/ai.json` with the prompts and the
+few-shot examples both backends read.
+
+- **Off.** With no provider configured (Node: `AI_PROVIDER`; PHP: the `ai` block of `config.php`), with no key, or
+  switched off, both routes answer 404 `ai_off` whatever the body, and `api/config` says `ai: { enabled: false }`.
+- **The actor.** Every request has one: today the single anonymous actor (a login will replace the resolver and give the
+  policy a role; a guest then gets 403 `ai_forbidden`). The cap is counted per actor id, so today it is site-wide.
+- **Checks, in order:** the body (`malformed`), the write guard, `ai_off`, `ai_forbidden`, the body's shape (400
+  `ai_input`, with `fields` as for `invalid`; the idea text is trimmed and holds 1 to `AI_INPUT_MAX` code points), a
+  `hostel` slug that doesn't exist (`unknown_hostel`), the cap (429 `ai_quota`, when today's `ok` generations for the
+  actor have reached the limit), then the provider: a timeout, a provider error, a refusal, or an answer that fails its
+  schema is 502 `ai_failed`.
+- **What counts.** A generation counts only when the provider answered and the answer passed validation; it is then one
+  of the actor's `limit` for the Canary Islands day (`AI_DAY_ZONE`), both features together. Refused calls never count;
+  failed ones are recorded but don't count. Every attempt that reached the provider is one append-only ledger record
+  (`docs/json-storage.md`, "The AI ledger").
+- **`POST api/ai/flyer`** takes `{text, hostel?}`: the staff member's text, and the hostel's slug when they chose one
+  (the model then uses it; otherwise it decides from the text). It answers `{brief, assumptions, remaining}`: a brief that
+  passes `BriefSchema` with every limit, whose `hostel` exists on the site (an unknown slug from the model becomes `null`
+  with an assumption, never an error), the assumptions the model made (`[{field, note}]`, `field` a brief key), and the
+  generations left today. The client builds the flyer with `flyerFromBrief()`; nothing is saved.
+- **`POST api/ai/share`** takes `{hostel, template, data, idea?}`, the flyer as the editor holds it (`data` is
+  `FlyerDataSchema`) and the idea it came from when the AI made it, and answers `{share, remaining}`: a caption within
+  `SHARE_MAX`, not saved.
+- **The fake provider** (`AI_PROVIDER=fake`; PHP `'provider' => 'fake'`) answers from the bundle's first example and
+  never touches the network. The last user turn steers it, for the contract suite: `[[fake:invalid]]` answers something
+  that fails the schema, `[[fake:unknown-hostel]]` a brief for a hostel the site doesn't have, `[[fake:timeout]]` and
+  `[[fake:refused]]` the two failures.
 
 ## Static files
 

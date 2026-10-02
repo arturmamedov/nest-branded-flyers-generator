@@ -26,7 +26,7 @@ final class ApiConfig
 
     /**
      * @return array{backend:string, storage:string, exporters:list<string>,
-     *     limits:array{maxUploadBytes:int, maxPhotoEdge:int}, server:array<string, mixed>}
+     *     limits:array{maxUploadBytes:int, maxPhotoEdge:int}, server:array<string, mixed>, ai:array{enabled:bool}}
      */
     public function toArray(): array
     {
@@ -39,6 +39,8 @@ final class ApiConfig
                 'maxPhotoEdge' => $this->shared->maxPhotoEdge(),
             ],
             'server' => $this->hostFacts->toArray(),
+            // The AI assistant (docs/prompts/ai-assistant.md) is off until a provider is wired: nothing beyond enabled: false.
+            'ai' => ['enabled' => false],
         ];
     }
 }

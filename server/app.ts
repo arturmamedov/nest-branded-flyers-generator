@@ -83,8 +83,19 @@ export function createApp(deps: AppDeps) {
       exporters: deps.renderer ? ['client', 'server'] : ['client'],
       limits: { maxUploadBytes: MAX_UPLOAD_BYTES, maxPhotoEdge: MAX_PHOTO_EDGE },
       server: { node: process.version },
+      // The AI assistant (docs/prompts/ai-assistant.md) is off until a provider is wired: nothing beyond `enabled: false`.
+      ai: { enabled: false },
     };
     res.json(config);
+  });
+
+  // The AI assistant's routes exist whether or not a provider is configured, so a caller learns it is off (ai_off)
+  // rather than that the path is unknown. The provider seam is wired in Phase 2 of docs/prompts/ai-assistant.md.
+  api.post('/ai/flyer', () => {
+    throw new HttpError('ai_off');
+  });
+  api.post('/ai/share', () => {
+    throw new HttpError('ai_off');
   });
 
   api.get('/hostels', async (_req, res) => {

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { AI_FEATURES } from './ai.js';
 import { FlyerRecordSchema, HostelSchema, TemplateSchema, TimestampSchema } from './schema.js';
 
 /* The JSON-file store, one format for the PHP backend and the Node JSON driver
@@ -22,6 +23,8 @@ export const STORAGE_FILES = {
   photos: 'photos.json',
   flyerIndex: 'flyers/index.json',
   flyerDir: 'flyers',
+  /** The AI ledger: `ai-usage/YYYY-MM.json`, one file per month of the Canary day, made on the first append. */
+  aiUsageDir: 'ai-usage',
   lock: '.lock',
 } as const;
 
@@ -76,10 +79,33 @@ export const MetaFileSchema = z.strictObject({
 });
 export type MetaFile = z.infer<typeof MetaFileSchema>;
 
+/** One AI generation, attempted or made (docs/prompts/ai-assistant.md): append-only, never edited. The quota is the
+    count of today's `ok` records for the actor; the rest (the staff text, what the model made of it) is the eval and
+    few-shot set to be. No id: nothing refers to a record, so meta.json's counters stay as every release knows them. */
+export const StoredAiUsageSchema = z.strictObject({
+  at: TimestampSchema,
+  /** The Canary Islands day it counts for (aiDay in ai.ts), so counting is one equality on every driver. */
+  day: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  actorId: z.string(),
+  feature: z.enum(AI_FEATURES),
+  provider: z.string(),
+  model: z.string(),
+  /** What the provider reported; null when the call never got an answer. */
+  tokens: z.strictObject({ input: z.number().int().nonnegative(), output: z.number().int().nonnegative() }).nullable(),
+  /** True only when the answer passed validation: the generations that count. */
+  ok: z.boolean(),
+  /** The staff text (or, for the share feature, the flyer's fields) the model was given. */
+  input: z.string(),
+  /** The model's raw answer, or what went wrong; null on a timeout. */
+  output: z.string().nullable(),
+});
+export type StoredAiUsage = z.infer<typeof StoredAiUsageSchema>;
+
 export const HostelsFileSchema = z.array(StoredHostelSchema);
 export const DoodlesFileSchema = z.array(StoredDoodleSchema);
 export const PhotosFileSchema = z.array(StoredPhotoSchema);
 export const FlyerIndexFileSchema = z.array(FlyerIndexEntrySchema);
+export const AiUsageFileSchema = z.array(StoredAiUsageSchema);
 
 export function emptyMeta(): MetaFile {
   return {

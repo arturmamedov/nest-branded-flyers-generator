@@ -272,6 +272,19 @@ final class ApiTest extends TestCase
         $this->error($this->send('POST', 'api/render/1', (object) ['format' => 'png']), 404, 'not_found', 'no_such_endpoint');
     }
 
+    public function testConfigSaysTheAiIsOffUntilAProviderIsConfigured(): void
+    {
+        $config = Json::decode($this->send('GET', 'api/config')->body);
+        self::assertEquals((object) ['enabled' => false], $config->ai);
+    }
+
+    public function testTheAiRoutesAnswerAiOffUntilAProviderIsConfigured(): void
+    {
+        $this->error($this->send('POST', 'api/ai/flyer', (object) ['text' => 'Yoga at 9']), 404, 'not_found', 'ai_off');
+        $this->error($this->send('POST', 'api/ai/share', (object) ['hostel' => null]), 404, 'not_found', 'ai_off');
+        $this->error($this->send('GET', 'api/ai/flyer'), 404, 'not_found', 'no_such_endpoint');
+    }
+
     public function testThePhotoServiceIsOnlyBuiltForUploads(): void
     {
         foreach (['api/config', 'api/hostels', 'api/doodles', 'api/flyers'] as $path) {

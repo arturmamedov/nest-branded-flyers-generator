@@ -1,0 +1,14 @@
+{
+  "_note": "The AI quota counts generations per Canary Islands day (AI_DAY_ZONE in src/shared/ai.ts): WET (UTC+0) in winter, WEST (UTC+1) from the last Sunday of March to the last Sunday of October. Each case is an instant as the clocks give it (UTC), the day the ledger stores, and the date line the prompt prints. PHP replays them (Ai\\DayTest).",
+  "zone": "Atlantic/Canary",
+  "cases": [
+    { "at": "2026-10-02T09:30:00.000Z", "day": "2026-10-02", "line": "Friday 2 October 2026" },
+    { "at": "2026-10-02T22:59:59.999Z", "day": "2026-10-02", "line": "Friday 2 October 2026" },
+    { "at": "2026-10-02T23:30:00.000Z", "day": "2026-10-03", "line": "Saturday 3 October 2026" },
+    { "at": "2026-10-24T23:30:00.000Z", "day": "2026-10-25", "line": "Sunday 25 October 2026" },
+    { "at": "2026-12-31T23:30:00.000Z", "day": "2026-12-31", "line": "Thursday 31 December 2026" },
+    { "at": "2027-01-01T00:00:00.000Z", "day": "2027-01-01", "line": "Friday 1 January 2027" },
+    { "at": "2026-03-28T23:30:00.000Z", "day": "2026-03-28", "line": "Saturday 28 March 2026" },
+    { "at": "2026-03-29T23:30:00.000Z", "day": "2026-03-30", "line": "Monday 30 March 2026" }
+  ]
+}

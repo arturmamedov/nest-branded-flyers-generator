@@ -48,6 +48,10 @@ final class Api
         $router->add('PUT', '/api/flyers/{id}', $this->updateFlyer(...));
         $router->add('DELETE', '/api/flyers/{id}', $this->archiveFlyer(...));
         $router->add('POST', '/api/photos', $this->uploadPhoto(...));
+        // The AI assistant's routes exist whether or not a provider is configured, so a caller learns it is off
+        // (ai_off) rather than that the path is unknown. The provider seam is Phase 3 of docs/prompts/ai-assistant.md.
+        $router->add('POST', '/api/ai/flyer', fn (): Response => throw $this->errors->make('ai_off'));
+        $router->add('POST', '/api/ai/share', fn (): Response => throw $this->errors->make('ai_off'));
     }
 
     private function listFlyers(Request $request): Response

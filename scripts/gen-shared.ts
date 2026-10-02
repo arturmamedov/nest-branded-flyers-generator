@@ -1,7 +1,8 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { z } from 'zod';
+import { AI_SHARED } from '../src/shared/ai.js';
 import { API_ERRORS } from '../src/shared/errors.js';
 import {
   ACCEPTED_PHOTO_TYPES,
@@ -12,9 +13,17 @@ import {
   PHOTO_JPEG_QUALITY,
 } from '../src/shared/limits.js';
 import { SAMPLE_FLYERS } from '../src/shared/samples.js';
-import { FlyerInputSchema } from '../src/shared/schema.js';
+import {
+  AiExampleSchema,
+  AiFlyerAnswerSchema,
+  AiFlyerRequestSchema,
+  AiShareAnswerSchema,
+  AiShareRequestSchema,
+  FlyerInputSchema,
+} from '../src/shared/schema.js';
 import { SeedFileSchema } from '../src/shared/seed.js';
 import {
+  AiUsageFileSchema,
   DoodlesFileSchema,
   FlyerIndexFileSchema,
   HostelsFileSchema,
@@ -38,12 +47,67 @@ export const CONTRACT_DOC = 'docs/api-contract.md';
 const TABLE_START = '<!-- gen:errors:start -->';
 const TABLE_END = '<!-- gen:errors:end -->';
 
+/** The AI assistant's sources: the rules, and the staff texts with the briefs written from them (the few-shot). */
+export const PROMPT_FILES = { flyer: 'ai/prompts/flyer.md', share: 'ai/prompts/share.md' } as const;
+export const EXAMPLES_DIR = 'docs/ai-flyers/examples';
+
 const json = (value: unknown) => JSON.stringify(value, null, 2) + '\n';
 
-/** A JSON Schema without its `$schema` line, to nest under `$defs`. */
-function def(schema: z.ZodType, io: 'input' | 'output') {
-  const { $schema: _, ...rest } = z.toJSONSchema(schema, { io }) as Record<string, unknown>;
+type JsonSchema = Record<string, unknown>;
+
+/** A JSON Schema without its `$schema` line, to nest under `$defs`, or to hand a provider. */
+function def(schema: z.ZodType, io: 'input' | 'output'): JsonSchema {
+  const { $schema: _, ...rest } = z.toJSONSchema(schema, { io }) as JsonSchema;
   return rest;
+}
+
+/** A property's own schema, past the null branch of a nullable one. */
+function valueOf(prop: JsonSchema): JsonSchema {
+  const branches = prop.anyOf as JsonSchema[] | undefined;
+  return branches?.find((b) => b.type !== 'null') ?? prop;
+}
+
+/** The limits a schema sets, one line per field, read off the JSON Schema so the prompt never repeats a number by
+    hand: `- brief.text.eyebrow: at most 18 characters`, `- brief.extras: at most 4 items, each at most 32 characters`. */
+function limitLines(schema: JsonSchema, path = ''): string[] {
+  const lines: string[] = [];
+  for (const [name, raw] of Object.entries((schema.properties ?? {}) as Record<string, JsonSchema>)) {
+    const at = path ? `${path}.${name}` : name;
+    const prop = valueOf(raw);
+    if (typeof prop.maxLength === 'number') lines.push(`- ${at}: at most ${prop.maxLength} characters`);
+    if (prop.type === 'array') {
+      const items = valueOf((prop.items ?? {}) as JsonSchema);
+      const parts = [
+        ...(typeof prop.maxItems === 'number' ? [`at most ${prop.maxItems} items`] : []),
+        ...(typeof items.maxLength === 'number' ? [`each at most ${items.maxLength} characters`] : []),
+      ];
+      if (parts.length) lines.push(`- ${at}: ${parts.join(', ')}`);
+      lines.push(...limitLines(items, `${at}[]`));
+    }
+    if (prop.properties) lines.push(...limitLines(prop, at));
+  }
+  return lines;
+}
+
+/** A prompt file with the limits of the answer it asks for appended, so a rule and its number have one home each. */
+function prompt(text: string, answer: JsonSchema): string {
+  const limits = ['## Limits', 'Characters are counted one by one, an emoji included; the app refuses a longer field.', ...limitLines(answer)];
+  return `${text.replace(/\r\n/g, '\n').trim()}\n\n${limits.join('\n')}\n`;
+}
+
+/** Each example file as a few-shot turn: the staff text, and the answer the model should have given, its `asked`
+    questions turned into the assumptions it would list instead of asking (`field` + the answer as the note). */
+function examples(read: (rel: string) => string) {
+  const files = readdirSync(join(ROOT, EXAMPLES_DIR))
+    .filter((f) => f.endsWith('.json'))
+    .sort();
+  return files.map((f) => {
+    const example = AiExampleSchema.parse(JSON.parse(read(`${EXAMPLES_DIR}/${f}`)));
+    return {
+      text: example.source,
+      answer: { brief: example.brief, assumptions: (example.asked ?? []).map((a) => ({ field: a.field, note: a.answer })) },
+    };
+  });
 }
 
 function errorTable(): string {
@@ -77,6 +141,7 @@ export function generate(read: (rel: string) => string = (rel) => readFileSync(j
         photos: def(PhotosFileSchema, 'output'),
         flyerIndex: def(FlyerIndexFileSchema, 'output'),
         flyer: def(StoredFlyerSchema, 'output'),
+        aiUsage: def(AiUsageFileSchema, 'output'),
       },
     }),
     'schema/shared.json': json({
@@ -96,6 +161,22 @@ export function generate(read: (rel: string) => string = (rel) => readFileSync(j
         uploadsDir: UPLOADS_DIR,
         photoPath: PHOTO_PATH.source,
         files: STORAGE_FILES,
+      },
+      ai: AI_SHARED,
+    }),
+    // The AI assistant's bundle, read by both backends at request time: the prompts (with their limits), the few-shot
+    // examples, and the answer and request schemas, inline (PHP's validator takes no $ref).
+    'schema/ai.json': json({
+      prompts: {
+        flyer: prompt(read(PROMPT_FILES.flyer), def(AiFlyerAnswerSchema, 'input')),
+        share: prompt(read(PROMPT_FILES.share), def(AiShareAnswerSchema, 'input')),
+      },
+      examples: examples(read),
+      schemas: {
+        flyerAnswer: def(AiFlyerAnswerSchema, 'input'),
+        shareAnswer: def(AiShareAnswerSchema, 'input'),
+        flyerRequest: def(AiFlyerRequestSchema, 'input'),
+        shareRequest: def(AiShareRequestSchema, 'input'),
       },
     }),
     'seed/samples.json': json(

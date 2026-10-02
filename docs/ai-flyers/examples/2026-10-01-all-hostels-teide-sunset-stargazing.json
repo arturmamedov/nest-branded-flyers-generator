@@ -24,15 +24,18 @@
   "asked": [
     {
       "question": "It says \"(Nest hostel Family)\" and picks up at Duque Nest. Which hostel is the flyer for?",
-      "answer": "All hostels, with pick-up at Duque Nest"
+      "answer": "All hostels, with pick-up at Duque Nest",
+      "field": "hostel"
     },
     {
       "question": "It says both \"Today 2 spots left\" and \"Everyday\". A flyer for every day, or for today only?",
-      "answer": "Every day, reusable; \"2 spots left\" only in the share text"
+      "answer": "Every day, reusable; \"2 spots left\" only in the share text",
+      "field": "when"
     },
     {
       "question": "How should the flyer tell people to reserve: at reception, or with the phone number?",
-      "answer": "The phone number on the flyer"
+      "answer": "The phone number on the flyer",
+      "field": "text.askEn"
     }
   ],
   "notes": "Chain-wide (hostel null): the tour is offered to the whole Nest family, and Duque Nest is only the pick-up point, so WHERE carries it as the place (\"Pick-up point\": \"Pick-up & drop-off\" broke as \"drop- / off\" in the chip). WHEN prints the pick-up time alone: \"17:45 – 23:00\" broke over two lines in the chip, so the 23:00 return is in the share text only. Evergreen: the tour runs every day, so the flyer says EVERY DAY and stays valid; today's urgency (2 spots left) lives only in the share text, where staff can change it. The ask prints the first number (Artur's answer); both numbers are in the share text. Times turned to 24 h (5:45pm → 17:45, 11pm → 23:00). Cost: transport and the picnic are what the price buys; the 9-seat van became the extra \"Only 9 seats\". The highlights (Roques de García, Paseo Lunar, Mirador de Samara) don't fit the flyer's four short extras and stay in the share text. The staff's \"reserve your place now\" kept in the share text (not \"Book now\").",

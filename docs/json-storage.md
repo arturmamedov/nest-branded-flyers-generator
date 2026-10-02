@@ -22,6 +22,8 @@ data/                     wherever config.php's dataDir points (PHP) or DATA_DIR
   flyers/
     index.json            what the library lists: one row per flyer, archived ones included
     <id>.json             the flyer itself, including its whole `data` object
+  ai-usage/
+    YYYY-MM.json          the AI ledger: one row per generation attempted that month (Canary Islands days); appears on the first append
   .lock                   the lock file (PHP) — Node uses a `.lock.d` folder next to it
   .htaccess, index.html   written by the drivers, so the folder denies itself wherever it lives
   php-errors.log          PHP's error log, when the folder is writable; not part of the library
@@ -72,6 +74,16 @@ moves between machines. The API hands the same string out as the photo's `url`.
   the first JSON migration adds its id here and a runner alongside it.
 - `seedHash` is the sha256 of `seed/hostels.json` as last applied. PHP re-seeds inside a request whenever the file
   changes (there is no cron on the host); Node seeds through `npm run seed`.
+
+## The AI ledger
+
+`ai-usage/YYYY-MM.json` holds one record per generation the AI assistant attempted, appended and never edited
+(`$defs.aiUsage`): when, the Canary Islands day it counts for, the actor, the feature, the provider and model, the
+tokens, whether the answer passed validation, the text the model was given and its raw answer. The daily cap is the
+count of a day's `ok` records for the actor; the rest is the eval and few-shot set to be. The folder and a month's file
+appear on the first append, so a read never writes, and a release from before the ledger ignores them: the records
+carry no id, so `meta.json`'s counters are untouched, and no migration id is needed. The copy tool carries the ledger
+with the library.
 
 ## Moving a library in
 

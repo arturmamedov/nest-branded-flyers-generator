@@ -5,12 +5,13 @@ import { z } from 'zod';
 import { flyerFromBrief } from '../../src/shared/brief.js';
 import { lintFlyer } from '../../src/shared/copyRules.js';
 import {
-  BriefSchema,
+  AiExampleSchema,
   ErrorEnvelopeSchema,
   FlyerInputSchema,
   FlyerListItemSchema,
   FlyerSavedSchema,
   HostelSchema,
+  type AiExample,
 } from '../../src/shared/schema.js';
 import { WRITE_HEADERS } from '../../src/shared/writeGuard.js';
 import { basicAuthHeader, flyersTarget, type RemoteSite } from '../env.js';
@@ -21,19 +22,6 @@ import { basicAuthHeader, flyersTarget, type RemoteSite } from '../env.js';
    it and picks the id, so a flyer a manager saves meanwhile is never overwritten. Text only: photos are added in the
    editor. Each file is a record of docs/ai-flyers/examples (README there): the staff text as sent, and the brief
    written from it. A brief already on the site is skipped, so a folder can be sent again. */
-
-const ExampleSchema = z.strictObject({
-  /** The staff member's text, exactly as it came. */
-  source: z.string(),
-  brief: BriefSchema,
-  /** What had to be asked because the text left it out, and the answer: the questions the AI assistant must ask. */
-  asked: z.array(z.strictObject({ question: z.string(), answer: z.string() })).optional(),
-  /** What was decided while writing the brief, and the owner's corrections: the lessons for the AI assistant. */
-  notes: z.string().optional(),
-  /** Where it was saved: written back after each save to a deployment (never to a local proof server). */
-  posted: z.array(z.strictObject({ site: z.string(), id: z.number().int().positive(), at: z.string() })).optional(),
-});
-type Example = z.infer<typeof ExampleSchema>;
 
 /** A flyer as the site sends it, its data unparsed: parsing would fill the very defaults the check looks for. */
 const RawPayloadSchema = z.object({ flyer: z.object({ data: z.record(z.string(), z.unknown()) }) });
@@ -100,7 +88,8 @@ async function main() {
   for (const file of exampleFiles(positionals)) {
     const label = file.replace(/\\/g, '/');
     try {
-      const example: Example = ExampleSchema.parse(JSON.parse(readFileSync(file, 'utf8')));
+      // The file's shape is AiExampleSchema (src/shared/schema.ts): the same files feed the AI assistant's few-shot.
+      const example: AiExample = AiExampleSchema.parse(JSON.parse(readFileSync(file, 'utf8')));
       const { brief } = example;
       const before = example.posted?.find((p) => p.site === target.baseUrl);
       if (before) {

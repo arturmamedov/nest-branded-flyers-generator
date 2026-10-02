@@ -13,6 +13,13 @@ export interface DerivedChip {
 
 export const DEFAULT_CHIP_ORDER: ChipKey[] = ['when', 'where', 'cost'];
 
+/** A chip value's longest form, in code points, as zod and the PHP validator count them: two facts round a `·`.
+    schema.ts takes it for the flyer and for a brief alike, and the AI's prompt lists it. */
+export const CHIP_VALUE_MAX = 90;
+
+/** The label beside it ("When"). */
+export const CHIP_LABEL_MAX = 12;
+
 export function splitDot(value: string): string[] {
   return String(value || '')
     .split('·')

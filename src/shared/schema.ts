@@ -1,4 +1,7 @@
 import { z } from 'zod';
+import { AI_INPUT_MAX } from './ai.js';
+import { CHIP_LABEL_MAX, CHIP_VALUE_MAX } from './chips.js';
+import { EXTRA_MAX, EXTRAS_MAX } from './extras.js';
 import { TITLE_MAX } from './names.js';
 import { DEFAULT_CROP, ZOOM_MAX, ZOOM_MIN } from './photo.js';
 import { SHARE_MAX } from './share.js';
@@ -15,8 +18,8 @@ export type ChipKey = z.infer<typeof ChipKeySchema>;
 
 export const ChipSchema = z.object({
   key: ChipKeySchema,
-  label: z.string().max(12),
-  value: z.string().max(90),
+  label: z.string().max(CHIP_LABEL_MAX),
+  value: z.string().max(CHIP_VALUE_MAX),
 });
 export type Chip = z.infer<typeof ChipSchema>;
 
@@ -91,7 +94,7 @@ export const FlyerDataSchema = z.object({
   showPill: z.boolean().default(true),
   text: TextSchema,
   chips: z.array(ChipSchema).max(3),
-  extras: z.array(z.string().max(32)).max(4),
+  extras: z.array(z.string().max(EXTRA_MAX)).max(EXTRAS_MAX),
   week: z.array(WeekRowSchema).max(WEEK_ROWS_MAX).default([]),
   colors: ColorsSchema,
   overrides: z.record(z.string(), OverrideSchema).default({}),
@@ -117,21 +120,99 @@ export type FlyerInput = z.infer<typeof FlyerInputSchema>;
 
 /* ---- A brief: a flyer described by its copy alone (brief.ts) ---- */
 
-/** Strict, so a misspelt key in a brief file is an error, never a field silently left at its default. The limits
-    are checked on the flyer it builds (FlyerInputSchema), where they are defined. */
+/** Strict, so a misspelt key in a brief file is an error, never a field silently left at its default. It carries every
+    limit the flyer has, from the same constants FlyerDataSchema takes them from: a brief that passes always builds a
+    flyer the API saves, which is what the AI's answer is held to on both backends (PHP has no flyerFromBrief). */
 export const BriefSchema = z.strictObject({
-  hostel: z.string().nullable(),
+  hostel: z.string().max(60).nullable(),
   template: TemplateSchema,
-  title: z.string().optional(),
+  title: z.string().max(TITLE_MAX).optional(),
   text: TextSchema.partial().strict().optional(),
-  when: z.string().optional(),
-  where: z.string().optional(),
-  cost: z.string().optional(),
-  extras: z.array(z.string()).optional(),
-  week: z.array(WeekRowSchema.strict()).optional(),
-  share: z.string().optional(),
+  when: z.string().max(CHIP_VALUE_MAX).optional(),
+  where: z.string().max(CHIP_VALUE_MAX).optional(),
+  cost: z.string().max(CHIP_VALUE_MAX).optional(),
+  extras: z.array(z.string().max(EXTRA_MAX)).max(EXTRAS_MAX).optional(),
+  week: z.array(WeekRowSchema.strict()).max(WEEK_ROWS_MAX).optional(),
+  share: z.string().max(SHARE_MAX).optional(),
 });
 export type Brief = z.infer<typeof BriefSchema>;
+
+/* ---- The AI assistant (docs/prompts/ai-assistant.md): what its routes take, and what the model fills ---- */
+
+/** One thing the text left out, and what the model went with: `field` is the brief key, `note` the staff's check. */
+export const AiAssumptionSchema = z.strictObject({ field: z.string().max(40), note: z.string().max(200) });
+export type AiAssumption = z.infer<typeof AiAssumptionSchema>;
+
+/** POST api/ai/flyer: the idea, and the hostel when the staff member chose one (else the model decides). */
+export const AiFlyerRequestSchema = z.strictObject({
+  text: trimmedString(1, AI_INPUT_MAX),
+  hostel: z.string().max(60).optional(),
+});
+export type AiFlyerRequest = z.infer<typeof AiFlyerRequestSchema>;
+
+/** What the model answers: generated into schema/ai.json, and what each provider's structured output is held to. */
+export const AiFlyerAnswerSchema = z.strictObject({
+  brief: BriefSchema,
+  assumptions: z.array(AiAssumptionSchema).max(12),
+});
+export type AiFlyerAnswer = z.infer<typeof AiFlyerAnswerSchema>;
+
+/** The route's answer: the model's, plus how many generations the actor has left today. */
+export const AiFlyerResultSchema = AiFlyerAnswerSchema.extend({ remaining: z.number().int().nonnegative() });
+export type AiFlyerResult = z.infer<typeof AiFlyerResultSchema>;
+
+/** POST api/ai/share: the flyer as the editor holds it, and the idea it came from when the AI made it. */
+export const AiShareRequestSchema = z.strictObject({
+  hostel: z.string().max(60).nullable(),
+  template: TemplateSchema,
+  data: FlyerDataSchema,
+  idea: z.string().max(AI_INPUT_MAX).optional(),
+});
+export type AiShareRequest = z.infer<typeof AiShareRequestSchema>;
+
+export const AiShareAnswerSchema = z.strictObject({ share: z.string().max(SHARE_MAX) });
+export type AiShareAnswer = z.infer<typeof AiShareAnswerSchema>;
+
+export const AiShareResultSchema = AiShareAnswerSchema.extend({ remaining: z.number().int().nonnegative() });
+export type AiShareResult = z.infer<typeof AiShareResultSchema>;
+
+/** The `ai` block of GET api/config: nothing beyond `enabled: false` when AI is off (no key, switched off, or a
+    guest), the actor's limit and what is left of it today when on. */
+export const AiConfigSchema = z.discriminatedUnion('enabled', [
+  z.strictObject({ enabled: z.literal(false) }),
+  z.strictObject({ enabled: z.literal(true), limit: z.number().int().nonnegative(), remaining: z.number().int().nonnegative() }),
+]);
+export type AiConfig = z.infer<typeof AiConfigSchema>;
+
+/** schema/ai.json, as `npm run gen` writes it and both backends read it: the prompts (with their limits rendered in),
+    the few-shot examples, and the schemas the providers are held to. Checked on load, so a stale bundle fails at
+    start-up, not on a staff member's request. */
+export const AiBundleSchema = z.strictObject({
+  prompts: z.strictObject({ flyer: z.string().min(1), share: z.string().min(1) }),
+  examples: z.array(z.strictObject({ text: z.string(), answer: AiFlyerAnswerSchema })),
+  schemas: z.strictObject({
+    flyerAnswer: z.record(z.string(), z.unknown()),
+    shareAnswer: z.record(z.string(), z.unknown()),
+    flyerRequest: z.record(z.string(), z.unknown()),
+    shareRequest: z.record(z.string(), z.unknown()),
+  }),
+});
+export type AiBundle = z.infer<typeof AiBundleSchema>;
+
+/** A file of docs/ai-flyers/examples: a staff text and the brief written from it (the few-shot and eval set). */
+export const AiExampleSchema = z.strictObject({
+  /** The staff member's text, exactly as it came. */
+  source: z.string(),
+  brief: BriefSchema,
+  /** What the text left out and had to be asked, with the answer and the brief key it settled: the assistant,
+      which cannot ask, learns from these what to assume and to say so. */
+  asked: z.array(z.strictObject({ question: z.string(), answer: z.string().max(200), field: z.string().max(40) })).optional(),
+  /** What was decided while writing the brief, and the owner's corrections: the lessons for the AI assistant. */
+  notes: z.string().optional(),
+  /** Where it was saved: written back after each save to a deployment (never to a local proof server). */
+  posted: z.array(z.strictObject({ site: z.string(), id: z.number().int().positive(), at: z.string() })).optional(),
+});
+export type AiExample = z.infer<typeof AiExampleSchema>;
 
 /* ---- API responses: the contract suite parses every answer with these, on every backend ---- */
 
@@ -211,6 +292,7 @@ export const ApiConfigSchema = z.strictObject({
     maxPhotoEdge: z.number().int().positive(),
   }),
   server: z.record(z.string(), z.unknown()),
+  ai: AiConfigSchema,
 });
 export type ApiConfig = z.infer<typeof ApiConfigSchema>;
 

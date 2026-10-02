@@ -25,12 +25,15 @@ export const API_ERRORS = {
   no_photo_field: { status: 400, code: 'invalid', message: 'Attach the photo as the "photo" field.' },
   bad_format: { status: 400, code: 'invalid', message: 'format must be png or jpg.' },
   bad_canvas: { status: 400, code: 'invalid', message: `canvas must be ${canvasList}.` },
+  ai_input: { status: 400, code: 'invalid', message: 'Write the idea first: a few lines about the event, up to {max} characters.' },
   unauthorized: { status: 401, code: 'unauthorized', message: 'Sign in to use the flyer generator.' },
   forbidden: { status: 403, code: 'forbidden', message: `Missing ${WRITE_GUARD.header} header.` },
   ip_forbidden: { status: 403, code: 'forbidden', message: 'This network is not allowed to use the flyer generator.' },
+  ai_forbidden: { status: 403, code: 'forbidden', message: 'Your account can’t use the AI.' },
   no_such_flyer: { status: 404, code: 'not_found', message: 'No such flyer.' },
   no_such_endpoint: { status: 404, code: 'not_found', message: 'No such endpoint.' },
   not_found: { status: 404, code: 'not_found', message: 'Not found.' },
+  ai_off: { status: 404, code: 'not_found', message: 'The AI is switched off on this site.' },
   too_large: { status: 413, code: 'too_large', message: 'That photo is over {mb} MB. Use a smaller JPG.' },
   too_many_pixels: {
     status: 413,
@@ -45,12 +48,16 @@ export const API_ERRORS = {
   },
   unreadable: { status: 415, code: 'unsupported', message: 'That file is not an image we can read. Use a JPG, PNG or WebP.' },
   unsupported_format: { status: 415, code: 'unsupported', message: '{format} files are not supported. Use a JPG, PNG or WebP.' },
+  /* The cap resets at midnight in the Canary Islands (AI_DAY_ZONE), so the message can say when without a variable. */
+  ai_quota: { status: 429, code: 'ai_quota', message: 'Today’s {limit} AI generations are used up. They come back at midnight, Canary Islands time.' },
   server_error: { status: 500, code: 'server_error', message: 'Something went wrong on the server.' },
   storage_too_new: {
     status: 500,
     code: 'server_error',
     message: 'The data folder was written by a newer version of this app. Update the app before using it.',
   },
+  /* A timeout, a provider error, or an answer that failed the schema: nothing is charged against the cap. */
+  ai_failed: { status: 502, code: 'ai_failed', message: 'The AI didn’t answer properly. Try again in a moment.' },
   not_configured: {
     status: 503,
     code: 'not_configured',
