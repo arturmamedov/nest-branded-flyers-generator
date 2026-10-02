@@ -17,6 +17,8 @@ export const ASSETS_DIR = join(APP_ROOT, 'assets');
 export const ART_DIR = join(ASSETS_DIR, 'art');
 export const DIST_DIR = join(APP_ROOT, 'dist');
 export const SEED_FILE = join(APP_ROOT, 'seed', 'hostels.json');
+/** The AI assistant's bundle (npm run gen): the prompts, the examples and the schemas both backends read. */
+export const AI_BUNDLE_FILE = join(APP_ROOT, 'schema', 'ai.json');
 /** The one robots.txt: php/web is the PHP release's root, which ships it as it is, and Express serves the same file. */
 export const ROBOTS_FILE = join(APP_ROOT, 'php', 'web', 'robots.txt');
 export const FIXTURE_PHOTOS_DIR = join(APP_ROOT, 'fixtures', 'photos');

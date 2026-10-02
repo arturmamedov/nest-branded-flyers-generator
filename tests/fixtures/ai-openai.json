@@ -1,0 +1,168 @@
+{
+  "_note": "The OpenAI adapter (server/ai/providers/openai.ts; PHP Ai\\OpenAiProvider): the Responses API request built for one call, and what each recorded answer becomes. Both backends must send these bytes and read these answers alike. The key is 'test-key'; no failure may carry it.",
+  "call": {
+    "system": "SYSTEM",
+    "messages": [
+      { "role": "user", "content": "Example text" },
+      { "role": "assistant", "content": "{\"a\":1}" },
+      { "role": "user", "content": "The real text" }
+    ],
+    "schema": {
+      "type": "object",
+      "properties": { "a": { "type": "integer" }, "b": { "type": "string", "maxLength": 5 } },
+      "required": ["a"],
+      "additionalProperties": false
+    },
+    "schemaName": "nest_test",
+    "maxOutputTokens": 8000,
+    "timeoutMs": 25000
+  },
+  "requests": [
+    {
+      "name": "the default: no effort setting",
+      "config": { "apiKey": "test-key", "model": "gpt-6-luna", "effort": null },
+      "url": "https://api.openai.com/v1/responses",
+      "headers": { "Authorization": "Bearer test-key", "Content-Type": "application/json" },
+      "body": {
+        "model": "gpt-6-luna",
+        "instructions": "SYSTEM",
+        "input": [
+          { "role": "user", "content": "Example text" },
+          { "role": "assistant", "content": "{\"a\":1}" },
+          { "role": "user", "content": "The real text" }
+        ],
+        "text": {
+          "format": {
+            "type": "json_schema",
+            "name": "nest_test",
+            "schema": {
+              "type": "object",
+              "properties": { "a": { "type": "integer" }, "b": { "anyOf": [{ "type": "string", "maxLength": 5 }, { "type": "null" }] } },
+              "required": ["a", "b"],
+              "additionalProperties": false
+            },
+            "strict": true
+          }
+        },
+        "max_output_tokens": 8000,
+        "store": false
+      }
+    },
+    {
+      "name": "with an effort setting",
+      "config": { "apiKey": "test-key", "model": "gpt-6-luna", "effort": "low" },
+      "url": "https://api.openai.com/v1/responses",
+      "headers": { "Authorization": "Bearer test-key", "Content-Type": "application/json" },
+      "body": {
+        "model": "gpt-6-luna",
+        "instructions": "SYSTEM",
+        "input": [
+          { "role": "user", "content": "Example text" },
+          { "role": "assistant", "content": "{\"a\":1}" },
+          { "role": "user", "content": "The real text" }
+        ],
+        "text": {
+          "format": {
+            "type": "json_schema",
+            "name": "nest_test",
+            "schema": {
+              "type": "object",
+              "properties": { "a": { "type": "integer" }, "b": { "anyOf": [{ "type": "string", "maxLength": 5 }, { "type": "null" }] } },
+              "required": ["a", "b"],
+              "additionalProperties": false
+            },
+            "strict": true
+          }
+        },
+        "max_output_tokens": 8000,
+        "store": false,
+        "reasoning": { "effort": "low" }
+      }
+    }
+  ],
+  "answers": [
+    {
+      "name": "a completed answer: the JSON, an optional key's null dropped, the usage and the model",
+      "status": 200,
+      "body": {
+        "id": "resp_1",
+        "object": "response",
+        "status": "completed",
+        "model": "gpt-6-luna",
+        "output": [
+          { "type": "reasoning", "id": "rs_1", "summary": [] },
+          { "type": "message", "id": "msg_1", "role": "assistant", "status": "completed", "content": [{ "type": "output_text", "text": "{\"a\":1,\"b\":null}", "annotations": [] }] }
+        ],
+        "usage": { "input_tokens": 120, "output_tokens": 40, "output_tokens_details": { "reasoning_tokens": 10 }, "total_tokens": 160 }
+      },
+      "result": { "json": { "a": 1 }, "raw": "{\"a\":1,\"b\":null}", "usage": { "input": 120, "output": 40 }, "model": "gpt-6-luna" }
+    },
+    {
+      "name": "a refusal",
+      "status": 200,
+      "body": {
+        "id": "resp_2",
+        "status": "completed",
+        "model": "gpt-6-luna",
+        "output": [{ "type": "message", "id": "msg_2", "role": "assistant", "status": "completed", "content": [{ "type": "refusal", "refusal": "I can't help with that." }] }],
+        "usage": { "input_tokens": 120, "output_tokens": 12 }
+      },
+      "failure": "refused"
+    },
+    {
+      "name": "cut by max_output_tokens",
+      "status": 200,
+      "body": {
+        "id": "resp_3",
+        "status": "incomplete",
+        "incomplete_details": { "reason": "max_output_tokens" },
+        "model": "gpt-6-luna",
+        "output": [{ "type": "message", "id": "msg_3", "role": "assistant", "status": "incomplete", "content": [{ "type": "output_text", "text": "{\"a\":", "annotations": [] }] }],
+        "usage": { "input_tokens": 120, "output_tokens": 8000 }
+      },
+      "failure": "cut"
+    },
+    {
+      "name": "the provider failed the request",
+      "status": 200,
+      "body": { "id": "resp_4", "status": "failed", "error": { "code": "server_error", "message": "The server had an error while processing your request." }, "model": "gpt-6-luna", "output": [], "usage": null },
+      "failure": "provider"
+    },
+    {
+      "name": "an HTTP error: a bad key, whose message echoes it",
+      "status": 401,
+      "body": { "error": { "message": "Incorrect API key provided: test-key. You can find your API key at https://platform.openai.com.", "type": "invalid_request_error", "param": null, "code": "invalid_api_key" } },
+      "failure": "provider"
+    },
+    {
+      "name": "an HTTP error: rate limited",
+      "status": 429,
+      "body": { "error": { "message": "Rate limit reached for gpt-6-luna.", "type": "rate_limit_error", "param": null, "code": "rate_limit_exceeded" } },
+      "failure": "provider"
+    },
+    {
+      "name": "a body that is not JSON (a proxy's page)",
+      "status": 502,
+      "text": "<html><body>Bad gateway</body></html>",
+      "failure": "provider"
+    },
+    {
+      "name": "text that is not JSON",
+      "status": 200,
+      "body": {
+        "id": "resp_5",
+        "status": "completed",
+        "model": "gpt-6-luna",
+        "output": [{ "type": "message", "id": "msg_5", "role": "assistant", "status": "completed", "content": [{ "type": "output_text", "text": "Sure! Here is the brief: a = 1", "annotations": [] }] }],
+        "usage": { "input_tokens": 120, "output_tokens": 12 }
+      },
+      "failure": "bad_output"
+    },
+    {
+      "name": "no message in the output",
+      "status": 200,
+      "body": { "id": "resp_6", "status": "completed", "model": "gpt-6-luna", "output": [{ "type": "reasoning", "id": "rs_6", "summary": [] }], "usage": { "input_tokens": 120, "output_tokens": 2 } },
+      "failure": "bad_output"
+    }
+  ]
+}

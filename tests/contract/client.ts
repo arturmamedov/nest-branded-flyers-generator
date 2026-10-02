@@ -24,6 +24,8 @@ declare module 'vitest' {
     basicAuth?: BasicAuth;
     /** True when the suite runs against a deployment (CONTRACT_BASE_URL) rather than a local backend. */
     remote?: boolean;
+    /** The AI provider the setup wired, when it wired one: 'fake' on node-ai and php-ai, which alone generate. */
+    aiProvider?: 'fake';
   }
 }
 

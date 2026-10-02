@@ -54,6 +54,8 @@ export default defineConfig({
       : [
           { test: { ...shared, name: 'node', globalSetup: ['tests/contract/setup/node.ts'] } },
           { test: { ...shared, name: 'node-json', globalSetup: ['tests/contract/setup/node.ts'] } },
+          // The AI routes with the fake provider wired (setup/node.ts): the only project that generates.
+          { test: { ...shared, name: 'node-ai', include: ['tests/contract/ai.test.ts'], globalSetup: ['tests/contract/setup/node.ts'] } },
           { test: { ...shared, name: 'php', globalSetup: ['tests/contract/setup/php.ts'], fileParallelism: false } },
           {
             test: { ...shared, name: 'php-basic', include: SIGNED_IN_FILES, globalSetup: ['tests/contract/setup/php.ts'], fileParallelism: false },

@@ -20,6 +20,8 @@ import {
 } from '../src/shared/schema.js';
 import type { StoredDoodle, StoredPhoto } from '../src/shared/storage.js';
 import { WRITE_GUARD } from '../src/shared/writeGuard.js';
+import { anonymousActors, type ActorResolver } from './ai/actor.js';
+import type { AiService } from './ai/service.js';
 import type { StorageDriver } from './config.js';
 import { HttpError } from './errors.js';
 import { ASSETS_DIR, DIST_DIR, ROBOTS_FILE } from './paths.js';
@@ -40,6 +42,10 @@ export interface AppDeps {
   vite?: ViteDevServer;
   /** Changes with every renderer build, so a deploy invalidates cached renders. */
   buildId: string;
+  /** The AI assistant, when a provider is configured (server/ai/composition.ts); absent means off: ai_off. */
+  ai?: AiService;
+  /** Who is asking; every request is the one anonymous actor until the login brief (server/ai/actor.ts). */
+  actors?: ActorResolver;
 }
 
 const idParam = (req: Request) => {
@@ -76,26 +82,29 @@ export function createApp(deps: AppDeps) {
     next();
   });
 
-  api.get('/config', (_req, res) => {
+  const actors = deps.actors ?? anonymousActors;
+
+  api.get('/config', async (req, res) => {
     const config: ApiConfig = {
       backend: 'node',
       storage: deps.storage,
       exporters: deps.renderer ? ['client', 'server'] : ['client'],
       limits: { maxUploadBytes: MAX_UPLOAD_BYTES, maxPhotoEdge: MAX_PHOTO_EDGE },
       server: { node: process.version },
-      // The AI assistant (docs/prompts/ai-assistant.md) is off until a provider is wired: nothing beyond `enabled: false`.
-      ai: { enabled: false },
+      // The AI assistant for this actor (docs/prompts/ai-assistant.md): nothing beyond `enabled: false` when off.
+      ai: deps.ai ? await deps.ai.status(actors.resolve(req)) : { enabled: false },
     };
     res.json(config);
   });
 
   // The AI assistant's routes exist whether or not a provider is configured, so a caller learns it is off (ai_off)
-  // rather than that the path is unknown. The provider seam is wired in Phase 2 of docs/prompts/ai-assistant.md.
-  api.post('/ai/flyer', () => {
-    throw new HttpError('ai_off');
+  // rather than that the path is unknown. The service owns every other check (server/ai/service.ts).
+  const ai = () => deps.ai ?? (() => { throw new HttpError('ai_off'); })();
+  api.post('/ai/flyer', async (req, res) => {
+    res.json(await ai().flyer(actors.resolve(req), req.body));
   });
-  api.post('/ai/share', () => {
-    throw new HttpError('ai_off');
+  api.post('/ai/share', async (req, res) => {
+    res.json(await ai().share(actors.resolve(req), req.body));
   });
 
   api.get('/hostels', async (_req, res) => {
