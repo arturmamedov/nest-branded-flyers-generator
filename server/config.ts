@@ -35,18 +35,22 @@ export interface Config {
 const WILDCARD = new Set(['0.0.0.0', '::', '127.0.0.1', 'localhost', '::1']);
 const OFF = new Set(['0', 'false', 'off', 'no']);
 
+/* A refusal names the setting and never repeats its value, as PHP's AiConfig does: these lines are typed by hand next
+   to the key, and a key pasted on the wrong one would be printed back. */
 export function loadAiSettings(env: NodeJS.ProcessEnv): AiSettings {
   const provider = (env.AI_PROVIDER || null) as AiProvider | null;
-  if (provider !== null && !AI_PROVIDERS.includes(provider)) throw new Error(`AI_PROVIDER must be one of ${AI_PROVIDERS.join(', ')} (got ${env.AI_PROVIDER})`);
+  if (provider !== null && !AI_PROVIDERS.includes(provider)) throw new Error(`AI_PROVIDER must be one of ${AI_PROVIDERS.join(', ')}`);
   const apiKey = env.AI_API_KEY || null;
   const model = provider === null ? null : env.AI_MODEL || (provider === 'fake' ? FAKE_MODEL : AI_DEFAULT_MODEL[provider]);
   const keyed = provider === 'fake' || apiKey !== null;
+  const timeoutMs = Number(env.AI_TIMEOUT_MS || AI_TIMEOUT_MS);
+  if (!Number.isInteger(timeoutMs) || timeoutMs <= 0) throw new Error('AI_TIMEOUT_MS must be a positive whole number of milliseconds');
   return {
     provider,
     apiKey,
     model,
     effort: env.AI_EFFORT || null,
-    timeoutMs: Number(env.AI_TIMEOUT_MS || AI_TIMEOUT_MS),
+    timeoutMs,
     enabled: provider !== null && keyed && !OFF.has((env.AI_ENABLED ?? '').trim().toLowerCase()),
   };
 }

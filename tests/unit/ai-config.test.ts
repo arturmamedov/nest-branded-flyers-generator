@@ -45,6 +45,31 @@ describe('AI settings', () => {
     expect(() => load({ AI_PROVIDER: 'bard' })).toThrow(/AI_PROVIDER/);
   });
 
+  it('never repeats the value it refuses: a key pasted on the wrong line would be one', () => {
+    const pasted = 'sk-live-secret-42';
+    const said = (env: Record<string, string>) => {
+      try {
+        load(env);
+      } catch (e) {
+        return (e as Error).message;
+      }
+      return 'nothing: it was accepted';
+    };
+    expect(said({ AI_PROVIDER: pasted })).toMatch(/AI_PROVIDER/);
+    expect(said({ AI_PROVIDER: pasted })).not.toContain(pasted);
+    expect(said({ AI_PROVIDER: 'openai', AI_API_KEY: 'k', AI_TIMEOUT_MS: pasted })).toMatch(/AI_TIMEOUT_MS/);
+    expect(said({ AI_PROVIDER: 'openai', AI_API_KEY: 'k', AI_TIMEOUT_MS: pasted })).not.toContain(pasted);
+  });
+
+  it('refuses a time limit that is not a positive whole number of milliseconds, as PHP does', () => {
+    for (const bad of ['25s', '0', '-5', '1.5']) {
+      expect(() => load({ AI_PROVIDER: 'openai', AI_API_KEY: 'k', AI_TIMEOUT_MS: bad }), bad).toThrow(/AI_TIMEOUT_MS/);
+    }
+    // Checked like the provider's name: whether or not the AI is on.
+    expect(() => load({ AI_TIMEOUT_MS: 'soon' })).toThrow(/AI_TIMEOUT_MS/);
+    expect(load({ AI_TIMEOUT_MS: '' }).timeoutMs).toBe(AI_TIMEOUT_MS);
+  });
+
   it('every setting is in .env.example, commented out', () => {
     const example = readFileSync(join(APP_ROOT, '.env.example'), 'utf8');
     for (const name of ['AI_PROVIDER', 'AI_API_KEY', 'AI_MODEL', 'AI_EFFORT', 'AI_TIMEOUT_MS', 'AI_ENABLED']) expect(example).toMatch(new RegExp(`^# ?${name}=`, 'm'));
