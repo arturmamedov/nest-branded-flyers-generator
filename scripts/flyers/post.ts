@@ -6,7 +6,7 @@ import { flyerFromBrief } from '../../src/shared/brief.js';
 import { lintFlyer } from '../../src/shared/copyRules.js';
 import { AiExampleSchema, FlyerInputSchema, FlyerListItemSchema, FlyerSavedSchema, HostelSchema, type AiExample } from '../../src/shared/schema.js';
 import { flyersTarget, type RemoteSite } from '../env.js';
-import { siteCaller } from '../site.js';
+import { issues, siteCaller } from '../site.js';
 
 /* npm run flyers:post -- <example files or folders…> [--to <app root>] [--dry-run]
 
@@ -19,9 +19,6 @@ import { siteCaller } from '../site.js';
 const RawPayloadSchema = z.object({ flyer: z.object({ data: z.record(z.string(), z.unknown()) }) });
 
 const LOOPBACK = new Set(['127.0.0.1', 'localhost', '[::1]']);
-
-/** Each bad field on its own, by its dotted path, as the API names them. */
-const issues = (e: z.ZodError) => e.issues.map((i) => `${i.path.join('.') || '_'}: ${i.message}`).join('; ');
 
 function exampleFiles(paths: string[]): string[] {
   return paths.flatMap((p) =>

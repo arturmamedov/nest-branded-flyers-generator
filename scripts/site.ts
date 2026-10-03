@@ -23,6 +23,9 @@ export class SiteError extends Error {
 
 export type SiteCall = <S extends z.ZodType>(method: string, path: string, schema: S, body?: unknown) => Promise<z.infer<S>>;
 
+/** What failed a schema (an answer, or a file a script was given), each bad field by its dotted path, as the API names them. */
+export const issues = (e: z.ZodError): string => e.issues.map((i) => `${i.path.join('.') || '_'}: ${i.message}`).join('; ');
+
 /** The text as JSON, or undefined when it is none (a host's own error page, an empty body). */
 function parseJson(text: string): unknown {
   try {
