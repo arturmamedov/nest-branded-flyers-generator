@@ -88,9 +88,23 @@ final class Shared
         return '~' . $this->data['storage']['photoPath'] . '~';
     }
 
-    /** @return array{meta:string, hostels:string, doodles:string, photos:string, flyerIndex:string, flyerDir:string, lock:string} */
+    /** @return array{meta:string, hostels:string, doodles:string, photos:string, flyerIndex:string, flyerDir:string, aiUsageDir:string, lock:string} */
     public function storageFiles(): array
     {
         return $this->data['storage']['files'];
+    }
+
+    /**
+     * The AI assistant's facts (src/shared/ai.ts): the daily cap, the longest idea, the day's zone, the provider call's
+     * limits, the providers and their default models, the answer formats' names, and the fake provider's.
+     *
+     * @return array{dailyLimit:int, inputMax:int, features:list<string>, dayZone:string, timeoutMs:int,
+     *     maxOutputTokens:int, providers:list<string>, defaultModel:array<string, string>,
+     *     schemaNames:array{flyer:string, share:string},
+     *     fake:array{model:string, unknownHostel:string, markers:array{invalid:string, unknownHostel:string, timeout:string, refused:string}}}
+     */
+    public function ai(): array
+    {
+        return $this->data['ai'];
     }
 }
