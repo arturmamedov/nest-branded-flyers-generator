@@ -70,6 +70,12 @@ describe('the AI bundle (schema/ai.json) and the ai block of shared.json', () =>
       maxOutputTokens: 8000,
       providers: ['openai', 'anthropic', 'fake'],
       defaultModel: { openai: 'gpt-6-luna', anthropic: 'claude-haiku-4-5' },
+      schemaNames: { flyer: 'nest_flyer_brief', share: 'nest_share_text' },
+      fake: {
+        model: 'fake-1',
+        unknownHostel: 'no-such-nest',
+        markers: { invalid: '[[fake:invalid]]', unknownHostel: '[[fake:unknown-hostel]]', timeout: '[[fake:timeout]]', refused: '[[fake:refused]]' },
+      },
     });
   });
 

@@ -1,4 +1,4 @@
-import type { AiProvider } from '../../src/shared/ai.js';
+import { AI_SCHEMA_NAMES, type AiProvider } from '../../src/shared/ai.js';
 
 /* The provider seam (docs/prompts/ai-assistant.md): one method, one shape in, one shape out, a typed failure.
    Three implementations behind it (providers/): OpenAI and Anthropic over HTTPS, and the fake the tests run on.
@@ -65,5 +65,5 @@ export interface ProviderConfig {
   effort: string | null;
 }
 
-/** The names the two features' answer formats go by, on the wire and in the fake. */
-export const SCHEMA_NAMES = { flyer: 'nest_flyer_brief', share: 'nest_share_text' } as const;
+/** The names the two features' answer formats go by, on the wire and in the fake (src/shared/ai.ts, shared with PHP). */
+export const SCHEMA_NAMES = AI_SCHEMA_NAMES;

@@ -31,6 +31,24 @@ export const AI_DEFAULT_MODEL: Record<Exclude<AiProvider, 'fake'>, string> = {
   anthropic: 'claude-haiku-4-5',
 };
 
+/** The names the two features' answer formats go by: on the wire (OpenAI's `text.format.name`) and in the fake. */
+export const AI_SCHEMA_NAMES = { flyer: 'nest_flyer_brief', share: 'nest_share_text' } as const;
+
+/** The fake provider both backends ship for the tests and a demo (docs/api-contract.md, "The AI assistant"): its model
+    name, the slug it makes up, and the markers in the last user turn that steer it. */
+export const AI_FAKE = {
+  model: 'fake-1',
+  unknownHostel: 'no-such-nest',
+  markers: {
+    /** An answer that fails the schema. */
+    invalid: '[[fake:invalid]]',
+    /** A brief for a hostel the site does not have. */
+    unknownHostel: '[[fake:unknown-hostel]]',
+    timeout: '[[fake:timeout]]',
+    refused: '[[fake:refused]]',
+  },
+} as const;
+
 /** The block `npm run gen` writes to schema/shared.json, in this order; PHP reads it through Shared::ai(). */
 export const AI_SHARED = {
   dailyLimit: AI_DAILY_LIMIT,
@@ -41,6 +59,8 @@ export const AI_SHARED = {
   maxOutputTokens: AI_MAX_OUTPUT_TOKENS,
   providers: AI_PROVIDERS,
   defaultModel: AI_DEFAULT_MODEL,
+  schemaNames: AI_SCHEMA_NAMES,
+  fake: AI_FAKE,
 } as const;
 
 /** The parts of an instant as the Canary Islands clock shows them. */

@@ -1,22 +1,15 @@
+import { AI_FAKE } from '../../../src/shared/ai.js';
 import type { AiBundle } from '../../../src/shared/schema.js';
 import { LlmFailure, SCHEMA_NAMES, type LlmCall, type LlmProvider, type LlmResult } from '../provider.js';
 
 /* The provider the tests and a demo run on: deterministic answers from the bundle's first example, never the
-   network. The last user turn steers it (the markers below), so the contract suite can ask for every failure over
+   network. The last user turn steers it (AI_FAKE.markers), so the contract suite can ask for every failure over
    HTTP. The twin of php/src/Ai/FakeProvider.php; docs/api-contract.md names the markers. */
 
-export const FAKE_MODEL = 'fake-1';
-
-export const FAKE_MARKERS = {
-  /** An answer that fails the schema. */
-  invalid: '[[fake:invalid]]',
-  /** A brief for a hostel the site does not have. */
-  unknownHostel: '[[fake:unknown-hostel]]',
-  timeout: '[[fake:timeout]]',
-  refused: '[[fake:refused]]',
-} as const;
-
-export const FAKE_UNKNOWN_HOSTEL = 'no-such-nest';
+/** The fake's facts live in src/shared/ai.ts (AI_FAKE), so PHP's fake reads the same ones from schema/shared.json. */
+export const FAKE_MODEL = AI_FAKE.model;
+export const FAKE_MARKERS = AI_FAKE.markers;
+export const FAKE_UNKNOWN_HOSTEL = AI_FAKE.unknownHostel;
 
 export class FakeProvider implements LlmProvider {
   readonly name = 'fake' as const;
