@@ -185,28 +185,8 @@ final class AiServiceTest extends TestCase
             $brief = Json::decode(Json::encode($this->example->answer->brief));
             $brief->hostel = $this->shared->ai()['fake']['unknownHostel'];
             $raw = Json::encode((object) ['brief' => $brief, 'assumptions' => $made]);
-            $stub = new class ($raw) implements LlmProvider {
-                public function __construct(private readonly string $raw)
-                {
-                }
-
-                public function name(): string
-                {
-                    return 'fake';
-                }
-
-                public function model(): string
-                {
-                    return 'stub-1';
-                }
-
-                public function complete(LlmCall $call): LlmResult
-                {
-                    return new LlmResult(Json::decode($this->raw), $this->raw, new LlmUsage(10, 20), 'stub-1');
-                }
-            };
             $usage = new MemoryAiUsage();
-            $result = $this->service(['provider' => $stub, 'usage' => $usage])->flyer($this->actor, $this->idea());
+            $result = $this->service(['provider' => $this->answering($raw), 'usage' => $usage])->flyer($this->actor, $this->idea());
 
             self::assertCount(self::ASSUMPTIONS_MAX, $result['assumptions'], "$n from the model");
             self::assertSame('hostel', $result['assumptions'][0]->field);
@@ -218,6 +198,20 @@ final class AiServiceTest extends TestCase
             // The ledger keeps everything the model wrote, the dropped one included.
             self::assertSame([true, $raw], [$usage->records[0]['ok'], $usage->records[0]['output']]);
         }
+    }
+
+    public function testAFlyerTheModelLeftWithoutItsShareTextIsAiFailedAndChargesNothing(): void
+    {
+        // One generation is a whole flyer: the share text is part of every answer.
+        $brief = Json::decode(Json::encode($this->example->answer->brief));
+        unset($brief->share);
+        $raw = Json::encode((object) ['brief' => $brief, 'assumptions' => []]);
+        $service = $this->service(['provider' => $this->answering($raw)]);
+        $this->failsWith(fn () => $service->flyer($this->actor, $this->idea()), 'ai_failed');
+        self::assertCount(1, $this->usage->records);
+        self::assertSame([false, 'flyer', $raw], [$this->usage->records[0]['ok'], $this->usage->records[0]['feature'], $this->usage->records[0]['output']]);
+        self::assertSame(['enabled' => true, 'limit' => self::LIMIT, 'remaining' => self::LIMIT], $service->status($this->actor));
+        self::assertStringContainsString('share', $this->log());
     }
 
     public function testAnAnswerThatFailsTheSchemaIsAiFailedRecordedAndChargesNothing(): void
@@ -350,6 +344,31 @@ final class AiServiceTest extends TestCase
             $this->errors,
             new SchemaValidator(new SchemaNormalizer()),
         );
+    }
+
+    /** A provider that answers every call with this JSON, whatever it is asked: for answers the fake has no marker for. */
+    private function answering(string $raw): LlmProvider
+    {
+        return new class ($raw) implements LlmProvider {
+            public function __construct(private readonly string $raw)
+            {
+            }
+
+            public function name(): string
+            {
+                return 'fake';
+            }
+
+            public function model(): string
+            {
+                return 'stub-1';
+            }
+
+            public function complete(LlmCall $call): LlmResult
+            {
+                return new LlmResult(Json::decode($this->raw), $this->raw, new LlmUsage(10, 20), 'stub-1');
+            }
+        };
     }
 
     /** @param array<string, mixed> $ai */

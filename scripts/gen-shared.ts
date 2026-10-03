@@ -103,10 +103,14 @@ function examples(read: (rel: string) => string) {
     .sort();
   return files.map((f) => {
     const example = AiExampleSchema.parse(JSON.parse(read(`${EXAMPLES_DIR}/${f}`)));
-    return {
-      text: example.source,
-      answer: { brief: example.brief, assumptions: (example.asked ?? []).map((a) => ({ field: a.field, note: a.answer })) },
-    };
+    const answer = { brief: example.brief, assumptions: (example.asked ?? []).map((a) => ({ field: a.field, note: a.answer })) };
+    // The model is shown this as the answer to give, so it must be one the service would take: its share text included.
+    const checked = AiFlyerAnswerSchema.safeParse(answer);
+    if (!checked.success) {
+      const issues = checked.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; ');
+      throw new Error(`${EXAMPLES_DIR}/${f} cannot be a few-shot example: ${issues}`);
+    }
+    return { text: example.source, answer };
   });
 }
 

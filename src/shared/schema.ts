@@ -150,9 +150,11 @@ export const AiFlyerRequestSchema = z.strictObject({
 });
 export type AiFlyerRequest = z.infer<typeof AiFlyerRequestSchema>;
 
-/** What the model answers: generated into schema/ai.json, and what each provider's structured output is held to. */
+/** What the model answers: generated into schema/ai.json, and what each provider's structured output is held to.
+    The share text is required here, where a brief written by hand may go without: one generation is a whole flyer,
+    and a provider that takes optional keys as they are (Anthropic) otherwise leaves it out (seen 2026-10-04). */
 export const AiFlyerAnswerSchema = z.strictObject({
-  brief: BriefSchema,
+  brief: BriefSchema.required({ share: true }),
   assumptions: z.array(AiAssumptionSchema).max(AI_ASSUMPTIONS_MAX),
 });
 export type AiFlyerAnswer = z.infer<typeof AiFlyerAnswerSchema>;

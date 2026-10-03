@@ -66,6 +66,12 @@ async function failsWith(p: Promise<unknown>, key: ApiErrorKey, vars?: Record<st
 }
 
 const idea = (marker = '') => ({ text: marker ? `${example.text}\n${marker}` : example.text });
+/** A provider that answers every call with this, whatever it is asked: for answers the fake has no marker for. */
+const answering = (json: unknown): LlmProvider => ({
+  name: 'fake',
+  model: 'stub-1',
+  complete: async () => ({ json, raw: JSON.stringify(json), usage: { input: 10, output: 20 }, model: 'stub-1' }),
+});
 const shareBody = () => ({ hostel: null, template: 'activity' as const, data: newFlyerData(), idea: 'Pool party' });
 
 describe('the AI service', () => {
@@ -136,8 +142,7 @@ describe('the AI service', () => {
     for (const n of [AI_ASSUMPTIONS_MAX - 1, AI_ASSUMPTIONS_MAX]) {
       const made = Array.from({ length: n }, (_, i) => ({ field: 'cost', note: `Assumption ${i + 1}` }));
       const json = { brief: { ...example.answer.brief, hostel: FAKE_UNKNOWN_HOSTEL }, assumptions: made };
-      const provider: LlmProvider = { name: 'fake', model: 'stub-1', complete: async () => ({ json, raw: JSON.stringify(json), usage: { input: 10, output: 20 }, model: 'stub-1' }) };
-      const { service, usage } = make({ provider });
+      const { service, usage } = make({ provider: answering(json) });
       const result = await service.flyer(actor, idea());
       expect(result.assumptions, `${n} from the model`).toHaveLength(AI_ASSUMPTIONS_MAX);
       expect(result.assumptions[0].field).toBe('hostel');
@@ -148,6 +153,16 @@ describe('the AI service', () => {
       // The ledger keeps everything the model wrote, the dropped one included.
       expect(usage.records[0]).toMatchObject({ ok: true, output: JSON.stringify(json) });
     }
+  });
+
+  it('answers ai_failed for a flyer the model left without its share text, and charges nothing: one generation is a whole flyer', async () => {
+    const { share: _, ...brief } = example.answer.brief;
+    const json = { brief, assumptions: [] };
+    const { service, usage } = make({ provider: answering(json) });
+    await failsWith(service.flyer(actor, idea()), 'ai_failed');
+    expect(usage.records).toHaveLength(1);
+    expect(usage.records[0]).toMatchObject({ ok: false, feature: 'flyer', output: JSON.stringify(json) });
+    expect(await service.status(actor)).toEqual({ enabled: true, limit: AI_DAILY_LIMIT, remaining: AI_DAILY_LIMIT });
   });
 
   it('answers ai_failed for an answer that fails the schema, records it, and charges nothing', async () => {

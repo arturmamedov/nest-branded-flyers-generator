@@ -40,25 +40,37 @@ describe('AiFlyerRequestSchema', () => {
 });
 
 describe('AiFlyerAnswerSchema (what the model fills)', () => {
+  /** A brief as the model must answer it: with the flyer's share text. */
+  const answered = { ...brief, share: 'Yoga a las 9\n---\nYoga at 9' };
+
   it('is a brief plus the assumptions it made', () => {
-    const answer = { brief: { ...brief, text: { headline1: 'Yoga' } }, assumptions: [{ field: 'cost', note: 'Ask at reception' }] };
+    const answer = { brief: { ...answered, text: { headline1: 'Yoga' } }, assumptions: [{ field: 'cost', note: 'Ask at reception' }] };
     expect(AiFlyerAnswerSchema.parse(answer)).toEqual(answer);
-    expect(ok(AiFlyerAnswerSchema, { brief, assumptions: [] })).toBe(true);
+    expect(ok(AiFlyerAnswerSchema, { brief: answered, assumptions: [] })).toBe(true);
+  });
+
+  it('always carries the share text, in the model’s answer and in the route’s: one generation is a whole flyer', () => {
+    expect(ok(AiFlyerAnswerSchema, { brief, assumptions: [] })).toBe(false);
+    expect(ok(AiFlyerResultSchema, { brief, assumptions: [], remaining: 2 })).toBe(false);
+    expect(ok(AiFlyerResultSchema, { brief: answered, assumptions: [], remaining: 2 })).toBe(true);
+    // A brief written by hand (an example file's, one flyers:post saves) may still go without one.
+    expect(ok(BriefSchema, brief)).toBe(true);
   });
 
   it('refuses a missing assumptions list, a long note, and extra keys anywhere', () => {
-    expect(ok(AiFlyerAnswerSchema, { brief })).toBe(false);
-    expect(ok(AiFlyerAnswerSchema, { brief, assumptions: [{ field: 'cost', note: 'x'.repeat(201) }] })).toBe(false);
-    expect(ok(AiFlyerAnswerSchema, { brief, assumptions: [], remaining: 2 })).toBe(false);
-    expect(ok(AiFlyerAnswerSchema, { brief, assumptions: [{ field: 'cost', note: 'n', why: 'w' }] })).toBe(false);
+    expect(ok(AiFlyerAnswerSchema, { brief: answered })).toBe(false);
+    expect(ok(AiFlyerAnswerSchema, { brief: answered, assumptions: [{ field: 'cost', note: 'x'.repeat(201) }] })).toBe(false);
+    expect(ok(AiFlyerAnswerSchema, { brief: answered, assumptions: [], remaining: 2 })).toBe(false);
+    expect(ok(AiFlyerAnswerSchema, { brief: answered, assumptions: [{ field: 'cost', note: 'n', why: 'w' }] })).toBe(false);
+    expect(ok(AiFlyerAnswerSchema, { brief: { ...answered, photo: 'beach.jpg' }, assumptions: [] })).toBe(false);
   });
 
   it('holds twelve assumptions and no more, and so does the route’s answer', () => {
     const made = (n: number) => Array.from({ length: n }, () => ({ field: 'cost', note: 'Ask at reception' }));
-    expect(ok(AiFlyerAnswerSchema, { brief, assumptions: made(12) })).toBe(true);
-    expect(ok(AiFlyerAnswerSchema, { brief, assumptions: made(13) })).toBe(false);
-    expect(ok(AiFlyerResultSchema, { brief, assumptions: made(12), remaining: 2 })).toBe(true);
-    expect(ok(AiFlyerResultSchema, { brief, assumptions: made(13), remaining: 2 })).toBe(false);
+    expect(ok(AiFlyerAnswerSchema, { brief: answered, assumptions: made(12) })).toBe(true);
+    expect(ok(AiFlyerAnswerSchema, { brief: answered, assumptions: made(13) })).toBe(false);
+    expect(ok(AiFlyerResultSchema, { brief: answered, assumptions: made(12), remaining: 2 })).toBe(true);
+    expect(ok(AiFlyerResultSchema, { brief: answered, assumptions: made(13), remaining: 2 })).toBe(false);
   });
 });
 

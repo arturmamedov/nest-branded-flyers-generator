@@ -58,6 +58,28 @@ describe('the AI bundle (schema/ai.json) and the ai block of shared.json', () =>
     expect(text).not.toContain('$schema');
     expect(bundle.schemas.flyerAnswer.properties.brief.additionalProperties).toBe(false);
     expect(bundle.schemas.flyerAnswer.required).toEqual(['brief', 'assumptions']);
+    // The share text is part of every flyer the model answers, so a provider's structured output must write it.
+    expect([...bundle.schemas.flyerAnswer.properties.brief.required].sort()).toEqual(['hostel', 'share', 'template']);
+  });
+
+  it('refuses an example file without its share text: the few-shot shows the model the whole answer', () => {
+    const dir = 'docs/ai-flyers/examples';
+    const first = readdirSync(join(ROOT, dir)).filter((f) => f.endsWith('.json')).sort()[0];
+    const read = (rel: string) => {
+      const text = readFileSync(join(ROOT, rel), 'utf8');
+      if (rel !== `${dir}/${first}`) return text;
+      const example = JSON.parse(text);
+      delete example.brief.share;
+      return JSON.stringify(example);
+    };
+    let refused = '';
+    try {
+      generate(read);
+    } catch (e) {
+      refused = (e as Error).message;
+    }
+    expect(refused).toContain(`${dir}/${first}`);
+    expect(refused).toContain('brief.share');
   });
 
   it('shared.json tells PHP the AI constants', () => {
