@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import request from 'supertest';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createApp } from '../../server/app.js';
 import { encodeStoreJson } from '../../server/storage/json/files.js';
 import { createJsonRepositories } from '../../server/storage/json/index.js';
@@ -33,6 +33,12 @@ import { describeRepositoryContract, FakeClock } from './repositories.contract.j
 
 const temp = (name: string) => mkdtempSync(join(tmpdir(), `nest-flyers-${name}-`));
 const wipe = (dir: string) => rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
+
+// Every test here writes a JSON store that fsyncs each file. Alone the file passes in about 10 s; beside the rest of
+// `npm test` on a busy machine, one to three of its tests crossed vitest's 5 s default (4 of 7 full runs, 2026-10-03).
+// Set for the whole file, as copy.test.ts sets it for its block: the shared repository contract below is described
+// in another file, so a `describe` option here would not reach it. The hooks keep their own 10 s.
+vi.setConfig({ testTimeout: 30_000 });
 
 describeRepositoryContract('JSON files', async (clock) => {
   const dir = temp('json');
