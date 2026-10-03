@@ -4,17 +4,9 @@ import { parseArgs } from 'node:util';
 import { z } from 'zod';
 import { flyerFromBrief } from '../../src/shared/brief.js';
 import { lintFlyer } from '../../src/shared/copyRules.js';
-import {
-  AiExampleSchema,
-  ErrorEnvelopeSchema,
-  FlyerInputSchema,
-  FlyerListItemSchema,
-  FlyerSavedSchema,
-  HostelSchema,
-  type AiExample,
-} from '../../src/shared/schema.js';
-import { WRITE_HEADERS } from '../../src/shared/writeGuard.js';
-import { basicAuthHeader, flyersTarget, type RemoteSite } from '../env.js';
+import { AiExampleSchema, FlyerInputSchema, FlyerListItemSchema, FlyerSavedSchema, HostelSchema, type AiExample } from '../../src/shared/schema.js';
+import { flyersTarget, type RemoteSite } from '../env.js';
+import { siteCaller } from '../site.js';
 
 /* npm run flyers:post -- <example files or folders…> [--to <app root>] [--dry-run]
 
@@ -59,24 +51,10 @@ async function main() {
   const target = site(values.to);
   const dry = values['dry-run'] ?? false;
   const remote = !LOOPBACK.has(new URL(target.baseUrl).hostname);
-  const login = target.basicAuth ? basicAuthHeader(target.basicAuth) : {};
   console.log(`Site ${target.baseUrl}${values.to ? ' (--to)' : ` (FLYERS_BASE_URL from ${target.source})`}${dry ? ' — dry run, nothing is saved' : ''}`);
 
-  const call = async <S extends z.ZodType>(method: string, path: string, schema: S, body?: unknown): Promise<z.infer<S>> => {
-    const res = await fetch(new URL(path, target.baseUrl), {
-      method,
-      headers: { ...login, ...(body === undefined ? {} : { ...WRITE_HEADERS, 'Content-Type': 'application/json' }) },
-      body: body === undefined ? undefined : JSON.stringify(body),
-    });
-    const text = await res.text();
-    if (!res.ok) {
-      const envelope = ErrorEnvelopeSchema.safeParse(JSON.parse(text || 'null'));
-      if (!envelope.success) throw new Error(`${method} ${path}: HTTP ${res.status} ${text.slice(0, 200)}`);
-      const { message, fields } = envelope.data.error;
-      throw new Error(`${message}${fields ? ` ${JSON.stringify(fields)}` : ''}`);
-    }
-    return schema.parse(JSON.parse(text));
-  };
+  // The write header, the site's login and the API's own words for a refusal: scripts/site.ts, shared with ai:smoke.
+  const call = siteCaller(target);
 
   const hostels = await call('GET', 'api/hostels', z.array(HostelSchema));
   const onSite = await call('GET', 'api/flyers', z.array(FlyerListItemSchema));
