@@ -34,7 +34,7 @@ const POST_OVERHEAD_BYTES = 65536;
 /** Enough to decode a phone photo with GD. */
 const MIN_MEMORY_BYTES = 134217728;
 /** HostFacts::EXTENSIONS. */
-const EXTENSIONS = ['json', 'gd', 'imagick', 'exif', 'fileinfo'];
+const EXTENSIONS = ['json', 'gd', 'imagick', 'exif', 'fileinfo', 'curl'];
 /** AccessGuard::REALM. */
 const REALM = 'Nest flyers';
 /** ReleaseCheck::FILE and ::EDITABLE_TOP. */
@@ -112,6 +112,10 @@ function extensionsCheck(array $loaded)
     if (!$has('gd') && !$has('imagick')) {
         return check('extensions', 'fail', 'PHP extensions', $found . ' Neither gd nor imagick: photos cannot be uploaded (everything else works).',
             'Enable gd for this PHP version in the hosting panel, or ask the host.');
+    }
+    if (!$has('curl')) {
+        return check('extensions', 'warn', 'PHP extensions', $found . ' No curl: the AI assistant cannot reach its provider (everything else works).',
+            'Enable curl for this PHP version in the hosting panel, or ask the host, before turning the AI on in config.php.');
     }
     return check('extensions', 'pass', 'PHP extensions', $found . ' exif and fileinfo are not needed: the app reads photo orientation and types itself.');
 }
@@ -531,7 +535,10 @@ function phpString($value)
     return "'" . str_replace(['\\', "'"], ['\\\\', "\\'"], $value) . "'";
 }
 
-/** config.php with this login, complete: everything else as config.sample.php ships it. */
+/**
+ * config.php with this login, complete: everything else as config.sample.php ships it, but without the `ai` block,
+ * which stays out until there is a key (a missing block means the AI is off, and an older release refuses one).
+ */
 function configPhp($user, $passwordHash)
 {
     return "<?php\n\n"

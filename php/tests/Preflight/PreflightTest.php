@@ -176,6 +176,10 @@ final class PreflightTest extends TestCase
         self::assertSame('fail', extensionsCheck(['gd' => false, 'imagick' => false] + $all)['status']);
         self::assertSame('fail', extensionsCheck(['json' => false] + $all)['status']);
         self::assertSame('pass', extensionsCheck(['exif' => false, 'fileinfo' => false] + $all)['status'], 'the app needs neither');
+        $noCurl = extensionsCheck(['curl' => false] + $all);
+        self::assertSame('warn', $noCurl['status'], 'everything but the AI works');
+        self::assertStringContainsString('AI', $noCurl['says']);
+        self::assertSame('fail', extensionsCheck(['curl' => false, 'gd' => false, 'imagick' => false] + $all)['status'], 'the worse finding wins');
     }
 
     public function testLimits(): void

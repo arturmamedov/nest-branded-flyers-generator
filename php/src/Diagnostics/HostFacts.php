@@ -20,8 +20,11 @@ use RuntimeException;
  */
 final class HostFacts
 {
-    /** The extensions the app cares about: json always, gd or imagick for photos, exif for rotation, fileinfo for sniffing. */
-    public const EXTENSIONS = ['json', 'gd', 'imagick', 'exif', 'fileinfo'];
+    /**
+     * The extensions the app cares about: json always, gd or imagick for photos, exif for rotation, fileinfo for
+     * sniffing, curl for the AI assistant's provider calls.
+     */
+    public const EXTENSIONS = ['json', 'gd', 'imagick', 'exif', 'fileinfo', 'curl'];
 
     /**
      * @param Closure(): ImageProcessor $imageProcessor built on first use, so a host without an image library still answers

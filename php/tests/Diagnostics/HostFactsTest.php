@@ -51,6 +51,7 @@ final class HostFactsTest extends TestCase
         self::assertSame(['manifest' => 'missing'], $facts['release']);
         self::assertSame(HostFacts::EXTENSIONS, array_keys($facts['extensions']));
         self::assertTrue($facts['extensions']['json']);
+        self::assertSame(extension_loaded('curl'), $facts['extensions']['curl'] ?? null, 'the AI reaches its provider through curl');
     }
 
     /** @return array<string, mixed> */
