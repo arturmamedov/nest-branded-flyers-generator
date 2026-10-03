@@ -1,7 +1,7 @@
 import { fetchJson, type FetchJson } from '../http.js';
 import { LlmFailure, type LlmCall, type LlmProvider, type LlmResult, type ProviderConfig } from '../provider.js';
 import { dropNulls, toOpenAiSchema } from '../providerSchema.js';
-import { answerJson, providerFailure, redact, usageOf } from './common.js';
+import { answerBody, answerJson, redact, usageOf } from './common.js';
 
 /* OpenAI over the Responses API (docs read 2026-10-02): the system text as `instructions`, the turns as `input`, the
    schema as `text.format` in strict mode, `store: false` so staff text is not kept on OpenAI's side, and the effort
@@ -54,8 +54,7 @@ export class OpenAiProvider implements LlmProvider {
       body: JSON.stringify(body),
       timeoutMs: call.timeoutMs,
     });
-    if (res.status !== 200) throw providerFailure('OpenAI', res.status, res.text, key);
-    const data = JSON.parse(res.text) as OpenAiResponse;
+    const data = answerBody<OpenAiResponse>('OpenAI', res, key);
     if (data.status === 'failed') throw new LlmFailure('provider', redact(`OpenAI failed the request: ${data.error?.message ?? 'no reason given'}`, key));
 
     const content = (data.output ?? []).find((item) => item.type === 'message')?.content ?? [];

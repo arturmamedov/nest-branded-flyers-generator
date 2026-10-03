@@ -147,6 +147,18 @@
       "failure": "provider"
     },
     {
+      "name": "a 200 whose body is not JSON (a captive proxy's page)",
+      "status": 200,
+      "text": "<html><body>Please sign in to the network</body></html>",
+      "failure": "provider"
+    },
+    {
+      "name": "a 200 whose body is JSON but not an object",
+      "status": 200,
+      "text": "null",
+      "failure": "provider"
+    },
+    {
       "name": "text that is not JSON",
       "status": 200,
       "body": {

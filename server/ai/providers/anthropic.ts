@@ -1,7 +1,7 @@
 import { fetchJson, type FetchJson } from '../http.js';
 import { LlmFailure, type LlmCall, type LlmProvider, type LlmResult, type ProviderConfig } from '../provider.js';
 import { toAnthropicSchema } from '../providerSchema.js';
-import { answerJson, providerFailure, redact, usageOf } from './common.js';
+import { answerBody, answerJson, redact, usageOf } from './common.js';
 
 /* Anthropic over the Messages API (docs read 2026-10-02): the system text as `system`, the turns as `messages`, the
    schema as `output_config.format` (GA, no beta header), and the effort knob as `output_config.effort` when set
@@ -49,8 +49,7 @@ export class AnthropicProvider implements LlmProvider {
       body: JSON.stringify(body),
       timeoutMs: call.timeoutMs,
     });
-    if (res.status !== 200) throw providerFailure('Anthropic', res.status, res.text, key);
-    const data = JSON.parse(res.text) as AnthropicResponse;
+    const data = answerBody<AnthropicResponse>('Anthropic', res, key);
     if (data.type === 'error') throw new LlmFailure('provider', redact(`Anthropic failed the request: ${data.error?.message ?? 'no reason given'}`, key));
 
     const text = (data.content ?? []).find((block) => block.type === 'text')?.text;

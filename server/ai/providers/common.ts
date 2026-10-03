@@ -1,3 +1,4 @@
+import type { JsonResponse } from '../http.js';
 import { LlmFailure, type LlmUsage } from '../provider.js';
 
 /* What the two HTTPS adapters share: reading a provider's answer without letting the key out. */
@@ -26,6 +27,14 @@ export function providerFailure(who: string, status: number, text: string, key: 
   const body = parseJson(text) as { error?: { message?: unknown } } | undefined;
   const said = typeof body?.error?.message === 'string' ? body.error.message : text.slice(0, 200);
   return new LlmFailure('provider', redact(`${who} answered ${status}: ${said}`, key));
+}
+
+/** The provider's answer as the JSON object every answer is. A status other than 200, or a body that is no JSON object
+    (a captive proxy's page, a bare null), is the provider's failure, said in its own words. */
+export function answerBody<T>(who: string, res: JsonResponse, key: string): T {
+  const body = res.status === 200 ? parseJson(res.text) : undefined;
+  if (typeof body !== 'object' || body === null || Array.isArray(body)) throw providerFailure(who, res.status, res.text, key);
+  return body as T;
 }
 
 /** The token counts, when the provider reported both. */
