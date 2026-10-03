@@ -191,6 +191,7 @@
   "ai": {
     "dailyLimit": 3,
     "inputMax": 4000,
+    "assumptionsMax": 12,
     "features": [
       "flyer",
       "share"

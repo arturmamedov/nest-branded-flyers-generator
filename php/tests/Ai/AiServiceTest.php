@@ -17,6 +17,7 @@ use NestFlyers\Ai\HttpResponse;
 use NestFlyers\Ai\LlmCall;
 use NestFlyers\Ai\LlmProvider;
 use NestFlyers\Ai\LlmResult;
+use NestFlyers\Ai\LlmUsage;
 use NestFlyers\Ai\OpenAiProvider;
 use NestFlyers\Ai\ProviderConfig;
 use NestFlyers\Domain\AiUsageRepository;
@@ -47,6 +48,7 @@ final class AiServiceTest extends TestCase
 {
     private const LIMIT = 3;
     private const INPUT_MAX = 4000;
+    private const ASSUMPTIONS_MAX = 12;
 
     private Shared $shared;
     private ErrorCatalog $errors;
@@ -87,6 +89,7 @@ final class AiServiceTest extends TestCase
     {
         self::assertSame(self::LIMIT, $this->shared->ai()['dailyLimit']);
         self::assertSame(self::INPUT_MAX, $this->shared->ai()['inputMax']);
+        self::assertSame(self::ASSUMPTIONS_MAX, $this->shared->ai()['assumptionsMax']);
     }
 
     public function testOffWithoutAProviderStatusSaysSoAndBothFeaturesAnswerAiOff(): void
@@ -169,6 +172,52 @@ final class AiServiceTest extends TestCase
         self::assertStringContainsString('no-such-nest', $result['assumptions'][0]->note);
         JsonAssert::same($this->example->answer->assumptions, array_slice($result['assumptions'], 1));
         self::assertSame(1, $this->usage->countOk('anonymous', '2026-09-18'));
+    }
+
+    public function testItKeepsToTheAssumptionsTheContractAllowsItsOwnNoteFirstAndOnAFullListTheModelsLastGoes(): void
+    {
+        // One short of the limit, then full: the note joins the first, and takes the last one's place in the second.
+        foreach ([self::ASSUMPTIONS_MAX - 1, self::ASSUMPTIONS_MAX] as $n) {
+            $made = [];
+            for ($i = 1; $i <= $n; $i++) {
+                $made[] = (object) ['field' => 'cost', 'note' => "Assumption $i"];
+            }
+            $brief = Json::decode(Json::encode($this->example->answer->brief));
+            $brief->hostel = $this->shared->ai()['fake']['unknownHostel'];
+            $raw = Json::encode((object) ['brief' => $brief, 'assumptions' => $made]);
+            $stub = new class ($raw) implements LlmProvider {
+                public function __construct(private readonly string $raw)
+                {
+                }
+
+                public function name(): string
+                {
+                    return 'fake';
+                }
+
+                public function model(): string
+                {
+                    return 'stub-1';
+                }
+
+                public function complete(LlmCall $call): LlmResult
+                {
+                    return new LlmResult(Json::decode($this->raw), $this->raw, new LlmUsage(10, 20), 'stub-1');
+                }
+            };
+            $usage = new MemoryAiUsage();
+            $result = $this->service(['provider' => $stub, 'usage' => $usage])->flyer($this->actor, $this->idea());
+
+            self::assertCount(self::ASSUMPTIONS_MAX, $result['assumptions'], "$n from the model");
+            self::assertSame('hostel', $result['assumptions'][0]->field);
+            self::assertStringContainsString('no-such-nest', $result['assumptions'][0]->note);
+            JsonAssert::same(array_slice($made, 0, self::ASSUMPTIONS_MAX - 1), array_slice($result['assumptions'], 1));
+            self::assertNull($result['brief']->hostel);
+            // What leaves the service still fits the answer's schema, so the route's contract holds.
+            (new SchemaValidator(new SchemaNormalizer()))->validate((object) ['brief' => $result['brief'], 'assumptions' => $result['assumptions']], $this->bundle->schemas['flyerAnswer']);
+            // The ledger keeps everything the model wrote, the dropped one included.
+            self::assertSame([true, $raw], [$usage->records[0]['ok'], $usage->records[0]['output']]);
+        }
     }
 
     public function testAnAnswerThatFailsTheSchemaIsAiFailedRecordedAndChargesNothing(): void

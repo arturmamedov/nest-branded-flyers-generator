@@ -1,5 +1,5 @@
 import type { z } from 'zod';
-import { AI_INPUT_MAX, AI_MAX_OUTPUT_TOKENS, aiDay, type AiFeature } from '../../src/shared/ai.js';
+import { AI_ASSUMPTIONS_MAX, AI_INPUT_MAX, AI_MAX_OUTPUT_TOKENS, aiDay, type AiFeature } from '../../src/shared/ai.js';
 import {
   AiFlyerAnswerSchema,
   AiFlyerRequestSchema,
@@ -54,7 +54,7 @@ export class AiService {
   }
 
   /** An idea → a brief with its assumptions. A hostel the staff member chose wins over the model's; one the model
-      made up becomes chain-wide, said in the first assumption. */
+      made up becomes chain-wide, said in the first assumption, which takes the model's last one's place on a full list. */
   async flyer(actor: Actor, body: unknown): Promise<AiFlyerResult> {
     this.admit(actor);
     const request = parse(AiFlyerRequestSchema, body);
@@ -70,6 +70,8 @@ export class AiService {
     if (request.hostel !== undefined) brief.hostel = request.hostel;
     else if (brief.hostel !== null && !known(brief.hostel)) {
       assumptions.unshift({ field: 'hostel', note: `Unknown hostel "${brief.hostel}": left for every hostel` });
+      // The answer keeps to its schema with the service's note in it: past the limit, the model's last one goes.
+      assumptions.splice(AI_ASSUMPTIONS_MAX);
       brief.hostel = null;
     }
     return { brief, assumptions, remaining: remaining - 1 };

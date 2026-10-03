@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { AI_INPUT_MAX } from './ai.js';
+import { AI_ASSUMPTIONS_MAX, AI_INPUT_MAX } from './ai.js';
 import { CHIP_LABEL_MAX, CHIP_VALUE_MAX } from './chips.js';
 import { EXTRA_MAX, EXTRAS_MAX } from './extras.js';
 import { TITLE_MAX } from './names.js';
@@ -153,7 +153,7 @@ export type AiFlyerRequest = z.infer<typeof AiFlyerRequestSchema>;
 /** What the model answers: generated into schema/ai.json, and what each provider's structured output is held to. */
 export const AiFlyerAnswerSchema = z.strictObject({
   brief: BriefSchema,
-  assumptions: z.array(AiAssumptionSchema).max(12),
+  assumptions: z.array(AiAssumptionSchema).max(AI_ASSUMPTIONS_MAX),
 });
 export type AiFlyerAnswer = z.infer<typeof AiFlyerAnswerSchema>;
 

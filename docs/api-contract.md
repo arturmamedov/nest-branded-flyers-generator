@@ -239,8 +239,10 @@ few-shot examples both backends read.
 - **`POST api/ai/flyer`** takes `{text, hostel?}`: the staff member's text, and the hostel's slug when they chose one
   (the model then uses it; otherwise it decides from the text). It answers `{brief, assumptions, remaining}`: a brief that
   passes `BriefSchema` with every limit, whose `hostel` exists on the site (an unknown slug from the model becomes `null`
-  with an assumption, never an error), the assumptions the model made (`[{field, note}]`, `field` a brief key), and the
-  generations left today. The client builds the flyer with `flyerFromBrief()`; nothing is saved.
+  with an assumption of the backend's own, the first, never an error), the assumptions the model made (`[{field, note}]`,
+  `field` a brief key), and the generations left today. The list holds at most `AI_ASSUMPTIONS_MAX`, the backend's note
+  included: on a full list that note takes the place of the model's last one. The client builds the flyer with
+  `flyerFromBrief()`; nothing is saved.
 - **`POST api/ai/share`** takes `{hostel, template, data, idea?}`, the flyer as the editor holds it (`data` is
   `FlyerDataSchema`) and the idea it came from when the AI made it, and answers `{share, remaining}`: a caption within
   `SHARE_MAX`, not saved.

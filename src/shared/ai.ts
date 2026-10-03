@@ -9,6 +9,10 @@ export const AI_DAILY_LIMIT = 3;
 /** The longest idea text, in code points: a long group-chat post, not a document. */
 export const AI_INPUT_MAX = 4000;
 
+/** The most assumptions a flyer's answer carries: what the model may write, and what the route answers once the
+    service has added its own note (a made-up hostel), so that note takes the model's last one's place on a full list. */
+export const AI_ASSUMPTIONS_MAX = 12;
+
 export const AI_FEATURES = ['flyer', 'share'] as const;
 export type AiFeature = (typeof AI_FEATURES)[number];
 
@@ -53,6 +57,7 @@ export const AI_FAKE = {
 export const AI_SHARED = {
   dailyLimit: AI_DAILY_LIMIT,
   inputMax: AI_INPUT_MAX,
+  assumptionsMax: AI_ASSUMPTIONS_MAX,
   features: AI_FEATURES,
   dayZone: AI_DAY_ZONE,
   timeoutMs: AI_TIMEOUT_MS,

@@ -95,10 +95,11 @@ final class Shared
     }
 
     /**
-     * The AI assistant's facts (src/shared/ai.ts): the daily cap, the longest idea, the day's zone, the provider call's
-     * limits, the providers and their default models, the answer formats' names, and the fake provider's.
+     * The AI assistant's facts (src/shared/ai.ts): the daily cap, the longest idea, the most assumptions an answer
+     * carries, the day's zone, the provider call's limits, the providers and their default models, the answer formats'
+     * names, and the fake provider's.
      *
-     * @return array{dailyLimit:int, inputMax:int, features:list<string>, dayZone:string, timeoutMs:int,
+     * @return array{dailyLimit:int, inputMax:int, assumptionsMax:int, features:list<string>, dayZone:string, timeoutMs:int,
      *     maxOutputTokens:int, providers:list<string>, defaultModel:array<string, string>,
      *     schemaNames:array{flyer:string, share:string},
      *     fake:array{model:string, unknownHostel:string, markers:array{invalid:string, unknownHostel:string, timeout:string, refused:string}}}

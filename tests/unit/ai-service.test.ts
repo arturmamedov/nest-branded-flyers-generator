@@ -2,15 +2,16 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { loadBundle } from '../../server/ai/bundle.js';
 import { createAiPolicy, type AiPolicy } from '../../server/ai/policy.js';
-import { FakeProvider } from '../../server/ai/providers/fake.js';
+import type { LlmProvider } from '../../server/ai/provider.js';
+import { FAKE_UNKNOWN_HOSTEL, FakeProvider } from '../../server/ai/providers/fake.js';
 import { AiService, type AiServiceDeps } from '../../server/ai/service.js';
 import { HttpError } from '../../server/errors.js';
 import { SEED_FILE } from '../../server/paths.js';
 import type { AiUsageRepository } from '../../server/storage/types.js';
-import { AI_DAILY_LIMIT, AI_INPUT_MAX } from '../../src/shared/ai.js';
+import { AI_ASSUMPTIONS_MAX, AI_DAILY_LIMIT, AI_INPUT_MAX } from '../../src/shared/ai.js';
 import { newFlyerData } from '../../src/shared/defaults.js';
 import { apiError, type ApiErrorKey } from '../../src/shared/errors.js';
-import type { Hostel } from '../../src/shared/schema.js';
+import { AiFlyerResultSchema, type Hostel } from '../../src/shared/schema.js';
 import { SeedFileSchema } from '../../src/shared/seed.js';
 import type { StoredAiUsage } from '../../src/shared/storage.js';
 import { FakeClock } from '../storage/repositories.contract.js';
@@ -128,6 +129,25 @@ describe('the AI service', () => {
     expect(result.assumptions[0].note).toContain('no-such-nest');
     expect(result.assumptions.slice(1)).toEqual(example.answer.assumptions);
     expect(await usage.countOk('anonymous', '2026-09-18')).toBe(1);
+  });
+
+  it('keeps to the assumptions the contract allows: its own note still comes first, and on a full list the model’s last goes', async () => {
+    // One short of the limit, then full: the note joins the first, and takes the last one's place in the second.
+    for (const n of [AI_ASSUMPTIONS_MAX - 1, AI_ASSUMPTIONS_MAX]) {
+      const made = Array.from({ length: n }, (_, i) => ({ field: 'cost', note: `Assumption ${i + 1}` }));
+      const json = { brief: { ...example.answer.brief, hostel: FAKE_UNKNOWN_HOSTEL }, assumptions: made };
+      const provider: LlmProvider = { name: 'fake', model: 'stub-1', complete: async () => ({ json, raw: JSON.stringify(json), usage: { input: 10, output: 20 }, model: 'stub-1' }) };
+      const { service, usage } = make({ provider });
+      const result = await service.flyer(actor, idea());
+      expect(result.assumptions, `${n} from the model`).toHaveLength(AI_ASSUMPTIONS_MAX);
+      expect(result.assumptions[0].field).toBe('hostel');
+      expect(result.assumptions[0].note).toContain(FAKE_UNKNOWN_HOSTEL);
+      expect(result.assumptions.slice(1)).toEqual(made.slice(0, AI_ASSUMPTIONS_MAX - 1));
+      expect(result.brief.hostel).toBeNull();
+      expect(AiFlyerResultSchema.safeParse(result).success, `${n} from the model`).toBe(true);
+      // The ledger keeps everything the model wrote, the dropped one included.
+      expect(usage.records[0]).toMatchObject({ ok: true, output: JSON.stringify(json) });
+    }
   });
 
   it('answers ai_failed for an answer that fails the schema, records it, and charges nothing', async () => {

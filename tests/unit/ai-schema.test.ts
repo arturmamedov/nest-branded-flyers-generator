@@ -8,6 +8,7 @@ import {
   AiConfigSchema,
   AiFlyerAnswerSchema,
   AiFlyerRequestSchema,
+  AiFlyerResultSchema,
   AiShareAnswerSchema,
   AiShareRequestSchema,
   ApiConfigSchema,
@@ -50,6 +51,14 @@ describe('AiFlyerAnswerSchema (what the model fills)', () => {
     expect(ok(AiFlyerAnswerSchema, { brief, assumptions: [{ field: 'cost', note: 'x'.repeat(201) }] })).toBe(false);
     expect(ok(AiFlyerAnswerSchema, { brief, assumptions: [], remaining: 2 })).toBe(false);
     expect(ok(AiFlyerAnswerSchema, { brief, assumptions: [{ field: 'cost', note: 'n', why: 'w' }] })).toBe(false);
+  });
+
+  it('holds twelve assumptions and no more, and so does the route’s answer', () => {
+    const made = (n: number) => Array.from({ length: n }, () => ({ field: 'cost', note: 'Ask at reception' }));
+    expect(ok(AiFlyerAnswerSchema, { brief, assumptions: made(12) })).toBe(true);
+    expect(ok(AiFlyerAnswerSchema, { brief, assumptions: made(13) })).toBe(false);
+    expect(ok(AiFlyerResultSchema, { brief, assumptions: made(12), remaining: 2 })).toBe(true);
+    expect(ok(AiFlyerResultSchema, { brief, assumptions: made(13), remaining: 2 })).toBe(false);
   });
 });
 

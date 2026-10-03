@@ -25,7 +25,7 @@ final class AiService
 {
     private readonly AiDay $day;
     private readonly PromptBuilder $prompts;
-    /** @var array{inputMax:int, maxOutputTokens:int, schemaNames:array{flyer:string, share:string}} */
+    /** @var array{inputMax:int, assumptionsMax:int, maxOutputTokens:int, schemaNames:array{flyer:string, share:string}} */
     private readonly array $facts;
 
     /**
@@ -66,7 +66,7 @@ final class AiService
 
     /**
      * An idea → a brief with its assumptions. A hostel the staff member chose wins over the model's; one the model
-     * made up becomes chain-wide, said in the first assumption.
+     * made up becomes chain-wide, said in the first assumption, which takes the model's last one's place on a full list.
      *
      * @return array{brief:stdClass, assumptions:list<stdClass>, remaining:int}
      * @throws HttpError ai_off, ai_forbidden, ai_input, unknown_hostel, ai_quota, ai_failed
@@ -91,6 +91,8 @@ final class AiService
             $brief->hostel = $request->hostel;
         } elseif ($brief->hostel !== null && !$known($brief->hostel)) {
             array_unshift($assumptions, (object) ['field' => 'hostel', 'note' => "Unknown hostel \"{$brief->hostel}\": left for every hostel"]);
+            // The answer keeps to its schema with the service's note in it: past the limit, the model's last one goes.
+            $assumptions = array_slice($assumptions, 0, $this->facts['assumptionsMax']);
             $brief->hostel = null;
         }
         return ['brief' => $brief, 'assumptions' => $assumptions, 'remaining' => $remaining - 1];

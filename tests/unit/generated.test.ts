@@ -64,6 +64,7 @@ describe('the AI bundle (schema/ai.json) and the ai block of shared.json', () =>
     expect(JSON.parse(outputs['schema/shared.json']).ai).toEqual({
       dailyLimit: 3,
       inputMax: 4000,
+      assumptionsMax: 12,
       features: ['flyer', 'share'],
       dayZone: 'Atlantic/Canary',
       timeoutMs: 25000,
