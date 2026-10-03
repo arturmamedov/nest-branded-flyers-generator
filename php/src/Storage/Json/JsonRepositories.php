@@ -60,6 +60,7 @@ final class JsonRepositories
                 $normalizeData ?? static fn (stdClass $data): stdClass => $data,
                 $names['flyerDir'],
             ),
+            aiUsage: new JsonAiUsageRepository($files, $lock, $names['aiUsageDir']),
             seedState: $store,
             lock: $lock,
         );

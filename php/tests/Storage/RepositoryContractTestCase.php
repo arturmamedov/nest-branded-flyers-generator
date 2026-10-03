@@ -293,7 +293,51 @@ abstract class RepositoryContractTestCase extends TestCase
         self::assertSame([$chain], $ids('none', 'activity'));
     }
 
+    // ---- the AI ledger ----
+
+    public function testTheLedgerCountsOnlyTheActorsOkRecordsOfTheDay(): void
+    {
+        $ledger = $this->repos->aiUsage;
+        $ledger->record($this->usage());
+        $ledger->record($this->usage(['feature' => 'share']));
+        $ledger->record($this->usage(['ok' => false]));
+        $ledger->record($this->usage(['actorId' => 'someone-else']));
+        $ledger->record($this->usage(['day' => '2026-09-19']));
+
+        self::assertSame(2, $ledger->countOk('anonymous', '2026-09-18'));
+        self::assertSame(1, $ledger->countOk('someone-else', '2026-09-18'));
+        self::assertSame(1, $ledger->countOk('anonymous', '2026-09-19'));
+        self::assertSame(0, $ledger->countOk('nobody', '2026-09-18'));
+    }
+
+    public function testAStoreWithNoLedgerYetCountsNothing(): void
+    {
+        self::assertSame(0, $this->repos->aiUsage->countOk('anonymous', '2026-09-18'));
+    }
+
     // ---- helpers ----
+
+    /**
+     * One ledger record ($defs.aiUsage), in the schema's key order whatever $over holds.
+     * @param array<string, mixed> $over
+     * @return array{at:string, day:string, actorId:string, feature:string, provider:string, model:string,
+     *     tokens:array{input:int, output:int}|null, ok:bool, input:string, output:?string}
+     */
+    protected function usage(array $over = []): array
+    {
+        return array_replace([
+            'at' => $this->clock->now(),
+            'day' => '2026-09-18',
+            'actorId' => 'anonymous',
+            'feature' => 'flyer',
+            'provider' => 'fake',
+            'model' => 'fake-1',
+            'tokens' => ['input' => 10, 'output' => 20],
+            'ok' => true,
+            'input' => 'Yoga at 9',
+            'output' => '{"brief":{}}',
+        ], $over);
+    }
 
     /** @return array{slug:string, name:string, island:string, logoPath:?string, sortOrder:int} */
     protected static function hostel(string $slug, string $name, int $sortOrder = 10): array

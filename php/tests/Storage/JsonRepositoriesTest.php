@@ -14,6 +14,7 @@ use NestFlyers\Tests\Support\Paths;
 use NestFlyers\Tests\Support\TempDir;
 use Opis\JsonSchema\Errors\ErrorFormatter;
 use Opis\JsonSchema\Validator;
+use RuntimeException;
 use stdClass;
 
 /**
@@ -268,6 +269,46 @@ final class JsonRepositoriesTest extends RepositoryContractTestCase
         self::assertSame(range(1, $total), array_map(static fn (stdClass $p): int => $p->id, $this->readFile('photos')));
         self::assertCount($total + 1, glob("$this->dir/flyers/*.json") ?: [], 'one file per flyer, plus the index');
         self::assertSame($total, $this->readFile('meta')->counters->flyer);
+    }
+
+    public function testTheAiLedgerIsOneFileAMonthInTheSchemasShapeAppendedInOrder(): void
+    {
+        $first = $this->usage();
+        $this->clock->tick();
+        $second = $this->usage(['feature' => 'share', 'tokens' => null, 'ok' => false, 'input' => 'the fields', 'output' => null]);
+        $this->clock->tick();
+        $october = $this->usage(['day' => '2026-10-01', 'output' => "Line one\u{2028}¡Sí! 🌴"]);
+        $this->repos->aiUsage->record($first);
+        // Handed over in another key order, written in the schema's.
+        $this->repos->aiUsage->record(array_reverse($second, true));
+        $this->repos->aiUsage->record($october);
+
+        $dir = $this->shared->storageFiles()['aiUsageDir'];
+        self::assertSame(['ai-usage/2026-09.json', 'ai-usage/2026-10.json'], array_values(array_filter(
+            TempDir::files($this->dir),
+            static fn (string $file): bool => str_starts_with($file, "$dir/"),
+        )));
+        $this->assertFileMatchesSchema("$dir/2026-09.json", 'aiUsage');
+        $this->assertFileMatchesSchema("$dir/2026-10.json", 'aiUsage');
+        self::assertSame(Json::encode([$first, $second]), Json::encode($this->readJson("$dir/2026-09.json")), 'as given, oldest first');
+        self::assertSame(Json::encode([$october]), Json::encode($this->readJson("$dir/2026-10.json")));
+    }
+
+    public function testReadingTheLedgerWritesNothing(): void
+    {
+        // A store from before the ledger, or a site that never used the AI: tests/cross pins that reads add no file.
+        $before = TempDir::files($this->dir);
+        self::assertSame(0, $this->repos->aiUsage->countOk('anonymous', '2026-09-18'));
+        self::assertSame($before, TempDir::files($this->dir));
+    }
+
+    public function testADamagedLedgerFileIsNamed(): void
+    {
+        mkdir("$this->dir/ai-usage");
+        file_put_contents("$this->dir/ai-usage/2026-09.json", '{"not": "a list"}');
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('ai-usage/2026-09.json');
+        $this->repos->aiUsage->countOk('anonymous', '2026-09-18');
     }
 
     public function testARecordFileDeletedByHandReadsAsEmpty(): void
