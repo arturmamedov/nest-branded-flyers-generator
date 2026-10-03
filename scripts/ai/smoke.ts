@@ -265,11 +265,16 @@ export function closing(outcome: DirectOutcome): string {
   ].join('\n');
 }
 
+/** The few-shot a direct run sends: the bundle's examples less the text being sent. An example sent with its own
+    answer among the examples would only be read back. */
+export function fewShotFor(bundle: Pick<AiBundle, 'examples'>, example: SmokeExample): AiBundle['examples'] {
+  return bundle.examples.filter((e) => e.text !== example.text);
+}
+
 /** One generation straight to the provider the settings name, composed as server/index.ts composes it: the seed's
-    hostels and a real ledger, both in memory, the real clock, and the bundle less the text being sent (an example
-    sent with its own answer among the few-shot would only be read back). */
+    hostels and a real ledger, both in memory, the real clock, and the bundle with the text being sent held out. */
 export async function runDirect(settings: AiSettings, example: SmokeExample, share: boolean, bundle: AiBundle = loadBundle()): Promise<DirectOutcome> {
-  const fewShot = bundle.examples.filter((e) => e.text !== example.text);
+  const fewShot = fewShotFor(bundle, example);
   const repos = createSqliteRepositories({ file: ':memory:' });
   try {
     await applySeedFile(repos, SEED_FILE);
@@ -307,7 +312,7 @@ async function runSite(to: string, share: boolean, example: SmokeExample, bundle
   const config = await call('GET', 'api/config', z.unknown());
   const { limit, remaining } = siteAi(config);
   console.log(`This spends one of this site's ${limit} generations today (${remaining} left).`);
-  if (bundle.examples.some((e) => e.text === example.text)) {
+  if (fewShotFor(bundle, example).length < bundle.examples.length) {
     console.log("The text is one of the release's own few-shot examples, so the answer proves the route, the key and the host's time limit, not the model's judgment.");
   }
   const started = performance.now();
@@ -341,8 +346,8 @@ async function main(argv: string[]): Promise<number> {
   if (no !== null) throw new Error(no);
   // Whatever a provider echoes is already redacted by its adapter; nothing this script prints may carry the key either.
   const say = (text: string) => console.log(redact(text, settings.apiKey ?? ''));
-  const held = bundle.examples.filter((e) => e.text === example.text).length;
-  say(opening(settings, example, args.share, { sent: bundle.examples.length - held, held }));
+  const sent = fewShotFor(bundle, example).length;
+  say(opening(settings, example, args.share, { sent, held: bundle.examples.length - sent }));
   const outcome = await runDirect(settings, example, args.share, bundle);
   say(`\n${closing(outcome)}`);
   return outcome.error === null ? 0 : 1;
