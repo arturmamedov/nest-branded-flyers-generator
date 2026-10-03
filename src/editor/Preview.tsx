@@ -11,6 +11,31 @@ import type { Crop, FlyerData, Hostel, PhotoInfo } from '../shared/schema';
 
 export type FitCallback = (canvas: CanvasId, report: FitReport) => void;
 
+/** Every canvas's fit, as the preview reports it, and the canvases where copy is cut off: the canvas on screen and the
+    others offscreen are all fitted, since the copy is one, and so is the warning. */
+export function useFitReports(): { onFit: FitCallback; cutOff: CanvasId[] } {
+  const [fits, setFits] = useState<Partial<Record<CanvasId, FitReport>>>({});
+  // An identical report (a photo drag refits the canvas on screen) keeps the state, so nothing re-renders.
+  const onFit = useCallback<FitCallback>(
+    (c, r) => setFits((f) => (JSON.stringify(f[c]) === JSON.stringify(r) ? f : { ...f, [c]: r })),
+    [],
+  );
+  const cutOff = CANVAS_IDS.filter((c) => {
+    const r = fits[c];
+    return r && r.clippedBoxes + r.entries.filter((e) => e.overflowX).length > 0;
+  });
+  return { onFit, cutOff };
+}
+
+/** The warning that some copy is at its smallest size and still cut off, naming where. */
+export function CutOffNote({ canvases }: { canvases: CanvasId[] }) {
+  return (
+    <div className="note note-warn">
+      Some text is at its smallest size and is being cut off on {canvases.map((c) => CANVASES[c].label).join(' and ')} — shorten it.
+    </div>
+  );
+}
+
 interface Props {
   data: FlyerData;
   canvas: CanvasId;

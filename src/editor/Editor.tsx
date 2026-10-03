@@ -1,5 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import type { FitReport } from '../flyer/fit';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { deriveChip, splitBigSub } from '../shared/chips';
 import { ACCEPTED_PHOTO_TYPES } from '../shared/limits';
 import { lintFlyer } from '../shared/copyRules';
@@ -12,13 +11,14 @@ import { SHARE_MAX } from '../shared/share';
 import { WEEK_ROWS_MAX, WEEK_ROW_LIMITS, isPrintable, rowFromActivity } from '../shared/week';
 import { api, ApiError } from './api';
 import type { FlyerExporter } from './export';
-import { LangFlag, type Lang } from './LangFlag';
-import { mayLeave, useLeaveGuard } from './leaveGuard';
+import { useLeaveGuard } from './leaveGuard';
+import { BackToLibrary, Field, HostelOptions, Section } from './panel';
 import { PHOTO_MODE_LABEL } from './photoModes';
 import { preparePhoto, type PhotoLimits } from './photoPrep';
 import { replaceHash } from './route';
 import { localStorageGet, localStorageSet } from './prefs';
-import { Preview } from './Preview';
+import { CutOffNote, Preview, useFitReports } from './Preview';
+import { ShareCopy, ShareFab } from './share';
 import { TEMPLATE_LABEL } from './templates';
 
 interface Draft {
@@ -79,7 +79,6 @@ export function Editor({ id, hostels, exporter, limits }: { id: number | null; h
   const [savedJson, setSavedJson] = useState<string>(() => (id == null ? JSON.stringify(toInput(blankDraft(), hostels)) : 'loading'));
   const [flyerId, setFlyerId] = useState<number | null>(id);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [fits, setFits] = useState<Partial<Record<CanvasId, FitReport>>>({});
   const [canvas, setCanvas] = useState<CanvasId>(savedCanvas);
   const [safe, setSafe] = useState(false);
   const [actualSize, setActualSize] = useState(false);
@@ -113,11 +112,7 @@ export function Editor({ id, hostels, exporter, limits }: { id: number | null; h
 
   const hostel = useMemo(() => hostels.find((h) => h.slug === draft?.hostel) ?? null, [hostels, draft?.hostel]);
   const lints = useMemo(() => (draft ? lintFlyer(draft.data) : []), [draft]);
-  // An identical report (a photo drag refits the canvas on screen) keeps the state, so nothing re-renders.
-  const onFit = useCallback(
-    (c: CanvasId, r: FitReport) => setFits((f) => (JSON.stringify(f[c]) === JSON.stringify(r) ? f : { ...f, [c]: r })),
-    [],
-  );
+  const { onFit, cutOff } = useFitReports();
   const chooseCanvas = (c: CanvasId) => {
     setCanvas(c);
     localStorageSet(CANVAS_PREF, c);
@@ -153,11 +148,6 @@ export function Editor({ id, hostels, exporter, limits }: { id: number | null; h
   const weekDefaults = weekTitle(hostel?.name ?? null);
   // A frame with no photo in it would print as a blank strip; a week flyer has no frame at all.
   const needsPhoto = photoFrame(canvas, bodyOf(draft.data)) !== null && !draft.photo;
-  // Every canvas is fitted, the one on screen and the others offscreen: copy is one, so is the warning.
-  const cutOff = CANVAS_IDS.filter((c) => {
-    const r = fits[c];
-    return r && r.clippedBoxes + r.entries.filter((e) => e.overflowX).length > 0;
-  });
 
   async function save(): Promise<number> {
     const input = toInput(draft!, hostels);
@@ -261,17 +251,7 @@ export function Editor({ id, hostels, exporter, limits }: { id: number | null; h
           >
             <select aria-label="Hostel" value={draft.hostel ?? ''} onChange={(e) => chooseHostel(e.target.value || null)}>
               <option value="">All hostels (chain-wide)</option>
-              {[...new Set(hostels.map((h) => h.island))].map((island) => (
-                <optgroup key={island} label={island}>
-                  {hostels
-                    .filter((h) => h.island === island)
-                    .map((h) => (
-                      <option key={h.slug} value={h.slug}>
-                        {h.name}
-                      </option>
-                    ))}
-                </optgroup>
-              ))}
+              <HostelOptions hostels={hostels} />
             </select>
           </Field>
           <Field label="Library name" help="Only for finding it again — not printed">
@@ -456,11 +436,7 @@ export function Editor({ id, hostels, exporter, limits }: { id: number | null; h
                 — the empty photo band would print as a blank strip.
               </div>
             )}
-            {cutOff.length > 0 && (
-              <div className="note note-warn">
-                Some text is at its smallest size and is being cut off on {cutOff.map((c) => CANVASES[c].label).join(' and ')} — shorten it.
-              </div>
-            )}
+            {cutOff.length > 0 && <CutOffNote canvases={cutOff} />}
             {lints.map((l, i) => (
               <div key={i} className="note note-warn">
                 {l.message}
@@ -484,97 +460,6 @@ export function Editor({ id, hostels, exporter, limits }: { id: number | null; h
         {draft.data.share.trim() && <ShareFab text={draft.data.share} />}
       </main>
     </div>
-  );
-}
-
-/** The editor's one way back. A plain link, so it opens in a new tab too; a plain click asks first
-    when there is unsaved work (route.ts would too, but not in a browser without the Navigation API). */
-function BackToLibrary({ className }: { className?: string }) {
-  return (
-    <a
-      className={className}
-      href="#/"
-      onClick={(e) => {
-        const plain = e.button === 0 && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey;
-        if (plain && !mayLeave()) e.preventDefault();
-      }}
-    >
-      <span aria-hidden="true">←</span> Library
-    </a>
-  );
-}
-
-/** Copies the share text; the outcome clears when the text changes, so "Copied" never vouches for an older one. */
-function useCopy(text: string) {
-  const [copied, setCopied] = useState<'ok' | 'error' | null>(null);
-  useEffect(() => setCopied(null), [text]);
-  const copy = () =>
-    navigator.clipboard.writeText(text).then(
-      () => setCopied('ok'),
-      () => setCopied('error'),
-    );
-  return { copied, copy, reset: () => setCopied(null) };
-}
-
-/** The panel's copy button, under the caption it copies. */
-function ShareCopy({ text }: { text: string }) {
-  const { copied, copy } = useCopy(text);
-  return (
-    <div className="share-copy">
-      <button type="button" className="btn btn-accent" disabled={!text.trim()} onClick={copy}>
-        Copy text
-      </button>
-      <span className="share-status" role="status">
-        {copied === 'ok' ? 'Copied' : copied === 'error' ? 'Couldn’t copy: select the text instead' : ''}
-      </span>
-    </div>
-  );
-}
-
-/* The reminder beside the preview: it floats over the stage's corner, so the flyer keeps the whole stage
-   (Preview fits to the stage alone), and one tap copies the caption without scrolling back to the panel. */
-function ShareFab({ text }: { text: string }) {
-  const { copied, copy, reset } = useCopy(text);
-  // The pill has room for one word: its outcome shows for a moment, then the reminder comes back.
-  useEffect(() => {
-    if (!copied) return;
-    const t = setTimeout(reset, 2000);
-    return () => clearTimeout(t);
-  }, [copied]); // eslint-disable-line react-hooks/exhaustive-deps
-  const label = copied === 'ok' ? 'Copied' : copied === 'error' ? 'Couldn’t copy' : 'Share text';
-  return (
-    <button type="button" className="share-fab" title="Copy the share text (not printed on the flyer)" aria-label="Copy the share text" onClick={copy}>
-      <svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6">
-        <rect x="5" y="5" width="9" height="9" rx="2" />
-        <path d="M11 5V3.5A1.5 1.5 0 0 0 9.5 2h-6A1.5 1.5 0 0 0 2 3.5v6A1.5 1.5 0 0 0 3.5 11H5" />
-      </svg>
-      <span>{label}</span>
-    </button>
-  );
-}
-
-function Section({ title, hint, children }: { title: string; hint?: string; children: ReactNode }) {
-  return (
-    <section className="section">
-      <h2>{title}</h2>
-      {hint && <p className="hint">{hint}</p>}
-      {children}
-    </section>
-  );
-}
-
-/** A labelled control. `lang` flags the language the copy is written in (LangFlag). */
-function Field({ label, help, optional, lang, children }: { label: string; help?: string; optional?: boolean; lang?: Lang; children: ReactNode }) {
-  return (
-    <label className="field">
-      <span className="label">
-        {lang && <LangFlag lang={lang} />}
-        {label}
-        {optional && <em> optional</em>}
-      </span>
-      {children}
-      {help && <span className="help">{help}</span>}
-    </label>
   );
 }
 
