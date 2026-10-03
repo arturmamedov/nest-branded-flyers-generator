@@ -1,5 +1,18 @@
 import { apiUrl } from '../flyer/urls';
-import type { ApiConfig, FlyerInput, FlyerListItem, FlyerPayload, FlyerSaved, Hostel, PhotoInfo, Template } from '../shared/schema';
+import type {
+  AiFlyerRequest,
+  AiFlyerResult,
+  AiShareRequest,
+  AiShareResult,
+  ApiConfig,
+  FlyerInput,
+  FlyerListItem,
+  FlyerPayload,
+  FlyerSaved,
+  Hostel,
+  PhotoInfo,
+  Template,
+} from '../shared/schema';
 import { WRITE_HEADERS } from '../shared/writeGuard';
 
 /* Every write carries X-Nest-Flyers: the server's cross-site-write guard.
@@ -53,4 +66,8 @@ export const api = {
     form.append('photo', photo, name);
     return call<PhotoInfo>('POST', 'photos', form);
   },
+  /** An idea → a brief (docs/api-contract.md, "The AI assistant"); 429 when the day's generations are used up. */
+  aiFlyer: (request: AiFlyerRequest) => call<AiFlyerResult>('POST', 'ai/flyer', request),
+  /** A flyer's fields → its share text. */
+  aiShare: (request: AiShareRequest) => call<AiShareResult>('POST', 'ai/share', request),
 };

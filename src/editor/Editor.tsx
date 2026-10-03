@@ -5,12 +5,13 @@ import { lintFlyer } from '../shared/copyRules';
 import { DEFAULT_PHOTO_MODE, followHostel, marksFor, newFlyerData, switchTemplate, weekTitle } from '../shared/defaults';
 import { CANVASES, CANVAS_IDS, bodyOf, isCanvasId, photoFrame, type CanvasId, type PhotoMode } from '../shared/layout';
 import { DEFAULT_CROP, ZOOM_MAX, ZOOM_MIN, clampCrop, wholePhotoZoom, zoomCrop } from '../shared/photo';
-import type { Chip, ChipKey, Crop, FlyerData, FlyerInput, FlyerListItem, FlyerText, Hostel, PhotoInfo, Template, WeekRow } from '../shared/schema';
+import type { AiConfig, Chip, ChipKey, Crop, FlyerData, FlyerInput, FlyerListItem, FlyerText, Hostel, PhotoInfo, Template, WeekRow } from '../shared/schema';
 import { TITLE_MAX, libraryName } from '../shared/names';
 import { SHARE_MAX } from '../shared/share';
 import { WEEK_ROWS_MAX, WEEK_ROW_LIMITS, isPrintable, rowFromActivity } from '../shared/week';
 import { api, ApiError } from './api';
 import type { FlyerExporter } from './export';
+import { takeDraft } from './handoff';
 import { useLeaveGuard } from './leaveGuard';
 import { BackToLibrary, Field, HostelOptions, Section } from './panel';
 import { PHOTO_MODE_LABEL } from './photoModes';
@@ -74,15 +75,34 @@ const CHIP_HELP: Record<ChipKey, { placeholder: string; help: string }> = {
   cost: { placeholder: 'Free · food & drinks', help: 'Price big · what it includes small' },
 };
 
-export function Editor({ id, hostels, exporter, limits }: { id: number | null; hostels: Hostel[]; exporter: FlyerExporter; limits: PhotoLimits }) {
-  const [draft, setDraft] = useState<Draft | null>(id == null ? blankDraft() : null);
+export function Editor({
+  id,
+  hostels,
+  exporter,
+  limits,
+  ai,
+  onRemaining,
+}: {
+  id: number | null;
+  hostels: Hostel[];
+  exporter: FlyerExporter;
+  limits: PhotoLimits;
+  /** The AI for this staff member; off, the editor shows nothing of it. */
+  ai: AiConfig;
+  /** Tells the app what is left today after an AI answer. */
+  onRemaining: (remaining: number) => void;
+}) {
+  // A new flyer the AI page made (handoff.ts): taken once, it starts the draft, unsaved, so the leave guard is armed at
+  // once and the first save makes its URL as for any new flyer.
+  const [handoff] = useState(() => (id == null ? takeDraft() : null));
+  const [draft, setDraft] = useState<Draft | null>(id == null ? (handoff ? { ...handoff.draft, photo: null } : blankDraft()) : null);
   const [savedJson, setSavedJson] = useState<string>(() => (id == null ? JSON.stringify(toInput(blankDraft(), hostels)) : 'loading'));
   const [flyerId, setFlyerId] = useState<number | null>(id);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [canvas, setCanvas] = useState<CanvasId>(savedCanvas);
   const [safe, setSafe] = useState(false);
   const [actualSize, setActualSize] = useState(false);
-  const [busy, setBusy] = useState<null | 'save' | 'png' | 'jpg' | 'upload' | 'row'>(null);
+  const [busy, setBusy] = useState<null | 'save' | 'png' | 'jpg' | 'upload' | 'row' | 'ai'>(null);
   const [message, setMessage] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
 
@@ -144,6 +164,8 @@ export function Editor({ id, hostels, exporter, limits }: { id: number | null; h
   const updateWeek = (fn: (rows: WeekRow[]) => WeekRow[]) => setDraft((d) => (d ? { ...d, data: { ...d.data, week: fn(d.data.week) } } : d));
 
   const week = draft.data.template === 'week';
+  // The AI wrote this flyer and nobody has saved it yet: every fact is still the model's.
+  const aiDraft = handoff !== null && flyerId == null;
   // The week title's defaults, as a new week flyer gets them for this hostel: the placeholders once cleared.
   const weekDefaults = weekTitle(hostel?.name ?? null);
   // A frame with no photo in it would print as a blank strip; a week flyer has no frame at all.
@@ -223,6 +245,25 @@ export function Editor({ id, hostels, exporter, limits }: { id: number | null; h
       setDraft((d) => (d && !takeRefusal(d.data) ? { ...d, data: { ...d.data, week: [...d.data.week, row] } } : d));
       return `Added “${row.name}” from ${p.flyer.title}.`;
     });
+
+  // The caption from what the fields say now, with the idea the flyer came from when the AI made it. A caption already
+  // there is replaced only on a yes: the generation is counted either way once it is sent.
+  const writeShare = () => {
+    if (!ai.enabled) return;
+    if (draft.data.share.trim() && !confirm(`Replace the caption with one the AI writes? It uses one of the ${ai.remaining} generations left today.`)) return;
+    run('ai', async () => {
+      try {
+        const { hostel: slug, data } = latestDraft.current!;
+        const r = await api.aiShare({ hostel: slug, template: data.template, data, ...(handoff ? { idea: handoff.idea } : {}) });
+        setData({ share: r.share });
+        onRemaining(r.remaining);
+        return '✨ The AI wrote the caption: read it before you post.';
+      } catch (e) {
+        if (e instanceof ApiError && e.status === 429) onRemaining(0);
+        throw e;
+      }
+    });
+  };
 
   const t = draft.data.text;
   const chip = (key: ChipKey) => draft.data.chips.find((c) => c.key === key) as Chip;
@@ -373,10 +414,18 @@ export function Editor({ id, hostels, exporter, limits }: { id: number | null; h
         </Section>
 
         <Section title="Share text" hint="Not printed. The caption to paste when you post or send the flyer.">
+          {ai.enabled && (
+            <div className="ai-write">
+              <button type="button" className="btn" disabled={!!busy || ai.remaining === 0} onClick={writeShare}>
+                {busy === 'ai' ? 'Writing…' : '✨ Write with AI'} <span className="ai-left">({ai.remaining} left today)</span>
+              </button>
+            </div>
+          )}
           <Field label="Caption" optional>
             <textarea
               rows={8}
               value={draft.data.share}
+              readOnly={busy === 'ai'}
               maxLength={SHARE_MAX}
               placeholder={'¡HOY tenemos plan! 🌅\n🕖 19:00 h · 📍 La piscina\n\n---\n\nTODAY we have a plan! 🌅'}
               onChange={(e) => setData({ share: e.target.value })}
@@ -424,9 +473,10 @@ export function Editor({ id, hostels, exporter, limits }: { id: number | null; h
           </button>
         </div>
 
-        {(message || needsPhoto || lints.length > 0 || cutOff.length > 0) && (
+        {(message || aiDraft || needsPhoto || lints.length > 0 || cutOff.length > 0) && (
           <div className="notes">
             {message && <div className={message.kind === 'ok' ? 'note note-ok' : 'note note-error'}>{message.text}</div>}
+            {aiDraft && <div className="note note-warn">✨ AI draft: check every fact before you print.</div>}
             {needsPhoto && (
               <div className="note note-warn">
                 Add a photo, or{' '}

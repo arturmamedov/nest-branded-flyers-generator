@@ -108,7 +108,7 @@ test('the editor on the PHP backend: create, photos, crop, reopen, library, down
   const pageErrors: string[] = [];
   page.on('pageerror', (e) => pageErrors.push(e.message));
 
-  const limits = await test.step('read the backend and its limits from api/config', async () => {
+  const { limits, ai } = await test.step('read the backend and its limits from api/config', async () => {
     const res = await request.get('api/config');
     expect(res.status(), await res.text()).toBe(200);
     const config = ApiConfigSchema.parse(await res.json());
@@ -116,7 +116,25 @@ test('the editor on the PHP backend: create, photos, crop, reopen, library, down
     // PHP has no server renderer, so the downloads below go through the in-browser exporter.
     expect(config.exporters).toEqual(['client']);
     test.info().annotations.push({ type: 'limits', description: JSON.stringify({ ...config.limits, server: config.server }) });
-    return config.limits;
+    return config;
+  });
+
+  // The stage has no `ai` block, so the AI is off and nothing of it shows (tests/render/ai.spec.ts drives it on).
+  // A deployment with a key is told apart by api/config, and this step says so instead of failing.
+  await test.step('0. with the AI off, no AI anywhere', async () => {
+    if (ai.enabled) {
+      test.info().annotations.push({ type: 'ai', description: 'on at this deployment: the off checks were not run' });
+      return;
+    }
+    await page.goto('./');
+    await expect(page.getByRole('link', { name: 'New flyer' })).toBeVisible();
+    await expect(page.getByRole('link', { name: /Create with AI/ })).toHaveCount(0);
+    await page.goto('./#/ai');
+    await expect(page.getByRole('heading', { name: 'Flyer library' })).toBeVisible();
+    await expect(page).toHaveURL(/#\/$/);
+    await page.goto('./#/new');
+    await expect(page.getByLabel('Caption')).toBeVisible();
+    await expect(page.getByRole('button', { name: /Write with AI/ })).toHaveCount(0);
   });
 
   const hostels = HostelSchema.array().parse(await (await request.get('api/hostels')).json());

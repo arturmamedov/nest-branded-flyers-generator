@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
 
-export type Route = { page: 'library' } | { page: 'new' } | { page: 'edit'; id: number };
+export type Route = { page: 'library' } | { page: 'new' } | { page: 'edit'; id: number } | { page: 'ai' };
 
 export function parseHash(hash: string): Route {
   const edit = /^#\/flyers\/(\d+)$/.exec(hash);
   if (edit) return { page: 'edit', id: Number(edit[1]) };
   if (hash === '#/new') return { page: 'new' };
+  if (hash === '#/ai') return { page: 'ai' };
   return { page: 'library' };
 }
 

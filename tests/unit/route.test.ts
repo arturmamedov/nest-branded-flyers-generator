@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createMoveGuard, type Move, type Place } from '../../src/editor/route.js';
+import { createMoveGuard, parseHash, type Move, type Place } from '../../src/editor/route.js';
 
 /* The move guard (src/editor/route.ts) against a stand-in tab that follows the Navigation API:
    every move, a replace included, is announced (navigate) before it happens, and happens only if
@@ -252,5 +252,17 @@ describe('move guard', () => {
       tab.guard.replaceHash('#/new', '#/flyers/10'); // a later first save keeps its own URL
       expect(tab.hash()).toBe('#/flyers/10');
     });
+  });
+});
+
+describe('the pages in the hash', () => {
+  it('names the library, a new flyer, a saved one and the AI page; anything else is the library', () => {
+    expect(parseHash('#/')).toEqual({ page: 'library' });
+    expect(parseHash('')).toEqual({ page: 'library' });
+    expect(parseHash('#/new')).toEqual({ page: 'new' });
+    expect(parseHash('#/flyers/12')).toEqual({ page: 'edit', id: 12 });
+    expect(parseHash('#/ai')).toEqual({ page: 'ai' });
+    expect(parseHash('#/ai/')).toEqual({ page: 'library' });
+    expect(parseHash('#/nowhere')).toEqual({ page: 'library' });
   });
 });
