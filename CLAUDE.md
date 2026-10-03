@@ -22,6 +22,8 @@ npm run test:php-smoke # the editor driven against the PHP backend in a browser
 npm run build:php      # the shared-hosting release in release/php/ (with release.json), and the preflight page beside it
 npm run deploy:backup  # a local deployment's library to ./backups/ (deploy:restore, deploy:reset); docs/deploy.md
 npm run copy           # move a library between storage drivers (SQLite <-> JSON files)
+npm run ai:smoke       # one real AI generation by hand, with .env's AI_PROVIDER and AI_API_KEY (--share: a share text;
+                       # --to <app root>: through a site, spending one of its 3 for the day). Never part of a test
 npm run compare:design # reference pixel-diff vs the prototype (dev server running)
 npm run build          # vite build → dist/, tsc → dist-server/
 ```
@@ -47,7 +49,9 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
   zod-free), `share.ts` (the share text's limit: a caption saved with the flyer, copied from the panel or the
   button floating by the preview, never printed), `brief.ts` (`flyerFromBrief`: a flyer from its copy alone, the shape the staff-text
   workflow in `docs/ai-flyers/` writes — zod-free; `BriefSchema` is in `schema.ts`), `photo.ts` (crop maths),
-  `copyRules.ts`, `writeGuard.ts` (the write header, and the methods that need none), `samples.ts` (the seed and
+  `copyRules.ts`, `writeGuard.ts` (the write header, and the methods that need none), `ai.ts` (the AI assistant's
+  facts: the daily cap, the idea's and the assumptions' limits, the day's zone, the provider defaults, the fake
+  provider's markers — zod-free), `samples.ts` (the seed and
   test flyers). Relative imports here use `.js` extensions
   (NodeNext). The client never imports a value from `schema.ts`: that would bundle zod into the editor and the
   export page. Nothing the browser loads imports `samples.ts` either: it imports `seed/hostels.json` for the
@@ -86,6 +90,32 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
   only by PHP's tests.
 - The export runs in the browser where a backend has no renderer (`src/editor/export/`): same `<Flyer>`,
   same `prepareFlyer()`, modern-screenshot. `tests/render/fidelity.spec.ts` holds it to the server export.
+- The AI assistant: an idea → a flyer (`POST api/ai/flyer`) and a flyer → its share text (`POST api/ai/share`),
+  one contract on both backends (`docs/api-contract.md`, "The AI assistant").
+  - `server/ai/` and `php/src/Ai/` are twins: the provider seam (`LlmProvider`: OpenAI, Anthropic, and a fake for
+    the tests; which one runs is configuration, never code), the prompt builder, the service with its checks in
+    the contract's order, and the actor and the policy, which are the seam a login will fill.
+    `tests/fixtures/ai-*.json` pin both backends: a change to an adapter, the prompt or a schema dialect is a
+    vector first.
+  - One source for everything shared: `src/shared/ai.ts`, the AI schemas in `schema.ts`, the rules in
+    `ai/prompts/`, the examples in `docs/ai-flyers/examples/`. `npm run gen` writes `schema/ai.json` (the prompts
+    with their limits, the few-shot, the schemas) and the `ai` block of `schema/shared.json`.
+  - The model's answer only ever becomes data held to `AiFlyerAnswerSchema` / `AiShareAnswerSchema`. A flyer's
+    answer always carries its share text (required there, not in `BriefSchema`): one generation is a whole flyer.
+  - Settings: `AI_PROVIDER`, `AI_API_KEY`, `AI_MODEL`, `AI_EFFORT`, `AI_TIMEOUT_MS`, `AI_ENABLED` in `.env` (Node);
+    the `ai` block of `config.php` (PHP). Off without a key, and then nothing of it shows. The key never reaches
+    `api/config`, a log line, the ledger, a release or git, and a refusal names a setting, never its value.
+  - The ledger (`aiUsage` in each storage driver; `ai-usage/YYYY-MM.json` in the JSON store) keeps one append-only
+    record per generation attempted. The cap (`AI_DAILY_LIMIT`, 3) is the count of the Canary Islands day's `ok`
+    records for the actor: today one anonymous actor, so site-wide.
+  - The client: `src/editor/AiPage.tsx` (`#/ai`, a focus page like the editor), `handoff.ts` (the unsaved flyer
+    handed to the editor in memory), `panel.tsx` and `share.tsx` (what both focus pages share), and "Write with AI"
+    in `Editor.tsx`.
+  - No test touches a provider. The render suite has two projects: `render` (every spec but `ai.spec.ts`, the AI
+    off whatever `.env` holds) and `ai` (`ai.spec.ts` on a second server with the fake, port 8798, spending
+    exactly the day's 3). The contract suite's `node-ai` and `php-ai` run the AI routes on the fake.
+  - `npm run ai:smoke` (`scripts/ai/smoke.ts`) is the one thing that calls a real provider, by hand.
+    `scripts/site.ts` is how a script calls a site's API (`flyers:post` too): it never follows a redirect.
 
 ## Non-negotiables (from the handoff — don't "fix" them)
 
@@ -191,17 +221,28 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
     space, so the flyer keeps the whole stage (Artur's markup, 2026-10-01: a card under the preview took too much).
   - `npm run flyers:post` saves briefs on a site through its API (`FLYERS_BASE_URL`, or `--to`). It is idempotent,
     and it records each save in the example file.
-  - `docs/ai-flyers/` holds the rules that become the editor's future AI assistant's system prompt, and every staff
-    text with its brief (`examples/`): its few-shot and eval set. Add a correction there every time Artur makes one.
-  - The AI assistant itself is being built on `feat/ai-assistant` (brief `docs/prompts/ai-assistant.md`; a
-    "Create with AI" page and a "Write with AI" button, not a modal). Phases 1–4 are done: the shared sources and the
-    contract, the Node side, the PHP peer (`php/src/Ai/`), and the client (`#/ai`, the handoff to the editor, "Write
-    with AI"; `tests/render/ai.spec.ts` runs on a second, fake-provider server). All four are committed, unpushed
-    (2026-10-03). The next session continues with `docs/prompts/ai-assistant-continue-phase5.md` at Phase 5 (a real
-    call); `docs/prompts/ai-assistant-review.md` is the review of the whole branch, for the end. The Phase 6 docs
-    pass will rewrite this entry.
+  - `docs/ai-flyers/` holds every staff text with its brief (`examples/`): the AI assistant's few-shot and eval
+    set. Add a correction there every time Artur makes one. The rules themselves are the prompt files in
+    `ai/prompts/`.
   - Seen 2026-10-01: the live host reported `Disk quota exceeded` on `data/` and `uploads/`. Artur freed the IONOS
     space the same day.
+- Built: the AI assistant (branch `feat/ai-assistant`, 2026-10-02 to 2026-10-04; brief `docs/prompts/ai-assistant.md`,
+  continued by `ai-assistant-continue.md` and `ai-assistant-continue-phase5.md`; report
+  `docs/reports/ai-assistant.md`). Committed, unpushed.
+  - A "Create with AI" page (`#/ai`) and a "Write with AI" button in the editor's Share text section, on both
+    backends, with OpenAI and Anthropic behind one seam. Artur's Phase 0 choices (2026-10-02): `gpt-6-luna` and
+    `claude-haiku-4-5` as the default models.
+  - Both providers answered real calls on 2026-10-04 (`npm run ai:smoke`), and one went through PHP on the Laragon
+    copy. That copy now runs release `8b9c8556afa1` with the AI on: its `config.php` holds an OpenAI key.
+  - The real calls found one fault, since fixed: Anthropic left the optional share text out, so
+    `AiFlyerAnswerSchema` requires it.
+  - Not on the live site yet. IONOS needs the new release, then the `ai` block with a key (`docs/deploy.md`, "The
+    AI assistant"). Artur allowed it on live while it is unlocked (2026-10-02): the cap keeps it at 3 a day.
+  - Next: Artur runs `docs/prompts/ai-assistant-review.md` in a fresh session on another model. It changes
+    nothing; he picks what gets fixed. Don't start it unasked.
+  - Known limits: two concurrent requests can both see `remaining: 1`; `claude-haiku-4-5` retires no sooner than
+    2026-10-15 (a default: one line of settings changes it); IONOS's FastCGI time limit is unmeasured until a live
+    call; Anthropic's first call after the answer's schema changes takes about 20 s of the 25 s limit.
 - Waiting, don't start unasked: step 7 (drag/nudge everything on the canvas, sizes, colours, order, reset),
   step 9 (doodle picker + icon uploads). With two canvases and two templates: step 7's stored `overrides`
   (dx/dy) are shared by every canvas, so it must decide how they apply per canvas; step 9, when it stores

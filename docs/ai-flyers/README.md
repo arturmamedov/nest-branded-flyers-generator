@@ -3,15 +3,18 @@
 Staff write an event the way they would post it in a group chat: a few lines, emoji, Spanish or English, often both.
 This folder turns that text into a saved flyer, and keeps every case.
 
-- **Now (since 2026-10-01).**
+- **By hand (since 2026-10-01): Artur's checked route.**
   - Artur pastes the text into a Claude Code session.
   - Claude writes a *brief* from it, using the rules below.
   - `npm run flyers:post` saves the brief on the live site, without a photo.
   - Managers add the photo in the editor.
-- **Later.** The editor gets an AI assistant: a modal with a textarea where staff paste their own text. A model
-  writes the brief and the editor opens it as a new flyer.
+- **In the app (branch `feat/ai-assistant`, 2026-10-04).** Staff paste their own text on the "✨ Create with AI" page.
+  A model writes the brief, with its share text, and the app opens it as a new, unsaved flyer. It runs on a site
+  once that site's settings hold a provider's key (`docs/deploy.md`, "The AI assistant").
   - The rules in `ai/prompts/` are that model's system prompt.
   - `examples/` holds its few-shot cases and its eval set.
+  - Every generation is kept in the site's ledger, where the next examples come from ("From the ledger to an
+    example", below).
 
 The pieces, each defined once:
 
@@ -23,6 +26,11 @@ The pieces, each defined once:
 | Every field's limit | `schema/flyer.schema.json` (generated). Never copy a number into this file |
 | Brand-voice warnings | `lintFlyer()` in `src/shared/copyRules.ts` |
 | The writer | `scripts/flyers/post.ts`: the API, with the write header, idempotent |
+| The rules, as the model reads them | `ai/prompts/flyer.md` and `ai/prompts/share.md` |
+| What the model must answer | `AiFlyerAnswerSchema` in `src/shared/schema.ts`: a brief, always with its share text, and at most 12 assumptions |
+| What both backends send a provider | `schema/ai.json` (generated): the prompts with their limits, these examples as few-shot turns, the answer's schema |
+| What a site keeps of each generation | the AI ledger (`docs/json-storage.md`) |
+| One real generation, by hand | `npm run ai:smoke` (`scripts/ai/smoke.ts`) |
 
 ## Running it
 
@@ -31,8 +39,16 @@ The pieces, each defined once:
 npm run flyers:post -- docs/ai-flyers/examples --dry-run              # checks every brief, saves nothing
 npm run flyers:post -- docs/ai-flyers/examples --to http://127.0.0.1:8787/   # a proof on the dev server
 npm run flyers:post -- docs/ai-flyers/examples/2026-10-01-adeje-nest-sunset-stretching.json
+
+# .env: AI_PROVIDER=openai (or anthropic) and AI_API_KEY=…
+npm run ai:smoke -- docs/ai-flyers/examples/2026-10-01-adeje-nest-sunset-stretching.json   # what the model makes of that text
+npm run ai:smoke -- --share                                                                  # the share text of the first example's flyer
 ```
 
+- **What a smoke run shows.** The example's text goes to the provider `.env` names, held out of the few-shot, so the
+  brief that comes back is the model's own and not the example read back. Read it against the brief written by
+  hand. What differs is either something the text never said (it belongs in `asked`) or a rule the prompt lacks.
+  It prints the tokens and the seconds too, and spends no site's daily generations.
 - **What it checks first.** A brief is checked against the site's hostels and the API's own rules before anything is
   sent. A misspelt key, an unknown hostel or a line past its limit stops that brief, with the reason.
 - **No duplicates.** A brief already saved on that site is skipped. Either its file records the save (`posted`), or a
@@ -48,17 +64,44 @@ npm run flyers:post -- docs/ai-flyers/examples/2026-10-01-adeje-nest-sunset-stre
 {
   "source": "the staff text, exactly as it came — never cleaned up",
   "brief": { "hostel": "adeje-nest", "template": "activity", "text": { … }, "when": "…", "where": "…", "cost": "…", "extras": [], "share": "…" },
-  "asked": [{ "question": "How much does it cost?", "answer": "Free" }],
+  "asked": [{ "question": "How much does it cost?", "answer": "Free", "field": "cost" }],
   "notes": "what was decided, and Artur's corrections",
   "posted": [{ "site": "https://nestpass.ai/activities/", "id": 4, "at": "2026-10-01T…Z" }]
 }
 ```
 
 - **When Artur corrects a flyer in the editor,** copy the correction into that example's brief and say why in
-  `notes`. If it is a rule, add it below too. The examples are only worth as much as their corrections.
-- **Record every question in `asked`.** That is every question the text left open, with the answer. Those are the
-  questions the assistant has to learn to ask.
+  `notes`. If it is a rule, add it to the prompt file too. The examples are only worth as much as their corrections.
+- **Record every question in `asked`.** That is every question the text left open, with the answer and the brief key
+  it settles (`field`: `hostel`, `cost`, `when`, `text.askEn`). The assistant cannot ask, so `npm run gen` shows it
+  each one as an assumption: the `field`, with the answer as its note.
+- **An example carries its share text.** The model is shown the example as the whole answer to give, and its answer
+  must always have a share text. `npm run gen` refuses an example without one.
 - **Never invent a hostel.** The slug comes from Artur or from the text. If neither names one, ask; never guess.
+
+## From the ledger to an example
+
+Every generation a site attempts is one record in its ledger: `data/ai-usage/YYYY-MM.json` on the PHP host and the
+JSON store, the `ai_usage` table on SQLite. A record holds `at`, `day`, `actorId`, `feature`, `provider`, `model`,
+`tokens`, `ok`, `input` and `output`. The ledger is real staff text with what the model made of it, so it is where
+the next examples come from.
+
+1. **Pick a record worth keeping.** A `flyer` record whose flyer someone then corrected in the editor, or one with
+   `ok: false`. A flyer the staff printed as it came teaches the model nothing new.
+2. **`input` is the `source`,** exactly as it came: never cleaned up.
+3. **`output` is the model's answer,** `{ brief, assumptions }`, as text. Start the example's `brief` from it, then
+   make it the flyer it should have been: the corrections from the editor, and the share text as posted.
+4. **Each thing the text left out becomes an `asked` entry.** The model's `assumptions` list them. For each: the
+   `question` the text leaves open, the true `answer` (at most 200 characters), and the `field` it settles.
+5. **Say why in `notes`:** what was decided, and what Artur corrected. A correction that is a rule goes in
+   `ai/prompts/flyer.md` as well, in one line.
+6. **Run `npm run gen`, then `npm test`.** The first rebuilds `schema/ai.json`; the second fails while it is stale.
+7. **See what the model makes of it now:** `npm run ai:smoke -- docs/ai-flyers/examples/<the new file>`.
+
+- **The ledger holds what staff typed,** phone numbers included, and an example file is committed. Leave out of the
+  example anything that should not be in git.
+- **The ledger never holds a key,** and no address serves it: download it with the library (`docs/deploy.md`,
+  *Backups*).
 
 ---
 
@@ -67,7 +110,7 @@ npm run flyers:post -- docs/ai-flyers/examples/2026-10-01-adeje-nest-sunset-stre
 The rules live in two prompt files, the model's own instructions:
 
 - [ai/prompts/flyer.md](../../ai/prompts/flyer.md): an idea → a brief. The model cannot ask, so each gap takes a default and
-  is listed in the answer's `assumptions` for the staff member to check.
+  is listed in the answer's `assumptions` for the staff member to check. The share text is always part of the answer.
 - [ai/prompts/share.md](../../ai/prompts/share.md): a flyer → its share text.
 
 `npm run gen` bundles them with the examples in this folder and the schemas into `schema/ai.json`, which both backends read;

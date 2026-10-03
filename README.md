@@ -71,14 +71,15 @@ export renderer works in dev too.
 | Command | What it proves |
 |---|---|
 | `npm run typecheck` | client and server compile |
-| `npm test` | shared logic (`·` split, layout, crop maths, copy rules, schema), the editor's history guard, the shared test vectors, the storage contract on every driver, SQLite migrations, and that generated files are current |
-| `npm run test:contract` | the HTTP contract (`docs/api-contract.md`) against every backend, the PHP one also behind a staff login (`php-basic`), and the access rule itself over HTTP (`php-access`: 401, 403, 503). `CONTRACT_BASE_URL` in `.env` points it at a deployment instead (`docs/deploy.md`) |
-| `npm run test:render` | builds, then renders every Activity sample in all three photo modes, and every This week sample once, on every canvas: every block where `layout.ts` puts it, inside the safe box, no overlapping blocks, no clipped text, real fonts loaded, highlighter clone, each week row printing what `src/shared/week.ts` says (short names, two-line prices, empty cells collapsed), exports each canvas at its exact size as PNG/JPG, cached per canvas until a save; the in-browser client export matches the server export (`fidelity.spec.ts`, ≤ 0.5 % per feature). `tests/render/baseline.spec.ts` is opt-in (`RENDER_BASELINE=capture\|check`, `RENDER_BASELINE_DIR`): byte-identical PNGs of the story, every sample Activity and This week alike, before and after a change; a check skips, by name, a case its capture lacks |
+| `npm test` | shared logic (`·` split, layout, crop maths, copy rules, schema), the editor's history guard, the shared test vectors, the storage contract on every driver, SQLite migrations, that generated files are current, and the AI assistant on a fake provider: its checks in their order, the daily cap and its day, and both providers' adapters against recorded answers |
+| `npm run test:contract` | the HTTP contract (`docs/api-contract.md`) against every backend, the PHP one also behind a staff login (`php-basic`), and the access rule itself over HTTP (`php-access`: 401, 403, 503). The AI routes generate on the fake provider (`node-ai`, `php-ai`); every other project proves them off. `CONTRACT_BASE_URL` in `.env` points it at a deployment instead (`docs/deploy.md`) |
+| `npm run test:render` | builds, then renders every Activity sample in all three photo modes, and every This week sample once, on every canvas: every block where `layout.ts` puts it, inside the safe box, no overlapping blocks, no clipped text, real fonts loaded, highlighter clone, each week row printing what `src/shared/week.ts` says (short names, two-line prices, empty cells collapsed), exports each canvas at its exact size as PNG/JPG, cached per canvas until a save; the in-browser client export matches the server export (`fidelity.spec.ts`, ≤ 0.5 % per feature). `tests/render/baseline.spec.ts` is opt-in (`RENDER_BASELINE=capture\|check`, `RENDER_BASELINE_DIR`): byte-identical PNGs of the story, every sample Activity and This week alike, before and after a change; a check skips, by name, a case its capture lacks. `ai.spec.ts` drives "Create with AI" and "Write with AI" on a second server with the fake provider; every other spec runs with the AI off, whatever `.env` holds |
 | `npm run test:php` | the PHP backend's own tests (PHPUnit). `composer test` in `php/` does the same; `PHP_BIN` picks the interpreter |
 | `npm run test:php-smoke` | builds, serves the release layout with `php -S`, and drives the editor on the PHP backend in a browser |
 | `npm run build:php` | the release to upload to a PHP host, in `release/php/`, and the preflight page beside it (`docs/deploy.md`) |
 | `npm run deploy:backup` / `deploy:restore` / `deploy:reset` | a local deployment's library out to a dated folder, back in, or emptied (`docs/deploy.md`, *Backups*) |
 | `npm run flyers:post` | saves flyers from staff-text briefs on a site through its API (`FLYERS_BASE_URL`, or `--to`; `--dry-run` checks only). Idempotent; `docs/ai-flyers/README.md` |
+| `npm run ai:smoke` | one real AI generation, by hand, with the provider and key in `.env`: the brief, what it assumed, the share text, the tokens and the seconds. `--share` writes a flyer's share text; `--to <app root>` goes through a site's API and spends one of its 3 for the day. Never part of a test: no test touches a provider |
 | `npm run copy` | moves a library between storage drivers (SQLite ⇄ JSON files) |
 | `npm run compare:design` | with `npm run dev` running and samples seeded: pixel-diffs the app against the design prototype (needs internet for the prototype's React). Diff images in `test-results/design-compare/`. The MVP matched it to 0 pixels; since the design pass below it differs on purpose in the headline and art — check nothing else moved |
 
@@ -143,6 +144,11 @@ full WHEN line) — download the stress-test flyer and look.
 | `php/preflight/` | the preflight page the owner uploads before a release (`docs/deploy.md`) |
 | `docs/api-contract.md`, `docs/json-storage.md` | the two seams written down |
 | `docs/deploy.md` | the shared-hosting deploy, step by step, for the owner |
+| `src/shared/ai.ts`, `ai/prompts/`, `schema/ai.json` | the AI assistant's shared facts (the daily cap, the day it counts in, the default models), its rules, and the generated bundle both backends send a provider |
+| `server/ai/`, `php/src/Ai/` | the AI assistant on each backend: the provider seam (OpenAI, Anthropic, and a fake for the tests), the prompt, the service with its checks, the actor and the policy |
+| `src/editor/AiPage.tsx`, `src/editor/handoff.ts` | "Create with AI" (`#/ai`), and the flyer it hands to the editor, unsaved |
+| `scripts/ai/smoke.ts`, `scripts/site.ts` | one real generation by hand, and the one way the scripts call a site's API |
+| `docs/ai-flyers/` | flyers from staff text: the examples (the model's few-shot and eval set), and how a site's ledger feeds them |
 | `assets/art/` | the built-in hand-drawn art (served at `/assets/art/…`) |
 | `php/web/robots.txt` | every crawler, search and AI, asked to stay out. The PHP release ships it and Express serves the same file at the app root; it counts when that is a domain's root. On nestpass.ai the domain's own copy (nestpass-tools) covers `/activities/`. |
 | `fixtures/photos/` | development placeholder photos — **not licensed**, never shipped as content |
@@ -174,6 +180,18 @@ Unsaved work asks before it is left (`src/editor/leaveGuard.ts`, `tests/render/e
 - Closing or reloading the tab: the browser's own question. Desktop browsers ask; phones (iOS Safari
   above all) may close without asking.
 - A photo dropped beside the preview is refused instead of opening in the tab.
+
+**The AI assistant is off until it has a key.**
+- "✨ Create with AI" (`#/ai`) turns a staff member's own text into a new, unsaved flyer, with what it assumed
+  and the flyer's share text. "✨ Write with AI", in the editor, writes a flyer's share text.
+- Which provider runs is configuration, never code: `AI_PROVIDER` and `AI_API_KEY` in `.env` (below), or the
+  `ai` block of `config.php` on the PHP host (`docs/deploy.md`, *The AI assistant*). Without a key nothing of
+  it shows, and the app is as it was.
+- At most 3 generations a day (`AI_DAILY_LIMIT` in `src/shared/ai.ts`), both buttons together, counted on the
+  Canary Islands day. There is no login, so today the cap is site-wide.
+- Every test runs on the fake provider or with the AI off, so a key in `.env` never reaches a test.
+  `npm run dev` does use it.
+- The brief is `docs/prompts/ai-assistant.md`, the report `docs/reports/ai-assistant.md`.
 
 ---
 
@@ -213,6 +231,12 @@ A new build changes the renderer's build id, so cached exports are re-rendered a
 | `RENDER_ORIGIN` | `http://127.0.0.1:PORT` (or `http://HOST:PORT` for a specific IP) | where headless Chromium reaches the app |
 | `RENDER_TIMEOUT_MS` | `30000` | per export |
 | `PHP_BIN` | `php` | only for the PHP tests: which interpreter to run (8.1+) |
+| `AI_PROVIDER` | unset: the AI is off | `openai`, `anthropic`, or `fake` (canned answers from the examples, for the tests and a demo; it needs no key) |
+| `AI_API_KEY` | unset | the provider's key. Server-side only: it never reaches `api/config`, a log line, the ledger or git |
+| `AI_MODEL` | `gpt-6-luna` (OpenAI), `claude-haiku-4-5` (Anthropic) | |
+| `AI_EFFORT` | unset | the provider's effort setting (`low` answers sooner). Leave it unset on `claude-haiku-4-5`, which refuses it |
+| `AI_TIMEOUT_MS` | `25000` | how long a generation waits for the provider: a positive whole number |
+| `AI_ENABLED` | on, with a provider and its key | `0` switches the AI off and keeps the key |
 
 ### Backup
 
@@ -261,9 +285,22 @@ The source database is never opened: a snapshot is read, so the Node app can kee
 same command works the other way (`--from-json <folder>/data --uploads-from <folder>/uploads
 --to-sqlite …`). A data folder is served by one backend at a time.
 
+**The AI on the PHP host** is the `ai` block of `config.php` (`docs/deploy.md`, *The AI assistant*):
+`provider` and `apiKey`, and optionally `model`, `effort`, `timeoutMs` and `enabled`, the same six
+settings as the `AI_*` ones above. It needs PHP's curl, which the preflight page checks. A release
+built before 2026-10-03 refuses a `config.php` that has the block, so the block comes out before a
+rollback that far.
+
 **Against a local copy of a deployment** (a Laragon folder): `npm run deploy:backup`,
 `deploy:restore` and `deploy:reset` (`docs/deploy.md`, *Backups*), and the checks with
 `CONTRACT_BASE_URL` in `.env` (`docs/deploy.md`, *Checking from the computer with the checkout*).
+A Laragon copy answers over https only, with Laragon's own certificate, which Node does not trust.
+Name it before a check or an `ai:smoke --to` there:
+
+```sh
+$env:NODE_EXTRA_CA_CERTS = 'C:\laragon\etc\ssl\laragon.crt'      # PowerShell; Git Bash: NODE_EXTRA_CA_CERTS='C:\laragon\etc\ssl\laragon.crt' npm run …
+npm run ai:smoke -- --to https://localhost/nest-flyers-php/
+```
 
 ### nginx
 
@@ -307,6 +344,11 @@ upload with three photo modes, drag-to-reposition and zoom, library with hostel 
 duplicate and archive. Then output canvases: every flyer previews and downloads as an Instagram
 story or a WhatsApp 3:4 image (`docs/reports/output-canvases.md`). Then handoff step 8, the
 **This week** template, on both canvases and both backends (`docs/reports/week-template.md`).
+
+Built, on branch `feat/ai-assistant` (`docs/reports/ai-assistant.md`): the **AI assistant**, on both
+backends. "Create with AI" writes a flyer from a staff member's text, and "Write with AI" a flyer's
+share text, with OpenAI or Anthropic behind one seam, at most 3 generations a day. It is off until a
+site has a key.
 
 Next (handoff steps 7 and 9): per-element drag/nudge with snapping and safe-box clamping,
 font-size multipliers, contrast-checked colour swatches, block reorder, Reset to template; the
