@@ -6,11 +6,14 @@ import { contractTarget, describeTarget } from './scripts/env.js';
    - node-json:  the same app and the same tests on the JSON store, so the two
                  Node drivers are held to one contract (setup/node.ts reads the
                  driver off the project name).
+   - node-ai:    the AI routes (tests/contract/ai.test.ts) with the fake provider
+                 wired, so they generate; every other project proves them off.
    - php:        php -S on a temp stage (scripts/php/serve.ts), PHP_BIN from the
                  environment or .env. One server process, so files run one at a time.
    - php-basic:  the same stage behind a staff login (setup/php.ts reads the access
                  rule off the project name), so the client proves it signs every
                  request in, the way it must against a locked deployment.
+   - php-ai:     node-ai's twin: a stage whose config.php names the fake provider.
    - php-access: the lock itself, over HTTP: who is refused, with what (tests/access).
    - cross:      not the contract suite but the proof the JSON store is one
                  format: Node writes a folder, PHP serves it (tests/cross).
@@ -59,6 +62,10 @@ export default defineConfig({
           { test: { ...shared, name: 'php', globalSetup: ['tests/contract/setup/php.ts'], fileParallelism: false } },
           {
             test: { ...shared, name: 'php-basic', include: SIGNED_IN_FILES, globalSetup: ['tests/contract/setup/php.ts'], fileParallelism: false },
+          },
+          // node-ai's twin: config.php's `ai` block names the fake provider (setup/php.ts).
+          {
+            test: { ...shared, name: 'php-ai', include: ['tests/contract/ai.test.ts'], globalSetup: ['tests/contract/setup/php.ts'], fileParallelism: false },
           },
           {
             test: {

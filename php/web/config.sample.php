@@ -48,4 +48,24 @@ return [
 
     // Photo processing: 'auto' (GD when installed, else Imagick), 'gd' or 'imagick'.
     'imageProcessor' => 'auto',
+
+    // The AI assistant ("Create with AI" and "Write with AI"). Off until a provider
+    // and its key are set; without this block it is off too. At most 3 generations
+    // a day, counted in the Canary Islands. Needs PHP's curl extension.
+    // Before going back to an older release, remove this block: a release from
+    // before the AI refuses config.php with it (503).
+    'ai' => [
+        // 'openai' or 'anthropic' ('fake' answers canned examples, for tests).
+        'provider' => null,
+        // The provider's API key. It stays on the server: never shown, logged or sent anywhere else.
+        'apiKey' => null,
+        // null = the provider's default model (src/shared/ai.ts).
+        'model' => null,
+        // The provider's effort setting ('low', …); null leaves it to the model. Leave it null for Claude Haiku.
+        'effort' => null,
+        // How long to wait for an answer, in milliseconds; null = the default, under the host's time limit.
+        'timeoutMs' => null,
+        // false switches the AI off while keeping the key here.
+        'enabled' => true,
+    ],
 ];

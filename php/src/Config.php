@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NestFlyers;
 
 use InvalidArgumentException;
+use NestFlyers\Ai\AiConfig;
 use NestFlyers\Http\AccessRule;
 use Throwable;
 
@@ -21,7 +22,7 @@ final class Config
     /** Where the JSON store lives unless config.php says otherwise; the release's data/.htaccess denies it. */
     public const DEFAULT_DATA_DIR = 'data';
 
-    private const KEYS = ['access', 'dataDir', 'storage', 'imageProcessor'];
+    private const KEYS = ['access', 'dataDir', 'storage', 'imageProcessor', 'ai'];
     private const STORAGES = ['json'];
     private const IMAGE_PROCESSORS = ['auto', 'gd', 'imagick'];
 
@@ -33,15 +34,18 @@ final class Config
         public readonly string $storage,
         /** 'auto' | 'gd' | 'imagick' */
         public readonly string $imageProcessor,
+        /** The AI assistant: off when config.php has no `ai` block. */
+        public readonly AiConfig $ai,
     ) {
     }
 
     /**
      * Reads <appRoot>/config.php. null when there is none (a fresh install).
      *
+     * @param Shared $shared the facts some settings are checked against (the AI's providers and defaults)
      * @throws InvalidArgumentException when the file does not parse or return a valid array
      */
-    public static function load(string $appRoot, ?string $documentRoot = null): ?self
+    public static function load(string $appRoot, Shared $shared, ?string $documentRoot = null): ?self
     {
         $file = self::join($appRoot, self::FILE);
         if (!is_file($file)) {
@@ -56,14 +60,15 @@ final class Config
         } finally {
             ob_end_clean();
         }
-        return self::fromArray($raw, $appRoot, $documentRoot);
+        return self::fromArray($raw, $appRoot, $shared, $documentRoot);
     }
 
     /**
      * @param mixed $raw what config.php returned
+     * @param Shared $shared the facts some settings are checked against (the AI's providers and defaults)
      * @throws InvalidArgumentException naming the offending key
      */
-    public static function fromArray(mixed $raw, string $appRoot, ?string $documentRoot = null): self
+    public static function fromArray(mixed $raw, string $appRoot, Shared $shared, ?string $documentRoot = null): self
     {
         if (!is_array($raw) || ($raw !== [] && array_is_list($raw))) {
             throw new InvalidArgumentException(self::FILE . ' must return an array (see config.sample.php)');
@@ -85,6 +90,7 @@ final class Config
             self::dataDir($raw['dataDir'] ?? null, $appRoot, $documentRoot),
             $storage,
             $imageProcessor,
+            AiConfig::fromArray($raw['ai'] ?? null, $shared->ai()),
         );
     }
 

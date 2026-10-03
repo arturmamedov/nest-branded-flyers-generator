@@ -13,6 +13,7 @@ use NestFlyers\Shared;
  * this backend can do. The editor picks its exporter from `exporters` (PHP has
  * no headless browser, so only the client exporter) and prepares photos to fit
  * `limits`. `server` is diagnostics for whoever sets the host up (HostFacts).
+ * `ai` is the asking actor's (AiService::status), so the route hands it in.
  */
 final class ApiConfig
 {
@@ -25,10 +26,11 @@ final class ApiConfig
     }
 
     /**
+     * @param array{enabled:false}|array{enabled:true, limit:int, remaining:int} $ai the AI for the actor asking
      * @return array{backend:string, storage:string, exporters:list<string>,
-     *     limits:array{maxUploadBytes:int, maxPhotoEdge:int}, server:array<string, mixed>, ai:array{enabled:bool}}
+     *     limits:array{maxUploadBytes:int, maxPhotoEdge:int}, server:array<string, mixed>, ai:array<string, bool|int>}
      */
-    public function toArray(): array
+    public function toArray(array $ai): array
     {
         return [
             'backend' => 'php',
@@ -39,8 +41,7 @@ final class ApiConfig
                 'maxPhotoEdge' => $this->shared->maxPhotoEdge(),
             ],
             'server' => $this->hostFacts->toArray(),
-            // The AI assistant (docs/prompts/ai-assistant.md) is off until a provider is wired: nothing beyond enabled: false.
-            'ai' => ['enabled' => false],
+            'ai' => $ai,
         ];
     }
 }

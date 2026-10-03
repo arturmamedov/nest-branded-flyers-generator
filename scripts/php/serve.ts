@@ -100,8 +100,12 @@ export type AccessPosture =
 /** An address range no test machine has: TEST-NET-1 (RFC 5737). */
 export const EXCLUDED_RANGE = '192.0.2.0/24';
 
+/** The AI a test stage runs with: none (the `ai` block left out, so off), or the fake provider, which never touches the
+    network (docs/api-contract.md, "The AI assistant"). */
+export type AiPosture = 'fake';
+
 /** config.php for a test stage, with the store outside the stage, as a host keeps it outside public_html. */
-export function writeTestConfig(stage: string, dataDir: string, access: AccessPosture = { kind: 'loopback-ips' }): void {
+export function writeTestConfig(stage: string, dataDir: string, access: AccessPosture = { kind: 'loopback-ips' }, ai?: AiPosture): void {
   assertInTmp(stage, 'A test config.php');
   if (!isAbsolute(dataDir)) throw new Error(`writeTestConfig: dataDir must be absolute (got ${dataDir}).`);
   const file = join(stage, 'config.php');
@@ -130,7 +134,7 @@ export function writeTestConfig(stage: string, dataDir: string, access: AccessPo
 
 declare(strict_types=1);
 
-// Test stage only (scripts/php/serve.ts); never shipped. Access posture: ${access.kind}.
+// Test stage only (scripts/php/serve.ts); never shipped. Access posture: ${access.kind}. AI: ${ai ?? 'off'}.
 return [
     'access' => [
         ${rule}
@@ -138,7 +142,7 @@ return [
     ],
     'dataDir' => ${phpString(toPosix(resolve(dataDir)))},
     'storage' => 'json',
-    'imageProcessor' => 'auto',
+    'imageProcessor' => 'auto',${ai ? `\n    'ai' => ['provider' => ${phpString(ai)}],` : ''}
 ];
 `;
   writeFileSync(file, source);

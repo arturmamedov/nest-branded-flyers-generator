@@ -103,7 +103,7 @@ final class PreflightTest extends TestCase
         $root = TempDir::create('preflight-config');
         try {
             file_put_contents("$root/config.php", $blocks['configPhp']);
-            $config = Config::load($root);
+            $config = Config::load($root, Shared::fromFile(Paths::schema('shared.json')));
             self::assertNotNull($config);
             self::assertSame('basicAuth', $config->access->kind());
             self::assertSame('staff', $config->access->basicAuth['user']);
@@ -120,7 +120,7 @@ final class PreflightTest extends TestCase
         $root = TempDir::create('preflight-quote');
         try {
             file_put_contents("$root/config.php", configPhp("o'brien\\", password_hash('x', PASSWORD_BCRYPT, ['cost' => 4])));
-            self::assertSame("o'brien\\", Config::load($root)?->access->basicAuth['user']);
+            self::assertSame("o'brien\\", Config::load($root, Shared::fromFile(Paths::schema('shared.json')))?->access->basicAuth['user']);
         } finally {
             TempDir::remove($root);
         }

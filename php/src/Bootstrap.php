@@ -5,6 +5,12 @@ declare(strict_types=1);
 namespace NestFlyers;
 
 use Closure;
+use NestFlyers\Ai\AiBundle;
+use NestFlyers\Ai\AiService;
+use NestFlyers\Ai\AnonymousActors;
+use NestFlyers\Ai\ConfigAiPolicy;
+use NestFlyers\Ai\CurlHttpClient;
+use NestFlyers\Ai\LlmProviderFactory;
 use NestFlyers\Diagnostics\HostFacts;
 use NestFlyers\Domain\Clock;
 use NestFlyers\Domain\Repositories;
@@ -26,6 +32,7 @@ use NestFlyers\Photos\UploadLimits;
 use NestFlyers\Storage\Json\JsonRepositories;
 use NestFlyers\Validation\FlyerValidator;
 use NestFlyers\Validation\SchemaNormalizer;
+use NestFlyers\Validation\SchemaValidator;
 use RuntimeException;
 use Throwable;
 
@@ -37,10 +44,15 @@ use Throwable;
  * driver by `storage`, the image library by `imageProcessor`.
  *
  * Work happens as late as it can: nothing touches storage before the access
- * check, and the image library is only loaded for uploads and diagnostics.
+ * check, the image library is only loaded for uploads and diagnostics, and the
+ * AI (schema/ai.json, the provider) only for api/config and the AI routes, and
+ * only when config.php turns it on.
  */
 final class Bootstrap
 {
+    /** The AI assistant's bundle: the prompts, the few-shot examples and the schemas (AiBundle). */
+    public const AI_FILE = 'schema/ai.json';
+
     /** The release layout under the app root (scripts/php/layout.ts assembles it). */
     private const SHARED_FILE = 'schema/shared.json';
     private const FLYER_SCHEMA = 'schema/flyer.schema.json';
@@ -63,16 +75,19 @@ final class Bootstrap
     private function __construct(
         private readonly string $appRoot,
         private readonly ?array $rawConfig,
+        private readonly ?Clock $clock,
     ) {
     }
 
     /**
      * @param string $appRoot the folder of api.php
      * @param array<string, mixed>|null $config what config.php would return; null reads <appRoot>/config.php
+     * @param Clock|null $clock the time records are stamped and the AI's day is counted with; null is the system's
+     *        (a test moves its own, to cross midnight)
      */
-    public static function fromAppRoot(string $appRoot, ?array $config = null): self
+    public static function fromAppRoot(string $appRoot, ?array $config = null, ?Clock $clock = null): self
     {
-        return new self(rtrim(str_replace('\\', '/', $appRoot), '/'), $config);
+        return new self(rtrim(str_replace('\\', '/', $appRoot), '/'), $config, $clock);
     }
 
     /** Serves the current request from PHP's globals and sends the answer. */
@@ -126,7 +141,7 @@ final class Bootstrap
     private function compose(Config $config, ErrorCatalog $errors): Closure
     {
         $shared = $this->shared();
-        $clock = new SystemClock();
+        $clock = $this->clock ?? new SystemClock();
         $normalizer = new SchemaNormalizer();
         $validator = new FlyerValidator($this->readSchema(self::FLYER_SCHEMA), $normalizer, $errors);
         $repos = $this->openStorage($config, $shared, $clock, $errors, $validator);
@@ -153,6 +168,7 @@ final class Bootstrap
             $clock,
             $uploadsDir,
         ));
+        $ai = self::once(fn (): ?AiService => $this->aiService($config, $shared, $errors, $repos, $clock, $normalizer));
 
         $router = new Router();
         (new Api(
@@ -169,12 +185,43 @@ final class Bootstrap
                 new HostFacts($shared, $limits, $processor, $config->access, $this->appRoot, $config->dataDir, $uploadsDir),
             ),
             $photoService,
+            $ai,
+            new AnonymousActors(),
         ))->register($router);
 
         return static function () use ($seeder, $router): Router {
             $seeder->ensureSeeded();
             return $router;
         };
+    }
+
+    /**
+     * The AI assistant as config.php's `ai` block sets it up, or null when it leaves the AI off: the bundle is not
+     * even read then. The twin of createAiService in server/ai/composition.ts.
+     */
+    private function aiService(Config $config, Shared $shared, ErrorCatalog $errors, Repositories $repos, Clock $clock, SchemaNormalizer $normalizer): ?AiService
+    {
+        if (!$config->ai->enabled) {
+            return null;
+        }
+        $validator = new SchemaValidator($normalizer);
+        $bundle = AiBundle::fromFile($this->path(self::AI_FILE), $validator);
+        $provider = LlmProviderFactory::create($config->ai, $bundle, $shared, new CurlHttpClient());
+        if ($provider === null) {
+            return null;
+        }
+        return new AiService(
+            $provider,
+            new ConfigAiPolicy($config->ai, $shared->ai()['dailyLimit']),
+            $bundle,
+            $repos->hostels,
+            $repos->aiUsage,
+            $clock,
+            $config->ai->timeoutMs,
+            $shared,
+            $errors,
+            $validator,
+        );
     }
 
     /** The storage driver config.php names. A new driver is a new arm here and a new class, nothing else. */
@@ -206,8 +253,8 @@ final class Bootstrap
                 // subfolder case) is refused rather than served.
                 $documentRoot = is_string($_SERVER['DOCUMENT_ROOT'] ?? null) ? $_SERVER['DOCUMENT_ROOT'] : null;
                 $this->config = $this->rawConfig !== null
-                    ? Config::fromArray($this->rawConfig, $this->appRoot, $documentRoot)
-                    : Config::load($this->appRoot, $documentRoot);
+                    ? Config::fromArray($this->rawConfig, $this->appRoot, $this->shared(), $documentRoot)
+                    : Config::load($this->appRoot, $this->shared(), $documentRoot);
             } catch (Throwable $e) {
                 error_log('Nest flyers: config.php is not valid, so the API answers 503 until it is fixed: ' . $e->getMessage());
                 $this->config = null;

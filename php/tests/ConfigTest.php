@@ -6,6 +6,8 @@ namespace NestFlyers\Tests;
 
 use InvalidArgumentException;
 use NestFlyers\Config;
+use NestFlyers\Shared;
+use NestFlyers\Tests\Support\Paths;
 use NestFlyers\Tests\Support\TempDir;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
@@ -26,14 +28,14 @@ final class ConfigTest extends TestCase
 
     public function testAMissingFileIsNoConfig(): void
     {
-        self::assertNull(Config::load($this->tempRoot()));
+        self::assertNull(Config::load($this->tempRoot(), self::shared()));
     }
 
     public function testTheFileIsLoaded(): void
     {
         $root = $this->tempRoot();
         file_put_contents("$root/config.php", "<?php\nreturn ['access' => ['allowIps' => ['10.0.0.0/8']], 'imageProcessor' => 'gd'];\n");
-        $config = Config::load($root);
+        $config = Config::load($root, self::shared());
         self::assertNotNull($config);
         self::assertTrue($config->access->allowsIp('10.1.2.3'));
         self::assertSame('gd', $config->imageProcessor);
@@ -47,7 +49,7 @@ final class ConfigTest extends TestCase
         file_put_contents("$root/config.php", "\xEF\xBB\xBF\n<?php return ['access' => ['allowPublic' => true]];");
         $level = ob_get_level();
         $this->expectOutputString('');
-        self::assertTrue(Config::load($root)?->access->allowPublic);
+        self::assertTrue(Config::load($root, self::shared())?->access->allowPublic);
         self::assertSame($level, ob_get_level());
     }
 
@@ -68,7 +70,7 @@ final class ConfigTest extends TestCase
         file_put_contents("$root/config.php", $php);
         $level = ob_get_level();
         try {
-            Config::load($root);
+            Config::load($root, self::shared());
             self::fail('The file was accepted');
         } catch (InvalidArgumentException $e) {
             self::assertStringContainsString('config.php', $e->getMessage());
@@ -78,7 +80,7 @@ final class ConfigTest extends TestCase
 
     public function testDefaults(): void
     {
-        $config = Config::fromArray([], self::ROOT);
+        $config = Config::fromArray([], self::ROOT, self::shared());
         self::assertFalse($config->access->isConfigured(), 'no rule: the API answers 503');
         self::assertSame(self::ROOT . '/data', $config->dataDir);
         self::assertSame('json', $config->storage);
@@ -97,11 +99,79 @@ final class ConfigTest extends TestCase
             'dataDir' => null,
             'storage' => 'json',
             'imageProcessor' => 'imagick',
-        ], self::ROOT);
+            'ai' => [
+                'provider' => 'anthropic',
+                'apiKey' => 'sk-ant-test',
+                'model' => null,
+                'effort' => null,
+                'timeoutMs' => null,
+                'enabled' => true,
+            ],
+        ], self::ROOT, self::shared());
         self::assertTrue($config->access->isConfigured());
         self::assertSame(['user' => 'staff', 'passwordHash' => $hash], $config->access->basicAuth);
         self::assertCount(2, $config->access->allowIps);
         self::assertSame('imagick', $config->imageProcessor);
+        self::assertTrue($config->ai->enabled);
+        self::assertSame('claude-haiku-4-5', $config->ai->model);
+    }
+
+    public function testConfigSamplePhpAsShippedIsValidAndLeavesTheAiOff(): void
+    {
+        $root = $this->tempRoot();
+        copy(Paths::repo() . '/php/web/config.sample.php', "$root/config.php");
+        $raw = require "$root/config.php";
+        self::assertSame(['provider', 'apiKey', 'model', 'effort', 'timeoutMs', 'enabled'], array_keys($raw['ai'] ?? []), 'the sample shows every key');
+        self::assertFalse(Config::load($root, self::shared())?->ai->enabled);
+    }
+
+    // ---- the `ai` block (AiConfig): the PHP side of server/config.ts's loadAiSettings ----
+
+    public function testWithoutAnAiBlockTheAiIsOff(): void
+    {
+        $ai = Config::fromArray([], self::ROOT, self::shared())->ai;
+        self::assertSame([null, null, null, null, 25_000, false], [$ai->provider, $ai->apiKey, $ai->model, $ai->effort, $ai->timeoutMs, $ai->enabled]);
+    }
+
+    public function testTheFakeProviderNeedsNoKey(): void
+    {
+        $ai = Config::fromArray(['ai' => ['provider' => 'fake']], self::ROOT, self::shared())->ai;
+        self::assertSame(['fake', null, 'fake-1', true], [$ai->provider, $ai->apiKey, $ai->model, $ai->enabled]);
+    }
+
+    public function testARealProviderIsOffUntilItHasAKeyAndTakesItsDefaultModel(): void
+    {
+        $keyless = Config::fromArray(['ai' => ['provider' => 'openai']], self::ROOT, self::shared())->ai;
+        self::assertSame(['openai', null, 'gpt-6-luna', false], [$keyless->provider, $keyless->apiKey, $keyless->model, $keyless->enabled]);
+        $blank = Config::fromArray(['ai' => ['provider' => 'openai', 'apiKey' => '', 'model' => '', 'effort' => '']], self::ROOT, self::shared())->ai;
+        self::assertSame([null, 'gpt-6-luna', null, false], [$blank->apiKey, $blank->model, $blank->effort, $blank->enabled], "'' is unset, as Node's || reads it");
+        $keyed = Config::fromArray(['ai' => ['provider' => 'openai', 'apiKey' => 'sk-test']], self::ROOT, self::shared())->ai;
+        self::assertSame(['sk-test', 'gpt-6-luna', true], [$keyed->apiKey, $keyed->model, $keyed->enabled]);
+        $anthropic = Config::fromArray(['ai' => ['provider' => 'anthropic', 'apiKey' => 'k']], self::ROOT, self::shared())->ai;
+        self::assertSame(['claude-haiku-4-5', true], [$anthropic->model, $anthropic->enabled]);
+    }
+
+    public function testTheModelTheEffortAndTheTimeLimitCanBeSet(): void
+    {
+        $ai = Config::fromArray(['ai' => ['provider' => 'anthropic', 'apiKey' => 'k', 'model' => 'claude-sonnet-5-5', 'effort' => 'low', 'timeoutMs' => 9000]], self::ROOT, self::shared())->ai;
+        self::assertSame(['anthropic', 'k', 'claude-sonnet-5-5', 'low', 9000, true], [$ai->provider, $ai->apiKey, $ai->model, $ai->effort, $ai->timeoutMs, $ai->enabled]);
+    }
+
+    public function testEnabledFalseSwitchesItOffEvenWithAKey(): void
+    {
+        $ai = Config::fromArray(['ai' => ['provider' => 'openai', 'apiKey' => 'k', 'enabled' => false]], self::ROOT, self::shared())->ai;
+        self::assertFalse($ai->enabled);
+    }
+
+    public function testARefusedAiBlockNeverQuotesTheKey(): void
+    {
+        try {
+            Config::fromArray(['ai' => ['provider' => 'openai', 'apiKey' => 'sk-secret-123', 'timeoutMs' => 'slow']], self::ROOT, self::shared());
+            self::fail('The block was accepted');
+        } catch (InvalidArgumentException $e) {
+            self::assertStringContainsString('ai.timeoutMs', $e->getMessage());
+            self::assertStringNotContainsString('sk-secret-123', $e->getMessage());
+        }
     }
 
     /** @return iterable<string, array{?string, string}> */
@@ -125,7 +195,7 @@ final class ConfigTest extends TestCase
     #[DataProvider('dataDirs')]
     public function testDataDirResolution(?string $dataDir, string $expected): void
     {
-        self::assertSame($expected, Config::fromArray(['dataDir' => $dataDir], self::ROOT)->dataDir);
+        self::assertSame($expected, Config::fromArray(['dataDir' => $dataDir], self::ROOT, self::shared())->dataDir);
     }
 
     public function testASubfolderInstallCannotPutTheStoreAnywhereUnderTheDocumentRoot(): void
@@ -135,22 +205,22 @@ final class ConfigTest extends TestCase
         $app = '/home/account/public_html/nest-flyers';
         $web = '/home/account/public_html';
         $this->expectExceptionMessage('inside the web root');
-        Config::fromArray(['dataDir' => '../nest-flyers-data'], $app, $web);
+        Config::fromArray(['dataDir' => '../nest-flyers-data'], $app, self::shared(), $web);
     }
 
     public function testADataDirOutsideTheDocumentRootIsFine(): void
     {
         $app = '/home/account/public_html/nest-flyers';
         $web = '/home/account/public_html';
-        self::assertSame('/home/account/nest-flyers-data', Config::fromArray(['dataDir' => '../../nest-flyers-data'], $app, $web)->dataDir);
+        self::assertSame('/home/account/nest-flyers-data', Config::fromArray(['dataDir' => '../../nest-flyers-data'], $app, self::shared(), $web)->dataDir);
         // The release denies data/, so the default stays allowed wherever the app lives.
-        self::assertSame("$app/data", Config::fromArray([], $app, $web)->dataDir);
+        self::assertSame("$app/data", Config::fromArray([], $app, self::shared(), $web)->dataDir);
     }
 
     public function testDataDirIsResolvedAgainstAWindowsAppRoot(): void
     {
-        self::assertSame('C:/laragon/www/nest/data', Config::fromArray([], 'C:\\laragon\\www\\nest\\')->dataDir);
-        self::assertSame('C:/laragon/nest-data', Config::fromArray(['dataDir' => '..\\..\\nest-data'], 'C:\\laragon\\www\\nest')->dataDir);
+        self::assertSame('C:/laragon/www/nest/data', Config::fromArray([], 'C:\\laragon\\www\\nest\\', self::shared())->dataDir);
+        self::assertSame('C:/laragon/nest-data', Config::fromArray(['dataDir' => '..\\..\\nest-data'], 'C:\\laragon\\www\\nest', self::shared())->dataDir);
     }
 
     /** @return iterable<string, array{mixed}> */
@@ -168,7 +238,7 @@ final class ConfigTest extends TestCase
     {
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('inside the web root');
-        Config::fromArray(['dataDir' => $dataDir], self::ROOT);
+        Config::fromArray(['dataDir' => $dataDir], self::ROOT, self::shared());
     }
 
     /** @return iterable<string, array{mixed}> */
@@ -193,13 +263,30 @@ final class ConfigTest extends TestCase
         yield 'basicAuth, extra key' => [['access' => ['basicAuth' => ['user' => 'staff', 'password' => 'hunter2']]]];
         yield 'allowPublic, a string' => [['access' => ['allowPublic' => 'yes']]];
         yield 'allowPublic, a number' => [['access' => ['allowPublic' => 1]]];
+        yield 'ai not an array' => [['ai' => true]];
+        yield 'ai, a list' => [['ai' => ['fake']]];
+        yield 'ai, unknown key' => [['ai' => ['provider' => 'fake', 'key' => 'sk-test']]];
+        yield 'ai, a provider nobody wrote' => [['ai' => ['provider' => 'bard']]];
+        yield 'ai, provider not a string' => [['ai' => ['provider' => true]]];
+        yield 'ai, apiKey not a string' => [['ai' => ['provider' => 'openai', 'apiKey' => 42]]];
+        yield 'ai, model not a string' => [['ai' => ['provider' => 'openai', 'model' => ['gpt']]]];
+        yield 'ai, effort not a string' => [['ai' => ['provider' => 'openai', 'effort' => 1]]];
+        yield 'ai, timeoutMs zero' => [['ai' => ['provider' => 'fake', 'timeoutMs' => 0]]];
+        yield 'ai, timeoutMs a string' => [['ai' => ['provider' => 'fake', 'timeoutMs' => '9000']]];
+        yield 'ai, timeoutMs a float' => [['ai' => ['provider' => 'fake', 'timeoutMs' => 9000.5]]];
+        yield 'ai, enabled a string' => [['ai' => ['provider' => 'fake', 'enabled' => 'no']]];
     }
 
     #[DataProvider('invalidConfigs')]
     public function testInvalidConfigsAreRefused(mixed $raw): void
     {
         $this->expectException(InvalidArgumentException::class);
-        Config::fromArray($raw, self::ROOT);
+        Config::fromArray($raw, self::ROOT, self::shared());
+    }
+
+    private static function shared(): Shared
+    {
+        return Shared::fromFile(Paths::schema('shared.json'));
     }
 
     private function tempRoot(): string

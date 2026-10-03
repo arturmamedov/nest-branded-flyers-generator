@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace NestFlyers\Http;
 
 use Closure;
+use NestFlyers\Ai\ActorResolver;
+use NestFlyers\Ai\AiService;
 use NestFlyers\Domain\DoodleRepository;
 use NestFlyers\Domain\FlyerRepository;
 use NestFlyers\Domain\HostelRepository;
@@ -24,6 +26,8 @@ final class Api
     /**
      * @param Closure(): PhotoService $photoService built on the first upload, so a host without an image library
      *        still serves everything else
+     * @param Closure(): ?AiService $ai built on the first AI request or api/config; null when config.php leaves the AI off
+     * @param ActorResolver $actors who is asking (one anonymous actor until there is a login)
      */
     public function __construct(
         private readonly HostelRepository $hostels,
@@ -34,12 +38,14 @@ final class Api
         private readonly ErrorCatalog $errors,
         private readonly ApiConfig $config,
         private readonly Closure $photoService,
+        private readonly Closure $ai,
+        private readonly ActorResolver $actors,
     ) {
     }
 
     public function register(Router $router): void
     {
-        $router->add('GET', '/api/config', fn (): Response => Response::json($this->config->toArray()));
+        $router->add('GET', '/api/config', $this->apiConfig(...));
         $router->add('GET', '/api/hostels', fn (): Response => Response::json($this->hostels->list()));
         $router->add('GET', '/api/doodles', fn (): Response => Response::json(array_map(self::toDoodle(...), $this->doodles->list())));
         $router->add('GET', '/api/flyers', $this->listFlyers(...));
@@ -49,9 +55,23 @@ final class Api
         $router->add('DELETE', '/api/flyers/{id}', $this->archiveFlyer(...));
         $router->add('POST', '/api/photos', $this->uploadPhoto(...));
         // The AI assistant's routes exist whether or not a provider is configured, so a caller learns it is off
-        // (ai_off) rather than that the path is unknown. The provider seam is Phase 3 of docs/prompts/ai-assistant.md.
-        $router->add('POST', '/api/ai/flyer', fn (): Response => throw $this->errors->make('ai_off'));
-        $router->add('POST', '/api/ai/share', fn (): Response => throw $this->errors->make('ai_off'));
+        // (ai_off) rather than that the path is unknown. The service owns every other check (Ai\AiService).
+        $router->add('POST', '/api/ai/flyer', fn (Request $request, array $params, mixed $body): Response
+            => Response::json($this->aiService()->flyer($this->actors->resolve($request), $body)));
+        $router->add('POST', '/api/ai/share', fn (Request $request, array $params, mixed $body): Response
+            => Response::json($this->aiService()->share($this->actors->resolve($request), $body)));
+    }
+
+    /** What this backend can do, and the AI for the actor asking: nothing beyond `enabled: false` when off. */
+    private function apiConfig(Request $request): Response
+    {
+        $ai = ($this->ai)();
+        return Response::json($this->config->toArray($ai === null ? ['enabled' => false] : $ai->status($this->actors->resolve($request))));
+    }
+
+    private function aiService(): AiService
+    {
+        return ($this->ai)() ?? throw $this->errors->make('ai_off');
     }
 
     private function listFlyers(Request $request): Response

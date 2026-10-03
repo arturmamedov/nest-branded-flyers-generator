@@ -9,6 +9,7 @@ use NestFlyers\Http\Request;
 use NestFlyers\Http\Response;
 use NestFlyers\Json;
 use NestFlyers\Shared;
+use NestFlyers\Tests\Support\FakeClock;
 use NestFlyers\Tests\Support\Paths;
 use NestFlyers\Tests\Support\TempDir;
 use NestFlyers\Tests\Support\WriteHeader;
@@ -119,6 +120,34 @@ final class BootstrapTest extends TestCase
             self::assertObjectHasProperty($key, $config->server);
         }
         self::assertSame(PHP_VERSION, $config->server->php);
+    }
+
+    public function testWithoutAnAiBlockTheAiIsOffAndTheStoreGetsNoLedger(): void
+    {
+        self::assertEquals((object) ['enabled' => false], $this->ok($this->app()->handle(self::request('GET', '/api/config')))->ai);
+        $this->assertError($this->app()->handle(self::request('POST', '/api/ai/flyer', (object) ['text' => 'Yoga at 9'])), 404, 'not_found');
+        self::assertDirectoryDoesNotExist("$this->dataDir/ai-usage");
+    }
+
+    public function testTheFakeProviderCountsInTheStoreAndTheDayEndsAtCanaryMidnight(): void
+    {
+        $clock = new FakeClock();
+        $app = Bootstrap::fromAppRoot($this->appRoot, $this->config() + ['ai' => ['provider' => 'fake']], $clock);
+        $ai = fn (): stdClass => $this->ok($app->handle(self::request('GET', '/api/config')))->ai;
+        self::assertEquals((object) ['enabled' => true, 'limit' => 3, 'remaining' => 3], $ai());
+        self::assertDirectoryDoesNotExist("$this->dataDir/ai-usage", 'reading the count wrote nothing');
+
+        $result = $this->ok($app->handle(self::request('POST', '/api/ai/flyer', (object) ['text' => 'Yoga mañana a las 9 en la terraza'])));
+        self::assertSame(2, $result->remaining);
+        self::assertSame(['ai-usage/2026-09.json'], array_values(preg_grep('~^ai-usage/~', TempDir::files($this->dataDir)) ?: []));
+        self::assertEquals((object) ['enabled' => true, 'limit' => 3, 'remaining' => 2], $ai());
+
+        // 10:00Z on 18 September is 11:00 WEST; thirteen hours on, it is midnight in the Canary Islands.
+        $clock->tick(13 * 3600 * 1000 - 1);
+        self::assertSame(2, $ai()->remaining, 'still the 18th there');
+        $clock->tick(1);
+        self::assertSame(3, $ai()->remaining);
+        self::assertSame('', $this->log(), 'nothing was logged');
     }
 
     public function testHostelsAndDoodlesAreSeededFromTheSeedFile(): void

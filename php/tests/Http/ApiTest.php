@@ -6,6 +6,14 @@ namespace NestFlyers\Tests\Http;
 
 use Closure;
 use LogicException;
+use NestFlyers\Ai\Actor;
+use NestFlyers\Ai\ActorResolver;
+use NestFlyers\Ai\AiBundle;
+use NestFlyers\Ai\AiConfig;
+use NestFlyers\Ai\AiService;
+use NestFlyers\Ai\AnonymousActors;
+use NestFlyers\Ai\ConfigAiPolicy;
+use NestFlyers\Ai\FakeProvider;
 use NestFlyers\Diagnostics\HostFacts;
 use NestFlyers\Domain\DoodleRepository;
 use NestFlyers\Domain\FlyerRepository;
@@ -28,11 +36,14 @@ use NestFlyers\Image\StoredImage;
 use NestFlyers\Json;
 use NestFlyers\Photos\UploadLimits;
 use NestFlyers\Shared;
+use NestFlyers\Tests\Support\FakeClock;
+use NestFlyers\Tests\Support\MemoryAiUsage;
 use NestFlyers\Tests\Support\Paths;
 use NestFlyers\Tests\Support\TempDir;
 use NestFlyers\Tests\Support\WriteHeader;
 use NestFlyers\Validation\FlyerValidator;
 use NestFlyers\Validation\SchemaNormalizer;
+use NestFlyers\Validation\SchemaValidator;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
@@ -57,6 +68,10 @@ final class ApiTest extends TestCase
     /** @var FlyerRepository&object{records: array<int, array<string, mixed>>, inputs: list<array<string, mixed>>, lists: list<array{?string, ?string}>} */
     private FlyerRepository $flyers;
     private ?Closure $processor = null;
+    /** @var (Closure(): ?AiService)|null the AI the routes get; null: off, as with no `ai` block */
+    private ?Closure $ai = null;
+    private ActorResolver $actors;
+    private MemoryAiUsage $usage;
     /** The app root, data and uploads folders HostFacts looks at: empty, so the release check reports no manifest. */
     private string $root;
 
@@ -73,6 +88,8 @@ final class ApiTest extends TestCase
             5 => ['id' => 5, 'path' => 'uploads/2026/09/0123456789abcdef.jpg', 'width' => 1080, 'height' => 1440, 'createdAt' => self::STAMP],
         ]);
         $this->flyers = self::flyerRepository($this->hostels, $this->photos);
+        $this->actors = new AnonymousActors();
+        $this->usage = new MemoryAiUsage();
         $this->kernel = $this->kernel();
     }
 
@@ -285,6 +302,42 @@ final class ApiTest extends TestCase
         $this->error($this->send('GET', 'api/ai/flyer'), 404, 'not_found', 'no_such_endpoint');
     }
 
+    public function testWithTheAiOnConfigSaysWhatIsLeftForTheActorAskingTodayAndTheRoutesGenerate(): void
+    {
+        $this->withAi();
+        self::assertEquals((object) ['enabled' => true, 'limit' => 3, 'remaining' => 3], Json::decode($this->send('GET', 'api/config')->body)->ai);
+
+        $flyer = $this->send('POST', 'api/ai/flyer', (object) ['text' => 'Yoga mañana a las 9', 'hostel' => 'duque-nest']);
+        self::assertSame(200, $flyer->status, $flyer->body);
+        $result = Json::decode($flyer->body);
+        self::assertSame(['brief', 'assumptions', 'remaining'], array_keys((array) $result));
+        self::assertSame('duque-nest', $result->brief->hostel);
+        self::assertSame(2, $result->remaining);
+
+        $share = $this->send('POST', 'api/ai/share', (object) ['hostel' => null, 'template' => 'activity', 'data' => $this->input()->data]);
+        self::assertSame(200, $share->status, $share->body);
+        self::assertSame(['share', 'remaining'], array_keys((array) Json::decode($share->body)));
+        self::assertSame(1, Json::decode($share->body)->remaining);
+
+        self::assertEquals((object) ['enabled' => true, 'limit' => 3, 'remaining' => 1], Json::decode($this->send('GET', 'api/config')->body)->ai);
+        $other = $this->kernel->handle(new Request('GET', '/api/config', [], WriteHeader::headers() + ['x-actor' => 'someone-else'], ''));
+        self::assertEquals((object) ['enabled' => true, 'limit' => 3, 'remaining' => 3], Json::decode($other->body)->ai, 'the block is per actor');
+        self::assertSame(['anonymous', 'anonymous'], array_column($this->usage->records, 'actorId'));
+    }
+
+    public function testWithTheAiOnTheRoutesStillCheckTheWriteHeaderAndTheBody(): void
+    {
+        $this->withAi();
+        $body = Json::encode((object) ['text' => 'Yoga']);
+        $unguarded = new Request('POST', '/api/ai/flyer', [], ['content-type' => 'application/json', 'content-length' => (string) strlen($body)], $body);
+        $this->error($this->kernel->handle($unguarded), 403, 'forbidden');
+        $error = $this->error($this->send('POST', 'api/ai/flyer', (object) ['text' => '  ']), 400, 'invalid');
+        self::assertSame($this->errors->make('ai_input', ['max' => 4000])->getMessage(), $error->message);
+        self::assertObjectHasProperty('text', $error->fields);
+        $this->error($this->send('POST', 'api/ai/share', (object) ['hostel' => 'nowhere-nest', 'template' => 'activity', 'data' => $this->input()->data]), 400, 'invalid', 'unknown_hostel');
+        self::assertSame([], $this->usage->records);
+    }
+
     public function testThePhotoServiceIsOnlyBuiltForUploads(): void
     {
         foreach (['api/config', 'api/hostels', 'api/doodles', 'api/flyers'] as $path) {
@@ -348,7 +401,37 @@ final class ApiTest extends TestCase
                 $this->folder('uploads'),
             )),
             static fn () => throw new LogicException('photo service built'),
+            $this->ai ?? static fn (): ?AiService => null,
+            $this->actors,
         );
+    }
+
+    /** The routes with the AI on, on the fake provider and a memory ledger; the actor named by an X-Actor header. */
+    private function withAi(): void
+    {
+        $validator = new SchemaValidator(new SchemaNormalizer());
+        $bundle = AiBundle::fromFile(Paths::schema('ai.json'), $validator);
+        $config = AiConfig::fromArray(['provider' => 'fake'], $this->shared->ai());
+        $service = new AiService(
+            new FakeProvider($bundle->examples, $this->shared->ai()),
+            new ConfigAiPolicy($config, $this->shared->ai()['dailyLimit']),
+            $bundle,
+            $this->hostels,
+            $this->usage,
+            new FakeClock(),
+            $config->timeoutMs,
+            $this->shared,
+            $this->errors,
+            $validator,
+        );
+        $this->ai = static fn (): AiService => $service;
+        $this->actors = new class () implements ActorResolver {
+            public function resolve(Request $request): Actor
+            {
+                return new Actor($request->header('x-actor') ?? 'anonymous');
+            }
+        };
+        $this->kernel = $this->kernel();
     }
 
     /** The first sample flyer (seed/samples.json) as a request body. */
