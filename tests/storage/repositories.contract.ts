@@ -289,6 +289,14 @@ export function describeRepositoryContract(name: string, factory: RepositoryFact
         expect(await repos.aiUsage.countOk('anonymous', '2026-09-19')).toBe(1);
         expect(await repos.aiUsage.countOk('nobody', '2026-09-18')).toBe(0);
       });
+
+      // A provider's token count is not ours to trust (12.5 was once written, and no read took the file after it).
+      it('refuses a record its schema refuses, naming the field, and keeps nothing of it', async () => {
+        await repos.aiUsage.record(entry());
+        await expect(repos.aiUsage.record(entry({ tokens: { input: 12.5, output: 20 } }))).rejects.toThrow(/tokens\.input/);
+        expect(await repos.aiUsage.all()).toHaveLength(1);
+        expect(await repos.aiUsage.countOk('anonymous', '2026-09-18')).toBe(1);
+      });
     });
 
     describe('seeding', () => {

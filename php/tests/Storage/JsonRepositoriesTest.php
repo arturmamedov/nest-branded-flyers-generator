@@ -311,6 +311,26 @@ final class JsonRepositoriesTest extends RepositoryContractTestCase
         $this->repos->aiUsage->countOk('anonymous', '2026-09-18');
     }
 
+    public function testALedgerFileThatIsNotJsonIsNamed(): void
+    {
+        mkdir("$this->dir/ai-usage");
+        file_put_contents("$this->dir/ai-usage/2026-09.json", '{ damaged');
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessageMatches('~2026-09\.json is not valid JSON~');
+        $this->repos->aiUsage->countOk('anonymous', '2026-09-18');
+    }
+
+    public function testARecordWithACountThatIsNoWholeNumberStillCounts(): void
+    {
+        // Node's driver parses every record on every read, so there one such record closed the month (it now refuses
+        // to write one). This driver reads the list as it is: the day's count never depended on a provider's number.
+        $this->repos->aiUsage->record($this->usage());
+        $file = "$this->dir/ai-usage/2026-09.json";
+        file_put_contents($file, str_replace('"input": 10', '"input": 12.5', (string) file_get_contents($file), $replaced));
+        self::assertSame(1, $replaced);
+        self::assertSame(1, $this->repos->aiUsage->countOk('anonymous', '2026-09-18'));
+    }
+
     public function testARecordFileDeletedByHandReadsAsEmpty(): void
     {
         $this->addHostels();

@@ -1,4 +1,4 @@
-import type { StoredAiUsage } from '../../../src/shared/storage.js';
+import { checkedAiUsage, type StoredAiUsage } from '../../../src/shared/storage.js';
 import type { DB } from '../../db/open.js';
 import type { AiUsageRepository } from '../types.js';
 
@@ -37,7 +37,9 @@ const toRecord = (r: AiUsageRow): StoredAiUsage => ({
 export class SqliteAiUsageRepository implements AiUsageRepository {
   constructor(private db: DB) {}
 
-  async record(e: StoredAiUsage) {
+  async record(entry: StoredAiUsage) {
+    // The same check as the JSON driver's: a column would take 12.5, and the two stores must refuse alike.
+    const e = checkedAiUsage(entry);
     this.db
       .prepare(
         `INSERT INTO ai_usage (${COLUMNS})

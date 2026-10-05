@@ -186,6 +186,39 @@ describe('the JSON store on disk', () => {
     expect(await repos.aiUsage.countOk('anonymous', '2026-09-18')).toBe(1);
   });
 
+  describe('a ledger file no read can take', () => {
+    const month = `${STORAGE_FILES.aiUsageDir}/2026-09.json`;
+    /** A store whose September ledger holds one good record, and that record. */
+    const withLedger = async () => {
+      const { dir, repos } = fresh();
+      await repos.aiUsage.record({
+        at: clock.now(),
+        day: '2026-09-18',
+        actorId: 'anonymous',
+        feature: 'flyer',
+        provider: 'fake',
+        model: 'fake-1',
+        tokens: { input: 10, output: 20 },
+        ok: true,
+        input: 'Yoga at 9',
+        output: '{"brief":{}}',
+      });
+      return { dir, record: (json(dir, month) as Record<string, unknown>[])[0] };
+    };
+
+    it('is named when a record in it fails the schema', async () => {
+      const { dir, record } = await withLedger();
+      put(dir, month, [{ ...record, tokens: { input: 12.5, output: 20 } }]);
+      await expect(open(dir).repos.aiUsage.countOk('anonymous', '2026-09-18')).rejects.toThrow(/ai-usage\/2026-09\.json is damaged: 0\.tokens\.input/);
+    });
+
+    it('is named when it is not JSON', async () => {
+      const { dir } = await withLedger();
+      writeFileSync(join(dir, ...month.split('/')), '{ damaged', 'utf8');
+      await expect(open(dir).repos.aiUsage.countOk('anonymous', '2026-09-18')).rejects.toThrow(/2026-09\.json is not valid JSON/);
+    });
+  });
+
   it('keeps an empty object empty through a write and a read', async () => {
     const { dir, repos } = fresh();
     expect(data.overrides).toEqual({});

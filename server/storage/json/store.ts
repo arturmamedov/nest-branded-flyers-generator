@@ -1,6 +1,6 @@
 import { writeFile } from 'node:fs/promises';
 import { API_ERRORS } from '../../../src/shared/errors.js';
-import { emptyMeta, JSON_MIGRATIONS, MetaFileSchema, STORAGE_FILES, STORAGE_FORMAT_VERSION, type MetaFile } from '../../../src/shared/storage.js';
+import { emptyMeta, JSON_MIGRATIONS, MetaFileSchema, schemaProblems, STORAGE_FILES, STORAGE_FORMAT_VERSION, type MetaFile } from '../../../src/shared/storage.js';
 import { isCode, type JsonFiles } from './files.js';
 import type { StoreLock } from './lock.js';
 
@@ -137,10 +137,7 @@ export class JsonStore {
   /** The shape $defs.meta promises, checked so a hand-edited file fails with its name rather than a TypeError. */
   private validMeta(raw: unknown): MetaFile {
     const parsed = MetaFileSchema.safeParse(raw);
-    if (!parsed.success) {
-      const problem = parsed.error.issues.map((i) => `${i.path.join('.') || '(root)'} ${i.message.toLowerCase()}`).join('; ');
-      throw new Error(`${META} is damaged: ${problem}.`);
-    }
+    if (!parsed.success) throw new Error(`${META} is damaged: ${schemaProblems(parsed.error)}.`);
     return parsed.data;
   }
 

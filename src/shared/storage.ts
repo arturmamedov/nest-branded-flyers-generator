@@ -101,6 +101,18 @@ export const StoredAiUsageSchema = z.strictObject({
 });
 export type StoredAiUsage = z.infer<typeof StoredAiUsageSchema>;
 
+/** What a schema found wrong, one clause per issue: for a refusal that names the field and, for a file, the file. */
+export const schemaProblems = (error: z.ZodError): string =>
+  error.issues.map((i) => `${i.path.join('.') || '(root)'} ${i.message.toLowerCase()}`).join('; ');
+
+/** A ledger record as its schema takes it, or a refusal naming the field. Every driver checks before it writes: a
+    record no read could take (a token count of 12.5) must never reach a store. */
+export function checkedAiUsage(entry: unknown): StoredAiUsage {
+  const parsed = StoredAiUsageSchema.safeParse(entry);
+  if (!parsed.success) throw new Error(`The AI ledger refuses a record: ${schemaProblems(parsed.error)}.`);
+  return parsed.data;
+}
+
 export const HostelsFileSchema = z.array(StoredHostelSchema);
 export const DoodlesFileSchema = z.array(StoredDoodleSchema);
 export const PhotosFileSchema = z.array(StoredPhotoSchema);

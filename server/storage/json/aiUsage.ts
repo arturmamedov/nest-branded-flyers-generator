@@ -1,4 +1,4 @@
-import { AiUsageFileSchema, type StoredAiUsage } from '../../../src/shared/storage.js';
+import { AiUsageFileSchema, checkedAiUsage, schemaProblems, type StoredAiUsage } from '../../../src/shared/storage.js';
 import type { AiUsageRepository } from '../types.js';
 import type { JsonFiles } from './files.js';
 import type { JsonStore } from './store.js';
@@ -18,9 +18,11 @@ export class JsonAiUsageRepository implements AiUsageRepository {
   ) {}
 
   async record(entry: StoredAiUsage): Promise<void> {
+    // Checked before the lock: every read parses the month's file, so one bad record would close the whole month.
+    const checked = checkedAiUsage(entry);
     await this.store.run(async () => {
-      const file = this.file(entry.day);
-      await this.files.write(file, [...(await this.read(file)), toRecord(entry)]);
+      const file = this.file(checked.day);
+      await this.files.write(file, [...(await this.read(file)), toRecord(checked)]);
     });
   }
 
@@ -42,9 +44,13 @@ export class JsonAiUsageRepository implements AiUsageRepository {
     return `${this.dir}/${day.slice(0, 7)}.json`;
   }
 
+  /** The month's records, or none when its file does not exist yet; a file the schema refuses is named, as meta.json is. */
   private async read(file: string): Promise<StoredAiUsage[]> {
     const raw = await this.files.read(file);
-    return raw === null ? [] : AiUsageFileSchema.parse(raw);
+    if (raw === null) return [];
+    const parsed = AiUsageFileSchema.safeParse(raw);
+    if (!parsed.success) throw new Error(`${file} is damaged: ${schemaProblems(parsed.error)}.`);
+    return parsed.data;
   }
 }
 
