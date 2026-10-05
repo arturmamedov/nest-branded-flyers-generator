@@ -13,6 +13,7 @@ import { api, ApiError } from './api';
 import type { FlyerExporter } from './export';
 import { takeDraft } from './handoff';
 import { useLeaveGuard } from './leaveGuard';
+import { FIELD } from './fields';
 import { BackToLibrary, Field, HostelOptions, Section } from './panel';
 import { PHOTO_MODE_LABEL } from './photoModes';
 import { preparePhoto, type PhotoLimits } from './photoPrep';
@@ -277,8 +278,8 @@ export function Editor({
         </div>
         <Section title="Flyer">
           <div className="field">
-            <span className="label">Template</span>
-            <div className="seg" role="group" aria-label="Template">
+            <span className="label">{FIELD.template}</span>
+            <div className="seg" role="group" aria-label={FIELD.template}>
               {(Object.entries(TEMPLATE_LABEL) as [Template, string][]).map(([key, label]) => (
                 <button key={key} type="button" className={draft.data.template === key ? 'on' : ''} aria-pressed={draft.data.template === key} onClick={() => chooseTemplate(key)}>
                   {label}
@@ -287,29 +288,29 @@ export function Editor({
             </div>
           </div>
           <Field
-            label="Hostel"
+            label={FIELD.hostel}
             help={`${hostel?.logoPath && marksFor(true).includes('badge') ? 'Its badge prints at the top. ' : ''}${week ? 'Named in the Spanish title line, and tags the flyer in the library' : 'Prints in the WHERE block and tags the flyer in the library'}`}
           >
-            <select aria-label="Hostel" value={draft.hostel ?? ''} onChange={(e) => chooseHostel(e.target.value || null)}>
+            <select aria-label={FIELD.hostel} value={draft.hostel ?? ''} onChange={(e) => chooseHostel(e.target.value || null)}>
               <option value="">All hostels (chain-wide)</option>
               <HostelOptions hostels={hostels} />
             </select>
           </Field>
-          <Field label="Library name" help="Only for finding it again — not printed">
+          <Field label={FIELD.title} help="Only for finding it again — not printed">
             <input value={draft.title} placeholder={autoTitle({ ...draft, title: '' }, hostels)} maxLength={TITLE_MAX} onChange={(e) => set({ title: e.target.value })} />
           </Field>
         </Section>
 
         {/* A week flyer's title is the headline's lines: one set, kept across a switch (the owner's call, 2026-09-29). */}
-        <Section title={week ? 'Title' : 'Headline'} hint={week ? `The same lines as the ${TEMPLATE_LABEL.activity} headline: switching template keeps them.` : undefined}>
-          <Field label="Line 1" lang="en" help={week ? 'Black' : 'Black. About 18 characters before it starts to shrink'}>
+        <Section title={week ? 'Title' : FIELD.headline} hint={week ? `The same lines as the ${TEMPLATE_LABEL.activity} headline: switching template keeps them.` : undefined}>
+          <Field label={FIELD.line1} lang="en" help={week ? 'Black' : 'Black. About 18 characters before it starts to shrink'}>
             <input value={t.headline1} maxLength={40} placeholder={week ? weekDefaults.headline1 : 'Saturday is a'} onChange={(e) => setText('headline1', e.target.value)} />
           </Field>
-          <Field label="Line 2" lang="en" help={week ? 'Big and teal' : 'Big and teal. About 15 characters'}>
+          <Field label={FIELD.line2} lang="en" help={week ? 'Big and teal' : 'Big and teal. About 15 characters'}>
             <input value={t.headline2} maxLength={40} placeholder={week ? weekDefaults.headline2 : 'pool party.'} onChange={(e) => setText('headline2', e.target.value)} />
           </Field>
           <Field
-            label="Spanish line"
+            label={FIELD.spanishLine}
             lang="es"
             optional
             help={week ? 'Names the place picked above until you change it. Leave empty and it disappears' : 'Leave empty and it disappears'}
@@ -325,7 +326,7 @@ export function Editor({
         </Section>
 
         {week ? (
-          <Section title={`${TEMPLATE_LABEL.week}’s rows`} hint={`Up to ${WEEK_ROWS_MAX}. Type them, or take one from a saved ${TEMPLATE_LABEL.activity} flyer and change it.`}>
+          <Section title={FIELD.weekRows} hint={`Up to ${WEEK_ROWS_MAX}. Type them, or take one from a saved ${TEMPLATE_LABEL.activity} flyer and change it.`}>
             <WeekRowsField rows={draft.data.week} onChange={updateWeek} onTake={takeRow} busy={busy !== null} />
           </Section>
         ) : (
@@ -336,17 +337,17 @@ export function Editor({
               ))}
             </Section>
 
-            <Section title="Nice to know" hint="0–4 short items. The dots are added for you.">
+            <Section title={FIELD.extras} hint="0–4 short items. The dots are added for you.">
               <ExtrasField extras={draft.data.extras} onChange={(extras) => setData({ extras })} />
             </Section>
           </>
         )}
 
-        <Section title="The ask">
-          <Field label="English" lang="en">
+        <Section title={FIELD.ask}>
+          <Field label={FIELD.english} lang="en">
             <input value={t.askEn} maxLength={60} onChange={(e) => setText('askEn', e.target.value)} />
           </Field>
-          <Field label="Spanish" lang="es" optional>
+          <Field label={FIELD.spanish} lang="es" optional>
             <input value={t.askEs} maxLength={70} onChange={(e) => setText('askEs', e.target.value)} />
           </Field>
         </Section>
@@ -394,7 +395,7 @@ export function Editor({
         )}
 
         <Section title="Top and tag pill">
-          <Field label="Eyebrow">
+          <Field label={FIELD.eyebrow}>
             <input value={t.eyebrow} maxLength={18} onChange={(e) => setText('eyebrow', e.target.value)} />
           </Field>
           <label className="check">
@@ -403,17 +404,17 @@ export function Editor({
           </label>
           {draft.data.showPill && (
             <div className="two">
-              <Field label="Handle">
+              <Field label={FIELD.handle}>
                 <input value={t.handle} maxLength={18} onChange={(e) => setText('handle', e.target.value)} />
               </Field>
-              <Field label="Tag">
+              <Field label={FIELD.tag}>
                 <input value={t.tag} maxLength={12} onChange={(e) => setText('tag', e.target.value)} />
               </Field>
             </div>
           )}
         </Section>
 
-        <Section title="Share text" hint="Not printed. The caption to paste when you post or send the flyer.">
+        <Section title={FIELD.share} hint="Not printed. The caption to paste when you post or send the flyer.">
           {ai.enabled && (
             <div className="ai-write">
               <button type="button" className="btn" disabled={!!busy || ai.remaining === 0} onClick={writeShare}>
@@ -770,7 +771,7 @@ function ExtrasField({ extras, onChange }: { extras: string[]; onChange: (v: str
         <div key={i} className="with-button">
           <input
             value={x}
-            aria-label={`Nice to know ${i + 1}`}
+            aria-label={`${FIELD.extras} ${i + 1}`}
             maxLength={32}
             placeholder="Everyone welcome"
             onChange={(e) => onChange(extras.map((y, j) => (j === i ? e.target.value : y)))}

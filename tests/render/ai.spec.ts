@@ -228,6 +228,23 @@ test('the cap: once the day is used up, the page says when it comes back and tha
   await expect(entry(page)).toContainText('0 left');
 });
 
+test('an assumption about a field the editor has no name for shows the field as the AI wrote it, and the page stays up', async ({ page }) => {
+  // The model picks `field`: "__proto__" and "constructor" pass the schema, and were once read off a plain object.
+  // A routed answer costs nothing, and the count is routed too, so this holds whatever the file has spent.
+  await withLeft(page, 1);
+  const assumptions = [
+    { field: '__proto__', note: 'first' },
+    { field: 'constructor', note: 'second' },
+    { field: 'text.headline1', note: 'third' },
+  ];
+  await page.route(apiRoute('ai/flyer'), (route) => route.fulfill({ json: { brief, assumptions, remaining: 1 } }));
+  await page.goto('/#/ai');
+  await idea(page).fill('Yoga tomorrow at 9');
+  await generate(page).click();
+  await expect(page.locator('.ai-assumptions li')).toHaveText(['__proto__: first', 'constructor: second', 'Headline line 1: third']);
+  await expect(preview(page)).toBeVisible();
+});
+
 test('with the AI off there is no AI anywhere: no entry, #/ai is the library, no Write with AI', async ({ page }) => {
   await page.route(apiRoute('config'), async (route) => {
     const res = await route.fetch();

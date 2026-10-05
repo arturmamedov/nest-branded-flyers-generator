@@ -6,11 +6,11 @@ import type { AiAssumption, AiConfig, Brief, Hostel } from '../shared/schema';
 import { api, ApiError } from './api';
 import { offerDraft } from './handoff';
 import { useLeaveGuard } from './leaveGuard';
+import { briefFieldLabel, FIELD } from './fields';
 import { BackToLibrary, Field, HostelOptions, Section } from './panel';
 import { CutOffNote, Preview, useFitReports } from './Preview';
 import { go } from './route';
 import { ShareCopy } from './share';
-import { TEMPLATE_LABEL } from './templates';
 
 /* "Create with AI" (#/ai, docs/prompts/ai-assistant.md): a staff member's idea in, a flyer out, ending at "Open in
    editor". A focus page like the editor, which stays the place where a flyer is adjusted and saved. The flyer is
@@ -21,27 +21,6 @@ export type AiOn = Extract<AiConfig, { enabled: true }>;
 
 /** A real staff text (docs/ai-flyers/examples), shortened: what an idea looks like. */
 const PLACEHOLDER = '¡HOY tenemos plan al atardecer! 🧘‍♀️\nClase de estiramientos + sunset para desconectar.\n\n🕖 19:00 h\n📍 Zona de la piscina\nTrae agua y tu toalla 💙';
-
-/** A brief key (an assumption's `field`) as the editor names the field. */
-const FIELD_LABEL: Record<string, string> = {
-  hostel: 'Hostel',
-  template: 'Template',
-  title: 'Library name',
-  when: 'When',
-  where: 'Where',
-  cost: 'Cost',
-  extras: 'Nice to know',
-  week: `${TEMPLATE_LABEL.week}’s rows`,
-  share: 'Share text',
-  'text.eyebrow': 'Eyebrow',
-  'text.headline1': 'Headline line 1',
-  'text.headline2': 'Headline line 2',
-  'text.headlineEs': 'Spanish line',
-  'text.askEn': 'The ask (English)',
-  'text.askEs': 'The ask (Spanish)',
-  'text.handle': 'Handle',
-  'text.tag': 'Tag',
-};
 
 interface Result {
   brief: Brief;
@@ -105,8 +84,8 @@ export function AiPage({ hostels, ai, onRemaining }: { hostels: Hostel[]; ai: Ai
           <Field label="Your idea">
             <textarea rows={10} value={idea} maxLength={AI_INPUT_MAX} placeholder={PLACEHOLDER} onChange={(e) => setIdea(e.target.value)} />
           </Field>
-          <Field label="Hostel" help="Pick one, or let the AI read it from your text">
-            <select aria-label="Hostel" value={hostel} onChange={(e) => setHostel(e.target.value)}>
+          <Field label={FIELD.hostel} help="Pick one, or let the AI read it from your text">
+            <select aria-label={FIELD.hostel} value={hostel} onChange={(e) => setHostel(e.target.value)}>
               <option value="">Let the AI decide</option>
               <HostelOptions hostels={hostels} />
             </select>
@@ -121,7 +100,7 @@ export function AiPage({ hostels, ai, onRemaining }: { hostels: Hostel[]; ai: Ai
             <ul className="ai-assumptions">
               {result.assumptions.map((a, i) => (
                 <li key={i}>
-                  <b>{FIELD_LABEL[a.field] ?? a.field}:</b> {a.note}
+                  <b>{briefFieldLabel(a.field)}:</b> {a.note}
                 </li>
               ))}
             </ul>
@@ -129,7 +108,7 @@ export function AiPage({ hostels, ai, onRemaining }: { hostels: Hostel[]; ai: Ai
         )}
 
         {flyer && (
-          <Section title="Share text" hint="Written by the AI: the caption to paste when you post. You can change it in the editor.">
+          <Section title={FIELD.share} hint="Written by the AI: the caption to paste when you post. You can change it in the editor.">
             <Field label="The AI’s share text">
               <textarea rows={8} value={flyer.data.share} readOnly />
             </Field>
