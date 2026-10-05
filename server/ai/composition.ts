@@ -32,6 +32,8 @@ export interface AiDeps {
 }
 
 export function createAiService(settings: AiSettings, deps: AiDeps): AiService | undefined {
+  // Off reads nothing: a site with no key starts whatever state schema/ai.json is in (PHP: Bootstrap::aiService).
+  if (!settings.enabled || settings.provider === null) return undefined;
   const bundle = deps.bundle ?? loadBundle();
   const provider = createProvider(settings, bundle);
   if (!provider) return undefined;
