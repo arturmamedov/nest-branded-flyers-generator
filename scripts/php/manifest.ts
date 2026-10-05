@@ -1,8 +1,7 @@
-import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
-import { APP_ROOT } from '../../server/paths.js';
+import { describeCheckout } from '../git.js';
 import { GUARD_FILES, MANIFEST_FILE } from './layout.js';
 
 /* release.json: what a stage or release shipped, file by file. The one upload
@@ -20,7 +19,8 @@ export interface Manifest {
   /** A content hash: two builds with the same files have the same id, whatever the clock or the checkout said. */
   id: string;
   builtAt: string;
-  /** `git describe --always --dirty` of the checkout it was built from, when there is one. */
+  /** The commit of the checkout it was built from, when there is one: `1490956`, or `1490956-dirty` when the
+      checkout held anything that commit does not (describeCheckout, scripts/git.ts). */
   commit?: string;
   /** GUARD_FILES, so the readers need no copy of the list. */
   guards: readonly string[];
@@ -35,11 +35,6 @@ function filesUnder(root: string): string[] {
     .sort();
 }
 
-function gitDescribe(): string | undefined {
-  const r = spawnSync('git', ['describe', '--always', '--dirty'], { cwd: APP_ROOT, encoding: 'utf8', windowsHide: true });
-  return r.status === 0 && r.stdout.trim() ? r.stdout.trim() : undefined;
-}
-
 /** Writes `<dir>/release.json` over everything in `dir` (itself excluded) and returns it. */
 export function writeManifest(dir: string): Manifest {
   const files: Record<string, ManifestEntry> = {};
@@ -51,7 +46,7 @@ export function writeManifest(dir: string): Manifest {
     .update(Object.entries(files).map(([path, f]) => `${f.sha256}  ${path}\n`).join(''))
     .digest('hex')
     .slice(0, 12);
-  const commit = gitDescribe();
+  const commit = describeCheckout();
   const manifest: Manifest = { id, builtAt: new Date().toISOString(), ...(commit ? { commit } : {}), guards: GUARD_FILES, files };
   writeFileSync(join(dir, MANIFEST_FILE), JSON.stringify(manifest, null, 2) + '\n', { flag: 'wx' });
   return manifest;
