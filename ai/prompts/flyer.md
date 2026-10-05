@@ -24,7 +24,7 @@ You cannot ask. For each thing the text leaves out, take the default below, and 
 | The day | No default: a flyer must say when. Leave `when` out, and make it the first assumption, so the staff member adds it |
 | The time | Leave it out. The WHEN block prints the day alone |
 | The place | At a hostel, leave it out (the hostel's name prints alone). Chain-wide, `where` is the meeting point when the text has one |
-| The price | `Ask at reception`. Use `Ask your guide` or `Ask the instructor` when the text names one |
+| The price | `Ask at reception`, never `Free`. Only the word itself (`free`, `gratis`) or a price of 0 makes an event free: an invitation ("te invitamos", "join us") says nothing about the price. Use `Ask your guide` or `Ask the instructor` when the text names one |
 | How to join | The template's ask: sign up at reception. Nothing to note |
 | A phone number is given | Print it in the ask, one number (`Reserve: +34 …` / `Reserva: +34 …`). Every number goes in the share text as well |
 
