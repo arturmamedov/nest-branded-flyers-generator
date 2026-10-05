@@ -61,6 +61,23 @@ describe('AI settings', () => {
     expect(said({ AI_PROVIDER: 'openai', AI_API_KEY: 'k', AI_TIMEOUT_MS: pasted })).not.toContain(pasted);
   });
 
+  // `AI_API_KEY="sk-…\n"` in .env is a key with a real line break at its end: every call then failed as "fetch
+  // failed", and nothing named the cause.
+  it('refuses a key that holds a line break or a space, by the setting’s name and never its value', () => {
+    for (const bad of ['sk-live-secret-42\n', 'sk-live-secret-42\r\n', 'sk-live secret-42', '\tsk-live-secret-42']) {
+      let said = 'nothing: it was accepted';
+      try {
+        load({ AI_PROVIDER: 'openai', AI_API_KEY: bad });
+      } catch (e) {
+        said = (e as Error).message;
+      }
+      expect(said, JSON.stringify(bad)).toBe('AI_API_KEY must not hold spaces or line breaks');
+    }
+    // Checked like the time limit: whether or not the AI is on.
+    expect(() => load({ AI_API_KEY: 'k\n' })).toThrow(/AI_API_KEY/);
+    expect(load({ AI_PROVIDER: 'openai', AI_API_KEY: 'sk-live-secret-42' }).enabled).toBe(true);
+  });
+
   it('refuses a time limit that is not a positive whole number of milliseconds, as PHP does', () => {
     for (const bad of ['25s', '0', '-5', '1.5']) {
       expect(() => load({ AI_PROVIDER: 'openai', AI_API_KEY: 'k', AI_TIMEOUT_MS: bad }), bad).toThrow(/AI_TIMEOUT_MS/);

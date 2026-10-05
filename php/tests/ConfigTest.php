@@ -174,6 +174,21 @@ final class ConfigTest extends TestCase
         }
     }
 
+    public function testAKeyThatHoldsALineBreakOrASpaceIsRefusedByNameAndNeverQuoted(): void
+    {
+        // 'apiKey' => "sk-…\n" (double quotes) is a key with a real line break at its end: curl then sent a broken
+        // header, and nothing named the cause. The twin of loadAiSettings' check in server/config.ts.
+        foreach (["sk-secret-123\n", "sk-secret-123\r\n", 'sk-secret 123', "\tsk-secret-123"] as $bad) {
+            try {
+                Config::fromArray(['ai' => ['provider' => 'openai', 'apiKey' => $bad]], self::ROOT, self::shared());
+                self::fail('The block was accepted: ' . json_encode($bad));
+            } catch (InvalidArgumentException $e) {
+                self::assertSame('ai.apiKey must not hold spaces or line breaks', $e->getMessage());
+            }
+        }
+        self::assertTrue(Config::fromArray(['ai' => ['provider' => 'openai', 'apiKey' => 'sk-secret-123']], self::ROOT, self::shared())->ai->enabled);
+    }
+
     /** @return iterable<string, array{?string, string}> */
     public static function dataDirs(): iterable
     {

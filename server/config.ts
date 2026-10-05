@@ -41,6 +41,8 @@ export function loadAiSettings(env: NodeJS.ProcessEnv): AiSettings {
   const provider = (env.AI_PROVIDER || null) as AiProvider | null;
   if (provider !== null && !AI_PROVIDERS.includes(provider)) throw new Error(`AI_PROVIDER must be one of ${AI_PROVIDERS.join(', ')}`);
   const apiKey = env.AI_API_KEY || null;
+  // `AI_API_KEY="sk-…\n"` in .env ends in a real line break: the request then fails with nothing naming the cause.
+  if (apiKey !== null && /[\s\x00-\x1f\x7f]/.test(apiKey)) throw new Error('AI_API_KEY must not hold spaces or line breaks');
   const model = provider === null ? null : env.AI_MODEL || (provider === 'fake' ? FAKE_MODEL : AI_DEFAULT_MODEL[provider]);
   const keyed = provider === 'fake' || apiKey !== null;
   const timeoutMs = Number(env.AI_TIMEOUT_MS || AI_TIMEOUT_MS);

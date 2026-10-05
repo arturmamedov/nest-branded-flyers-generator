@@ -54,6 +54,10 @@ final class AiConfig
             throw new InvalidArgumentException('ai.provider must be null or one of: ' . implode(', ', $facts['providers']));
         }
         $apiKey = self::text($raw, 'apiKey');
+        // 'apiKey' => "sk-…\n" ends in a real line break: curl then sends a broken header, with nothing naming the cause.
+        if ($apiKey !== null && preg_match('/[\s\x00-\x1f\x7f]/', $apiKey) === 1) {
+            throw new InvalidArgumentException('ai.apiKey must not hold spaces or line breaks');
+        }
         $model = self::text($raw, 'model');
         $timeoutMs = $raw['timeoutMs'] ?? $facts['timeoutMs'];
         if (!is_int($timeoutMs) || $timeoutMs <= 0) {

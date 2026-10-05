@@ -358,7 +358,7 @@ model wrote and how long it took. For a locked site the login comes from `FLYERS
 | photos alone answer 500 | the same, in `uploads/.htaccess` (IONOS accepts it as shipped) |
 | 503 `not_configured` | `config.php` is missing, has no access rule, or PHP could not read it (a typo): check it against the one the preflight page printed |
 | 503 on everything right after going back to an older release | `config.php` has an `ai` block the older release does not know: take the block out (*Rolling back*) |
-| 503 right after adding the `ai` block | a typo in the block: a setting the sample does not have, or a value of the wrong kind. `data/php-errors.log` names the setting, never its value |
+| 503 right after adding the `ai` block | a typo in the block: a setting the sample does not have, or a value of the wrong kind. `data/php-errors.log` names the setting, never its value. "`ai.apiKey` must not hold spaces or line breaks" means the key was pasted with one: write it between single quotes, with nothing after its last character |
 | no "✨ Create with AI" on the bar | the AI is off: `config.php` has no `ai` block, the block has no `provider` or no `apiKey`, or it says `'enabled' => false`. `GET api/config` shows `"ai": {"enabled": false}` |
 | "The AI didn't answer properly", every time | the provider refused or did not answer; nothing was counted. `data/php-errors.log` has the reason, on a line starting `Nest flyers: AI`: a wrong key (401), a timeout, or an answer the app would not take |
 | "Something went wrong on the server" when a staff member presses Generate | PHP has no curl: the preflight page's *PHP extensions* line says so. Enable curl for this PHP version in the hosting panel |
