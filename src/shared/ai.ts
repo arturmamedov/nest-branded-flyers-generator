@@ -6,8 +6,14 @@ import type { AiConfig } from './schema.js';
    PHP backend, so a number is written once. */
 
 /** Generations a day, both features together (the owner's cap, 2026-10-01): a flyer from an idea already includes its
-    share text, so one generation is a whole flyer. Counted per actor; today every request is the one anonymous actor. */
+    share text, so one generation is a whole flyer. Counted per actor; today every request is the one anonymous actor.
+    This is the default: a site may set its own (the owner's answer, 2026-10-05) through the setting that has this
+    constant's name on Node (AI_DAILY_LIMIT in .env) and is `dailyLimit` in config.php's `ai` block. */
 export const AI_DAILY_LIMIT = 3;
+
+/** The most a site's own setting may allow a day: the app is public until its login exists, so the cap is what keeps
+    a stranger's cost known. Above it the setting is refused. */
+export const AI_DAILY_LIMIT_MAX = 20;
 
 /** The longest idea text, in code points: a long group-chat post, not a document. */
 export const AI_INPUT_MAX = 4000;
@@ -71,6 +77,7 @@ export const AI_FAKE = {
 /** The block `npm run gen` writes to schema/shared.json, in this order; PHP reads it through Shared::ai(). */
 export const AI_SHARED = {
   dailyLimit: AI_DAILY_LIMIT,
+  dailyLimitMax: AI_DAILY_LIMIT_MAX,
   inputMax: AI_INPUT_MAX,
   assumptionsMax: AI_ASSUMPTIONS_MAX,
   features: AI_FEATURES,

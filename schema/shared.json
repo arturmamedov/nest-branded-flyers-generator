@@ -190,6 +190,7 @@
   },
   "ai": {
     "dailyLimit": 3,
+    "dailyLimitMax": 20,
     "inputMax": 4000,
     "assumptionsMax": 12,
     "features": [

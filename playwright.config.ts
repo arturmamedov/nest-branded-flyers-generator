@@ -1,5 +1,5 @@
 import { defineConfig } from '@playwright/test';
-import { AI_FEATURES } from './src/shared/ai.js';
+import { AI_DAILY_LIMIT, AI_FEATURES } from './src/shared/ai.js';
 
 /* Render checks run against the production build (npm run test:render builds
    first) on a throwaway DATA_DIR seeded with the design's sample flyers.
@@ -43,7 +43,8 @@ export default defineConfig({
     {
       command: 'node dist-server/server/cli/seed.js && node dist-server/server/index.js',
       url: `http://127.0.0.1:${AI_PORT}/api/hostels`,
-      env: { ...server, PORT: String(AI_PORT), DATA_DIR: AI_DATA_DIR, AI_PROVIDER: 'fake', AI_ENABLED: '1', AI_FEATURES: AI_FEATURES.join(',') },
+      // Every setting ai.spec.ts counts on is pinned here: the environment wins over .env, whose own cap is the owner's.
+      env: { ...server, PORT: String(AI_PORT), DATA_DIR: AI_DATA_DIR, AI_PROVIDER: 'fake', AI_ENABLED: '1', AI_FEATURES: AI_FEATURES.join(','), AI_DAILY_LIMIT: String(AI_DAILY_LIMIT) },
       reuseExistingServer: false,
       timeout: 60_000,
     },

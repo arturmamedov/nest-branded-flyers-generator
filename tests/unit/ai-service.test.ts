@@ -39,7 +39,7 @@ const bundle = loadBundle();
 const example = bundle.examples[0];
 const actor = { id: 'anonymous' };
 /** A site that names every feature: what a test is about, it takes away. */
-const settings = { provider: 'fake' as const, apiKey: null, model: 'fake-1', effort: null, timeoutMs: 1000, enabled: true, features: [...AI_FEATURES] };
+const settings = { provider: 'fake' as const, apiKey: null, model: 'fake-1', effort: null, timeoutMs: 1000, enabled: true, features: [...AI_FEATURES], dailyLimit: AI_DAILY_LIMIT };
 
 function make(over: Partial<AiServiceDeps> = {}) {
   const clock = new FakeClock();
@@ -241,6 +241,15 @@ describe('the AI service', () => {
     clock.tick(13 * 3600 * 1000);
     expect(await service.status(actor)).toEqual({ enabled: true, limit: AI_DAILY_LIMIT, remaining: AI_DAILY_LIMIT, features: AI_FEATURES });
     expect((await service.flyer(actor, idea())).remaining).toBe(AI_DAILY_LIMIT - 1);
+  });
+
+  // The owner's answer (2026-10-05): the cap is the site's own setting, 3 unless it says otherwise.
+  it('stops at the site’s own cap, and says that number', async () => {
+    const { service } = make({ policy: createAiPolicy({ ...settings, dailyLimit: 1 }) });
+    expect(await service.status(actor)).toEqual({ enabled: true, limit: 1, remaining: 1, features: AI_FEATURES });
+    expect((await service.share(actor, shareBody())).remaining).toBe(0);
+    await failsWith(service.flyer(actor, idea()), 'ai_quota', { limit: 1 });
+    expect(await service.status(actor)).toEqual({ enabled: true, limit: 1, remaining: 0, features: AI_FEATURES });
   });
 
   it('counts per actor', async () => {

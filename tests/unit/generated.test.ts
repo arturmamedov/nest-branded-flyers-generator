@@ -85,6 +85,7 @@ describe('the AI bundle (schema/ai.json) and the ai block of shared.json', () =>
   it('shared.json tells PHP the AI constants', () => {
     expect(JSON.parse(outputs['schema/shared.json']).ai).toEqual({
       dailyLimit: 3,
+      dailyLimitMax: 20,
       inputMax: 4000,
       assumptionsMax: 12,
       features: ['flyer', 'share'],

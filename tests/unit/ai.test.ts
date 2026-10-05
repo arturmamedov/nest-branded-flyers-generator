@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
   AI_DAILY_LIMIT,
+  AI_DAILY_LIMIT_MAX,
   AI_DAY_ZONE,
   AI_DEFAULT_MODEL,
   AI_FAKE,
@@ -49,8 +50,10 @@ describe('aiFor: the AI as far as one feature goes, from api/config’s answer',
 });
 
 describe('the AI constants', () => {
-  it('pin the owner’s decisions: three a day, counted in the Canary Islands, the fast model of each provider', () => {
+  it('pin the owner’s decisions: three a day unless a site sets its own, twenty at most, counted in the Canary Islands, the fast model of each provider', () => {
     expect(AI_DAILY_LIMIT).toBe(3);
+    expect(AI_DAILY_LIMIT_MAX).toBe(20);
+    expect(AI_SHARED).toMatchObject({ dailyLimit: AI_DAILY_LIMIT, dailyLimitMax: AI_DAILY_LIMIT_MAX });
     expect(AI_DAY_ZONE).toBe('Atlantic/Canary');
     expect(AI_INPUT_MAX).toBe(4000);
     expect(AI_FEATURES).toEqual(['flyer', 'share']);

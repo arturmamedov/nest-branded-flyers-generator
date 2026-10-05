@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { loadConfig } from '../../server/config.js';
 import { APP_ROOT } from '../../server/paths.js';
-import { AI_DEFAULT_MODEL, AI_TIMEOUT_MS } from '../../src/shared/ai.js';
+import { AI_DAILY_LIMIT, AI_DAILY_LIMIT_MAX, AI_DEFAULT_MODEL, AI_TIMEOUT_MS } from '../../src/shared/ai.js';
 
 /* The AI settings the Node server reads from its environment (.env): which provider, the key, the model, the two
    knobs, the switch, and the features that run. Off is the default, and the state the app keeps whenever a provider
@@ -18,6 +18,7 @@ interface Row {
 }
 const vectors = JSON.parse(readFileSync(join(APP_ROOT, 'tests/fixtures/ai-settings.json'), 'utf8')) as {
   features: { accepted: (Row & { runs: string[] })[]; refused: Row[] };
+  dailyLimit: { accepted: (Row & { limit: number })[]; refused: Row[] };
 };
 /** The rows Node reads, each with the environment that sets its variable (or leaves it out). */
 const rows = <R extends Row>(list: R[], variable: string): (Omit<R, 'env'> & { env: Record<string, string> })[] =>
@@ -25,7 +26,7 @@ const rows = <R extends Row>(list: R[], variable: string): (Omit<R, 'env'> & { e
 
 describe('AI settings', () => {
   it('are off with no provider', () => {
-    expect(load({})).toEqual({ provider: null, apiKey: null, model: null, effort: null, timeoutMs: AI_TIMEOUT_MS, enabled: false, features: [] });
+    expect(load({})).toEqual({ provider: null, apiKey: null, model: null, effort: null, timeoutMs: AI_TIMEOUT_MS, enabled: false, features: [], dailyLimit: AI_DAILY_LIMIT });
   });
 
   it('the fake provider needs no key', () => {
@@ -47,7 +48,25 @@ describe('AI settings', () => {
       timeoutMs: 9000,
       enabled: true,
       features: [],
+      dailyLimit: AI_DAILY_LIMIT,
     });
+  });
+
+  // The owner's answer (2026-10-05): the cap is a setting, 3 by default, bounded in the code.
+  it.each(rows(vectors.dailyLimit.accepted, 'AI_DAILY_LIMIT'))('AI_DAILY_LIMIT, $name', ({ env, limit }) => {
+    expect(load({ AI_PROVIDER: 'fake', ...env }).dailyLimit).toBe(limit);
+  });
+
+  it.each(rows(vectors.dailyLimit.refused, 'AI_DAILY_LIMIT'))('refuses AI_DAILY_LIMIT with $name, whether or not the AI is on', ({ env }) => {
+    expect(() => load(env)).toThrow(/AI_DAILY_LIMIT/);
+    expect(() => load({ AI_PROVIDER: 'fake', ...env })).toThrow(/AI_DAILY_LIMIT/);
+  });
+
+  it('the vectors’ default and their most are the shared constants', () => {
+    const { accepted, refused } = vectors.dailyLimit;
+    expect(accepted.find((r) => r.env === null)?.limit).toBe(AI_DAILY_LIMIT);
+    expect(Math.max(...accepted.map((r) => r.limit))).toBe(AI_DAILY_LIMIT_MAX);
+    expect(refused.map((r) => r.env)).toContain(String(AI_DAILY_LIMIT_MAX + 1));
   });
 
   // The owner's answer (2026-10-05): none until named. The switch keeps its meaning; what runs is a second fact.
@@ -90,6 +109,8 @@ describe('AI settings', () => {
     expect(said({ AI_PROVIDER: 'openai', AI_API_KEY: 'k', AI_TIMEOUT_MS: pasted })).not.toContain(pasted);
     expect(said({ AI_PROVIDER: 'openai', AI_API_KEY: 'k', AI_FEATURES: pasted })).toMatch(/AI_FEATURES/);
     expect(said({ AI_PROVIDER: 'openai', AI_API_KEY: 'k', AI_FEATURES: `share,${pasted}` })).not.toContain(pasted);
+    expect(said({ AI_PROVIDER: 'openai', AI_API_KEY: 'k', AI_DAILY_LIMIT: pasted })).toMatch(/AI_DAILY_LIMIT/);
+    expect(said({ AI_PROVIDER: 'openai', AI_API_KEY: 'k', AI_DAILY_LIMIT: pasted })).not.toContain(pasted);
   });
 
   // `AI_API_KEY="sk-…\n"` in .env is a key with a real line break at its end: every call then failed as "fetch
@@ -120,6 +141,6 @@ describe('AI settings', () => {
 
   it('every setting is in .env.example, commented out', () => {
     const example = readFileSync(join(APP_ROOT, '.env.example'), 'utf8');
-    for (const name of ['AI_PROVIDER', 'AI_API_KEY', 'AI_FEATURES', 'AI_MODEL', 'AI_EFFORT', 'AI_TIMEOUT_MS', 'AI_ENABLED']) expect(example).toMatch(new RegExp(`^# ?${name}=`, 'm'));
+    for (const name of ['AI_PROVIDER', 'AI_API_KEY', 'AI_FEATURES', 'AI_DAILY_LIMIT', 'AI_MODEL', 'AI_EFFORT', 'AI_TIMEOUT_MS', 'AI_ENABLED']) expect(example).toMatch(new RegExp(`^# ?${name}=`, 'm'));
   });
 });

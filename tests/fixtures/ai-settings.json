@@ -1,5 +1,5 @@
 {
-  "about": "The AI settings a site names itself, as both backends must read them: AI_FEATURES in .env (Node, loadAiSettings in server/config.ts) and 'features' in config.php's ai block (PHP, AiConfig). Replayed by tests/unit/ai-config.test.ts and php/tests/ConfigTest.php. `env` is the variable's value (null: not set), `php` the key's value; a row without one of them is the other backend's alone. A refusal names the setting and never repeats its value.",
+  "about": "The AI settings a site names itself, as both backends must read them: AI_FEATURES and AI_DAILY_LIMIT in .env (Node, loadAiSettings in server/config.ts), 'features' and 'dailyLimit' in config.php's ai block (PHP, AiConfig). Replayed by tests/unit/ai-config.test.ts and php/tests/ConfigTest.php. `env` is the variable's value (null: not set), `php` the key's value; a row without one of them is the other backend's alone. A refusal names the setting and never repeats its value. The default and the most a site may set are AI_DAILY_LIMIT and AI_DAILY_LIMIT_MAX in src/shared/ai.ts: both tests hold these rows to them.",
   "features": {
     "accepted": [
       { "name": "not named: none run", "env": null, "php": null, "runs": [] },
@@ -17,6 +17,24 @@
       { "name": "a string, not a list", "php": "share" },
       { "name": "a keyed array", "php": { "share": true } },
       { "name": "a number in the list", "php": ["share", 1] }
+    ]
+  },
+  "dailyLimit": {
+    "accepted": [
+      { "name": "not set: the default", "env": null, "php": null, "limit": 3 },
+      { "name": "empty in .env: the default", "env": "", "limit": 3 },
+      { "name": "one a day", "env": "1", "php": 1, "limit": 1 },
+      { "name": "ten a day", "env": "10", "php": 10, "limit": 10 },
+      { "name": "the most a site may set", "env": "20", "php": 20, "limit": 20 }
+    ],
+    "refused": [
+      { "name": "zero: off is the switch's job", "env": "0", "php": 0 },
+      { "name": "one past the most", "env": "21", "php": 21 },
+      { "name": "a negative number", "env": "-3", "php": -3 },
+      { "name": "not a whole number", "env": "2.5", "php": 2.5 },
+      { "name": "words", "env": "ten", "php": "ten" },
+      { "name": "a number written as text in config.php", "php": "10" },
+      { "name": "true", "php": true }
     ]
   }
 }

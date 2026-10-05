@@ -33,20 +33,20 @@ afterEach(async () => {
   for (const repos of open.splice(0)) await repos.close();
 });
 
-/** The app of a site whose settings name these features. */
-async function site(named: readonly AiFeature[]) {
+/** The app of a site whose settings name these features, and whatever else `env` sets. */
+async function site(named: readonly AiFeature[], env: Record<string, string> = {}) {
   const repos = createSqliteRepositories({ file: ':memory:' });
   open.push(repos);
   await applySeedFile(repos, SEED_FILE);
-  const settings = loadAiSettings({ AI_PROVIDER: 'fake', AI_FEATURES: named.join(',') });
+  const settings = loadAiSettings({ AI_PROVIDER: 'fake', AI_FEATURES: named.join(','), ...env });
   const ai = createAiService(settings, { hostels: repos.hostels, usage: repos.aiUsage, clock: systemClock });
   const app = createApp({ repos, storage: 'sqlite', uploadsDir: join(tmpdir(), 'nest-flyers-ai-app-no-uploads'), buildId: 'test', ai });
   return { app, repos };
 }
 
-async function refused(sent: Test, key: ApiErrorKey) {
+async function refused(sent: Test, key: ApiErrorKey, vars?: Record<string, string | number>) {
   const res = await sent;
-  const spec = apiError(key);
+  const spec = apiError(key, vars);
   expect(res.status, JSON.stringify(res.body)).toBe(spec.status);
   expect(res.body.error).toMatchObject({ code: spec.code, message: spec.message });
 }
@@ -76,6 +76,17 @@ describe.each([...AI_FEATURES])('a site that names every feature but %s', (off) 
     }
     expect((await repos.aiUsage.all()).map((r) => [r.feature, r.ok])).toEqual(named.map((feature) => [feature, true]));
   });
+});
+
+// The owner's answer (2026-10-05): the cap is a setting, 3 unless the site says otherwise.
+it('a site that sets its own cap says it in api/config, and answers ai_quota in that number once it is reached', async () => {
+  const { app } = await site(AI_FEATURES, { AI_DAILY_LIMIT: '1' });
+  expect((await request(app).get('/api/config').expect(200)).body.ai).toEqual({ enabled: true, limit: 1, remaining: 1, features: AI_FEATURES });
+  const first = await request(app).post('/api/ai/share').set(WRITE_HEADERS).send(BODY.share());
+  expect(first.status, JSON.stringify(first.body)).toBe(200);
+  expect(first.body.remaining).toBe(0);
+  await refused(request(app).post('/api/ai/flyer').set(WRITE_HEADERS).send(BODY.flyer()), 'ai_quota', { limit: 1 });
+  expect((await request(app).get('/api/config').expect(200)).body.ai).toMatchObject({ limit: 1, remaining: 0 });
 });
 
 // The owner's answer (2026-10-05): none until named. A provider, even keyed, runs nothing by itself.
