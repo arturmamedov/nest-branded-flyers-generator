@@ -4,7 +4,7 @@ import type { Dialog, Page } from '@playwright/test';
 import { expect, test } from '../browser';
 import { EDITOR_VIEWPORT, apiCall, apiRoute, backToLibrary, saveNew, status } from '../editor';
 import { LEAVE_PROMPT } from '../../src/editor/leaveGuard';
-import { AI_DAILY_LIMIT } from '../../src/shared/ai';
+import { AI_DAILY_LIMIT, AI_FEATURES } from '../../src/shared/ai';
 import { apiError } from '../../src/shared/errors';
 import { AiFlyerResultSchema, AiShareResultSchema, ApiConfigSchema, type AiFlyerAnswer } from '../../src/shared/schema';
 import { WRITE_HEADERS } from '../../src/shared/writeGuard';
@@ -50,7 +50,7 @@ const preview = (page: Page) => page.locator('.stage-canvas');
 async function withLeft(page: Page, remaining: number) {
   await page.route(apiRoute('config'), async (route) => {
     const res = await route.fetch();
-    await route.fulfill({ response: res, json: { ...(await res.json()), ai: { enabled: true, limit: AI_DAILY_LIMIT, remaining } } });
+    await route.fulfill({ response: res, json: { ...(await res.json()), ai: { enabled: true, limit: AI_DAILY_LIMIT, remaining, features: AI_FEATURES } } });
   });
 }
 

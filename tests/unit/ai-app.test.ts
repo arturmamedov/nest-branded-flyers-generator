@@ -64,7 +64,7 @@ describe.each([...AI_FEATURES])('a site that names every feature but %s', (off) 
     await refused(request(app).post(route).set('Content-Type', 'application/json').send('{"text": '), 'malformed');
     expect(await repos.aiUsage.all()).toEqual([]);
     const config = await request(app).get('/api/config').expect(200);
-    expect(config.body.ai).toMatchObject({ enabled: true, limit: AI_DAILY_LIMIT, remaining: AI_DAILY_LIMIT });
+    expect(config.body.ai).toEqual({ enabled: true, limit: AI_DAILY_LIMIT, remaining: AI_DAILY_LIMIT, features: named });
   });
 
   it('runs the features it names, and counts them', async () => {

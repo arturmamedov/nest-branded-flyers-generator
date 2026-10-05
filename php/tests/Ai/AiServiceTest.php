@@ -52,6 +52,7 @@ final class AiServiceTest extends TestCase
     private const LIMIT = 3;
     private const INPUT_MAX = 4000;
     private const ASSUMPTIONS_MAX = 12;
+    private const FEATURES = ['flyer', 'share'];
 
     private Shared $shared;
     private ErrorCatalog $errors;
@@ -93,6 +94,7 @@ final class AiServiceTest extends TestCase
         self::assertSame(self::LIMIT, $this->shared->ai()['dailyLimit']);
         self::assertSame(self::INPUT_MAX, $this->shared->ai()['inputMax']);
         self::assertSame(self::ASSUMPTIONS_MAX, $this->shared->ai()['assumptionsMax']);
+        self::assertSame(self::FEATURES, $this->shared->ai()['features']);
     }
 
     public function testOffWithoutAProviderStatusSaysSoAndBothFeaturesAnswerAiOff(): void
@@ -166,7 +168,7 @@ final class AiServiceTest extends TestCase
             $last = $this->usage->records[array_key_last($this->usage->records)];
             self::assertSame([$feature, true], [$last['feature'], $last['ok']]);
         }
-        self::assertSame(['enabled' => true, 'limit' => self::LIMIT, 'remaining' => self::LIMIT - count($named)], $service->status($this->actor));
+        self::assertSame(['enabled' => true, 'limit' => self::LIMIT, 'remaining' => self::LIMIT - count($named), 'features' => $named], $service->status($this->actor));
     }
 
     public function testAnActorThePolicyExcludesIsRefusedAndShownNothing(): void
@@ -211,7 +213,7 @@ final class AiServiceTest extends TestCase
         $result = $service->flyer($this->actor, $this->idea());
         JsonAssert::same((object) ['brief' => $this->example->answer->brief, 'assumptions' => $this->example->answer->assumptions, 'remaining' => self::LIMIT - 1], $result);
         self::assertSame(['brief', 'assumptions', 'remaining'], array_keys($result));
-        self::assertSame(['enabled' => true, 'limit' => self::LIMIT, 'remaining' => self::LIMIT - 1], $service->status($this->actor));
+        self::assertSame(['enabled' => true, 'limit' => self::LIMIT, 'remaining' => self::LIMIT - 1, 'features' => self::FEATURES], $service->status($this->actor));
         self::assertSame([[
             'at' => $this->clock->now(),
             'day' => '2026-09-18',
@@ -279,7 +281,7 @@ final class AiServiceTest extends TestCase
         $this->failsWith(fn () => $service->flyer($this->actor, $this->idea()), 'ai_failed');
         self::assertCount(1, $this->usage->records);
         self::assertSame([false, 'flyer', $raw], [$this->usage->records[0]['ok'], $this->usage->records[0]['feature'], $this->usage->records[0]['output']]);
-        self::assertSame(['enabled' => true, 'limit' => self::LIMIT, 'remaining' => self::LIMIT], $service->status($this->actor));
+        self::assertSame(['enabled' => true, 'limit' => self::LIMIT, 'remaining' => self::LIMIT, 'features' => self::FEATURES], $service->status($this->actor));
         self::assertStringContainsString('share', $this->log());
     }
 
@@ -289,7 +291,7 @@ final class AiServiceTest extends TestCase
         $this->failsWith(fn () => $service->flyer($this->actor, $this->idea('[[fake:invalid]]')), 'ai_failed');
         self::assertCount(1, $this->usage->records);
         self::assertSame([false, 'flyer', Json::encode(['brief' => 42, 'assumptions' => []])], [$this->usage->records[0]['ok'], $this->usage->records[0]['feature'], $this->usage->records[0]['output']]);
-        self::assertSame(['enabled' => true, 'limit' => self::LIMIT, 'remaining' => self::LIMIT], $service->status($this->actor));
+        self::assertSame(['enabled' => true, 'limit' => self::LIMIT, 'remaining' => self::LIMIT, 'features' => self::FEATURES], $service->status($this->actor));
         self::assertStringContainsString('the answer failed its schema', $this->log());
     }
 
@@ -312,10 +314,10 @@ final class AiServiceTest extends TestCase
         }
         $this->failsWith(fn () => $service->flyer($this->actor, $this->idea()), 'ai_quota', ['limit' => self::LIMIT]);
         $this->failsWith(fn () => $service->share($this->actor, $this->shareBody()), 'ai_quota', ['limit' => self::LIMIT]);
-        self::assertSame(['enabled' => true, 'limit' => self::LIMIT, 'remaining' => 0], $service->status($this->actor));
+        self::assertSame(['enabled' => true, 'limit' => self::LIMIT, 'remaining' => 0, 'features' => self::FEATURES], $service->status($this->actor));
         // 10:00Z on 18 September is 11:00 WEST; thirteen hours on, it is 00:00 on the 19th there.
         $this->clock->tick(13 * 3600 * 1000);
-        self::assertSame(['enabled' => true, 'limit' => self::LIMIT, 'remaining' => self::LIMIT], $service->status($this->actor));
+        self::assertSame(['enabled' => true, 'limit' => self::LIMIT, 'remaining' => self::LIMIT, 'features' => self::FEATURES], $service->status($this->actor));
         self::assertSame(self::LIMIT - 1, $service->flyer($this->actor, $this->idea())['remaining']);
     }
 
@@ -325,7 +327,7 @@ final class AiServiceTest extends TestCase
         for ($i = 0; $i < self::LIMIT; $i++) {
             $service->flyer($this->actor, $this->idea());
         }
-        self::assertSame(['enabled' => true, 'limit' => self::LIMIT, 'remaining' => self::LIMIT], $service->status(new Actor('someone-else')));
+        self::assertSame(['enabled' => true, 'limit' => self::LIMIT, 'remaining' => self::LIMIT, 'features' => self::FEATURES], $service->status(new Actor('someone-else')));
     }
 
     public function testItWritesAShareTextFromTheFlyersFieldsCountsItAndKeepsWhatTheModelWasGiven(): void

@@ -162,8 +162,7 @@ final class BootstrapTest extends TestCase
         $this->assertError($app->handle(self::request('POST', $route, $this->aiBody($off), [], self::LOOPBACK, [])), 403, 'forbidden');
         $this->assertError($app->handle(self::request('POST', $route, '{"text": ', [], self::LOOPBACK, [])), 400, 'invalid');
         self::assertDirectoryDoesNotExist("$this->dataDir/ai-usage");
-        $ai = $this->ok($app->handle(self::request('GET', '/api/config')))->ai;
-        self::assertSame([true, 3, 3], [$ai->enabled, $ai->limit, $ai->remaining]);
+        self::assertEquals((object) ['enabled' => true, 'limit' => 3, 'remaining' => 3, 'features' => self::allBut($off)], $this->ok($app->handle(self::request('GET', '/api/config')))->ai);
     }
 
     #[DataProvider('features')]
@@ -184,13 +183,13 @@ final class BootstrapTest extends TestCase
         $clock = new FakeClock();
         $app = Bootstrap::fromAppRoot($this->appRoot, $this->config() + ['ai' => $this->fakeAi()], $clock);
         $ai = fn (): stdClass => $this->ok($app->handle(self::request('GET', '/api/config')))->ai;
-        self::assertEquals((object) ['enabled' => true, 'limit' => 3, 'remaining' => 3], $ai());
+        self::assertEquals((object) ['enabled' => true, 'limit' => 3, 'remaining' => 3, 'features' => ['flyer', 'share']], $ai());
         self::assertDirectoryDoesNotExist("$this->dataDir/ai-usage", 'reading the count wrote nothing');
 
         $result = $this->ok($app->handle(self::request('POST', '/api/ai/flyer', (object) ['text' => 'Yoga mañana a las 9 en la terraza'])));
         self::assertSame(2, $result->remaining);
         self::assertSame(['ai-usage/2026-09.json'], array_values(preg_grep('~^ai-usage/~', TempDir::files($this->dataDir)) ?: []));
-        self::assertEquals((object) ['enabled' => true, 'limit' => 3, 'remaining' => 2], $ai());
+        self::assertEquals((object) ['enabled' => true, 'limit' => 3, 'remaining' => 2, 'features' => ['flyer', 'share']], $ai());
 
         // 10:00Z on 18 September is 11:00 WEST; thirteen hours on, it is midnight in the Canary Islands.
         $clock->tick(13 * 3600 * 1000 - 1);

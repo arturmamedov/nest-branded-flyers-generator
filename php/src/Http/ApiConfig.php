@@ -26,9 +26,9 @@ final class ApiConfig
     }
 
     /**
-     * @param array{enabled:false}|array{enabled:true, limit:int, remaining:int} $ai the AI for the actor asking
+     * @param array{enabled:false}|array{enabled:true, limit:int, remaining:int, features:list<string>} $ai the AI for the actor asking
      * @return array{backend:string, storage:string, exporters:list<string>,
-     *     limits:array{maxUploadBytes:int, maxPhotoEdge:int}, server:array<string, mixed>, ai:array<string, bool|int>}
+     *     limits:array{maxUploadBytes:int, maxPhotoEdge:int}, server:array<string, mixed>, ai:array<string, bool|int|list<string>>}
      */
     public function toArray(array $ai): array
     {

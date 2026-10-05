@@ -126,7 +126,7 @@ describe('the AI service', () => {
         await call[feature](service);
         expect(usage.records.at(-1)).toMatchObject({ feature, ok: true });
       }
-      expect(await service.status(actor)).toEqual({ enabled: true, limit: AI_DAILY_LIMIT, remaining: AI_DAILY_LIMIT - named.length });
+      expect(await service.status(actor)).toEqual({ enabled: true, limit: AI_DAILY_LIMIT, remaining: AI_DAILY_LIMIT - named.length, features: named });
     });
   });
 
@@ -151,7 +151,7 @@ describe('the AI service', () => {
     const { service, clock, usage } = make();
     const result = await service.flyer(actor, idea());
     expect(result).toEqual({ ...example.answer, remaining: AI_DAILY_LIMIT - 1 });
-    expect(await service.status(actor)).toEqual({ enabled: true, limit: AI_DAILY_LIMIT, remaining: AI_DAILY_LIMIT - 1 });
+    expect(await service.status(actor)).toEqual({ enabled: true, limit: AI_DAILY_LIMIT, remaining: AI_DAILY_LIMIT - 1, features: AI_FEATURES });
     expect(usage.records).toEqual([
       {
         at: clock.now(),
@@ -210,7 +210,7 @@ describe('the AI service', () => {
     await failsWith(service.flyer(actor, idea()), 'ai_failed');
     expect(usage.records).toHaveLength(1);
     expect(usage.records[0]).toMatchObject({ ok: false, feature: 'flyer', output: JSON.stringify(json) });
-    expect(await service.status(actor)).toEqual({ enabled: true, limit: AI_DAILY_LIMIT, remaining: AI_DAILY_LIMIT });
+    expect(await service.status(actor)).toEqual({ enabled: true, limit: AI_DAILY_LIMIT, remaining: AI_DAILY_LIMIT, features: AI_FEATURES });
   });
 
   it('answers ai_failed for an answer that fails the schema, records it, and charges nothing', async () => {
@@ -218,7 +218,7 @@ describe('the AI service', () => {
     await failsWith(service.flyer(actor, idea('[[fake:invalid]]')), 'ai_failed');
     expect(usage.records).toHaveLength(1);
     expect(usage.records[0]).toMatchObject({ ok: false, feature: 'flyer', output: JSON.stringify({ brief: 42, assumptions: [] }) });
-    expect(await service.status(actor)).toEqual({ enabled: true, limit: AI_DAILY_LIMIT, remaining: AI_DAILY_LIMIT });
+    expect(await service.status(actor)).toEqual({ enabled: true, limit: AI_DAILY_LIMIT, remaining: AI_DAILY_LIMIT, features: AI_FEATURES });
   });
 
   it('answers ai_failed for a timeout and a refusal, recording what is known', async () => {
@@ -236,17 +236,17 @@ describe('the AI service', () => {
     for (let i = 0; i < AI_DAILY_LIMIT; i++) await service.flyer(actor, idea());
     await failsWith(service.flyer(actor, idea()), 'ai_quota', { limit: AI_DAILY_LIMIT });
     await failsWith(service.share(actor, shareBody()), 'ai_quota', { limit: AI_DAILY_LIMIT });
-    expect(await service.status(actor)).toEqual({ enabled: true, limit: AI_DAILY_LIMIT, remaining: 0 });
+    expect(await service.status(actor)).toEqual({ enabled: true, limit: AI_DAILY_LIMIT, remaining: 0, features: AI_FEATURES });
     // 10:00Z on 18 September is 11:00 WEST; thirteen hours on, it is 00:00 on the 19th there.
     clock.tick(13 * 3600 * 1000);
-    expect(await service.status(actor)).toEqual({ enabled: true, limit: AI_DAILY_LIMIT, remaining: AI_DAILY_LIMIT });
+    expect(await service.status(actor)).toEqual({ enabled: true, limit: AI_DAILY_LIMIT, remaining: AI_DAILY_LIMIT, features: AI_FEATURES });
     expect((await service.flyer(actor, idea())).remaining).toBe(AI_DAILY_LIMIT - 1);
   });
 
   it('counts per actor', async () => {
     const { service } = make();
     for (let i = 0; i < AI_DAILY_LIMIT; i++) await service.flyer(actor, idea());
-    expect(await service.status({ id: 'someone-else' })).toEqual({ enabled: true, limit: AI_DAILY_LIMIT, remaining: AI_DAILY_LIMIT });
+    expect(await service.status({ id: 'someone-else' })).toEqual({ enabled: true, limit: AI_DAILY_LIMIT, remaining: AI_DAILY_LIMIT, features: AI_FEATURES });
   });
 
   it('writes a share text from the flyer’s fields, counts it, and keeps what the model was given', async () => {
@@ -301,7 +301,7 @@ describe('a ledger that cannot be read', () => {
     const { service } = make({ usage });
     await service.status(actor);
     state.broken = false;
-    expect(await service.status(actor)).toEqual({ enabled: true, limit: AI_DAILY_LIMIT, remaining: AI_DAILY_LIMIT });
+    expect(await service.status(actor)).toEqual({ enabled: true, limit: AI_DAILY_LIMIT, remaining: AI_DAILY_LIMIT, features: AI_FEATURES });
     state.broken = true;
     expect(await service.status(actor)).toEqual({ enabled: false });
     expect(logged).toHaveBeenCalledTimes(2);

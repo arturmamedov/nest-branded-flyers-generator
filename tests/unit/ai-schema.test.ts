@@ -116,12 +116,20 @@ describe('AiShareRequestSchema and AiShareAnswerSchema', () => {
 });
 
 describe('api/config’s ai block', () => {
-  it('says only enabled: false when off, and the limit and what is left when on', () => {
+  it('says only enabled: false when off, and the limit, what is left and the features that run when on', () => {
     expect(ok(AiConfigSchema, { enabled: false })).toBe(true);
-    expect(ok(AiConfigSchema, { enabled: true, limit: 3, remaining: 2 })).toBe(true);
+    expect(ok(AiConfigSchema, { enabled: true, limit: 3, remaining: 2, features: ['flyer', 'share'] })).toBe(true);
+    expect(ok(AiConfigSchema, { enabled: true, limit: 3, remaining: 2, features: ['share'] })).toBe(true);
     expect(ok(AiConfigSchema, { enabled: false, limit: 3, remaining: 3 })).toBe(false);
     expect(ok(AiConfigSchema, { enabled: true })).toBe(false);
-    expect(ok(AiConfigSchema, { enabled: true, limit: 3, remaining: -1 })).toBe(false);
+    expect(ok(AiConfigSchema, { enabled: true, limit: 3, remaining: -1, features: ['share'] })).toBe(false);
+  });
+
+  it('on means some feature runs: the list is never left out, empty, or of names no feature has', () => {
+    expect(ok(AiConfigSchema, { enabled: true, limit: 3, remaining: 2 })).toBe(false);
+    expect(ok(AiConfigSchema, { enabled: true, limit: 3, remaining: 2, features: [] })).toBe(false);
+    expect(ok(AiConfigSchema, { enabled: true, limit: 3, remaining: 2, features: ['captions'] })).toBe(false);
+    expect(ok(AiConfigSchema, { enabled: false, features: [] })).toBe(false);
   });
 
   it('is part of ApiConfigSchema', () => {

@@ -2,7 +2,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, inject, it } from 'vitest';
 import { AI_BUNDLE_FILE } from '../../server/paths.js';
-import { AI_DAILY_LIMIT, AI_INPUT_MAX, aiDay } from '../../src/shared/ai.js';
+import { AI_DAILY_LIMIT, AI_FEATURES, AI_INPUT_MAX, aiDay } from '../../src/shared/ai.js';
 import { newFlyerData } from '../../src/shared/defaults.js';
 import { AiFlyerResultSchema, AiShareResultSchema, ApiConfigSchema, type AiFlyerAnswer } from '../../src/shared/schema.js';
 import { STORAGE_FILES } from '../../src/shared/storage.js';
@@ -43,8 +43,8 @@ describe.skipIf(!FAKE)('AI on, with the fake provider (one day, in order)', () =
   const example = bundle.examples[0];
   const idea = (marker = '') => ({ text: marker ? `${example.text}\n${marker}` : example.text });
 
-  it('api/config says the limit and what is left today', async () => {
-    expect(await status()).toEqual({ enabled: true, limit: AI_DAILY_LIMIT, remaining: AI_DAILY_LIMIT });
+  it('api/config says the limit, what is left today and the features that run', async () => {
+    expect(await status()).toEqual({ enabled: true, limit: AI_DAILY_LIMIT, remaining: AI_DAILY_LIMIT, features: AI_FEATURES });
   });
 
   it('needs the write header', async () => {
@@ -65,7 +65,7 @@ describe.skipIf(!FAKE)('AI on, with the fake provider (one day, in order)', () =
     await fails(send('POST', 'api/ai/flyer', idea('[[fake:timeout]]')), 'ai_failed');
     await fails(send('POST', 'api/ai/flyer', idea('[[fake:refused]]')), 'ai_failed');
     await fails(send('POST', 'api/ai/share', { ...shareBody(), idea: '[[fake:invalid]]' }), 'ai_failed');
-    expect(await status()).toEqual({ enabled: true, limit: AI_DAILY_LIMIT, remaining: AI_DAILY_LIMIT });
+    expect(await status()).toEqual({ enabled: true, limit: AI_DAILY_LIMIT, remaining: AI_DAILY_LIMIT, features: AI_FEATURES });
   });
 
   it('turns a hostel the model made up into chain-wide, with an assumption first, and counts the generation', async () => {
@@ -91,7 +91,7 @@ describe.skipIf(!FAKE)('AI on, with the fake provider (one day, in order)', () =
   it('answers ai_quota once the day’s generations are used up, and api/config says 0 left', async () => {
     await fails(send('POST', 'api/ai/flyer', idea()), 'ai_quota', { limit: AI_DAILY_LIMIT });
     await fails(send('POST', 'api/ai/share', shareBody()), 'ai_quota', { limit: AI_DAILY_LIMIT });
-    expect(await status()).toEqual({ enabled: true, limit: AI_DAILY_LIMIT, remaining: 0 });
+    expect(await status()).toEqual({ enabled: true, limit: AI_DAILY_LIMIT, remaining: 0, features: AI_FEATURES });
   });
 
   // Last, and it puts the file back: the tests above share this store and its day. The editor loads api/config before
@@ -106,6 +106,6 @@ describe.skipIf(!FAKE)('AI on, with the fake provider (one day, in order)', () =
     } finally {
       writeFileSync(month, kept);
     }
-    expect(await status()).toEqual({ enabled: true, limit: AI_DAILY_LIMIT, remaining: 0 });
+    expect(await status()).toEqual({ enabled: true, limit: AI_DAILY_LIMIT, remaining: 0, features: AI_FEATURES });
   });
 });

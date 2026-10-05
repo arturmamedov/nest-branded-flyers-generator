@@ -52,13 +52,15 @@ final class AiService
 
     /**
      * The `ai` block of api/config for this actor: nothing beyond `enabled: false` when they get no AI, or when the
-     * ledger cannot be read (one log line then says why).
+     * ledger cannot be read (one log line then says why); else their limit, what is left of it today and the features
+     * that run, so the editor shows only those.
      *
-     * @return array{enabled:false}|array{enabled:true, limit:int, remaining:int}
+     * @return array{enabled:false}|array{enabled:true, limit:int, remaining:int, features:list<string>}
      */
     public function status(Actor $actor): array
     {
-        if ($this->provider === null || $this->running() === [] || !$this->policy->mayUse($actor)) {
+        $features = $this->running();
+        if ($this->provider === null || $features === [] || !$this->policy->mayUse($actor)) {
             return ['enabled' => false];
         }
         $limit = $this->policy->dailyLimit($actor);
@@ -70,7 +72,7 @@ final class AiService
             error_log("Nest flyers: AI: the ledger cannot be read, so the AI is hidden: {$e->getMessage()}");
             return ['enabled' => false];
         }
-        return ['enabled' => true, 'limit' => $limit, 'remaining' => max(0, $limit - $used)];
+        return ['enabled' => true, 'limit' => $limit, 'remaining' => max(0, $limit - $used), 'features' => $features];
     }
 
     /**

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { AI_ASSUMPTIONS_MAX, AI_INPUT_MAX } from './ai.js';
+import { AI_ASSUMPTIONS_MAX, AI_FEATURES, AI_INPUT_MAX } from './ai.js';
 import { CHIP_LABEL_MAX, CHIP_VALUE_MAX } from './chips.js';
 import { EXTRA_MAX, EXTRAS_MAX } from './extras.js';
 import { TITLE_MAX } from './names.js';
@@ -178,11 +178,17 @@ export type AiShareAnswer = z.infer<typeof AiShareAnswerSchema>;
 export const AiShareResultSchema = AiShareAnswerSchema.extend({ remaining: z.number().int().nonnegative() });
 export type AiShareResult = z.infer<typeof AiShareResultSchema>;
 
-/** The `ai` block of GET api/config: nothing beyond `enabled: false` when AI is off (no key, switched off, or a
-    guest), the actor's limit and what is left of it today when on. */
+/** The `ai` block of GET api/config: nothing beyond `enabled: false` when AI is off (no key, switched off, no feature
+    named, or a guest); when on, the actor's limit, what is left of it today, and the features that run for them, in
+    AI_FEATURES' order. On means some feature runs, so the list is never empty. */
 export const AiConfigSchema = z.discriminatedUnion('enabled', [
   z.strictObject({ enabled: z.literal(false) }),
-  z.strictObject({ enabled: z.literal(true), limit: z.number().int().nonnegative(), remaining: z.number().int().nonnegative() }),
+  z.strictObject({
+    enabled: z.literal(true),
+    limit: z.number().int().nonnegative(),
+    remaining: z.number().int().nonnegative(),
+    features: z.array(z.enum(AI_FEATURES)).min(1),
+  }),
 ]);
 export type AiConfig = z.infer<typeof AiConfigSchema>;
 

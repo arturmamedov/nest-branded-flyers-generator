@@ -48,11 +48,13 @@ export class AiService {
 
   constructor(private readonly deps: AiServiceDeps) {}
 
-  /** The `ai` block of api/config for this actor: nothing beyond `enabled: false` when they get no AI. A ledger that
+  /** The `ai` block of api/config for this actor: nothing beyond `enabled: false` when they get no AI, else their
+      limit, what is left of it today and the features that run, so the editor shows only those. A ledger that
       cannot be read hides the AI too: the editor renders nothing without api/config, so the AI's own storage must
       never decide whether the app loads. The generation routes are not softened: a hidden AI never reaches them. */
   async status(actor: Actor): Promise<AiConfig> {
-    if (!this.deps.provider || this.running().length === 0 || !this.deps.policy.mayUse(actor)) return { enabled: false };
+    const features = this.running();
+    if (!this.deps.provider || features.length === 0 || !this.deps.policy.mayUse(actor)) return { enabled: false };
     const limit = this.deps.policy.dailyLimit(actor);
     let used: number;
     try {
@@ -64,7 +66,7 @@ export class AiService {
       return { enabled: false };
     }
     this.ledgerDown = null;
-    return { enabled: true, limit, remaining: Math.max(0, limit - used) };
+    return { enabled: true, limit, remaining: Math.max(0, limit - used), features };
   }
 
   /** An idea → a brief with its assumptions. A hostel the staff member chose wins over the model's; one the model

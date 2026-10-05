@@ -153,7 +153,7 @@ describe('siteAt', () => {
 
 describe('siteAi: what a site’s api/config says there is to spend', () => {
   it('gives the limit and what is left of it today', () => {
-    expect(siteAi({ backend: 'php', ai: { enabled: true, limit: 3, remaining: 2 } })).toEqual({ limit: 3, remaining: 2 });
+    expect(siteAi({ backend: 'php', ai: { enabled: true, limit: 3, remaining: 2, features: ['flyer', 'share'] } })).toEqual({ limit: 3, remaining: 2 });
   });
 
   it('names a release from before the AI, so nothing is sent to it', () => {
@@ -166,7 +166,7 @@ describe('siteAi: what a site’s api/config says there is to spend', () => {
 
   it('stops when the AI is off there, or the day is used up, in the catalogue’s words', () => {
     expect(said(() => siteAi({ ai: { enabled: false } }))).toContain('off');
-    const used = said(() => siteAi({ ai: { enabled: true, limit: 3, remaining: 0 } }));
+    const used = said(() => siteAi({ ai: { enabled: true, limit: 3, remaining: 0, features: ['flyer', 'share'] } }));
     expect(used).toContain('3 AI generations are used up');
     expect(used).toContain('midnight');
   });
