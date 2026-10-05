@@ -25,7 +25,7 @@ npm run build:php
 
 It prints three things you need:
 
-- `release/php/` — the app, **432 files, 3.90 MB** (the build prints the current count, and
+- `release/php/` — the app, **434 files, 3.90 MB** (the build prints the current count, and
   `release/php/release.json` lists every file). FTP clients and file-manager uploads go by size,
   so a 3 MB upload is small.
 - `release/nest-preflight-<16 letters and digits>.php` — the preflight page. Its name is random
@@ -292,8 +292,11 @@ What to know:
   - `effort`: `'low'` makes OpenAI answer sooner. Leave it out for Claude Haiku, which refuses it;
   - `timeoutMs`: how long the app waits for the provider, 25000 by default;
   - `enabled`: `false` hides the AI and keeps the key.
-- **Speed,** measured on 2026-10-04:
-  - OpenAI answers a flyer in 6 to 9 seconds;
+- **Speed,** measured on 2026-10-04 and 2026-10-05:
+  - OpenAI answers a flyer in 6 to 9 seconds for a few lines of staff text, and in 14 to 20 for a
+    long one (a tour's whole programme, about a thousand characters): the answer is twice as long.
+    The longest seen is 20.3 seconds, of the 25 the app waits. If long texts start to fail,
+    `'effort' => 'low'` is the first thing to try;
   - Anthropic takes about 20 seconds the first time after a release that changed the shape of the
     answer, then 4 to 5. If staff see "The AI didn't answer properly" once and it works on the
     next try, that is why.

@@ -98,7 +98,8 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
     the tests; which one runs is configuration, never code), the prompt builder, the service with its checks in
     the contract's order, and the actor and the policy, which are the seam a login will fill.
     `tests/fixtures/ai-*.json` pin both backends: a change to an adapter, the prompt or a schema dialect is a
-    vector first.
+    vector first. PHP's `HttpClientFactory` picks curl, or on a host without it a client whose every call is a
+    typed failure (`ai_failed`, never a 500).
   - One source for everything shared: `src/shared/ai.ts`, the AI schemas in `schema.ts`, the rules in
     `ai/prompts/`, the examples in `docs/ai-flyers/examples/`. `npm run gen` writes `schema/ai.json` (the prompts
     with their limits, the few-shot, the schemas) and the `ai` block of `schema/shared.json`.
@@ -109,15 +110,29 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
     `api/config`, a log line, the ledger, a release or git, and a refusal names a setting, never its value.
   - The ledger (`aiUsage` in each storage driver; `ai-usage/YYYY-MM.json` in the JSON store) keeps one append-only
     record per generation attempted. The cap (`AI_DAILY_LIMIT`, 3) is the count of the Canary Islands day's `ok`
-    records for the actor: today one anonymous actor, so site-wide.
+    records for the actor: today one anonymous actor, so site-wide. A ledger that cannot be read hides the AI
+    (`status()` answers `enabled: false` and logs why) and never takes `api/config` down: the editor renders
+    nothing without that answer. Node's drivers check a record before writing it (`checkedAiUsage`).
   - The client: `src/editor/AiPage.tsx` (`#/ai`, a focus page like the editor), `handoff.ts` (the unsaved flyer
     handed to the editor in memory), `panel.tsx` and `share.tsx` (what both focus pages share), and "Write with AI"
-    in `Editor.tsx`.
+    in `Editor.tsx`. `fields.ts` holds what the panel calls each field: the editor's labels come from it, and
+    `briefFieldLabel()` names a brief's key for "The AI assumed…" (an assumption's `field` is the model's to choose,
+    so a key no field has is shown as written).
   - No test touches a provider. The render suite has two projects: `render` (every spec but `ai.spec.ts`, the AI
     off whatever `.env` holds) and `ai` (`ai.spec.ts` on a second server with the fake, port 8798, spending
-    exactly the day's 3). The contract suite's `node-ai` and `php-ai` run the AI routes on the fake.
+    exactly the day's 3; a test that needs another count routes `api/config`). The contract suite's `node-ai` and
+    `php-ai` run the AI routes on the fake, both on the JSON driver, so `ai.test.ts` can damage the ledger's file.
   - `npm run ai:smoke` (`scripts/ai/smoke.ts`) is the one thing that calls a real provider, by hand.
     `scripts/site.ts` is how a script calls a site's API (`flyers:post` too): it never follows a redirect.
+- Releases and git: a release's id names a build (two builds of one commit get two ids: composer's autoloader
+  suffix), and `release.json`'s `commit` names its source.
+  - `scripts/git.ts` says which commit a checkout is at. Always the commit, never a tag's name, and `-dirty` when
+    anything outside `docs/` differs from it, a new file included.
+  - `npm run deploy:tag` (`scripts/php/tag-release.ts`) makes the annotated tag `release/<id>` on that commit, for a
+    folder or a site's address. It refuses a `-dirty` release, never moves a tag and never pushes.
+  - `npm run deploy:update` (`scripts/php/update-deploy.ts`) puts a newer release over a local copy: backup, build,
+    an additive copy, tag. A host is still updated by SFTP, then tagged with `deploy:tag`.
+  - Git tests run on a throwaway repository (`tests/tempRepo.ts`): no test tags or builds from this one.
 
 ## Non-negotiables (from the handoff — don't "fix" them)
 
@@ -235,19 +250,35 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
     backends, with OpenAI and Anthropic behind one seam. Artur's Phase 0 choices (2026-10-02): `gpt-6-luna` and
     `claude-haiku-4-5` as the default models.
   - Both providers answered real calls on 2026-10-04 (`npm run ai:smoke`), and one went through PHP on the Laragon
-    copy. That copy now runs release `8b9c8556afa1` with the AI on: its `config.php` holds an OpenAI key.
+    copy.
   - The real calls found one fault, since fixed: Anthropic left the optional share text out, so
     `AiFlyerAnswerSchema` requires it.
   - Not on the live site yet. IONOS needs the new release, then the `ai` block with a key (`docs/deploy.md`, "The
     AI assistant"). Artur allowed it on live while it is unlocked (2026-10-02): the cap keeps it at 3 a day.
-  - Next, in this order: Artur runs `docs/prompts/ai-assistant-review.md` in a fresh session on another model. It
-    changes nothing; he picks what gets fixed. Then `docs/prompts/ai-assistant-followup.md` closes the feature: the
-    review's findings, a look at the AI in Chrome with a real provider (never done), five known items, and the
-    releases (`npm run deploy:update`, a git tag per deployed release, `main` fast-forwarded, no push). Don't
-    start either unasked.
   - Known limits: two concurrent requests can both see `remaining: 1`; `claude-haiku-4-5` retires no sooner than
     2026-10-15 (a default: one line of settings changes it); IONOS's FastCGI time limit is unmeasured until a live
-    call; Anthropic's first call after the answer's schema changes takes about 20 s of the 25 s limit.
+    call; Anthropic's first call after the answer's schema changes takes about 20 s of the 25 s limit; a long staff
+    text (a thousand characters) takes 14 to 20 s on `gpt-6-luna`, where a short one takes 6 to 9.
+- Done: the AI assistant, closed (branch `feat/ai-assistant-followup`, 2026-10-05; brief
+  `docs/prompts/ai-assistant-followup.md`; the report's *Follow-up* section). `main` is fast-forwarded to it,
+  locally; nothing is pushed.
+  - The review (2026-10-05, another model, changed nothing) found F1 to F4 and two suspicions. Artur: "Do
+    everything". All fixed, each test first: the ledger never takes `api/config` down, the adapters and the
+    ledger agree on field types, `__proto__` as an assumption's field, no bundle read when off, one home for the
+    field names, a staff text cannot close its own fence, a key with a line break is refused by name.
+  - The AI was used in a browser with a real provider on both backends, with Artur's own staff text. The Claude
+    extension was not connected, so it was Playwright's Chrome, step by step. Two things looked wrong and were
+    fixed: with none left the page said nothing about midnight, and "one of the 1 generations".
+  - The five known items are done: PHP without curl, a brief's blanks (`flyerFromBrief`, `printedExtras`), "never
+    Free" for a missing price (an invitation is not a price: seen to hold on both providers), the stretching
+    example's notes, the `fetchJson` test's room.
+  - Releases: `deploy:update`, `deploy:tag`, three tags (`release/d1f7ddb40170` live, `release/8b9c8556afa1` and
+    `release/3f909ea91548` the Laragon copy). The copy runs `3f909ea91548` with the AI on (its key is set again).
+  - Left, Artur's, in this order: `npm run build:php` and upload, then `npm run deploy:tag -- <the site>`; the
+    `ai` block in live's `config.php`, never before the new release is up; `npm run ai:smoke -- --to <the site>`,
+    once, whose seconds measure the host's time limit.
+  - For Artur to decide (the report has each): a text with both "daily" and "tomorrow" printed "Every day";
+    `"autoloader-suffix"` in `php/composer.json` would make a release id repeatable.
 - Waiting, don't start unasked: step 7 (drag/nudge everything on the canvas, sizes, colours, order, reset),
   step 9 (doodle picker + icon uploads). With two canvases and two templates: step 7's stored `overrides`
   (dx/dy) are shared by every canvas, so it must decide how they apply per canvas; step 9, when it stores
