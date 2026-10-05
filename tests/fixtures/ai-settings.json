@@ -1,0 +1,22 @@
+{
+  "about": "The AI settings a site names itself, as both backends must read them: AI_FEATURES in .env (Node, loadAiSettings in server/config.ts) and 'features' in config.php's ai block (PHP, AiConfig). Replayed by tests/unit/ai-config.test.ts and php/tests/ConfigTest.php. `env` is the variable's value (null: not set), `php` the key's value; a row without one of them is the other backend's alone. A refusal names the setting and never repeats its value.",
+  "features": {
+    "accepted": [
+      { "name": "not named: none run", "env": null, "php": null, "runs": [] },
+      { "name": "an empty list: none run", "env": "", "php": [], "runs": [] },
+      { "name": "share only", "env": "share", "php": ["share"], "runs": ["share"] },
+      { "name": "flyer only", "env": "flyer", "php": ["flyer"], "runs": ["flyer"] },
+      { "name": "both, in the app's order whatever order they are named in", "env": "share,flyer", "php": ["share", "flyer"], "runs": ["flyer", "share"] },
+      { "name": "named twice", "env": "share,share", "php": ["share", "share"], "runs": ["share"] },
+      { "name": "spaces and a stray comma, as typed in .env", "env": " flyer , share ,", "runs": ["flyer", "share"] }
+    ],
+    "refused": [
+      { "name": "a name no feature has", "env": "captions", "php": ["captions"] },
+      { "name": "a good name beside a bad one", "env": "share,captions", "php": ["share", "captions"] },
+      { "name": "capitals", "env": "Share", "php": ["Share"] },
+      { "name": "a string, not a list", "php": "share" },
+      { "name": "a keyed array", "php": { "share": true } },
+      { "name": "a number in the list", "php": ["share", 1] }
+    ]
+  }
+}

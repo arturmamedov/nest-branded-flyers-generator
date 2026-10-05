@@ -6,13 +6,26 @@ import { APP_ROOT } from '../../server/paths.js';
 import { AI_DEFAULT_MODEL, AI_TIMEOUT_MS } from '../../src/shared/ai.js';
 
 /* The AI settings the Node server reads from its environment (.env): which provider, the key, the model, the two
-   knobs, and the switch. Off is the default, and the state the app keeps whenever a provider has no key. */
+   knobs, the switch, and the features that run. Off is the default, and the state the app keeps whenever a provider
+   has no key. The vectors (tests/fixtures/ai-settings.json) are replayed by PHPUnit against config.php's `ai` block. */
 
 const load = (env: Record<string, string>) => loadConfig(env as NodeJS.ProcessEnv).ai;
 
+/** One row of the shared vectors: `env` is the variable's value (null: not set); a row without it is PHP's alone. */
+interface Row {
+  name: string;
+  env?: string | null;
+}
+const vectors = JSON.parse(readFileSync(join(APP_ROOT, 'tests/fixtures/ai-settings.json'), 'utf8')) as {
+  features: { accepted: (Row & { runs: string[] })[]; refused: Row[] };
+};
+/** The rows Node reads, each with the environment that sets its variable (or leaves it out). */
+const rows = <R extends Row>(list: R[], variable: string): (Omit<R, 'env'> & { env: Record<string, string> })[] =>
+  list.filter((r) => r.env !== undefined).map((r) => ({ ...r, env: r.env == null ? {} : { [variable]: r.env } }));
+
 describe('AI settings', () => {
   it('are off with no provider', () => {
-    expect(load({})).toEqual({ provider: null, apiKey: null, model: null, effort: null, timeoutMs: AI_TIMEOUT_MS, enabled: false });
+    expect(load({})).toEqual({ provider: null, apiKey: null, model: null, effort: null, timeoutMs: AI_TIMEOUT_MS, enabled: false, features: [] });
   });
 
   it('the fake provider needs no key', () => {
@@ -33,7 +46,23 @@ describe('AI settings', () => {
       effort: 'low',
       timeoutMs: 9000,
       enabled: true,
+      features: [],
     });
+  });
+
+  // The owner's answer (2026-10-05): none until named. The switch keeps its meaning; what runs is a second fact.
+  it('a provider and its key name no feature: AI_FEATURES does', () => {
+    expect(load({ AI_PROVIDER: 'openai', AI_API_KEY: 'k' })).toMatchObject({ enabled: true, features: [] });
+    expect(load({ AI_PROVIDER: 'openai', AI_API_KEY: 'k', AI_FEATURES: 'share' })).toMatchObject({ enabled: true, features: ['share'] });
+  });
+
+  it.each(rows(vectors.features.accepted, 'AI_FEATURES'))('AI_FEATURES, $name', ({ env, runs }) => {
+    expect(load({ AI_PROVIDER: 'fake', ...env }).features).toEqual(runs);
+  });
+
+  it.each(rows(vectors.features.refused, 'AI_FEATURES'))('refuses AI_FEATURES with $name, whether or not the AI is on', ({ env }) => {
+    expect(() => load(env)).toThrow(/AI_FEATURES/);
+    expect(() => load({ AI_PROVIDER: 'fake', ...env })).toThrow(/AI_FEATURES/);
   });
 
   it('AI_ENABLED switches it off even with a key', () => {
@@ -59,6 +88,8 @@ describe('AI settings', () => {
     expect(said({ AI_PROVIDER: pasted })).not.toContain(pasted);
     expect(said({ AI_PROVIDER: 'openai', AI_API_KEY: 'k', AI_TIMEOUT_MS: pasted })).toMatch(/AI_TIMEOUT_MS/);
     expect(said({ AI_PROVIDER: 'openai', AI_API_KEY: 'k', AI_TIMEOUT_MS: pasted })).not.toContain(pasted);
+    expect(said({ AI_PROVIDER: 'openai', AI_API_KEY: 'k', AI_FEATURES: pasted })).toMatch(/AI_FEATURES/);
+    expect(said({ AI_PROVIDER: 'openai', AI_API_KEY: 'k', AI_FEATURES: `share,${pasted}` })).not.toContain(pasted);
   });
 
   // `AI_API_KEY="sk-…\n"` in .env is a key with a real line break at its end: every call then failed as "fetch
@@ -89,6 +120,6 @@ describe('AI settings', () => {
 
   it('every setting is in .env.example, commented out', () => {
     const example = readFileSync(join(APP_ROOT, '.env.example'), 'utf8');
-    for (const name of ['AI_PROVIDER', 'AI_API_KEY', 'AI_MODEL', 'AI_EFFORT', 'AI_TIMEOUT_MS', 'AI_ENABLED']) expect(example).toMatch(new RegExp(`^# ?${name}=`, 'm'));
+    for (const name of ['AI_PROVIDER', 'AI_API_KEY', 'AI_FEATURES', 'AI_MODEL', 'AI_EFFORT', 'AI_TIMEOUT_MS', 'AI_ENABLED']) expect(example).toMatch(new RegExp(`^# ?${name}=`, 'm'));
   });
 });

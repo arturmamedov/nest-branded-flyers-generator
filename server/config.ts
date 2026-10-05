@@ -1,6 +1,6 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { AI_DEFAULT_MODEL, AI_PROVIDERS, AI_TIMEOUT_MS, type AiProvider } from '../src/shared/ai.js';
+import { AI_DEFAULT_MODEL, AI_FEATURES, AI_PROVIDERS, AI_TIMEOUT_MS, type AiFeature, type AiProvider } from '../src/shared/ai.js';
 import { FAKE_MODEL } from './ai/providers/fake.js';
 import { APP_ROOT } from './paths.js';
 
@@ -19,6 +19,9 @@ export interface AiSettings {
   timeoutMs: number;
   /** Off with no provider or no key, or when AI_ENABLED says so. */
   enabled: boolean;
+  /** The features this site runs, in AI_FEATURES' order. None until the AI_FEATURES setting names them (the owner's
+      answer, 2026-10-05): a provider and its key alone run nothing. */
+  features: AiFeature[];
 }
 
 export interface Config {
@@ -35,6 +38,14 @@ export interface Config {
 const WILDCARD = new Set(['0.0.0.0', '::', '127.0.0.1', 'localhost', '::1']);
 const OFF = new Set(['0', 'false', 'off', 'no']);
 
+/** The AI_FEATURES setting: the names of the features this site runs, separated by commas. It shares its name with
+    the constant in src/shared/ai.ts, which lists every feature the app has: the setting picks from that list. */
+function namedFeatures(value: string | undefined): AiFeature[] {
+  const named = (value ?? '').split(',').map((name) => name.trim()).filter(Boolean);
+  if (named.some((name) => !(AI_FEATURES as readonly string[]).includes(name))) throw new Error(`AI_FEATURES must name features from: ${AI_FEATURES.join(', ')}`);
+  return AI_FEATURES.filter((feature) => named.includes(feature));
+}
+
 /* A refusal names the setting and never repeats its value, as PHP's AiConfig does: these lines are typed by hand next
    to the key, and a key pasted on the wrong one would be printed back. */
 export function loadAiSettings(env: NodeJS.ProcessEnv): AiSettings {
@@ -47,6 +58,7 @@ export function loadAiSettings(env: NodeJS.ProcessEnv): AiSettings {
   const keyed = provider === 'fake' || apiKey !== null;
   const timeoutMs = Number(env.AI_TIMEOUT_MS || AI_TIMEOUT_MS);
   if (!Number.isInteger(timeoutMs) || timeoutMs <= 0) throw new Error('AI_TIMEOUT_MS must be a positive whole number of milliseconds');
+  const features = namedFeatures(env.AI_FEATURES);
   return {
     provider,
     apiKey,
@@ -54,6 +66,7 @@ export function loadAiSettings(env: NodeJS.ProcessEnv): AiSettings {
     effort: env.AI_EFFORT || null,
     timeoutMs,
     enabled: provider !== null && keyed && !OFF.has((env.AI_ENABLED ?? '').trim().toLowerCase()),
+    features,
   };
 }
 
