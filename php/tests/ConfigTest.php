@@ -102,6 +102,7 @@ final class ConfigTest extends TestCase
             'ai' => [
                 'provider' => 'anthropic',
                 'apiKey' => 'sk-ant-test',
+                'features' => ['flyer', 'share'],
                 'model' => null,
                 'effort' => null,
                 'timeoutMs' => null,
@@ -114,6 +115,7 @@ final class ConfigTest extends TestCase
         self::assertSame('imagick', $config->imageProcessor);
         self::assertTrue($config->ai->enabled);
         self::assertSame('claude-haiku-4-5', $config->ai->model);
+        self::assertSame(['flyer', 'share'], $config->ai->features);
     }
 
     public function testConfigSamplePhpAsShippedIsValidAndLeavesTheAiOff(): void
@@ -121,7 +123,7 @@ final class ConfigTest extends TestCase
         $root = $this->tempRoot();
         copy(Paths::repo() . '/php/web/config.sample.php', "$root/config.php");
         $raw = require "$root/config.php";
-        self::assertSame(['provider', 'apiKey', 'model', 'effort', 'timeoutMs', 'enabled'], array_keys($raw['ai'] ?? []), 'the sample shows every key');
+        self::assertSame(['provider', 'apiKey', 'features', 'model', 'effort', 'timeoutMs', 'enabled'], array_keys($raw['ai'] ?? []), 'the sample shows every key');
         self::assertFalse(Config::load($root, self::shared())?->ai->enabled);
     }
 
@@ -130,7 +132,7 @@ final class ConfigTest extends TestCase
     public function testWithoutAnAiBlockTheAiIsOff(): void
     {
         $ai = Config::fromArray([], self::ROOT, self::shared())->ai;
-        self::assertSame([null, null, null, null, 25_000, false], [$ai->provider, $ai->apiKey, $ai->model, $ai->effort, $ai->timeoutMs, $ai->enabled]);
+        self::assertSame([null, null, null, null, 25_000, false, []], [$ai->provider, $ai->apiKey, $ai->model, $ai->effort, $ai->timeoutMs, $ai->enabled, $ai->features]);
     }
 
     public function testTheFakeProviderNeedsNoKey(): void
@@ -163,6 +165,68 @@ final class ConfigTest extends TestCase
         self::assertFalse($ai->enabled);
     }
 
+    // The owner's answer (2026-10-05): none until named. The switch keeps its meaning; what runs is a second fact.
+    public function testAProviderAndItsKeyNameNoFeatureTheFeaturesKeyDoes(): void
+    {
+        $keyed = Config::fromArray(['ai' => ['provider' => 'openai', 'apiKey' => 'k']], self::ROOT, self::shared())->ai;
+        self::assertSame([true, []], [$keyed->enabled, $keyed->features]);
+        $named = Config::fromArray(['ai' => ['provider' => 'openai', 'apiKey' => 'k', 'features' => ['share']]], self::ROOT, self::shared())->ai;
+        self::assertSame([true, ['share']], [$named->enabled, $named->features]);
+    }
+
+    /**
+     * The rows of tests/fixtures/ai-settings.json that config.php can spell (a row without `php` is Node's alone).
+     *
+     * @return array<string, array<string, mixed>>
+     */
+    private static function settingsRows(string $setting, string $outcome): array
+    {
+        $vectors = json_decode((string) file_get_contents(Paths::fixture('ai-settings.json')), true, flags: JSON_THROW_ON_ERROR);
+        $rows = [];
+        foreach ($vectors[$setting][$outcome] as $row) {
+            if (array_key_exists('php', $row)) {
+                $rows[$row['name']] = $row;
+            }
+        }
+        return $rows;
+    }
+
+    /** @return iterable<string, array{mixed, list<string>}> */
+    public static function featuresAccepted(): iterable
+    {
+        foreach (self::settingsRows('features', 'accepted') as $name => $row) {
+            yield $name => [$row['php'], $row['runs']];
+        }
+    }
+
+    /** @param list<string> $runs */
+    #[DataProvider('featuresAccepted')]
+    public function testTheFeaturesThatRunAreTheOnesNamed(mixed $named, array $runs): void
+    {
+        self::assertSame($runs, Config::fromArray(['ai' => ['provider' => 'fake', 'features' => $named]], self::ROOT, self::shared())->ai->features);
+    }
+
+    /** @return iterable<string, array{mixed}> */
+    public static function featuresRefused(): iterable
+    {
+        foreach (self::settingsRows('features', 'refused') as $name => $row) {
+            yield $name => [$row['php']];
+        }
+    }
+
+    #[DataProvider('featuresRefused')]
+    public function testFeaturesNobodyWroteAreRefusedByTheSettingsNameWhetherOrNotTheAiIsOn(mixed $named): void
+    {
+        foreach ([['features' => $named], ['provider' => 'fake', 'features' => $named]] as $block) {
+            try {
+                Config::fromArray(['ai' => $block], self::ROOT, self::shared());
+                self::fail('The block was accepted');
+            } catch (InvalidArgumentException $e) {
+                self::assertStringContainsString('ai.features', $e->getMessage());
+            }
+        }
+    }
+
     public function testARefusedAiBlockNeverQuotesTheKey(): void
     {
         try {
@@ -170,6 +234,14 @@ final class ConfigTest extends TestCase
             self::fail('The block was accepted');
         } catch (InvalidArgumentException $e) {
             self::assertStringContainsString('ai.timeoutMs', $e->getMessage());
+            self::assertStringNotContainsString('sk-secret-123', $e->getMessage());
+        }
+        // A key pasted on the features' line is named by the setting too, never repeated.
+        try {
+            Config::fromArray(['ai' => ['provider' => 'openai', 'features' => ['share', 'sk-secret-123']]], self::ROOT, self::shared());
+            self::fail('The block was accepted');
+        } catch (InvalidArgumentException $e) {
+            self::assertStringContainsString('ai.features', $e->getMessage());
             self::assertStringNotContainsString('sk-secret-123', $e->getMessage());
         }
     }

@@ -8,14 +8,15 @@ use InvalidArgumentException;
 
 /**
  * config.php's `ai` block, checked and resolved: the PHP side of loadAiSettings in server/config.ts. Off unless a
- * provider is named and, for a real one, keyed; `enabled` switches it off even then. A missing block means off, never
- * a 503; anything unexpected in a block that is there makes config.php invalid, as AccessRule does, so a typo never
- * silently runs a provider (or silently doesn't). The provider names, default models and time limit come from
- * Shared::ai(), written once in src/shared/ai.ts.
+ * provider is named and, for a real one, keyed; `enabled` switches it off even then; `features` names what runs, and
+ * nothing does until it names it. A missing block means off, never a 503; anything unexpected in a block that is there
+ * makes config.php invalid, as AccessRule does, so a typo never silently runs a provider (or silently doesn't). The
+ * provider names, default models, time limit and the app's features come from Shared::ai(), written once in
+ * src/shared/ai.ts.
  */
 final class AiConfig
 {
-    private const KEYS = ['provider', 'apiKey', 'model', 'effort', 'timeoutMs', 'enabled'];
+    private const KEYS = ['provider', 'apiKey', 'features', 'model', 'effort', 'timeoutMs', 'enabled'];
 
     private function __construct(
         /** 'openai' | 'anthropic' | 'fake', or null: no provider, so off */
@@ -29,18 +30,25 @@ final class AiConfig
         public readonly int $timeoutMs,
         /** On with a provider and, for a real one, a key, unless the block says `enabled => false`. */
         public readonly bool $enabled,
+        /**
+         * The features this site runs, in the app's own order. None until the block names them (the owner's answer,
+         * 2026-10-05): a provider and its key alone run nothing.
+         *
+         * @var list<string>
+         */
+        public readonly array $features,
     ) {
     }
 
     /**
      * @param mixed $raw the `ai` value config.php returned; null when it has none
-     * @param array{timeoutMs:int, providers:list<string>, defaultModel:array<string, string>, fake:array{model:string}} $facts Shared::ai()
+     * @param array{timeoutMs:int, providers:list<string>, defaultModel:array<string, string>, fake:array{model:string}, features:list<string>} $facts Shared::ai()
      * @throws InvalidArgumentException naming the offending key, never quoting a value (the key is one)
      */
     public static function fromArray(mixed $raw, array $facts): self
     {
         if ($raw === null) {
-            return new self(null, null, null, null, $facts['timeoutMs'], false);
+            return new self(null, null, null, null, $facts['timeoutMs'], false, []);
         }
         if (!is_array($raw) || ($raw !== [] && array_is_list($raw))) {
             throw new InvalidArgumentException('ai must be an array with ' . implode(', ', self::KEYS) . ' (see config.sample.php)');
@@ -75,7 +83,29 @@ final class AiConfig
             self::text($raw, 'effort'),
             $timeoutMs,
             $provider !== null && $keyed && $switch,
+            self::features($raw, $facts['features']),
         );
+    }
+
+    /**
+     * The `features` key: the names of the features this site runs, picked from the app's own list and answered in
+     * its order. The twin of namedFeatures in server/config.ts, which reads them from a comma-separated AI_FEATURES.
+     *
+     * @param array<string, mixed> $raw
+     * @param list<string> $all every feature the app has
+     * @return list<string>
+     */
+    private static function features(array $raw, array $all): array
+    {
+        $named = $raw['features'] ?? [];
+        $valid = is_array($named) && array_is_list($named);
+        foreach ($valid ? $named : [] as $name) {
+            $valid = $valid && is_string($name) && in_array($name, $all, true);
+        }
+        if (!$valid) {
+            throw new InvalidArgumentException('ai.features must be null or a list of: ' . implode(', ', $all));
+        }
+        return array_values(array_filter($all, static fn (string $feature): bool => in_array($feature, $named, true)));
     }
 
     /**
