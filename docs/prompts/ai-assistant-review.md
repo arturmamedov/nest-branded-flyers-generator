@@ -83,4 +83,31 @@ In your reply, not in a file:
 4. What you looked at and found sound: one line per area, so Artur knows what was covered.
 5. Questions only Artur can answer.
 
-Then stop. Artur picks what gets fixed.
+Then stop. Artur picks what gets fixed. The fixes are their own session: `docs/prompts/ai-assistant-followup.md`.
+
+## Since this brief was written (added 2026-10-05)
+
+- **The branch is finished.** Phases 5 and 6 added ten commits, `566d823` to `bb2675c`. Read
+  `docs/reports/ai-assistant.md` after the feature's brief: it says what was built, what the real calls showed and
+  what is known to be open.
+- **`.env` holds real keys now,** so "never call a real provider" is no formality. `npm run dev` and
+  `npm run ai:smoke` both spend. The Laragon copy (`https://nest-flyers-php.test/`) has the AI on with a real key:
+  don't generate there.
+- **`tests/storage/json.test.ts` has 30 s now.** The test seen timing out since is the `fetchJson` one in
+  `tests/unit/ai-providers.test.ts` ("hands back the status and the body text"), once, at its own 2000 ms, on a
+  busy machine.
+- **Recommended:** Fable 5.1 at high effort. Opus 5.5 wrote every commit on the branch.
+
+## Seen while building: verify, don't trust
+
+The session that wrote Phase 5 noticed these and did not change them. Each is a claim to reproduce or refute, like
+any other.
+
+- **PHP with no curl answers 500, not `ai_failed`.** `php/src/Ai/CurlHttpClient.php` calls `curl_init` without
+  checking for the extension. `Bootstrap` then logs the `Error` with its trace. What that trace prints of the key
+  on PHP 8.1, where `#[\SensitiveParameter]` does nothing, was not checked.
+- **The echoed key, on Node.** Node proves at the adapter that a key a provider echoes never leaves it
+  (`tests/unit/ai-providers.test.ts`, "The key never leaves the adapter"). PHP also proves it through the service,
+  in the log and the ledger (`AiServiceTest`). Whether Node's proof is enough is yours to judge.
+- **An empty share text passes.** `AiFlyerAnswerSchema` requires the key since `1490956`, with no minimum length.
+- **Three browser `confirm`s** are part of the client: replacing a caption, leaving unsaved work, archiving a flyer.

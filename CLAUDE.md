@@ -238,8 +238,11 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
     `AiFlyerAnswerSchema` requires it.
   - Not on the live site yet. IONOS needs the new release, then the `ai` block with a key (`docs/deploy.md`, "The
     AI assistant"). Artur allowed it on live while it is unlocked (2026-10-02): the cap keeps it at 3 a day.
-  - Next: Artur runs `docs/prompts/ai-assistant-review.md` in a fresh session on another model. It changes
-    nothing; he picks what gets fixed. Don't start it unasked.
+  - Next, in this order: Artur runs `docs/prompts/ai-assistant-review.md` in a fresh session on another model. It
+    changes nothing; he picks what gets fixed. Then `docs/prompts/ai-assistant-followup.md` closes the feature: the
+    review's findings, a look at the AI in Chrome with a real provider (never done), five known items, and the
+    releases (`npm run deploy:update`, a git tag per deployed release, `main` fast-forwarded, no push). Don't
+    start either unasked.
   - Known limits: two concurrent requests can both see `remaining: 1`; `claude-haiku-4-5` retires no sooner than
     2026-10-15 (a default: one line of settings changes it); IONOS's FastCGI time limit is unmeasured until a live
     call; Anthropic's first call after the answer's schema changes takes about 20 s of the 25 s limit.
