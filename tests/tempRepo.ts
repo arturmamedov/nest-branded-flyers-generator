@@ -19,15 +19,23 @@ export interface TempRepo {
 
 export function tempRepo(): TempRepo {
   const dir = mkdtempSync(join(tmpdir(), 'nest-flyers-git-'));
-  // Its own identity, and no signing: a developer's global settings must not decide whether these tests pass.
-  const settings = ['-c', 'user.name=Nest Flyers tests', '-c', 'user.email=tests@example.invalid', '-c', 'commit.gpgsign=false', '-c', 'tag.gpgsign=false'];
   const git = (...args: string[]) => {
-    const r = spawnSync('git', [...settings, ...args], { cwd: dir, encoding: 'utf8', windowsHide: true });
+    const r = spawnSync('git', args, { cwd: dir, encoding: 'utf8', windowsHide: true });
     if (r.status !== 0) throw new Error(`git ${args.join(' ')}: ${r.stderr.trim() || r.stdout.trim()}`);
     return r.stdout.trim();
   };
   const write = (file: string, text = file) => writeFileSync(join(dir, file), text);
   git('init', '-q');
+  // Its own identity, and no signing, kept in the repository: a developer's global settings must not decide whether
+  // these tests pass, and the code under test runs plain git here.
+  for (const [key, value] of [
+    ['user.name', 'Nest Flyers tests'],
+    ['user.email', 'tests@example.invalid'],
+    ['commit.gpgsign', 'false'],
+    ['tag.gpgsign', 'false'],
+  ]) {
+    git('config', key, value);
+  }
   return {
     dir,
     git,

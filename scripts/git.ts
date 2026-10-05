@@ -14,6 +14,13 @@ export function git(args: readonly string[], cwd: string = APP_ROOT): string | n
   return r.status === 0 ? r.stdout.trim() : null;
 }
 
+/** git's answer when the call has to work: a refusal throws, in git's own words. */
+export function mustGit(args: readonly string[], cwd: string = APP_ROOT): string {
+  const r = spawnSync('git', args, { cwd, encoding: 'utf8', windowsHide: true });
+  if (r.status !== 0) throw new Error(`git ${args[0]}: ${(r.stderr || r.stdout || `exit ${r.status}`).trim()}`);
+  return r.stdout.trim();
+}
+
 export interface Checkout {
   /** The short commit, as `git rev-parse --short HEAD` prints it. */
   commit: string;

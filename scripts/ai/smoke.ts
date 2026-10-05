@@ -28,8 +28,8 @@ import {
   type Hostel,
 } from '../../src/shared/schema.js';
 import type { StoredAiUsage } from '../../src/shared/storage.js';
-import { flyersTarget, type RemoteSite } from '../env.js';
-import { issues, SiteError, siteCaller } from '../site.js';
+import { flyersTarget } from '../env.js';
+import { appRoot, isAddress, issues, siteAt, SiteError, siteCaller } from '../site.js';
 
 /* npm run ai:smoke -- [--share] [--to <app root>] [example file]
 
@@ -54,16 +54,11 @@ export interface SmokeArgs {
   file: string | null;
 }
 
-const isAddress = (text: string) => /^https?:\/\//i.test(text);
-
-/** A site's address as an app root. A login in it is refused (fetch() refuses such an address) and never repeated. */
-function appRoot(to: string): string {
-  if (!isAddress(to) || !URL.canParse(to)) throw new Error(`--to takes a site's address, such as https://nestpass.ai/activities/\n${USAGE}`);
-  const url = new URL(to);
-  if (url.username || url.password) {
-    throw new Error('--to must not carry a user or a password: the login comes from FLYERS_BASIC_USER and FLYERS_BASIC_PASSWORD in .env.');
-  }
-  return url.href.endsWith('/') ? url.href : `${url.href}/`;
+/** What --to names, as an app root (appRoot, scripts/site.ts). */
+function toRoot(to: string): string {
+  const root = appRoot(to);
+  if (root === null) throw new Error(`--to takes a site's address, such as https://nestpass.ai/activities/\n${USAGE}`);
+  return root;
 }
 
 export function parseSmokeArgs(argv: string[]): SmokeArgs {
@@ -77,7 +72,7 @@ export function parseSmokeArgs(argv: string[]): SmokeArgs {
   if (positionals.length > 1) throw new Error(`One example file at a time.\n${USAGE}`);
   const file = positionals[0] ?? null;
   if (file !== null && isAddress(file)) throw new Error(`A site's address goes after --to.\n${USAGE}`);
-  return { share: values.share ?? false, to: values.to === undefined ? null : appRoot(values.to), file };
+  return { share: values.share ?? false, to: values.to === undefined ? null : toRoot(values.to), file };
 }
 
 export interface SmokeExample {
@@ -132,14 +127,6 @@ export function refusal(settings: AiSettings): string | null {
   if (settings.apiKey === null) return `AI_PROVIDER is ${settings.provider}, but AI_API_KEY is not set in .env.`;
   if (!settings.enabled) return 'AI_ENABLED switches the AI off: take that line out of .env, or set it to 1.';
   return null;
-}
-
-const sameAddress = (a: string, b: string) => URL.canParse(a) && URL.canParse(b) && new URL(a).href === new URL(b).href;
-
-/** The site --to names. The login in .env belongs to the site .env names (FLYERS_BASE_URL): that address signs in
-    with it, any other goes without. CONTRACT_* is never used: it may name a site for a read-only check. */
-export function smokeSite(to: string, flyers: RemoteSite | null): RemoteSite {
-  return flyers !== null && sameAddress(flyers.baseUrl, to) ? { ...flyers, baseUrl: to } : { baseUrl: to, source: 'environment' };
 }
 
 /** What a site's api/config says there is to spend: the limit and what is left of it today. It throws, with what to
@@ -305,7 +292,7 @@ const SITE_WAIT_MS = 60_000;
 
 /** One generation through a site's API, as the editor makes it. The network part: untested by design. */
 async function runSite(to: string, share: boolean, example: SmokeExample, bundle: Pick<AiBundle, 'examples'>): Promise<void> {
-  const target = smokeSite(to, flyersTarget());
+  const target = siteAt(to, flyersTarget());
   const call = siteCaller(target, { timeoutMs: SITE_WAIT_MS });
   console.log(`Through ${target.baseUrl}${target.basicAuth ? `, signed in as "${target.basicAuth.user}"` : ''}.`);
   console.log(`Example: ${example.label}, ${share ? 'the share text of its flyer' : 'a flyer from its text'}.`);

@@ -2,8 +2,8 @@ import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'n
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, describe, expect, it, vi } from 'vitest';
-import { closing, opening, parseSmokeArgs, readExample, refusal, runDirect, shareRequest, siteAi, siteHint, smokeSite, USAGE, whatFailed } from '../../scripts/ai/smoke.js';
-import { SiteError } from '../../scripts/site.js';
+import { closing, opening, parseSmokeArgs, readExample, refusal, runDirect, shareRequest, siteAi, siteHint, USAGE, whatFailed } from '../../scripts/ai/smoke.js';
+import { siteAt, SiteError } from '../../scripts/site.js';
 import { loadBundle } from '../../server/ai/bundle.js';
 import { loadAiSettings } from '../../server/config.js';
 import { APP_ROOT, SEED_FILE } from '../../server/paths.js';
@@ -140,14 +140,14 @@ describe('what is sent', () => {
   });
 });
 
-describe('smokeSite', () => {
+describe('siteAt', () => {
   const flyers = { baseUrl: 'https://nestpass.ai/activities/', basicAuth: { user: 'staff', password: 'secret' }, source: '.env' as const };
 
   it('signs in with .env’s login only at the address .env names', () => {
-    expect(smokeSite('https://nestpass.ai/activities/', flyers).basicAuth).toEqual({ user: 'staff', password: 'secret' });
-    expect(smokeSite('https://nestpass.ai/activities/', { ...flyers, baseUrl: 'https://NESTPASS.ai:443/activities/' }).basicAuth).toEqual({ user: 'staff', password: 'secret' });
-    expect(smokeSite('https://localhost/nest-flyers-php/', flyers)).toEqual({ baseUrl: 'https://localhost/nest-flyers-php/', source: 'environment' });
-    expect(smokeSite('https://nestpass.ai/activities/', null)).toEqual({ baseUrl: 'https://nestpass.ai/activities/', source: 'environment' });
+    expect(siteAt('https://nestpass.ai/activities/', flyers).basicAuth).toEqual({ user: 'staff', password: 'secret' });
+    expect(siteAt('https://nestpass.ai/activities/', { ...flyers, baseUrl: 'https://NESTPASS.ai:443/activities/' }).basicAuth).toEqual({ user: 'staff', password: 'secret' });
+    expect(siteAt('https://localhost/nest-flyers-php/', flyers)).toEqual({ baseUrl: 'https://localhost/nest-flyers-php/', source: 'environment' });
+    expect(siteAt('https://nestpass.ai/activities/', null)).toEqual({ baseUrl: 'https://nestpass.ai/activities/', source: 'environment' });
   });
 });
 
