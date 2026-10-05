@@ -26,7 +26,7 @@ final class AiService
 {
     private readonly AiDay $day;
     private readonly PromptBuilder $prompts;
-    /** @var array{inputMax:int, assumptionsMax:int, maxOutputTokens:int, schemaNames:array{flyer:string, share:string}} */
+    /** @var array{inputMax:int, assumptionsMax:int, maxOutputTokens:int, features:list<string>, schemaNames:array{flyer:string, share:string}} */
     private readonly array $facts;
 
     /**
@@ -58,7 +58,7 @@ final class AiService
      */
     public function status(Actor $actor): array
     {
-        if ($this->provider === null || !$this->policy->enabled() || !$this->policy->mayUse($actor)) {
+        if ($this->provider === null || $this->running() === [] || !$this->policy->mayUse($actor)) {
             return ['enabled' => false];
         }
         $limit = $this->policy->dailyLimit($actor);
@@ -82,7 +82,7 @@ final class AiService
      */
     public function flyer(Actor $actor, mixed $body): array
     {
-        $this->admit($actor);
+        $this->admit($actor, 'flyer');
         $request = $this->parse($this->bundle->schemas['flyerRequest'], $body);
         $hostels = $this->hostels->list();
         $known = static fn (string $slug): bool => in_array($slug, array_column($hostels, 'slug'), true);
@@ -115,7 +115,7 @@ final class AiService
      */
     public function share(Actor $actor, mixed $body): array
     {
-        $this->admit($actor);
+        $this->admit($actor, 'share');
         $request = $this->parse($this->bundle->schemas['shareRequest'], $body);
         $hostels = $this->hostels->list();
         if ($request->hostel !== null && !in_array($request->hostel, array_column($hostels, 'slug'), true)) {
@@ -129,10 +129,23 @@ final class AiService
         return ['share' => $answer->share, 'remaining' => $remaining - 1];
     }
 
-    /** Off before anything else, then the policy: the order the contract names. */
-    private function admit(Actor $actor): void
+    /**
+     * The features that run on this site, in the app's own order: none means the AI is off.
+     *
+     * @return list<string>
+     */
+    private function running(): array
     {
-        if ($this->provider === null || !$this->policy->enabled()) {
+        return array_values(array_filter($this->facts['features'], fn (string $feature): bool => $this->policy->runs($feature)));
+    }
+
+    /**
+     * Off before anything else, then the policy: the order the contract names. A feature the site does not run is off
+     * as the whole AI is, so nothing of the request is read, counted or recorded.
+     */
+    private function admit(Actor $actor, string $feature): void
+    {
+        if ($this->provider === null || !$this->policy->runs($feature)) {
             throw $this->errors->make('ai_off');
         }
         if (!$this->policy->mayUse($actor)) {

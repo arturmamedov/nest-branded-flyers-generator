@@ -411,7 +411,7 @@ final class ApiTest extends TestCase
     {
         $validator = new SchemaValidator(new SchemaNormalizer());
         $bundle = AiBundle::fromFile(Paths::schema('ai.json'), $validator);
-        $config = AiConfig::fromArray(['provider' => 'fake'], $this->shared->ai());
+        $config = AiConfig::fromArray(['provider' => 'fake', 'features' => $this->shared->ai()['features']], $this->shared->ai());
         $service = new AiService(
             new FakeProvider($bundle->examples, $this->shared->ai()),
             new ConfigAiPolicy($config, $this->shared->ai()['dailyLimit']),

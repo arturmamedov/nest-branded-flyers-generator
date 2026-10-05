@@ -36,6 +36,7 @@ use NestFlyers\Tests\Support\Paths;
 use NestFlyers\Tests\Support\TempDir;
 use NestFlyers\Validation\SchemaNormalizer;
 use NestFlyers\Validation\SchemaValidator;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use stdClass;
@@ -102,10 +103,76 @@ final class AiServiceTest extends TestCase
         $this->failsWith(fn () => $service->share($this->actor, $this->shareBody()), 'ai_off');
     }
 
+    // The owner's answer (2026-10-05): none until named. A provider and its key run nothing by themselves.
+    public function testOffWhenNoFeatureIsNamedStatusSaysSoAndBothFeaturesAnswerAiOff(): void
+    {
+        $service = $this->service(['policy' => $this->policy(['provider' => 'fake', 'features' => []])]);
+        self::assertSame(['enabled' => false], $service->status($this->actor));
+        $this->failsWith(fn () => $service->flyer($this->actor, $this->idea()), 'ai_off');
+        $this->failsWith(fn () => $service->share($this->actor, $this->shareBody()), 'ai_off');
+        self::assertSame([], $this->usage->records);
+    }
+
+    /** @return iterable<string, array{string}> every feature the app has (schema/shared.json), each switched off in turn */
+    public static function features(): iterable
+    {
+        foreach (Shared::fromFile(Paths::schema('shared.json'))->ai()['features'] as $feature) {
+            yield $feature => [$feature];
+        }
+    }
+
+    #[DataProvider('features')]
+    public function testAFeatureTheSiteDoesNotNameAnswersAiOffBeforeItsBodyIsReadAndNothingIsAskedCountedOrRecorded(string $off): void
+    {
+        $neverAsked = new class () implements LlmProvider {
+            public function name(): string
+            {
+                return 'fake';
+            }
+
+            public function model(): string
+            {
+                return 'never-asked';
+            }
+
+            public function complete(LlmCall $call): LlmResult
+            {
+                throw new RuntimeException('the provider was asked');
+            }
+        };
+        $untouched = new class () implements AiUsageRepository {
+            public function record(array $entry): void
+            {
+                throw new RuntimeException('the ledger was written');
+            }
+
+            public function countOk(string $actorId, string $day): int
+            {
+                throw new RuntimeException('the ledger was counted');
+            }
+        };
+        $service = $this->service(['provider' => $neverAsked, 'usage' => $untouched, 'policy' => $this->policy(['provider' => 'fake', 'features' => $this->allBut($off)])]);
+        $this->failsWith(fn () => $this->call($service, $off), 'ai_off');
+        $this->failsWith(fn () => $this->call($service, $off, new stdClass()), 'ai_off');
+    }
+
+    #[DataProvider('features')]
+    public function testTheFeaturesTheSiteNamesRunCountAndAreRecordedUnderTheirOwnName(string $off): void
+    {
+        $named = $this->allBut($off);
+        $service = $this->service(['policy' => $this->policy(['provider' => 'fake', 'features' => $named])]);
+        foreach ($named as $feature) {
+            $this->call($service, $feature);
+            $last = $this->usage->records[array_key_last($this->usage->records)];
+            self::assertSame([$feature, true], [$last['feature'], $last['ok']]);
+        }
+        self::assertSame(['enabled' => true, 'limit' => self::LIMIT, 'remaining' => self::LIMIT - count($named)], $service->status($this->actor));
+    }
+
     public function testAnActorThePolicyExcludesIsRefusedAndShownNothing(): void
     {
         $guests = new class () implements AiPolicy {
-            public function enabled(): bool
+            public function runs(string $feature): bool
             {
                 return true;
             }
@@ -409,10 +476,34 @@ final class AiServiceTest extends TestCase
         };
     }
 
-    /** @param array<string, mixed> $ai */
+    /**
+     * The policy of a site with this `ai` block, which names every feature unless it says otherwise: what a test is
+     * about, it takes away.
+     *
+     * @param array<string, mixed> $ai
+     */
     private function policy(array $ai): AiPolicy
     {
-        return new ConfigAiPolicy(AiConfig::fromArray($ai, $this->shared->ai()), $this->shared->ai()['dailyLimit']);
+        return new ConfigAiPolicy(AiConfig::fromArray($ai + ['features' => $this->shared->ai()['features']], $this->shared->ai()), $this->shared->ai()['dailyLimit']);
+    }
+
+    /** @return list<string> every feature the app has but this one */
+    private function allBut(string $off): array
+    {
+        return array_values(array_diff($this->shared->ai()['features'], [$off]));
+    }
+
+    /**
+     * One feature's call, with its own good body unless the test hands in another.
+     *
+     * @return array<string, mixed>
+     */
+    private function call(AiService $service, string $feature, ?stdClass $body = null): array
+    {
+        return match ($feature) {
+            'flyer' => $service->flyer($this->actor, $body ?? $this->idea()),
+            'share' => $service->share($this->actor, $body ?? $this->shareBody()),
+        };
     }
 
     private function idea(string $marker = '', ?string $hostel = null): stdClass

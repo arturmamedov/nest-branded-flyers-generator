@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { isAbsolute, join, relative, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { parseArgs } from 'node:util';
+import { AI_FEATURES } from '../../src/shared/ai.js';
 import { requirePhp } from './phpBin.js';
 import { phpString, stagePhp, toPosix } from './stage.js';
 
@@ -101,7 +102,7 @@ export type AccessPosture =
 export const EXCLUDED_RANGE = '192.0.2.0/24';
 
 /** The AI a test stage runs with: none (the `ai` block left out, so off), or the fake provider, which never touches the
-    network (docs/api-contract.md, "The AI assistant"). */
+    network (docs/api-contract.md, "The AI assistant"), with every feature named: a provider alone runs nothing. */
 export type AiPosture = 'fake';
 
 /** config.php for a test stage, with the store outside the stage, as a host keeps it outside public_html. */
@@ -142,7 +143,7 @@ return [
     ],
     'dataDir' => ${phpString(toPosix(resolve(dataDir)))},
     'storage' => 'json',
-    'imageProcessor' => 'auto',${ai ? `\n    'ai' => ['provider' => ${phpString(ai)}],` : ''}
+    'imageProcessor' => 'auto',${ai ? `\n    'ai' => ['provider' => ${phpString(ai)}, 'features' => [${AI_FEATURES.map(phpString).join(', ')}]],` : ''}
 ];
 `;
   writeFileSync(file, source);

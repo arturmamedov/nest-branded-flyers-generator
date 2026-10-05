@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NestFlyers\Tests;
 
 use NestFlyers\Bootstrap;
+use NestFlyers\Http\ErrorCatalog;
 use NestFlyers\Http\Request;
 use NestFlyers\Http\Response;
 use NestFlyers\Json;
@@ -13,6 +14,7 @@ use NestFlyers\Tests\Support\FakeClock;
 use NestFlyers\Tests\Support\Paths;
 use NestFlyers\Tests\Support\TempDir;
 use NestFlyers\Tests\Support\WriteHeader;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use stdClass;
 
@@ -129,10 +131,58 @@ final class BootstrapTest extends TestCase
         self::assertDirectoryDoesNotExist("$this->dataDir/ai-usage");
     }
 
+    // The owner's answer (2026-10-05): none until named. A provider, even keyed, runs nothing by itself.
+    public function testAProviderWithNoFeatureNamedIsNoAiAndTheStoreGetsNoLedger(): void
+    {
+        $app = Bootstrap::fromAppRoot($this->appRoot, $this->config() + ['ai' => ['provider' => 'fake']], new FakeClock());
+        self::assertEquals((object) ['enabled' => false], $this->ok($app->handle(self::request('GET', '/api/config')))->ai);
+        foreach (self::features() as [$feature]) {
+            self::assertSame($this->message('ai_off'), $this->assertError($app->handle(self::request('POST', "/api/ai/$feature", $this->aiBody($feature))), 404, 'not_found')->message);
+        }
+        self::assertDirectoryDoesNotExist("$this->dataDir/ai-usage");
+    }
+
+    /** @return iterable<string, array{string}> every feature the app has (schema/shared.json), each switched off in turn */
+    public static function features(): iterable
+    {
+        foreach (Shared::fromFile(Paths::schema('shared.json'))->ai()['features'] as $feature) {
+            yield $feature => [$feature];
+        }
+    }
+
+    // The twin of tests/unit/ai-app.test.ts: the whole app, as config.php sets the AI up, one feature off at a time.
+    #[DataProvider('features')]
+    public function testASiteThatNamesEveryFeatureButOneAnswersAiOffOnThatRouteAndSpendsNothing(string $off): void
+    {
+        $app = Bootstrap::fromAppRoot($this->appRoot, $this->config() + ['ai' => $this->fakeAi(self::allBut($off))], new FakeClock());
+        $route = "/api/ai/$off";
+        self::assertSame($this->message('ai_off'), $this->assertError($app->handle(self::request('POST', $route, $this->aiBody($off))), 404, 'not_found')->message);
+        // Off comes before the body's shape, as it does with the whole AI off: a body that says nothing is ai_off too.
+        self::assertSame($this->message('ai_off'), $this->assertError($app->handle(self::request('POST', $route, new stdClass())), 404, 'not_found')->message);
+        $this->assertError($app->handle(self::request('POST', $route, $this->aiBody($off), [], self::LOOPBACK, [])), 403, 'forbidden');
+        $this->assertError($app->handle(self::request('POST', $route, '{"text": ', [], self::LOOPBACK, [])), 400, 'invalid');
+        self::assertDirectoryDoesNotExist("$this->dataDir/ai-usage");
+        $ai = $this->ok($app->handle(self::request('GET', '/api/config')))->ai;
+        self::assertSame([true, 3, 3], [$ai->enabled, $ai->limit, $ai->remaining]);
+    }
+
+    #[DataProvider('features')]
+    public function testASiteRunsTheFeaturesItNamesAndCountsThem(string $off): void
+    {
+        $named = self::allBut($off);
+        $app = Bootstrap::fromAppRoot($this->appRoot, $this->config() + ['ai' => $this->fakeAi($named)], new FakeClock());
+        foreach ($named as $i => $feature) {
+            $result = $this->ok($app->handle(self::request('POST', "/api/ai/$feature", $this->aiBody($feature))));
+            self::assertSame(3 - $i - 1, $result->remaining);
+        }
+        $ledger = Json::decode((string) file_get_contents("$this->dataDir/ai-usage/2026-09.json"));
+        self::assertSame($named, array_map(static fn (stdClass $record): string => $record->feature, $ledger));
+    }
+
     public function testTheFakeProviderCountsInTheStoreAndTheDayEndsAtCanaryMidnight(): void
     {
         $clock = new FakeClock();
-        $app = Bootstrap::fromAppRoot($this->appRoot, $this->config() + ['ai' => ['provider' => 'fake']], $clock);
+        $app = Bootstrap::fromAppRoot($this->appRoot, $this->config() + ['ai' => $this->fakeAi()], $clock);
         $ai = fn (): stdClass => $this->ok($app->handle(self::request('GET', '/api/config')))->ai;
         self::assertEquals((object) ['enabled' => true, 'limit' => 3, 'remaining' => 3], $ai());
         self::assertDirectoryDoesNotExist("$this->dataDir/ai-usage", 'reading the count wrote nothing');
@@ -154,7 +204,7 @@ final class BootstrapTest extends TestCase
     {
         // The editor loads api/config before anything else and renders nothing without it: a damaged ledger used to
         // answer 500 there, and so take the whole app down for the rest of the month.
-        $app = Bootstrap::fromAppRoot($this->appRoot, $this->config() + ['ai' => ['provider' => 'fake']], new FakeClock());
+        $app = Bootstrap::fromAppRoot($this->appRoot, $this->config() + ['ai' => $this->fakeAi()], new FakeClock());
         mkdir("$this->dataDir/ai-usage");
         file_put_contents("$this->dataDir/ai-usage/2026-09.json", '{ damaged');
 
@@ -304,6 +354,38 @@ final class BootstrapTest extends TestCase
     private function app(): Bootstrap
     {
         return $this->app ??= Bootstrap::fromAppRoot($this->appRoot, $this->config());
+    }
+
+    /**
+     * config.php's `ai` block on the fake provider, naming these features: every one the app has, unless told.
+     *
+     * @param list<string>|null $features
+     * @return array<string, mixed>
+     */
+    private function fakeAi(?array $features = null): array
+    {
+        return ['provider' => 'fake', 'features' => $features ?? Shared::fromFile(Paths::schema('shared.json'))->ai()['features']];
+    }
+
+    /** @return list<string> every feature the app has but this one */
+    private static function allBut(string $off): array
+    {
+        return array_values(array_diff(Shared::fromFile(Paths::schema('shared.json'))->ai()['features'], [$off]));
+    }
+
+    /** A good body for a feature's route, which is api/ai/<the feature's name>. */
+    private function aiBody(string $feature): stdClass
+    {
+        return match ($feature) {
+            'flyer' => (object) ['text' => 'Yoga mañana a las 9 en la terraza'],
+            'share' => (object) ['hostel' => null, 'template' => 'activity', 'data' => $this->input()->data],
+        };
+    }
+
+    /** The catalogue's message for an error: ai_off and an unknown path share their status and code. */
+    private function message(string $key): string
+    {
+        return ErrorCatalog::fromShared(Shared::fromFile(Paths::schema('shared.json')))->make($key)->getMessage();
     }
 
     /** The first sample flyer (seed/samples.json) as a request body. */

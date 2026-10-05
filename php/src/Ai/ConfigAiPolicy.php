@@ -13,9 +13,9 @@ final class ConfigAiPolicy implements AiPolicy
     ) {
     }
 
-    public function enabled(): bool
+    public function runs(string $feature): bool
     {
-        return $this->config->enabled;
+        return $this->config->enabled && in_array($feature, $this->config->features, true);
     }
 
     public function mayUse(Actor $actor): bool

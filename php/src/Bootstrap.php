@@ -196,12 +196,13 @@ final class Bootstrap
     }
 
     /**
-     * The AI assistant as config.php's `ai` block sets it up, or null when it leaves the AI off: the bundle is not
-     * even read then. The twin of createAiService in server/ai/composition.ts.
+     * The AI assistant as config.php's `ai` block sets it up, or null when it leaves the AI off (no provider, no key,
+     * switched off, or no feature named): the bundle is not even read then. The twin of createAiService in
+     * server/ai/composition.ts.
      */
     private function aiService(Config $config, Shared $shared, ErrorCatalog $errors, Repositories $repos, Clock $clock, SchemaNormalizer $normalizer): ?AiService
     {
-        if (!$config->ai->enabled) {
+        if (!$config->ai->enabled || $config->ai->features === []) {
             return null;
         }
         $validator = new SchemaValidator($normalizer);
