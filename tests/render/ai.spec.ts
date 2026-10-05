@@ -255,6 +255,16 @@ test('an assumption about a field the editor has no name for shows the field as 
   await generate(page).click();
   await expect(page.locator('.ai-assumptions li')).toHaveText(['__proto__: first', 'constructor: second', 'Headline line 1: third']);
   await expect(preview(page)).toBeVisible();
+  await expect(tryAgain(page)).toHaveText('Try again (uses the last one)');
+});
+
+test('the question before a caption is replaced counts in plain words when one is left', async ({ page }) => {
+  await withLeft(page, 1);
+  await page.goto('/#/new');
+  await page.getByLabel('Caption').fill('My own words');
+  const asked = await answerConfirm(page, 'dismiss', () => writeWithAi(page).click());
+  expect(asked).toBe('Replace the caption with one the AI writes? It uses the last generation left today.');
+  await expect(page.getByLabel('Caption')).toHaveValue('My own words');
 });
 
 test('with the AI off there is no AI anywhere: no entry, #/ai is the library, no Write with AI', async ({ page }) => {

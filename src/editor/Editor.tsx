@@ -251,7 +251,8 @@ export function Editor({
   // there is replaced only on a yes: the generation is counted either way once it is sent.
   const writeShare = () => {
     if (!ai.enabled) return;
-    if (draft.data.share.trim() && !confirm(`Replace the caption with one the AI writes? It uses one of the ${ai.remaining} generations left today.`)) return;
+    const cost = ai.remaining === 1 ? 'the last generation' : `one of the ${ai.remaining} generations`;
+    if (draft.data.share.trim() && !confirm(`Replace the caption with one the AI writes? It uses ${cost} left today.`)) return;
     run('ai', async () => {
       try {
         const { hostel: slug, data } = latestDraft.current!;
