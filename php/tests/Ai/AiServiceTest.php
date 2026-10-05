@@ -13,6 +13,7 @@ use NestFlyers\Ai\AiService;
 use NestFlyers\Ai\ConfigAiPolicy;
 use NestFlyers\Ai\FakeProvider;
 use NestFlyers\Ai\HttpClient;
+use NestFlyers\Ai\HttpClientFactory;
 use NestFlyers\Ai\HttpResponse;
 use NestFlyers\Ai\LlmCall;
 use NestFlyers\Ai\LlmProvider;
@@ -282,6 +283,20 @@ final class AiServiceTest extends TestCase
         self::assertStringContainsString('OpenAI answered 401', $this->log());
         self::assertStringNotContainsString('sk-live-secret-42', $this->log());
         self::assertStringNotContainsString('sk-live-secret-42', Json::encode($this->usage->records));
+    }
+
+    public function testOnAHostWithoutCurlAGenerationIsAiFailedRecordedAndNamedInOneLogLine(): void
+    {
+        // It used to be an undefined function: a 500, a trace in the log and no ledger record.
+        $noCurl = HttpClientFactory::create(static fn (string $extension): bool => false);
+        $service = $this->service(['provider' => new OpenAiProvider(new ProviderConfig('sk-live-secret-42', 'gpt-6-luna', null), $noCurl)]);
+        $this->failsWith(fn () => $service->flyer($this->actor, $this->idea()), 'ai_failed');
+        self::assertCount(1, $this->usage->records);
+        self::assertSame([false, null, null], [$this->usage->records[0]['ok'], $this->usage->records[0]['tokens'], $this->usage->records[0]['output']]);
+        self::assertStringContainsString('network: PHP has no curl extension', $this->log());
+        self::assertSame(1, substr_count($this->log(), "\n"), 'one line, no trace');
+        self::assertStringNotContainsString('sk-live-secret-42', $this->log() . Json::encode($this->usage->records));
+        self::assertSame(self::LIMIT, $service->status($this->actor)['remaining'], 'nothing was counted');
     }
 
     public function testTheProviderIsNeverCalledUnderTheStoresLock(): void

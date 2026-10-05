@@ -235,8 +235,9 @@ the app looks and works as it did before.
 **To turn it on:**
 
 1. **Check curl.** On the preflight page, *PHP extensions* must list `curl` (IONOS has it). Without
-   curl everything else works, but the AI cannot reach its provider: enable curl for this PHP
-   version in the hosting panel first.
+   curl everything else works, but the AI cannot reach its provider: staff then see "The AI didn't
+   answer properly" every time, nothing is counted, and the log says PHP has no curl extension.
+   Enable curl for this PHP version in the hosting panel first.
 2. **Get a key** from the provider: OpenAI (platform.openai.com, *API keys*) or Anthropic
    (console.anthropic.com, *API keys*). Set a spending limit on it there if the provider offers one.
 3. **Put it in `config.php`.** Download `config.php` from the app folder (IONOS: `activities/`)
@@ -360,8 +361,7 @@ model wrote and how long it took. For a locked site the login comes from `FLYERS
 | 503 on everything right after going back to an older release | `config.php` has an `ai` block the older release does not know: take the block out (*Rolling back*) |
 | 503 right after adding the `ai` block | a typo in the block: a setting the sample does not have, or a value of the wrong kind. `data/php-errors.log` names the setting, never its value. "`ai.apiKey` must not hold spaces or line breaks" means the key was pasted with one: write it between single quotes, with nothing after its last character |
 | no "✨ Create with AI" on the bar | the AI is off: `config.php` has no `ai` block, the block has no `provider` or no `apiKey`, or it says `'enabled' => false`. `GET api/config` shows `"ai": {"enabled": false}` |
-| "The AI didn't answer properly", every time | the provider refused or did not answer; nothing was counted. `data/php-errors.log` has the reason, on a line starting `Nest flyers: AI`: a wrong key (401), a timeout, or an answer the app would not take |
-| "Something went wrong on the server" when a staff member presses Generate | PHP has no curl: the preflight page's *PHP extensions* line says so. Enable curl for this PHP version in the hosting panel |
+| "The AI didn't answer properly", every time | the provider refused or did not answer; nothing was counted. `data/php-errors.log` has the reason, on a line starting `Nest flyers: AI`: a wrong key (401), a timeout, an answer the app would not take, or "PHP has no curl extension" (the preflight page's *PHP extensions* line says so too: enable curl for this PHP version in the hosting panel) |
 | the browser asks for the password twice, or signs in and the app then says "Sign in" | the `.htaccess` login and `config.php`'s `basicAuth` differ: make them the same user and password |
 | signed in, but every save or load fails with "Sign in" | the host drops the Authorization header on its way to PHP: the preflight page's *Login* line says so. Ask the host (CGIPassAuth), or use `allowIps` in `config.php` |
 | every save fails with "Something went wrong on the server" | usually `data/` is not writable. The real reason is only in the error log, and PHP can move its log into `data/` only when `data/` is writable, so look in the host's own PHP error log. `GET api/config` shows `dataDir.writable` and PHP's own error text; fix the folder's permissions (755, or 775) |

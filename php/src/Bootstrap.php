@@ -9,7 +9,7 @@ use NestFlyers\Ai\AiBundle;
 use NestFlyers\Ai\AiService;
 use NestFlyers\Ai\AnonymousActors;
 use NestFlyers\Ai\ConfigAiPolicy;
-use NestFlyers\Ai\CurlHttpClient;
+use NestFlyers\Ai\HttpClientFactory;
 use NestFlyers\Ai\LlmProviderFactory;
 use NestFlyers\Diagnostics\HostFacts;
 use NestFlyers\Domain\Clock;
@@ -206,7 +206,7 @@ final class Bootstrap
         }
         $validator = new SchemaValidator($normalizer);
         $bundle = AiBundle::fromFile($this->path(self::AI_FILE), $validator);
-        $provider = LlmProviderFactory::create($config->ai, $bundle, $shared, new CurlHttpClient());
+        $provider = LlmProviderFactory::create($config->ai, $bundle, $shared, HttpClientFactory::create());
         if ($provider === null) {
             return null;
         }
