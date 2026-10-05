@@ -24,16 +24,22 @@ export function mustGit(args: readonly string[], cwd: string = APP_ROOT): string
 export interface Checkout {
   /** The short commit, as `git rev-parse --short HEAD` prints it. */
   commit: string;
-  /** Anything there that is not in that commit: a changed tracked file, or a new file git does not ignore (a new
-      source file is in a build and not in the commit, which `git describe --dirty` never noticed). */
+  /** Anything there that a build could hold and that commit does not: a changed tracked file, or a new file git
+      does not ignore (a new source file is in a build and not in the commit, which `git describe --dirty` never
+      noticed). Documentation is left out (NOT_BUILT). */
   dirty: boolean;
 }
+
+/** The one folder no release is made from. A text or an example under docs/ reaches a build only through a
+    generated file (schema/ai.json), which is tracked and which `npm run build:php` refuses when it is stale; so a
+    note or an example another session is writing there does not make every build "not what was committed". */
+const NOT_BUILT = 'docs';
 
 /** The commit a checkout is at; null outside a repository. */
 export function checkout(cwd: string = APP_ROOT): Checkout | null {
   const commit = git(['rev-parse', '--short', 'HEAD'], cwd);
   if (!commit) return null;
-  return { commit, dirty: git(['status', '--porcelain'], cwd) !== '' };
+  return { commit, dirty: git(['status', '--porcelain', '--', ':(top)', `:(top,exclude)${NOT_BUILT}`], cwd) !== '' };
 }
 
 /** A checkout as release.json names it: `1490956`, or `1490956-dirty`. Always the commit, never a tag's name:

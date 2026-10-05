@@ -49,6 +49,20 @@ describe('the commit a checkout is at', () => {
     expect(describeCheckout(repo.dir)).toBe(`${commit}-dirty`);
   });
 
+  // Seen on 2026-10-05: another session saved an example under docs/ while a release was due, and every tag would have
+  // been refused. No release is made from documentation: an example reaches one only through schema/ai.json, which
+  // is tracked, and npm run build:php refuses stale generated files.
+  it('stays clean when only documentation differs: a new file or a changed one under docs/', () => {
+    mkdirSync(join(repo.dir, 'docs'));
+    const commit = repo.commit('docs/deploy.md');
+    mkdirSync(join(repo.dir, 'docs', 'examples'));
+    repo.write('docs/examples/new.json');
+    repo.write('docs/deploy.md', 'changed');
+    expect(checkout(repo.dir)).toEqual({ commit, dirty: false });
+    repo.write('docs.txt');
+    expect(checkout(repo.dir), 'a file beside docs/ is not documentation').toEqual({ commit, dirty: true });
+  });
+
   it('is nothing outside a repository', () => {
     const dir = mkdtempSync(join(tmpdir(), 'nest-flyers-no-git-'));
     try {
