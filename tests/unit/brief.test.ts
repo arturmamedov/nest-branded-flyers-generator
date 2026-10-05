@@ -66,6 +66,40 @@ describe('a flyer from a brief', () => {
   });
 });
 
+/* A model writes a blank where it has nothing to say: claude-haiku-4-5 wrote " " as a fourth extra (2026-10-04). The
+   flyer printed nothing for it, but the editor opened with an empty field, and a headline line of one space would have
+   printed as an empty line. A hand-written "" already means "print nothing"; a field of spaces now means the same. */
+describe('what a brief leaves blank', () => {
+  const base = { hostel: null, template: 'activity' } as const;
+
+  it('drops an extra that says nothing, and trims the ones that do', () => {
+    const input = flyerFromBrief({ ...base, extras: ['Bring water', ' ', '', '  Bring a towel '] }, null, DAY);
+    expect(valid(input)).toEqual([]);
+    expect(input.data.extras).toEqual(['Bring water', 'Bring a towel']);
+  });
+
+  it('reads a line that holds only spaces as an empty one, which prints nothing', () => {
+    const input = flyerFromBrief({ ...base, text: { headline1: 'Quiz night', headlineEs: '   ', askEs: '\n' } }, null, DAY);
+    expect([input.data.text.headline1, input.data.text.headlineEs, input.data.text.askEs]).toEqual(['Quiz night', '', '']);
+  });
+
+  it('reads a chip that holds only spaces as an empty one', () => {
+    const input = flyerFromBrief({ ...base, when: 'Tonight · 21:00', cost: ' ' }, null, DAY);
+    expect(input.data.chips.map((c) => c.value)).toEqual(['Tonight · 21:00', '', '']);
+  });
+
+  it('reads a share text that holds only spaces as none', () => {
+    expect(flyerFromBrief({ ...base, share: ' \n ' }, null, DAY).data.share).toBe('');
+  });
+
+  it('leaves out a week row with nothing in it', () => {
+    const row = { day: 'Monday', name: 'Surf lesson', time: '10:00', cost: '35€' };
+    const blank = { day: ' ', name: '', time: '', cost: ' · ' };
+    const input = flyerFromBrief({ hostel: null, template: 'week', week: [blank, row, blank] }, null, DAY);
+    expect(input.data.week).toEqual([row]);
+  });
+});
+
 describe('a brief file', () => {
   it('refuses a misspelt key, at any level', () => {
     expect(BriefSchema.safeParse({ hostel: null, template: 'activity', whenn: 'x' }).success).toBe(false);

@@ -1,6 +1,7 @@
 import { Fragment, useState, type CSSProperties, type ReactNode, type Ref } from 'react';
 import { deriveChips, DEFAULT_CHIP_ORDER } from '../shared/chips';
 import { BRIGHT_TEAL, MUTED, PHOTO_PLACEHOLDER, marksFor, resolveDoodles, type ArtPlacement } from '../shared/defaults';
+import { printedExtras } from '../shared/extras';
 import { BODY_FONT, HEADLINE_FONT } from '../shared/fonts';
 import { CANVASES, artAnchors, bodyOf, photoFrame, placeArt, safeBox, type ArtAnchor, type ArtPoint, type CanvasId, type Rect, type WeekBoxes } from '../shared/layout';
 import { coverRect } from '../shared/photo';
@@ -204,7 +205,7 @@ export function Flyer({ data, canvas, hostel, photo, showSafeZones = false, ref 
   const { width: W, height: H, activity: A, week: WK } = CANVASES[canvas];
   const anchors = artAnchors(canvas, body);
   const chips = deriveChips(data.chips, hostel?.name ?? null, data.overrides.chips?.order ?? DEFAULT_CHIP_ORDER);
-  const extras = data.extras.map((e) => e.trim()).filter(Boolean);
+  const extras = printedExtras(data.extras);
   const head = mode === 'none' ? A.headlineNoPhoto : A.headline;
   const frame = photoFrame(canvas, body);
   const img =

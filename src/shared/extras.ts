@@ -7,3 +7,7 @@ export const EXTRAS_MAX = 4;
 
 /** The longest extra, in code points: two or three words. */
 export const EXTRA_MAX = 32;
+
+/** The extras as they print: each one trimmed, a blank one left out. The flyer prints these, and a flyer made from
+    a brief keeps only these, so the editor never opens with an empty field the flyer would not print. */
+export const printedExtras = (extras: readonly string[]): string[] => extras.map((e) => e.trim()).filter(Boolean);
