@@ -4,7 +4,7 @@ import type { Dialog, Page } from '@playwright/test';
 import { expect, test } from '../browser';
 import { EDITOR_VIEWPORT, apiCall, apiRoute, backToLibrary, saveNew, status } from '../editor';
 import { LEAVE_PROMPT } from '../../src/editor/leaveGuard';
-import { AI_DAILY_LIMIT, AI_FEATURES } from '../../src/shared/ai';
+import { AI_DAILY_LIMIT, AI_FEATURES, type AiFeature } from '../../src/shared/ai';
 import { apiError } from '../../src/shared/errors';
 import { AiFlyerResultSchema, AiShareResultSchema, ApiConfigSchema, type AiFlyerAnswer } from '../../src/shared/schema';
 import { WRITE_HEADERS } from '../../src/shared/writeGuard';
@@ -46,11 +46,12 @@ const errorNote = (page: Page) => page.locator('.notes .note-error');
 const preview = (page: Page) => page.locator('.stage-canvas');
 
 /** api/config as the server answers it, but with `remaining` left today: for a test that must not depend on what the
-    tests before it spent (the fake's failures still reach the server, and never count). */
-async function withLeft(page: Page, remaining: number) {
+    tests before it spent (the fake's failures still reach the server, and never count). `features` are the ones the
+    site runs: every one, unless the test is about a site that names fewer. */
+async function withLeft(page: Page, remaining: number, features: readonly AiFeature[] = AI_FEATURES) {
   await page.route(apiRoute('config'), async (route) => {
     const res = await route.fetch();
-    await route.fulfill({ response: res, json: { ...(await res.json()), ai: { enabled: true, limit: AI_DAILY_LIMIT, remaining, features: AI_FEATURES } } });
+    await route.fulfill({ response: res, json: { ...(await res.json()), ai: { enabled: true, limit: AI_DAILY_LIMIT, remaining, features } } });
   });
 }
 
@@ -281,6 +282,39 @@ test('with the AI off there is no AI anywhere: no entry, #/ai is the library, no
   await expect(page.getByRole('heading', { name: 'Flyer library' })).toBeVisible();
   await expect(page).toHaveURL(/#\/$/);
   await expect(idea(page)).toHaveCount(0);
+
+  await page.goto('/#/new');
+  await expect(page.getByLabel('Caption')).toBeVisible();
+  await expect(writeWithAi(page)).toHaveCount(0);
+});
+
+// A site names the features it runs (AI_FEATURES in .env, 'features' in config.php): the trial on the live site is the
+// share text alone. Routed, so nothing is spent.
+test('on a site that runs the share text alone: no "Create with AI" anywhere, #/ai is the library, and "Write with AI" counts down', async ({ page }) => {
+  await withLeft(page, 2, ['share']);
+  await page.goto('/');
+  await expect(page.getByRole('link', { name: 'New flyer' })).toBeVisible();
+  await expect(entry(page)).toHaveCount(0);
+  await expect(page.getByText(/Create with AI/)).toHaveCount(0);
+
+  await page.goto('/#/ai');
+  await expect(page.getByRole('heading', { name: 'Flyer library' })).toBeVisible();
+  await expect(page).toHaveURL(/#\/$/);
+  await expect(idea(page)).toHaveCount(0);
+
+  await page.goto('/#/new');
+  await expect(writeWithAi(page)).toBeEnabled();
+  await expect(writeWithAi(page)).toContainText('2 left today');
+});
+
+test('on a site that runs the flyer alone: the bar offers "Create with AI" with its count, and the editor has no "Write with AI"', async ({ page }) => {
+  await withLeft(page, 2, ['flyer']);
+  await page.goto('/');
+  await expect(entry(page)).toHaveAccessibleName('Create with AI, 2 left today');
+  await entry(page).click();
+  await expect(page).toHaveURL(/#\/ai$/);
+  await expect(idea(page)).toBeVisible();
+  await expect(generate(page)).toContainText('2 left today');
 
   await page.goto('/#/new');
   await expect(page.getByLabel('Caption')).toBeVisible();

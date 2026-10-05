@@ -13,7 +13,9 @@ import {
   AI_SHARED,
   aiDateLine,
   aiDay,
+  aiFor,
 } from '../../src/shared/ai.js';
+import type { AiConfig } from '../../src/shared/schema.js';
 
 /* The AI assistant's shared facts (src/shared/ai.ts): the cap, the day it counts in, and what both backends print as
    "today" in the prompt. The day vectors are replayed by PHPUnit against the PHP implementation. */
@@ -29,6 +31,20 @@ describe('the AI day', () => {
 
   it('prints the date line the prompt reads "today" from', () => {
     for (const c of vectors.cases) expect(aiDateLine(c.at), c.at).toBe(c.line);
+  });
+});
+
+describe('aiFor: the AI as far as one feature goes, from api/config’s answer', () => {
+  it('is the caller’s limit and what is left when the site runs that feature for them', () => {
+    const shareOnly: AiConfig = { enabled: true, limit: 3, remaining: 2, features: ['share'] };
+    expect(aiFor(shareOnly, 'share')).toBe(shareOnly);
+    expect(aiFor(shareOnly, 'flyer')).toBeNull();
+    const both: AiConfig = { enabled: true, limit: 3, remaining: 0, features: ['flyer', 'share'] };
+    for (const feature of AI_FEATURES) expect(aiFor(both, feature), feature).toBe(both);
+  });
+
+  it('is nothing with the AI off', () => {
+    for (const feature of AI_FEATURES) expect(aiFor({ enabled: false }, feature), feature).toBeNull();
   });
 });
 

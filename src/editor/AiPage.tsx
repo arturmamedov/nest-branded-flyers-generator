@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
-import { AI_INPUT_MAX } from '../shared/ai';
+import { AI_INPUT_MAX, type AiOn } from '../shared/ai';
 import { flyerFromBrief } from '../shared/brief';
 import { lintFlyer } from '../shared/copyRules';
-import type { AiAssumption, AiConfig, Brief, Hostel } from '../shared/schema';
+import type { AiAssumption, Brief, Hostel } from '../shared/schema';
 import { api, ApiError } from './api';
 import { offerDraft } from './handoff';
 import { useLeaveGuard } from './leaveGuard';
@@ -16,8 +16,6 @@ import { ShareCopy } from './share';
    editor". A focus page like the editor, which stays the place where a flyer is adjusted and saved. The flyer is
    built from the brief with flyerFromBrief() and shown by the same <Preview> and <Flyer> as everywhere: never a second
    renderer. Everything the model wrote is marked as the AI's. */
-
-export type AiOn = Extract<AiConfig, { enabled: true }>;
 
 /** A real staff text (docs/ai-flyers/examples), shortened: what an idea looks like. */
 const PLACEHOLDER = '¡HOY tenemos plan al atardecer! 🧘‍♀️\nClase de estiramientos + sunset para desconectar.\n\n🕖 19:00 h\n📍 Zona de la piscina\nTrae agua y tu toalla 💙';

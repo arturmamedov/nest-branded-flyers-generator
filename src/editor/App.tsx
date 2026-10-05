@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { aiFor } from '../shared/ai';
 import type { AiConfig, ApiConfig, Hostel } from '../shared/schema';
 import { assetUrl } from '../flyer/urls';
 import { AiPage } from './AiPage';
@@ -34,12 +35,17 @@ export function App() {
 
   const onRemaining = useCallback((remaining: number) => setAi((a) => (a.enabled ? { ...a, remaining } : a)), []);
 
-  // #/ai with the AI off is the library, and its URL says so (a replace: Back never lands on it again).
-  const page: Route['page'] = route.page === 'ai' && !ai.enabled ? 'library' : route.page;
-  const aiOff = backend !== null && !ai.enabled;
+  // A site runs the features it names (api/config lists them): the bar's link and the #/ai page are the flyer's,
+  // "Write with AI" in the editor is the share text's. Each shows only where its feature runs for this staff member.
+  const flyerAi = aiFor(ai, 'flyer');
+  const shareAi = aiFor(ai, 'share');
+
+  // #/ai without its feature is the library, and its URL says so (a replace: Back never lands on it again).
+  const page: Route['page'] = route.page === 'ai' && !flyerAi ? 'library' : route.page;
+  const noAiPage = backend !== null && !flyerAi;
   useEffect(() => {
-    if (aiOff && route.page === 'ai') replaceHash('#/ai', '#/');
-  }, [aiOff, route.page]);
+    if (noAiPage && route.page === 'ai') replaceHash('#/ai', '#/');
+  }, [noAiPage, route.page]);
 
   return (
     <div className="app">
@@ -59,9 +65,9 @@ export function App() {
               Library
             </a>
             {/* Short on a phone (✨ AI): the shared bar leaves its links little room there (the nestpass-tools contract). */}
-            {ai.enabled && (
-              <a className="ai-entry" href="#/ai" aria-label={`Create with AI, ${ai.remaining} left today`}>
-                <span aria-hidden="true">✨</span> <span className="ai-wide">Create with </span>AI<span className="ai-wide ai-count"> · {ai.remaining} left</span>
+            {flyerAi && (
+              <a className="ai-entry" href="#/ai" aria-label={`Create with AI, ${flyerAi.remaining} left today`}>
+                <span aria-hidden="true">✨</span> <span className="ai-wide">Create with </span>AI<span className="ai-wide ai-count"> · {flyerAi.remaining} left</span>
               </a>
             )}
             <a className="btn btn-accent" href="#/new">
@@ -75,8 +81,8 @@ export function App() {
         backend &&
         (page === 'library' ? (
           <Library hostels={hostels} />
-        ) : page === 'ai' && ai.enabled ? (
-          <AiPage key={nav} hostels={hostels} ai={ai} onRemaining={onRemaining} />
+        ) : page === 'ai' && flyerAi ? (
+          <AiPage key={nav} hostels={hostels} ai={flyerAi} onRemaining={onRemaining} />
         ) : (
           <Editor
             key={nav}
@@ -84,7 +90,7 @@ export function App() {
             hostels={hostels}
             exporter={backend.exporter}
             limits={backend.limits}
-            ai={ai}
+            ai={shareAi}
             onRemaining={onRemaining}
           />
         ))}

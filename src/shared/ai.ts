@@ -1,6 +1,9 @@
+import type { AiConfig } from './schema.js';
+
 /* The AI assistant's shared facts (docs/prompts/ai-assistant.md): the daily cap, the longest idea text, the day the cap
-   counts in, and the provider defaults. No zod here: the editor imports the cap and the input limit, and `npm run gen`
-   copies the constants into schema/shared.json for the PHP backend, so a number is written once. */
+   counts in, and the provider defaults. No zod here (the import above is a type's, and is gone once compiled): the
+   editor imports the cap and the input limit, and `npm run gen` copies the constants into schema/shared.json for the
+   PHP backend, so a number is written once. */
 
 /** Generations a day, both features together (the owner's cap, 2026-10-01): a flyer from an idea already includes its
     share text, so one generation is a whole flyer. Counted per actor; today every request is the one anonymous actor. */
@@ -13,8 +16,20 @@ export const AI_INPUT_MAX = 4000;
     service has added its own note (a made-up hostel), so that note takes the model's last one's place on a full list. */
 export const AI_ASSUMPTIONS_MAX = 12;
 
+/** Every feature the app has: `flyer` is "Create with AI" (an idea → a flyer), `share` is "Write with AI" (a flyer →
+    its share text). A site runs the ones its own setting names, none until then: that setting has this constant's
+    name on Node (AI_FEATURES in .env) and is `features` in config.php's `ai` block. */
 export const AI_FEATURES = ['flyer', 'share'] as const;
 export type AiFeature = (typeof AI_FEATURES)[number];
+
+/** api/config's `ai` block when the AI is on for the caller: their limit, what is left today, the features that run. */
+export type AiOn = Extract<AiConfig, { enabled: true }>;
+
+/** The AI as far as one feature goes, from api/config's answer: the caller's limit and what is left when the site
+    runs that feature for them, else null. The editor shows a feature only through this. */
+export function aiFor(ai: AiConfig, feature: AiFeature): AiOn | null {
+  return ai.enabled && ai.features.includes(feature) ? ai : null;
+}
 
 /** The day a generation counts for is the Canary Islands day: WET in winter, WEST in summer. */
 export const AI_DAY_ZONE = 'Atlantic/Canary';

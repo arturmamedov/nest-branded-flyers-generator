@@ -5,7 +5,8 @@ import { lintFlyer } from '../shared/copyRules';
 import { DEFAULT_PHOTO_MODE, followHostel, marksFor, newFlyerData, switchTemplate, weekTitle } from '../shared/defaults';
 import { CANVASES, CANVAS_IDS, bodyOf, isCanvasId, photoFrame, type CanvasId, type PhotoMode } from '../shared/layout';
 import { DEFAULT_CROP, ZOOM_MAX, ZOOM_MIN, clampCrop, wholePhotoZoom, zoomCrop } from '../shared/photo';
-import type { AiConfig, Chip, ChipKey, Crop, FlyerData, FlyerInput, FlyerListItem, FlyerText, Hostel, PhotoInfo, Template, WeekRow } from '../shared/schema';
+import type { AiOn } from '../shared/ai';
+import type { Chip, ChipKey, Crop, FlyerData, FlyerInput, FlyerListItem, FlyerText, Hostel, PhotoInfo, Template, WeekRow } from '../shared/schema';
 import { TITLE_MAX, libraryName } from '../shared/names';
 import { SHARE_MAX } from '../shared/share';
 import { WEEK_ROWS_MAX, WEEK_ROW_LIMITS, isPrintable, rowFromActivity } from '../shared/week';
@@ -88,8 +89,9 @@ export function Editor({
   hostels: Hostel[];
   exporter: FlyerExporter;
   limits: PhotoLimits;
-  /** The AI for this staff member; off, the editor shows nothing of it. */
-  ai: AiConfig;
+  /** The share text's AI ("Write with AI") for this staff member: null where the site does not run it for them, and
+      the editor then shows nothing of it. */
+  ai: AiOn | null;
   /** Tells the app what is left today after an AI answer. */
   onRemaining: (remaining: number) => void;
 }) {
@@ -250,7 +252,7 @@ export function Editor({
   // The caption from what the fields say now, with the idea the flyer came from when the AI made it. A caption already
   // there is replaced only on a yes: the generation is counted either way once it is sent.
   const writeShare = () => {
-    if (!ai.enabled) return;
+    if (!ai) return;
     const cost = ai.remaining === 1 ? 'the last generation' : `one of the ${ai.remaining} generations`;
     if (draft.data.share.trim() && !confirm(`Replace the caption with one the AI writes? It uses ${cost} left today.`)) return;
     run('ai', async () => {
@@ -416,7 +418,7 @@ export function Editor({
         </Section>
 
         <Section title={FIELD.share} hint="Not printed. The caption to paste when you post or send the flyer.">
-          {ai.enabled && (
+          {ai && (
             <div className="ai-write">
               <button type="button" className="btn" disabled={!!busy || ai.remaining === 0} onClick={writeShare}>
                 {busy === 'ai' ? 'Writing…' : '✨ Write with AI'} <span className="ai-left">({ai.remaining} left today)</span>
