@@ -7,7 +7,7 @@ import { api, ApiError } from './api';
 import { offerDraft } from './handoff';
 import { useLeaveGuard } from './leaveGuard';
 import { briefFieldLabel, FIELD } from './fields';
-import { BackToLibrary, Field, HostelOptions, Section } from './panel';
+import { AiUsedUp, BackToLibrary, Field, HostelOptions, Section } from './panel';
 import { CutOffNote, Preview, useFitReports } from './Preview';
 import { go } from './route';
 import { ShareCopy } from './share';
@@ -93,6 +93,7 @@ export function AiPage({ hostels, ai, onRemaining }: { hostels: Hostel[]; ai: Ai
           <button type="button" className="btn btn-accent" disabled={busy || !idea.trim() || left === 0} onClick={generate}>
             {busy ? 'Writing…' : '✨ Generate'} <span className="ai-left">({left} left today)</span>
           </button>
+          <AiUsedUp limit={ai.limit} left={left} />
         </Section>
 
         {result && result.assumptions.length > 0 && (

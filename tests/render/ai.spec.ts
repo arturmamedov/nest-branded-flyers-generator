@@ -228,6 +228,18 @@ test('the cap: once the day is used up, the page says when it comes back and tha
   await expect(entry(page)).toContainText('0 left');
 });
 
+test('with none left the page says so, and when they come back, before anyone presses anything', async ({ page }) => {
+  // Seen with a real provider (2026-10-05): a day used up left a greyed Generate and not a word about midnight.
+  const usedUp = apiError('ai_quota', { limit: AI_DAILY_LIMIT }).message;
+  await withLeft(page, 0);
+  await page.goto('/#/ai');
+  await expect(generate(page)).toBeDisabled();
+  await expect(page.locator('.ai-used-up')).toHaveText(usedUp);
+  await page.goto('/#/new');
+  await expect(writeWithAi(page)).toBeDisabled();
+  await expect(page.locator('.ai-used-up')).toHaveText(usedUp);
+});
+
 test('an assumption about a field the editor has no name for shows the field as the AI wrote it, and the page stays up', async ({ page }) => {
   // The model picks `field`: "__proto__" and "constructor" pass the schema, and were once read off a plain object.
   // A routed answer costs nothing, and the count is routed too, so this holds whatever the file has spent.

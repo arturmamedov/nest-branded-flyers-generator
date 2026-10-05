@@ -653,6 +653,10 @@ nest-nav > nav a.ai-entry .ai-count {
   margin-bottom: 10px;
 }
 
+.ai-used-up {
+  margin-top: 8px;
+}
+
 .ai-assumptions {
   margin: 0;
   padding-left: 18px;

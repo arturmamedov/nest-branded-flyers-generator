@@ -14,7 +14,7 @@ import type { FlyerExporter } from './export';
 import { takeDraft } from './handoff';
 import { useLeaveGuard } from './leaveGuard';
 import { FIELD } from './fields';
-import { BackToLibrary, Field, HostelOptions, Section } from './panel';
+import { AiUsedUp, BackToLibrary, Field, HostelOptions, Section } from './panel';
 import { PHOTO_MODE_LABEL } from './photoModes';
 import { preparePhoto, type PhotoLimits } from './photoPrep';
 import { replaceHash } from './route';
@@ -420,6 +420,7 @@ export function Editor({
               <button type="button" className="btn" disabled={!!busy || ai.remaining === 0} onClick={writeShare}>
                 {busy === 'ai' ? 'Writing…' : '✨ Write with AI'} <span className="ai-left">({ai.remaining} left today)</span>
               </button>
+              <AiUsedUp limit={ai.limit} left={ai.remaining} />
             </div>
           )}
           <Field label="Caption" optional>

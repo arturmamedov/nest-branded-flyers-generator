@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { apiError } from '../shared/errors';
 import type { Hostel } from '../shared/schema';
 import { LangFlag, type Lang } from './LangFlag';
 import { mayLeave } from './leaveGuard';
@@ -45,6 +46,17 @@ export function Field({ label, help, optional, lang, children }: { label: string
       {children}
       {help && <span className="help">{help}</span>}
     </label>
+  );
+}
+
+/** Under a button that would start a generation, once the day has none left: the server's own sentence for a refused
+    one, so the staff member reads when they come back without having to press anything. */
+export function AiUsedUp({ limit, left }: { limit: number; left: number }) {
+  if (left > 0) return null;
+  return (
+    <p className="help ai-used-up" role="status">
+      {apiError('ai_quota', { limit }).message}
+    </p>
   );
 }
 
