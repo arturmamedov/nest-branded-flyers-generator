@@ -17,6 +17,8 @@ commit per piece, never push.
 
 - **Built and proved:** both providers answered real calls on 2026-10-04, and one went through PHP. Every gate was
   green that day; the report has the numbers.
+- **Reviewed:** the review brief ran on 2026-10-05 (Fable 5.1 at high effort) and changed nothing. Its findings, with
+  Artur's decisions, are in Part 0 below; nothing needs pasting.
 - **Never done:** the AI has not been looked at in a real browser against a real provider. Phase 4 looked at it with
   the fake, whose answers are instant, and the real calls went through `npm run ai:smoke` and the API.
 - **The Laragon copy** (`A:\serverpath\laragon\nest-flyers-php`) answers at `https://nest-flyers-php.test/` and at
@@ -42,8 +44,80 @@ commit per piece, never push.
 
 ## Part 0: ask Artur, before any code
 
-1. **The review's findings.** He pastes them. For each: fix it here, or leave it, and why.
+1. **The review's findings** are below, each with Artur's decision (prefilled with the review's recommendation; he
+   edits the `Decision` lines before this session starts). Confirm them with him in one question, then work.
 2. **Which commit the live site's release was built from,** if he wants it tagged (Part 3). Its `release.json` says.
+
+### The review (2026-10-05, Fable 5.1 at high effort, `docs/prompts/ai-assistant-review.md`)
+
+It changed nothing. Every gate was green that day, with the report's numbers: typecheck 0; `npm test` 23 files, 337
+tests; `test:contract` 37 files, 353 tests (7 files / 212 tests skipped by project); `test:php` 726 tests, 9589
+assertions, 37 skipped; `test:render` 114 passed, 1 skipped (the opt-in baseline); `test:php-smoke` 2 passed. The
+baseline was not rerun: nothing under `src/flyer/`, `src/render/`, `src/shared/layout.ts`, `defaults.ts` or `brief.ts`
+changed since `1fbc991`. Don't take the review's word either: reproduce each finding with a failing test before its fix.
+
+**F1 (medium). One bad ledger record, or a damaged month file, takes `api/config` down, and with it the whole app, on
+the JSON driver of both backends.** `Decision: fix (a), (b) and (c).`
+- `status()` reads the month's file for the count (`server/storage/json/aiUsage.ts:47`, `AiUsageFileSchema.parse` on
+  every read; `php/src/Storage/Json/JsonAiUsageRepository.php:58`). A file that fails the schema or is not JSON throws,
+  `api/config` answers 500 (`server/app.ts`, `php/src/Http/Api.php` `apiConfig()`), and the editor, which loads hostels
+  and config together and renders nothing without both, shows only "Could not reach the server". `GET api/hostels` still
+  answers 200.
+- A record goes bad without anyone editing a file: Node's adapters trust the provider's field types where PHP checks
+  them. `usageOf` (`server/ai/providers/common.ts:41`) takes any `number`, PHP's `ProviderAnswer::usage` takes
+  `is_int`; `model: data.model ?? this.model` takes anything, PHP takes `is_string`. `JsonAiUsageRepository.record`
+  writes the entry without parsing it, so a provider reporting `input_tokens: 12.5` writes a record the next read
+  refuses. The write succeeds; every read after it fails, for the rest of the month.
+- Reproduced on Node against a temp JSON store with the fake provider wired as `tests/contract/setup/node.ts` wires it:
+  `record()` with `tokens.input = 12.5` was written; then `api/config` 500, `POST api/ai/flyer` 500, `api/hostels` 200.
+  A month file holding `{ damaged`: `api/config` 500. PHP by reading: `Kernel` catches the `Throwable`, logs it, 500.
+- On Node the schema failure also throws a bare `ZodError` naming no file; PHP's `read()` names it.
+- The fix: (a) `status()` on both backends catches the ledger's error, logs it once and answers `{enabled: false}`, so
+  the AI's storage never decides whether the app loads (the generation routes may keep failing: a staff member with a
+  hidden AI never reaches them); (b) `usageOf` requires `Number.isInteger`, and both Node adapters take `model` only when
+  it is a string, as PHP does, pinned by a vector with a float `usage` in `tests/fixtures/ai-openai.json` and
+  `ai-anthropic.json` (PHP already answers `null` for it; Node must); (c) `JsonAiUsageRepository.record` parses the entry
+  with `StoredAiUsageSchema` before writing, and `read()` names the file on a schema failure.
+
+**F2 (low). The assumptions list treats the model's `field` as a key of a plain object.** `Decision: fix.`
+- `src/editor/AiPage.tsx:124`: `FIELD_LABEL[a.field] ?? a.field`. `field` is `z.string().max(40)`, the model's to
+  choose. `"__proto__"` passes the schema and reads `Object.prototype`, which React refuses as a child, so the page
+  crashes after the generation was spent; `"constructor"` reads a function and renders an empty label. Shown by
+  JavaScript semantics, not driven in a browser (the fake's assumptions are fixed).
+- The fix: `Object.hasOwn(FIELD_LABEL, a.field) ? FIELD_LABEL[a.field] : a.field`, or a `Map`.
+
+**F3 (low). `createAiService` reads `schema/ai.json` before it knows the AI is off.** `Decision: fix.`
+- `server/ai/composition.ts:35`: `const bundle = deps.bundle ?? loadBundle();` runs before `createProvider` can return
+  null, against the Phase 2 ruling ("off needs no service, no bundle load") and the file's own comment. PHP checks
+  `enabled` first (`Bootstrap::aiService`). A missing or stale bundle stops Node at start-up with no key set, where PHP
+  serves everything. Verified by reading.
+- The fix: return `undefined` before `loadBundle()` when `!settings.enabled || settings.provider === null`.
+
+**F4 (low, DRY). `FIELD_LABEL` in `AiPage.tsx` is a second copy of the editor's field names** ("Library name", "Nice to
+know", "Spanish line" are literals in `Editor.tsx` too); a rename in the editor leaves the assumptions list behind.
+`Decision: leave.`
+
+**Suspicions the review could not reproduce** (`Decision: leave both`, unless Artur says otherwise):
+- The `"""` fence is not escaped (`server/ai/prompt.ts:54`, `php/src/Ai/PromptBuilder.php:21`): a staff text holding
+  `"""` closes it early, and what follows may read as outside the data. Needs a model to show.
+- A key written in `.env` as `"sk-…\n"` (double quotes) gains a real newline: `process.loadEnvFile` expands the escape.
+  Every call then fails as `network: Could not reach api.openai.com: fetch failed`, and nothing names the cause. Not a
+  leak: undici's message carries no header value.
+
+**Refuted, don't hunt them again:**
+- "PHP with no curl prints the key in the trace." A PHP trace prints an array argument as `Array` and cuts strings at
+  15 characters (probed with `zend.exception_ignore_args` off): the no-curl frame reads
+  `postJson('https://api.ope...', Array, '{"model":"gpt-6...', 25000)`. The residual, on PHP 8.1 only, is a 15-character
+  prefix of a string argument in a frame that holds the key (`redact`, `body`, `answerJson`), reachable only by a
+  non-`LlmFailure` `Error` thrown beneath it, and no such path exists. The 500 itself stands: Part 2, item 1.
+- "A bad header value leaks the key on Node." `fetch` reports only `fetch failed`.
+
+**Found sound:** the key reaches no config, log line, ledger, release or git; a generation counts only after the schema
+passed and the provider runs outside the lock; no test reaches a provider; the Canary day on both; the twins agree on
+check order, truthiness, ledger bytes and JSON encoding apart from F1's field types; input fenced and the answer only
+ever data apart from F2; the client hides everything when off, takes the handoff once and uses `replaceHash` only; the
+copy tool and migration 3; the configuration's on/off conditions apart from F3. What breaks with every test green is
+exactly F1, F2 and F3.
 
 ## Part 1: the AI in Chrome, with a real provider
 
@@ -85,7 +159,16 @@ session.
    stays as it is: it is the flyer that was posted.
 5. **`tests/unit/ai-providers.test.ts`'s local-server test gets room.** "hands back the status and the body text"
    failed once at its own 2000 ms, on a busy machine; alone it passed 3 times out of 3.
-6. **What Artur picked from the review,** each reproduced by a failing test before its fix.
+6. **What Artur picked from the review** (Part 0), each reproduced by a failing test before its fix:
+   - F1: a storage test in `tests/storage/repositories.contract.ts` (or the JSON driver's own file) with a month file
+     that fails the schema and one that is not JSON; a contract case on `node-ai` and `php-ai` where `api/config` answers
+     `{enabled: false}` with a damaged ledger (the stage's store is reachable from the setup); a vector with a float
+     `usage` in both adapter fixtures; a unit test that `record()` refuses a record the schema refuses. PHP's twin
+     (`AiService::status`, `JsonAiUsageRepository`) changes in step: both backends, one contract.
+   - F2: the unit suite has no DOM, so drive it in `tests/render/ai.spec.ts` by routing `api/ai/flyer` to an answer whose
+     assumption has `field: "__proto__"` (a routed answer costs nothing): the page must show the label and stay up.
+   - F3: a unit test (`tests/unit/ai-service.test.ts`, or a new `composition.test.ts`): `createAiService` with the
+     settings off and a bundle file that does not exist returns `undefined` without reading it.
 
 Left alone unless the review raised it: requiring a share text that is not empty. Today `""` passes. It would need a
 real call to learn whether OpenAI's strict dialect takes a minimum length.
