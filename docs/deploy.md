@@ -191,11 +191,19 @@ rehearse this on a local copy of the deployment:
 npm run deploy:backup  -- <deploy folder> [--to <folder>]           # default: ./backups/
 npm run deploy:restore -- <backup folder> <deploy folder> [--force]
 npm run deploy:reset   -- <deploy folder>                            # empties the library
+npm run deploy:update  -- <deploy folder> [--to <folder>]           # a newer release over a local copy
 ```
 
 `deploy:restore` refuses a deployment that already holds flyers or photos, or a different
 `config.php`, unless you add `--force`. The drill in `tests/cross/restore-drill.test.ts` proves
 backup → wipe → restore brings back a flyer and its photo byte for byte.
+
+`deploy:update` is *Updating to a new release*, below, for a local copy (a Laragon folder): it backs
+the folder up, builds the release, copies it over the folder without deleting anything, and tags it.
+If the folder's root `.htaccess` was not the last release's own (a lock pasted in), the backup keeps it
+as `htaccess-before-update` and the command says so: paste the block again. A host is still updated by
+SFTP, by hand. `tests/cross/update-drill.test.ts` proves the library, the photos, `config.php` and any
+file the release does not ship are left exactly as they were.
 
 ---
 
@@ -211,6 +219,16 @@ backup → wipe → restore brings back a flyer and its photo byte for byte.
    release: nothing to paste for it.
 5. Reload the app. If a release ever changes the store's format, the app says so rather than
    half-reading it.
+6. **Tag the release**, on the computer with the checkout:
+
+   ```sh
+   npm run deploy:tag -- https://nestpass.ai/activities/
+   ```
+
+   It asks the site which release it runs and makes the git tag `release/<id>` on the commit that
+   release was built from, with the site and the day in its message, so git says which code is live.
+   It refuses a release built from uncommitted changes: commit, build and upload again. A tag is
+   never pushed by itself: `git push origin release/<id>` when you want it on GitHub.
 
 ## The hostels' badges
 

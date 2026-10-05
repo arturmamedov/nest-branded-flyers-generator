@@ -28,6 +28,7 @@
     "deploy:restore": "tsx scripts/php/restore-deploy.ts",
     "deploy:reset": "tsx scripts/php/reset-deploy.ts",
     "deploy:tag": "tsx scripts/php/tag-release.ts",
+    "deploy:update": "tsx scripts/php/update-deploy.ts",
     "flyers:post": "tsx scripts/flyers/post.ts",
     "ai:smoke": "tsx scripts/ai/smoke.ts"
   },

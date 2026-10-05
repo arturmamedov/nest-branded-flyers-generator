@@ -21,6 +21,8 @@ npm run test:php       # PHPUnit (PHP_BIN picks the interpreter; composer test i
 npm run test:php-smoke # the editor driven against the PHP backend in a browser
 npm run build:php      # the shared-hosting release in release/php/ (with release.json), and the preflight page beside it
 npm run deploy:backup  # a local deployment's library to ./backups/ (deploy:restore, deploy:reset); docs/deploy.md
+npm run deploy:update  # a newer release over a local copy of a deployment: backup, build, additive copy, git tag
+npm run deploy:tag     # the git tag release/<id> for a deployed release (a folder, or a site's address); never pushes
 npm run copy           # move a library between storage drivers (SQLite <-> JSON files)
 npm run ai:smoke       # one real AI generation by hand, with .env's AI_PROVIDER and AI_API_KEY (--share: a share text;
                        # --to <app root>: through a site, spending one of its 3 for the day). Never part of a test

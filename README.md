@@ -78,6 +78,8 @@ export renderer works in dev too.
 | `npm run test:php-smoke` | builds, serves the release layout with `php -S`, and drives the editor on the PHP backend in a browser |
 | `npm run build:php` | the release to upload to a PHP host, in `release/php/`, and the preflight page beside it (`docs/deploy.md`) |
 | `npm run deploy:backup` / `deploy:restore` / `deploy:reset` | a local deployment's library out to a dated folder, back in, or emptied (`docs/deploy.md`, *Backups*) |
+| `npm run deploy:update` | a newer release over a local copy of a deployment: backup, build, an additive copy that deletes nothing, and a git tag. `tests/cross/update-drill.test.ts` proves the library, the photos and `config.php` untouched |
+| `npm run deploy:tag` | the git tag `release/<id>` for a deployed release, on the commit it was built from, with the site and the day in its message. It takes a deployment's folder or a site's address, refuses a release built from uncommitted changes, and never pushes |
 | `npm run flyers:post` | saves flyers from staff-text briefs on a site through its API (`FLYERS_BASE_URL`, or `--to`; `--dry-run` checks only). Idempotent; `docs/ai-flyers/README.md` |
 | `npm run ai:smoke` | one real AI generation, by hand, with the provider and key in `.env`: the brief, what it assumed, the share text, the tokens and the seconds. `--share` writes a flyer's share text; `--to <app root>` goes through a site's API and spends one of its 3 for the day. Never part of a test: no test touches a provider |
 | `npm run copy` | moves a library between storage drivers (SQLite ⇄ JSON files) |
@@ -291,8 +293,9 @@ settings as the `AI_*` ones above. It needs PHP's curl, which the preflight page
 built before 2026-10-03 refuses a `config.php` that has the block, so the block comes out before a
 rollback that far.
 
-**Against a local copy of a deployment** (a Laragon folder): `npm run deploy:backup`,
-`deploy:restore` and `deploy:reset` (`docs/deploy.md`, *Backups*), and the checks with
+**Against a local copy of a deployment** (a Laragon folder): `npm run deploy:update` puts the
+current release there; `npm run deploy:backup`, `deploy:restore` and `deploy:reset` handle its
+library (`docs/deploy.md`, *Backups*); and the checks run with
 `CONTRACT_BASE_URL` in `.env` (`docs/deploy.md`, *Checking from the computer with the checkout*).
 A Laragon copy answers over https only, with Laragon's own certificate, which Node does not trust.
 Name it before a check or an `ai:smoke --to` there:
