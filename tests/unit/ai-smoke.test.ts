@@ -7,6 +7,7 @@ import { siteAt, SiteError } from '../../scripts/site.js';
 import { loadBundle } from '../../server/ai/bundle.js';
 import { loadAiSettings } from '../../server/config.js';
 import { APP_ROOT, SEED_FILE } from '../../server/paths.js';
+import { AI_FEATURES } from '../../src/shared/ai.js';
 import { AiFlyerRequestSchema, AiFlyerResultSchema, AiShareRequestSchema, AiShareResultSchema, type AiFlyerResult } from '../../src/shared/schema.js';
 import { SeedFileSchema } from '../../src/shared/seed.js';
 
@@ -68,17 +69,33 @@ describe('parseSmokeArgs', () => {
 
 describe('refusal: the direct mode is for a real provider with its key', () => {
   it('names what is missing, and never the key', () => {
-    expect(refusal(loadAiSettings({}))).toContain('AI_PROVIDER');
-    expect(refusal(loadAiSettings({ AI_PROVIDER: 'fake' }))).toContain('a real provider');
-    expect(refusal(loadAiSettings({ AI_PROVIDER: 'openai' }))).toContain('AI_API_KEY');
-    const off = refusal(loadAiSettings({ AI_PROVIDER: 'openai', AI_API_KEY: KEY, AI_ENABLED: '0' }));
+    expect(refusal(loadAiSettings({}), 'flyer')).toContain('AI_PROVIDER');
+    expect(refusal(loadAiSettings({ AI_PROVIDER: 'fake' }), 'flyer')).toContain('a real provider');
+    expect(refusal(loadAiSettings({ AI_PROVIDER: 'openai' }), 'flyer')).toContain('AI_API_KEY');
+    const off = refusal(loadAiSettings({ AI_PROVIDER: 'openai', AI_API_KEY: KEY, AI_ENABLED: '0' }), 'flyer');
     expect(off).toContain('AI_ENABLED');
     expect(off).not.toContain(KEY);
   });
 
-  it('lets a keyed provider through', () => {
-    expect(refusal(loadAiSettings({ AI_PROVIDER: 'anthropic', AI_API_KEY: KEY }))).toBeNull();
-    expect(refusal(loadAiSettings({ AI_PROVIDER: 'openai', AI_API_KEY: KEY }))).toBeNull();
+  // None until named (the owner's answer, 2026-10-05): a key alone runs nothing, and the service would answer ai_off.
+  it('names the feature these settings do not run, before anything is sent', () => {
+    const keyed = { AI_PROVIDER: 'openai', AI_API_KEY: KEY };
+    for (const feature of AI_FEATURES) {
+      const none = refusal(loadAiSettings(keyed), feature);
+      expect(none, feature).toContain('AI_FEATURES');
+      expect(none, feature).toContain(feature);
+      expect(none, feature).not.toContain(KEY);
+    }
+    const shareOnly = loadAiSettings({ ...keyed, AI_FEATURES: 'share' });
+    expect(refusal(shareOnly, 'flyer')).toContain('AI_FEATURES');
+    expect(refusal(shareOnly, 'share')).toBeNull();
+  });
+
+  it('lets a keyed provider that runs the feature through', () => {
+    for (const feature of AI_FEATURES) {
+      expect(refusal(loadAiSettings({ AI_PROVIDER: 'anthropic', AI_API_KEY: KEY, AI_FEATURES: 'flyer,share' }), feature)).toBeNull();
+      expect(refusal(loadAiSettings({ AI_PROVIDER: 'openai', AI_API_KEY: KEY, AI_FEATURES: feature }), feature)).toBeNull();
+    }
   });
 });
 
@@ -152,27 +169,49 @@ describe('siteAt', () => {
 });
 
 describe('siteAi: what a site’s api/config says there is to spend', () => {
-  it('gives the limit and what is left of it today', () => {
-    expect(siteAi({ backend: 'php', ai: { enabled: true, limit: 3, remaining: 2, features: ['flyer', 'share'] } })).toEqual({ limit: 3, remaining: 2 });
+  it('gives the limit and what is left of it today, for a feature the site runs', () => {
+    expect(siteAi({ backend: 'php', ai: { enabled: true, limit: 3, remaining: 2, features: ['flyer', 'share'] } }, 'flyer')).toEqual({ limit: 3, remaining: 2 });
+    expect(siteAi({ backend: 'php', ai: { enabled: true, limit: 3, remaining: 2, features: ['share'] } }, 'share')).toEqual({ limit: 3, remaining: 2 });
+  });
+
+  // The trial on the live site runs the share text alone: a smoke for a flyer there must stop before it is sent.
+  it('stops when the site does not run the feature, naming the ones it does and the setting', () => {
+    const flyerOff = said(() => siteAi({ backend: 'php', ai: { enabled: true, limit: 3, remaining: 2, features: ['share'] } }, 'flyer'));
+    expect(flyerOff).toContain('flyer');
+    expect(flyerOff).toContain('share');
+    expect(flyerOff).toContain("'features'");
+    expect(flyerOff).toContain('--share');
+    const shareOff = said(() => siteAi({ backend: 'node', ai: { enabled: true, limit: 3, remaining: 2, features: ['flyer'] } }, 'share'));
+    expect(shareOff).toContain('AI_FEATURES');
+    expect(shareOff).not.toContain('--share');
   });
 
   it('names a release from before the AI, so nothing is sent to it', () => {
-    const before = said(() => siteAi({ backend: 'php', server: { release: { id: 'd1d8fcef7c1b', builtAt: '2026-09-29T22:23:28.284Z' } } }));
+    const before = said(() => siteAi({ backend: 'php', server: { release: { id: 'd1d8fcef7c1b', builtAt: '2026-09-29T22:23:28.284Z' } } }, 'flyer'));
     expect(before).toContain('d1d8fcef7c1b');
     expect(before).toContain('2026-09-29');
     expect(before).toContain('npm run build:php');
-    expect(said(() => siteAi({ backend: 'node', server: { node: 'v24' } }))).toContain('before the AI');
+    expect(said(() => siteAi({ backend: 'node', server: { node: 'v24' } }, 'flyer'))).toContain('before the AI');
+  });
+
+  // Such a release answers enabled: true with no list, and runs both: the smoke is of this checkout's contract.
+  it('names a release from before each feature had its own switch, so nothing is sent to it', () => {
+    const before = said(() => siteAi({ backend: 'php', ai: { enabled: true, limit: 3, remaining: 3 }, server: { release: { id: '3f909ea91548', builtAt: '2026-10-05T20:16:20.000Z' } } }, 'share'));
+    expect(before).toContain('3f909ea91548');
+    expect(before).toContain('2026-10-05');
+    expect(before).toContain('its own switch');
+    expect(before).toContain('npm run build:php');
   });
 
   it('stops when the AI is off there, or the day is used up, in the catalogue’s words', () => {
-    expect(said(() => siteAi({ ai: { enabled: false } }))).toContain('off');
-    const used = said(() => siteAi({ ai: { enabled: true, limit: 3, remaining: 0, features: ['flyer', 'share'] } }));
+    expect(said(() => siteAi({ ai: { enabled: false } }, 'flyer'))).toContain('off');
+    const used = said(() => siteAi({ ai: { enabled: true, limit: 3, remaining: 0, features: ['flyer', 'share'] } }, 'share'));
     expect(used).toContain('3 AI generations are used up');
     expect(used).toContain('midnight');
   });
 
   it('refuses an answer that is not the app’s', () => {
-    expect(said(() => siteAi('<html>Coming soon</html>'))).toContain('api/config');
+    expect(said(() => siteAi('<html>Coming soon</html>', 'flyer'))).toContain('api/config');
   });
 });
 

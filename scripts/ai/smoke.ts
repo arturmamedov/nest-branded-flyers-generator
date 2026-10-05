@@ -12,6 +12,7 @@ import { SEED_FILE } from '../../server/paths.js';
 import { applySeedFile } from '../../server/storage/seed.js';
 import { createSqliteRepositories } from '../../server/storage/sqlite/index.js';
 import { systemClock } from '../../server/storage/types.js';
+import { AI_FEATURES, aiFor, type AiFeature } from '../../src/shared/ai.js';
 import { flyerFromBrief } from '../../src/shared/brief.js';
 import { apiError } from '../../src/shared/errors.js';
 import {
@@ -118,40 +119,66 @@ export function shareRequest(example: SmokeExample, hostels: readonly Pick<Hoste
   return { hostel: flyer.hostel, template: flyer.template, data: flyer.data, idea: example.text };
 }
 
-/** Why the direct mode will not run on these settings, or null when it will: it is for a real provider with its key. */
-export function refusal(settings: AiSettings): string | null {
+/** The feature a run calls: the share text with --share, else a flyer from the text. */
+export const featureOf = (share: boolean): AiFeature => (share ? 'share' : 'flyer');
+
+/** Why the direct mode will not run on these settings, or null when it will: it is for a real provider with its key,
+    on a machine whose settings name the feature the run calls. */
+export function refusal(settings: AiSettings, feature: AiFeature): string | null {
   if (settings.provider === null) {
     return 'AI_PROVIDER is not set: put AI_PROVIDER (openai or anthropic) and AI_API_KEY in .env, or go through a site with --to <app root>.';
   }
   if (settings.provider === 'fake') return 'AI_PROVIDER is fake, which answers from the examples: the smoke is for a real provider (openai or anthropic) and its key.';
   if (settings.apiKey === null) return `AI_PROVIDER is ${settings.provider}, but AI_API_KEY is not set in .env.`;
   if (!settings.enabled) return 'AI_ENABLED switches the AI off: take that line out of .env, or set it to 1.';
+  if (!settings.features.includes(feature)) {
+    return `AI_FEATURES in .env does not name "${feature}", so this machine does not run it: AI_FEATURES=${AI_FEATURES.join(',')} runs both.`;
+  }
   return null;
 }
 
-/** What a site's api/config says there is to spend: the limit and what is left of it today. It throws, with what to
-    do, when there is nothing: a release from before the AI, the AI off, or the day used up. `ai_off` and an unknown
-    route answer alike (404 not_found), so this is asked before the generation, not learnt from its refusal. */
-export function siteAi(config: unknown): { limit: number; remaining: number } {
+/** A site's release as a run names it: " (id, built YYYY-MM-DD)", or nothing when api/config does not say. */
+function releaseOf(server: { release?: { id?: unknown; builtAt?: unknown } } | undefined): string {
+  const release = server?.release;
+  const built = typeof release?.builtAt === 'string' ? `, built ${release.builtAt.slice(0, 10)}` : '';
+  return typeof release?.id === 'string' ? ` (${release.id}${built})` : '';
+}
+
+/** What a site's api/config says there is to spend on this feature: the limit and what is left of it today. It
+    throws, with what to do, when there is nothing: a release from before the AI or from before its features had
+    their own switches, the AI off, the feature off, or the day used up. `ai_off` and an unknown route answer alike
+    (404 not_found), so this is asked before the generation, not learnt from its refusal. */
+export function siteAi(config: unknown, feature: AiFeature): { limit: number; remaining: number } {
   if (typeof config !== 'object' || config === null || Array.isArray(config)) {
     throw new Error('This is not the flyer app: api/config did not answer with its settings.');
   }
   const { ai, server } = config as { ai?: unknown; server?: { release?: { id?: unknown; builtAt?: unknown } } };
   if (ai === undefined) {
-    const release = server?.release;
-    const built = typeof release?.builtAt === 'string' ? `, built ${release.builtAt.slice(0, 10)}` : '';
-    const named = typeof release?.id === 'string' ? ` (${release.id}${built})` : '';
     throw new Error(
-      `This site runs a release from before the AI assistant${named}: upload the current release first (npm run build:php, docs/deploy.md), then add the ai block to its config.php.`,
+      `This site runs a release from before the AI assistant${releaseOf(server)}: upload the current release first (npm run build:php, docs/deploy.md), then add the ai block to its config.php.`,
+    );
+  }
+  // Such a release runs both features and lists none: this script speaks this checkout's contract, so it stops here.
+  if (typeof ai === 'object' && ai !== null && (ai as { enabled?: unknown }).enabled === true && !('features' in ai)) {
+    throw new Error(
+      `This site runs a release from before each AI feature had its own switch${releaseOf(server)}: upload the current release first (npm run build:php, docs/deploy.md), then name the features in its settings ('features' in config.php's ai block; AI_FEATURES on a Node server).`,
     );
   }
   const parsed = AiConfigSchema.safeParse(ai);
   if (!parsed.success) throw new Error(`api/config's ai block is not what the contract says: ${issues(parsed.error)}`);
   if (!parsed.data.enabled) {
-    throw new Error("The AI is off on this site: its settings name no provider or no key, or switch it off (config.php's ai block; AI_PROVIDER and AI_API_KEY on a Node server).");
+    throw new Error(
+      "The AI is off on this site: its settings name no provider, no key or no feature, or switch it off (config.php's ai block; AI_PROVIDER, AI_API_KEY and AI_FEATURES on a Node server).",
+    );
   }
-  if (parsed.data.remaining === 0) throw new Error(apiError('ai_quota', { limit: parsed.data.limit }).message);
-  return { limit: parsed.data.limit, remaining: parsed.data.remaining };
+  const on = aiFor(parsed.data, feature);
+  if (on === null) {
+    throw new Error(
+      `This site does not run "${feature}": its settings name ${parsed.data.features.join(', ')} alone ('features' in config.php's ai block; AI_FEATURES on a Node server).${feature === 'flyer' ? ' Run it with --share for the share text.' : ''}`,
+    );
+  }
+  if (on.remaining === 0) throw new Error(apiError('ai_quota', { limit: on.limit }).message);
+  return { limit: on.limit, remaining: on.remaining };
 }
 
 /** The codes Node gives a certificate it has no reason to trust (a development server's own, as Laragon's is). */
@@ -177,7 +204,7 @@ export function siteHint(error: unknown): string | null {
     if (error.movedTo !== null) return `Run it again with --to ${error.movedTo}`;
     if (error.status === 401) return 'The site wants its staff login: set FLYERS_BASE_URL to this address in .env, with FLYERS_BASIC_USER and FLYERS_BASIC_PASSWORD.';
     if (error.code === 'not_configured') {
-      return "The site refuses its config.php: an ai block on a release from before the AI, or a key in the block that config.sample.php does not have. The site's own log names it.";
+      return "The site refuses its config.php: an ai block on a release from before the AI, a key in the block that the site's own release does not know ('features' on one from before the switches), or a value it will not take. The site's own log names it.";
     }
     if (error.code === 'ai_failed') {
       return "Nothing was counted. The reason is in the site's own log (PHP: data/php-errors.log or the host's error log; Node: its console), and the attempt is in its ledger.";
@@ -297,7 +324,7 @@ async function runSite(to: string, share: boolean, example: SmokeExample, bundle
   console.log(`Through ${target.baseUrl}${target.basicAuth ? `, signed in as "${target.basicAuth.user}"` : ''}.`);
   console.log(`Example: ${example.label}, ${share ? 'the share text of its flyer' : 'a flyer from its text'}.`);
   const config = await call('GET', 'api/config', z.unknown());
-  const { limit, remaining } = siteAi(config);
+  const { limit, remaining } = siteAi(config, featureOf(share));
   console.log(`This spends one of this site's ${limit} generations today (${remaining} left).`);
   if (fewShotFor(bundle, example).length < bundle.examples.length) {
     console.log("The text is one of the release's own few-shot examples, so the answer proves the route, the key and the host's time limit, not the model's judgment.");
@@ -329,7 +356,7 @@ async function main(argv: string[]): Promise<number> {
     }
   }
   const settings = loadConfig().ai;
-  const no = refusal(settings);
+  const no = refusal(settings, featureOf(args.share));
   if (no !== null) throw new Error(no);
   // Whatever a provider echoes is already redacted by its adapter; nothing this script prints may carry the key either.
   const say = (text: string) => console.log(redact(text, settings.apiKey ?? ''));
