@@ -204,9 +204,13 @@ final class PromptBuilder
         return $slug === null ? null : (self::hostel($hostels, $slug)['name'] ?? $slug);
     }
 
+    /**
+     * The text between its fences. A run of three or more quotes inside it is cut to two, so the text can never close
+     * the fence itself and have what follows read as outside the data. The ledger keeps the text as it was typed.
+     */
     private static function fenced(string $intro, string $text): string
     {
-        return implode("\n", [$intro, self::FENCE, $text, self::FENCE]);
+        return implode("\n", [$intro, self::FENCE, (string) preg_replace('/"{3,}/', '""', $text), self::FENCE]);
     }
 
     /** @return array{role:string, content:string} */
