@@ -110,6 +110,8 @@ describe('fetchJson', () => {
     expect(failure!.reason).toBe('network');
   });
 
+  // Its own limits are wide on purpose: a local server answers in milliseconds, but on a busy machine (the storage
+  // tests beside it) this once crossed the 2000 ms it used to give fetchJson. The limits are not what it tests.
   it('hands back the status and the body text, whatever the status', async () => {
     const { port, close } = await listen((req, res) => {
       let body = '';
@@ -120,13 +122,13 @@ describe('fetchJson', () => {
       });
     });
     try {
-      const answer = await fetchJson(`http://127.0.0.1:${port}/`, { headers: { Authorization: 'Bearer k' }, body: '{"a":1}', timeoutMs: 2000 });
+      const answer = await fetchJson(`http://127.0.0.1:${port}/`, { headers: { Authorization: 'Bearer k' }, body: '{"a":1}', timeoutMs: 20_000 });
       expect(answer.status).toBe(418);
       expect(JSON.parse(answer.text)).toEqual({ got: { a: 1 }, auth: 'Bearer k' });
     } finally {
       await close();
     }
-  });
+  }, 30_000);
 });
 
 describe('the fake provider', () => {
