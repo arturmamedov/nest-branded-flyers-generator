@@ -11,8 +11,8 @@ import { OpenAiProvider } from './providers/openai.js';
 import { AiService } from './service.js';
 
 /* The AI assistant's composition root: the settings (server/config.ts) pick the provider, the service gets the
-   seams. Off (no provider, no key, or switched off) builds nothing: the app then answers ai_off and
-   `ai: { enabled: false }` without a service at all. */
+   seams. Off (no provider, no key, switched off, or no feature named) builds nothing: the app then answers ai_off
+   and `ai: { enabled: false }` without a service at all. */
 
 /** The provider the settings name, keyed; null when the settings say off. */
 export function createProvider(settings: AiSettings, bundle: AiBundle, fetch?: FetchJson): LlmProvider | null {
@@ -33,7 +33,7 @@ export interface AiDeps {
 
 export function createAiService(settings: AiSettings, deps: AiDeps): AiService | undefined {
   // Off reads nothing: a site with no key starts whatever state schema/ai.json is in (PHP: Bootstrap::aiService).
-  if (!settings.enabled || settings.provider === null) return undefined;
+  if (!settings.enabled || settings.provider === null || settings.features.length === 0) return undefined;
   const bundle = deps.bundle ?? loadBundle();
   const provider = createProvider(settings, bundle);
   if (!provider) return undefined;

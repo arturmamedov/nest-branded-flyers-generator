@@ -9,6 +9,7 @@ import { createApp } from '../../../server/app.js';
 import { createRepositories } from '../../../server/composition.js';
 import { loadConfig, type StorageDriver } from '../../../server/config.js';
 import { SEED_FILE, dataPaths } from '../../../server/paths.js';
+import { AI_FEATURES } from '../../../src/shared/ai.js';
 import { applySeedFile } from '../../../server/storage/seed.js';
 import { systemClock } from '../../../server/storage/types.js';
 
@@ -35,8 +36,10 @@ export default async function setup(project: TestProject) {
   const data = dataPaths(dir);
   const repos = createRepositories({ storage }, data, systemClock);
   await applySeedFile(repos, SEED_FILE);
-  // The fake provider is wired the way the real ones are, through the same settings and composition.
-  const ai = settings.ai ? createAiService(loadConfig({ AI_PROVIDER: settings.ai } as NodeJS.ProcessEnv).ai, { hostels: repos.hostels, usage: repos.aiUsage, clock: systemClock }) : undefined;
+  // The fake provider is wired the way the real ones are, through the same settings and composition, with every
+  // feature named: a provider alone runs nothing. One feature off is proved in process (tests/unit/ai-app.test.ts).
+  const env = { AI_PROVIDER: settings.ai, AI_FEATURES: AI_FEATURES.join(',') } as NodeJS.ProcessEnv;
+  const ai = settings.ai ? createAiService(loadConfig(env).ai, { hostels: repos.hostels, usage: repos.aiUsage, clock: systemClock }) : undefined;
   const server = createServer(createApp({ repos, storage, uploadsDir: data.uploads, buildId: 'contract', ai }));
   await new Promise<void>((done) => server.listen(0, '127.0.0.1', done));
   project.provide('baseUrl', `http://127.0.0.1:${(server.address() as AddressInfo).port}/`);

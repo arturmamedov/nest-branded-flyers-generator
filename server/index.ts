@@ -32,7 +32,11 @@ httpServer.on('request', app);
 httpServer.listen(config.port, config.host, () => {
   console.log(`Nest flyers on http://${config.host}:${config.port} (${config.isProd ? 'production' : 'dev'}, ${config.storage} storage)`);
   console.log(`Data in ${data.root}`);
-  console.log(ai ? `AI assistant on: ${config.ai.provider}, ${config.ai.model}` : 'AI assistant off (AI_PROVIDER and AI_API_KEY in .env turn it on)');
+  console.log(
+    ai
+      ? `AI assistant on: ${config.ai.provider}, ${config.ai.model}; features: ${config.ai.features.join(', ')}`
+      : 'AI assistant off (AI_PROVIDER, AI_API_KEY and AI_FEATURES in .env turn it on)',
+  );
   if (!['127.0.0.1', 'localhost', '::1'].includes(config.host)) {
     console.log('Reminder: no login by design — this must only be reachable from the office network.');
   }

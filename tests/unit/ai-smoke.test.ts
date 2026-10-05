@@ -200,7 +200,7 @@ describe('what to do about a call that failed', () => {
 });
 
 describe('the direct mode, on the fake provider through the server’s own composition', () => {
-  const fake = loadAiSettings({ AI_PROVIDER: 'fake' });
+  const fake = loadAiSettings({ AI_PROVIDER: 'fake', AI_FEATURES: 'flyer,share' });
 
   it('makes a flyer from the text, holding that text out of the few-shot, and reads the numbers off the ledger', async () => {
     const outcome = await runDirect(fake, first, false, bundle);

@@ -1,5 +1,5 @@
 import type { z } from 'zod';
-import { AI_ASSUMPTIONS_MAX, AI_INPUT_MAX, AI_MAX_OUTPUT_TOKENS, aiDay, type AiFeature } from '../../src/shared/ai.js';
+import { AI_ASSUMPTIONS_MAX, AI_FEATURES, AI_INPUT_MAX, AI_MAX_OUTPUT_TOKENS, aiDay, type AiFeature } from '../../src/shared/ai.js';
 import {
   AiFlyerAnswerSchema,
   AiFlyerRequestSchema,
@@ -52,7 +52,7 @@ export class AiService {
       cannot be read hides the AI too: the editor renders nothing without api/config, so the AI's own storage must
       never decide whether the app loads. The generation routes are not softened: a hidden AI never reaches them. */
   async status(actor: Actor): Promise<AiConfig> {
-    if (!this.deps.provider || !this.deps.policy.enabled() || !this.deps.policy.mayUse(actor)) return { enabled: false };
+    if (!this.deps.provider || this.running().length === 0 || !this.deps.policy.mayUse(actor)) return { enabled: false };
     const limit = this.deps.policy.dailyLimit(actor);
     let used: number;
     try {
@@ -70,7 +70,7 @@ export class AiService {
   /** An idea → a brief with its assumptions. A hostel the staff member chose wins over the model's; one the model
       made up becomes chain-wide, said in the first assumption, which takes the model's last one's place on a full list. */
   async flyer(actor: Actor, body: unknown): Promise<AiFlyerResult> {
-    this.admit(actor);
+    this.admit(actor, 'flyer');
     const request = parse(AiFlyerRequestSchema, body);
     const hostels = await this.deps.hostels.list();
     const known = (slug: string) => hostels.some((h) => h.slug === slug);
@@ -93,7 +93,7 @@ export class AiService {
 
   /** A flyer's fields → its share text. */
   async share(actor: Actor, body: unknown): Promise<AiShareResult> {
-    this.admit(actor);
+    this.admit(actor, 'share');
     const request = parse(AiShareRequestSchema, body);
     const hostels = await this.deps.hostels.list();
     if (request.hostel !== null && !hostels.some((h) => h.slug === request.hostel)) throw new HttpError('unknown_hostel');
@@ -105,9 +105,15 @@ export class AiService {
     return { share: answer.share, remaining: remaining - 1 };
   }
 
-  /** Off before anything else, then the policy: the order the contract names. */
-  private admit(actor: Actor): void {
-    if (!this.deps.provider || !this.deps.policy.enabled()) throw new HttpError('ai_off');
+  /** The features that run on this site, in the app's own order: none means the AI is off. */
+  private running(): AiFeature[] {
+    return AI_FEATURES.filter((feature) => this.deps.policy.runs(feature));
+  }
+
+  /** Off before anything else, then the policy: the order the contract names. A feature the site does not run is
+      off as the whole AI is, so nothing of the request is read, counted or recorded. */
+  private admit(actor: Actor, feature: AiFeature): void {
+    if (!this.deps.provider || !this.deps.policy.runs(feature)) throw new HttpError('ai_off');
     if (!this.deps.policy.mayUse(actor)) throw new HttpError('ai_forbidden');
   }
 

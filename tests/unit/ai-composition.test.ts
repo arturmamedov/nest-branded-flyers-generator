@@ -32,18 +32,20 @@ describe('the AI’s composition', () => {
   it.each([
     ['no provider is named', {}],
     ['a real provider has no key', { AI_PROVIDER: 'openai' }],
-    ['it is switched off', { AI_PROVIDER: 'fake', AI_ENABLED: '0' }],
+    ['it is switched off', { AI_PROVIDER: 'fake', AI_FEATURES: 'flyer,share', AI_ENABLED: '0' }],
+    // None until named (the owner's answer, 2026-10-05): a provider alone runs nothing.
+    ['no feature is named', { AI_PROVIDER: 'fake' }],
   ])('builds no service and reads no bundle when %s', (_why, env) => {
     expect(createAiService(loadAiSettings(env), deps)).toBeUndefined();
     expect(loadBundle).not.toHaveBeenCalled();
   });
 
   it('builds the service from the bundle it is handed', () => {
-    expect(createAiService(loadAiSettings({ AI_PROVIDER: 'fake' }), { ...deps, bundle })).toBeInstanceOf(AiService);
+    expect(createAiService(loadAiSettings({ AI_PROVIDER: 'fake', AI_FEATURES: 'share' }), { ...deps, bundle })).toBeInstanceOf(AiService);
     expect(loadBundle).not.toHaveBeenCalled();
   });
 
   it('reads the bundle itself when it is on and handed none', () => {
-    expect(() => createAiService(loadAiSettings({ AI_PROVIDER: 'fake' }), deps)).toThrow('schema/ai.json was read');
+    expect(() => createAiService(loadAiSettings({ AI_PROVIDER: 'fake', AI_FEATURES: 'share' }), deps)).toThrow('schema/ai.json was read');
   });
 });

@@ -8,7 +8,7 @@ import { AiService, type AiServiceDeps } from '../../server/ai/service.js';
 import { HttpError } from '../../server/errors.js';
 import { SEED_FILE } from '../../server/paths.js';
 import type { AiUsageRepository } from '../../server/storage/types.js';
-import { AI_ASSUMPTIONS_MAX, AI_DAILY_LIMIT, AI_INPUT_MAX } from '../../src/shared/ai.js';
+import { AI_ASSUMPTIONS_MAX, AI_DAILY_LIMIT, AI_FEATURES, AI_INPUT_MAX, type AiFeature } from '../../src/shared/ai.js';
 import { newFlyerData } from '../../src/shared/defaults.js';
 import { apiError, type ApiErrorKey } from '../../src/shared/errors.js';
 import { AiFlyerResultSchema, type Hostel } from '../../src/shared/schema.js';
@@ -38,7 +38,8 @@ const hostels: Hostel[] = seed.hostels.map((h, i) => ({ id: i + 1, slug: h.slug,
 const bundle = loadBundle();
 const example = bundle.examples[0];
 const actor = { id: 'anonymous' };
-const settings = { provider: 'fake' as const, apiKey: null, model: 'fake-1', effort: null, timeoutMs: 1000, enabled: true };
+/** A site that names every feature: what a test is about, it takes away. */
+const settings = { provider: 'fake' as const, apiKey: null, model: 'fake-1', effort: null, timeoutMs: 1000, enabled: true, features: [...AI_FEATURES] };
 
 function make(over: Partial<AiServiceDeps> = {}) {
   const clock = new FakeClock();
@@ -82,8 +83,55 @@ describe('the AI service', () => {
     await failsWith(service.share(actor, shareBody()), 'ai_off');
   });
 
+  // The owner's answer (2026-10-05): none until named. A provider and its key run nothing by themselves.
+  it('is off when no feature is named: status says so and both features answer ai_off', async () => {
+    const { service, usage } = make({ policy: createAiPolicy({ ...settings, features: [] }) });
+    expect(await service.status(actor)).toEqual({ enabled: false });
+    await failsWith(service.flyer(actor, idea()), 'ai_off');
+    await failsWith(service.share(actor, shareBody()), 'ai_off');
+    expect(usage.records).toEqual([]);
+  });
+
+  describe.each([...AI_FEATURES])('where every feature is named but %s', (off) => {
+    const named = AI_FEATURES.filter((f) => f !== off);
+    /** Each feature's call, with its own good body unless the test hands in another. */
+    const call: Record<AiFeature, (service: AiService, body?: unknown) => Promise<unknown>> = {
+      flyer: (service, body = idea()) => service.flyer(actor, body),
+      share: (service, body = shareBody()) => service.share(actor, body),
+    };
+
+    it('that feature answers ai_off before its body is read: the provider is never asked, nothing is counted or recorded', async () => {
+      const asked = vi.fn();
+      const provider: LlmProvider = {
+        name: 'fake',
+        model: 'never-asked',
+        complete: async () => {
+          asked();
+          throw new Error('the provider was asked');
+        },
+      };
+      const usage = new MemoryUsage();
+      const counted = vi.spyOn(usage, 'countOk');
+      const { service } = make({ provider, usage, policy: createAiPolicy({ ...settings, features: named }) });
+      await failsWith(call[off](service), 'ai_off');
+      await failsWith(call[off](service, {}), 'ai_off');
+      expect(asked).not.toHaveBeenCalled();
+      expect(counted).not.toHaveBeenCalled();
+      expect(usage.records).toEqual([]);
+    });
+
+    it('the others run, count, and are recorded under their own name', async () => {
+      const { service, usage } = make({ policy: createAiPolicy({ ...settings, features: named }) });
+      for (const feature of named) {
+        await call[feature](service);
+        expect(usage.records.at(-1)).toMatchObject({ feature, ok: true });
+      }
+      expect(await service.status(actor)).toEqual({ enabled: true, limit: AI_DAILY_LIMIT, remaining: AI_DAILY_LIMIT - named.length });
+    });
+  });
+
   it('refuses an actor the policy excludes, and shows them nothing', async () => {
-    const guests: AiPolicy = { enabled: () => true, mayUse: () => false, dailyLimit: () => AI_DAILY_LIMIT };
+    const guests: AiPolicy = { runs: () => true, mayUse: () => false, dailyLimit: () => AI_DAILY_LIMIT };
     const { service } = make({ policy: guests });
     expect(await service.status(actor)).toEqual({ enabled: false });
     await failsWith(service.flyer(actor, idea()), 'ai_forbidden');
