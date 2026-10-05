@@ -52,8 +52,9 @@ return [
     // The AI assistant ("Create with AI" and "Write with AI"). Off until a provider,
     // its key and the features are set; without this block it is off too. At most 3 generations
     // a day unless 'dailyLimit' says otherwise, counted in the Canary Islands. Needs PHP's curl extension.
-    // Before going back to an older release, remove this block: a release from
-    // before the AI refuses config.php with it (503).
+    // Before going back to an older release, take out what it does not know, or it
+    // refuses config.php (503): 'features' and 'dailyLimit' for a release from before
+    // 2026-10-06, the whole block for one from before the AI (docs/deploy.md).
     'ai' => [
         // 'openai' or 'anthropic' ('fake' answers canned examples, for tests).
         'provider' => null,

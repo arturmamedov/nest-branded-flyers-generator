@@ -246,9 +246,10 @@ file the release does not ship are left exactly as they were.
 ## The AI assistant
 
 The app can write a flyer from a staff member's own text ("✨ Create with AI", on the library's
-bar) and a flyer's share text ("✨ Write with AI", in the editor). Both are **off until
-`config.php` names a provider and holds its key.** While they are off nothing of the AI shows, and
-the app looks and works as it did before.
+bar) and a flyer's share text ("✨ Write with AI", in the editor). They are two features, and each
+runs only where `config.php` names it. Both are **off until `config.php` names a provider, holds
+its key and names the features.** A feature that is off shows nothing, and with both off the app
+looks and works as it did before.
 
 **To turn it on:**
 
@@ -266,10 +267,25 @@ the app looks and works as it did before.
        'ai' => [
            'provider' => 'openai',   // or 'anthropic'
            'apiKey' => 'sk-…',
+           'features' => ['share'],  // "Write with AI" alone; ['flyer', 'share'] runs both
        ],
    ```
 
-4. **Reload the app.** The library's bar shows "✨ Create with AI · 3 left".
+4. **Reload the app.** With `['share']`, a flyer's editor shows "✨ Write with AI (3 left today)" in
+   its *Share text* section, and the library's bar shows nothing new. With both features, the bar
+   also shows "✨ Create with AI · 3 left".
+
+**The staff trial: the share text alone on the host, both features on the developer's machine.**
+
+- **On the host:** `'features' => ['share']`, as above. Staff get "Write with AI"; "Create with AI"
+  is nowhere, and its address (`#/ai`) opens the library.
+- **On a Node machine** (`npm run dev`): `AI_FEATURES=flyer,share` in `.env`, beside the provider
+  and its key.
+- **The release first, the keys second.** `features` and `dailyLimit` came with the release of
+  2026-10-06. An older release does not know them and refuses the whole `config.php`: every request
+  answers 503 until they are gone. Upload the release, see the app load, and only then add them.
+- **A key alone runs nothing.** A block from before that release (a provider and its key, no
+  `features`) shows no AI on this one. Name the features and it is back.
 
 What to know:
 
@@ -277,12 +293,14 @@ What to know:
   `.htaccess` denies it) and is in no release. The key never reaches the browser, `api/config`,
   the error log or the library. It *is* in every backup, because `config.php` is: keep backups
   where the key may be.
-- **Three a day.** The whole site gets 3 generations a day, both buttons together, counted on the
-  Canary Islands day. A generation counts only when it gave a flyer or a caption: a failed one is
-  free. The number lives in the code (`AI_DAILY_LIMIT`), so changing it takes a release.
+- **Three a day, unless you set your own.** The whole site gets 3 generations a day, both features
+  together, counted on the Canary Islands day. A generation counts only when it gave a flyer or a
+  caption: a failed one is free. `'dailyLimit' => 5` in the block changes the number without a
+  release. It takes a whole number from 1 to 20: the bound lives in the code (`AI_DAILY_LIMIT_MAX`).
 - **While the app has no lock** (`allowPublic`), anyone who finds the address can spend the day's
-  three before the staff do. That is the whole exposure: the cost cannot pass three generations a
-  day, a few cents at most. Artur accepted it on 2026-10-02. The lock (steps 3–4) closes it.
+  generations before the staff do. That is the whole exposure: the cost cannot pass the day's
+  limit. At 3 a day that is a few cents at most, which Artur accepted on 2026-10-02; a higher
+  `dailyLimit` raises it in step. The lock (steps 3–4) closes it.
 - **What it keeps.** `data/ai-usage/2026-10.json`, one file a month: each text a staff member sent,
   what the model wrote back, and the tokens. It is part of the library and of its backups, and it
   never holds the key. `docs/ai-flyers/README.md` says how these records become the model's next
@@ -310,10 +328,20 @@ Extract the previous release's zip (from the office drive) over the app folder, 
 then paste the lock back at the top of `.htaccess`. Nothing else changes: the library and
 `config.php` are not in any release. No rebuild and no laptop needed.
 
-**Going back to a release built before 2026-10-03? Take the `ai` block out of `config.php` first.**
-A release from before the AI assistant does not know the block and refuses the whole file: every
-request answers 503 "not set up yet" until the block is gone. Keep the lines somewhere safe, away
-from the app folder, to put them back later.
+**Going back to an older release? Take out of `config.php` what that release does not know, first.**
+A release refuses the whole file for a key that came after it: every request answers 503 "not set
+up yet" until the key is gone. Keep the lines somewhere safe, away from the app folder, to put
+them back later.
+
+| Going back to a release built | Take out |
+|---|---|
+| before 2026-10-06 | `features` and `dailyLimit`, from the `ai` block |
+| before 2026-10-03 | the whole `ai` block |
+
+**A release from 2026-10-03 to 2026-10-05 has one switch for both features.** With the provider and
+its key still in the block it runs "Create with AI" as well as "Write with AI". If only the share
+text should run, add `'enabled' => false` before going back to one: no AI at all until the newer
+release is up again.
 
 A release from before the This week template (2026-09-29) shows a week flyer as an Activity one,
 and a Save or a Download there turns it into an Activity flyer. Its rows and title are kept:
@@ -358,17 +386,23 @@ smoke test) that deleting only archives, and photos no endpoint can remove.
 Remove the three lines from `.env` afterwards. While `CONTRACT_BASE_URL` is set, every test run
 goes to the host, and each run says so at the start.
 
-**The AI, with one real generation.** It spends one of the site's 3 for the day:
+**The AI, with one real generation.** It spends one of the site's generations for the day:
 
 ```sh
-npm run ai:smoke -- --to https://nestpass.ai/activities/
+npm run ai:smoke -- --share --to https://nestpass.ai/activities/
 ```
 
-It asks `api/config` first and stops, spending nothing, when the site's release is from before
-the AI, when the AI is off there, or when the day is used up. Then it prints the flyer the site's
-model wrote and how long it took. For a locked site the login comes from `FLYERS_BASE_URL`,
-`FLYERS_BASIC_USER` and `FLYERS_BASIC_PASSWORD` in `.env`. The tokens are in the site's
-`data/ai-usage/` file, which no address serves.
+`--share` asks for a share text ("Write with AI"); without it the script asks for a flyer ("Create
+with AI"). It asks `api/config` first and stops, spending nothing, when:
+
+- the site's release is from before the AI, or from before its features had their own switches;
+- the AI is off there;
+- the site does not run the feature asked for (a flyer, on a site that runs the share text alone);
+- the day is used up.
+
+Then it prints what the site's model wrote and how long it took. For a locked site the login comes
+from `FLYERS_BASE_URL`, `FLYERS_BASIC_USER` and `FLYERS_BASIC_PASSWORD` in `.env`. The tokens are in
+the site's `data/ai-usage/` file, which no address serves.
 
 ---
 
@@ -379,9 +413,10 @@ model wrote and how long it took. For a locked site the login comes from `FLYERS
 | 500 on every page in the folder, the preflight page too (IONOS: 403, on its own page with a cookie banner) | the host refuses a line of `.htaccess`. Right after pasting a block, it is that block: take it out again (the lock's `<If …>` lines are the likely one). Right after an upload, put the previous release's `.htaccess` back and tell a developer |
 | photos alone answer 500 | the same, in `uploads/.htaccess` (IONOS accepts it as shipped) |
 | 503 `not_configured` | `config.php` is missing, has no access rule, or PHP could not read it (a typo): check it against the one the preflight page printed |
-| 503 on everything right after going back to an older release | `config.php` has an `ai` block the older release does not know: take the block out (*Rolling back*) |
-| 503 right after adding the `ai` block | a typo in the block: a setting the sample does not have, or a value of the wrong kind. `data/php-errors.log` names the setting, never its value. "`ai.apiKey` must not hold spaces or line breaks" means the key was pasted with one: write it between single quotes, with nothing after its last character |
-| no "✨ Create with AI" on the bar | the AI is off: `config.php` has no `ai` block, the block has no `provider` or no `apiKey`, or it says `'enabled' => false`. `GET api/config` shows `"ai": {"enabled": false}` |
+| 503 on everything right after going back to an older release | `config.php` has a key the older release does not know: `features` or `dailyLimit` in the `ai` block, or the whole block. Take it out (*Rolling back* has the dates) |
+| 503 right after adding or changing the `ai` block | the release is older than the key (`features` and `dailyLimit` need the release of 2026-10-06: upload it first), or a typo in the block: a setting the sample does not have, a feature that is not `flyer` or `share`, a `dailyLimit` that is not a whole number from 1 to 20, or a value of the wrong kind. The reason names the setting, never its value. **It is in the host's own PHP error log** (the hosting panel's logs), not in `data/php-errors.log`: PHP's log moves into the data folder only once `config.php` has been read. "`ai.apiKey` must not hold spaces or line breaks" means the key was pasted with one: write it between single quotes, with nothing after its last character |
+| nothing of the AI shows | the AI is off: `config.php` has no `ai` block, the block has no `provider`, no `apiKey` or no `features`, or it says `'enabled' => false`. A provider and its key alone run nothing: name the features. `GET api/config` shows `"ai": {"enabled": false}` |
+| "✨ Write with AI" in the editor, but no "✨ Create with AI" on the bar | by design where `features` names `share` alone. `GET api/config` shows `"features": ["share"]` |
 | "The AI didn't answer properly", every time | the provider refused or did not answer; nothing was counted. `data/php-errors.log` has the reason, on a line starting `Nest flyers: AI`: a wrong key (401), a timeout, an answer the app would not take, or "PHP has no curl extension" (the preflight page's *PHP extensions* line says so too: enable curl for this PHP version in the hosting panel) |
 | the browser asks for the password twice, or signs in and the app then says "Sign in" | the `.htaccess` login and `config.php`'s `basicAuth` differ: make them the same user and password |
 | signed in, but every save or load fails with "Sign in" | the host drops the Authorization header on its way to PHP: the preflight page's *Login* line says so. Ask the host (CGIPassAuth), or use `allowIps` in `config.php` |
