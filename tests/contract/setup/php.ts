@@ -29,7 +29,10 @@ export default async function setup(project: TestProject) {
     project.provide('baseUrl', server.baseUrl);
     project.provide('stageDir', stage);
     if (access.kind === 'basic') project.provide('basicAuth', { user: TEST_LOGIN.user, password: TEST_LOGIN.password });
-    if (ai) project.provide('aiProvider', ai);
+    if (ai) {
+      project.provide('aiProvider', ai);
+      project.provide('dataDir', dataDir);
+    }
   } catch (e) {
     await server.stop();
     throw e;

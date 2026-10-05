@@ -13,6 +13,7 @@ use NestFlyers\Shared;
 use NestFlyers\Validation\InvalidData;
 use NestFlyers\Validation\SchemaValidator;
 use stdClass;
+use Throwable;
 
 /**
  * A generation, end to end (docs/api-contract.md, "The AI assistant"): the checks in their order, the prompt, the
@@ -50,7 +51,8 @@ final class AiService
     }
 
     /**
-     * The `ai` block of api/config for this actor: nothing beyond `enabled: false` when they get no AI.
+     * The `ai` block of api/config for this actor: nothing beyond `enabled: false` when they get no AI, or when the
+     * ledger cannot be read (one log line then says why).
      *
      * @return array{enabled:false}|array{enabled:true, limit:int, remaining:int}
      */
@@ -60,7 +62,14 @@ final class AiService
             return ['enabled' => false];
         }
         $limit = $this->policy->dailyLimit($actor);
-        $used = $this->usage->countOk($actor->id, $this->day->day($this->clock->now()));
+        try {
+            $used = $this->usage->countOk($actor->id, $this->day->day($this->clock->now()));
+        } catch (Throwable $e) {
+            // The editor renders nothing without api/config, so the AI's own storage never decides whether the app
+            // loads: a ledger that cannot be read hides the AI. The generation routes are not softened.
+            error_log("Nest flyers: AI: the ledger cannot be read, so the AI is hidden: {$e->getMessage()}");
+            return ['enabled' => false];
+        }
         return ['enabled' => true, 'limit' => $limit, 'remaining' => max(0, $limit - $used)];
     }
 

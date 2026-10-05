@@ -150,6 +150,20 @@ final class BootstrapTest extends TestCase
         self::assertSame('', $this->log(), 'nothing was logged');
     }
 
+    public function testALedgerFileThatCannotBeReadHidesTheAiAndLeavesTheAppUp(): void
+    {
+        // The editor loads api/config before anything else and renders nothing without it: a damaged ledger used to
+        // answer 500 there, and so take the whole app down for the rest of the month.
+        $app = Bootstrap::fromAppRoot($this->appRoot, $this->config() + ['ai' => ['provider' => 'fake']], new FakeClock());
+        mkdir("$this->dataDir/ai-usage");
+        file_put_contents("$this->dataDir/ai-usage/2026-09.json", '{ damaged');
+
+        self::assertEquals((object) ['enabled' => false], $this->ok($app->handle(self::request('GET', '/api/config')))->ai);
+        self::assertSame(200, $app->handle(self::request('GET', '/api/hostels'))->status);
+        self::assertStringContainsString('AI: the ledger cannot be read, so the AI is hidden', $this->log());
+        self::assertStringContainsString('2026-09.json is not valid JSON', $this->log());
+    }
+
     public function testHostelsAndDoodlesAreSeededFromTheSeedFile(): void
     {
         $seed = Json::decode((string) file_get_contents(Paths::seed('hostels.json')));
@@ -275,7 +289,8 @@ final class BootstrapTest extends TestCase
 
     protected function assertPostConditions(): void
     {
-        if ($this->name() !== 'testAnInvalidConfigIs503AndSaysWhyInTheLog') {
+        // The two tests whose point is a line in the log check it themselves.
+        if (!in_array($this->name(), ['testAnInvalidConfigIs503AndSaysWhyInTheLog', 'testALedgerFileThatCannotBeReadHidesTheAiAndLeavesTheAppUp'], true)) {
             self::assertSame('', $this->log(), 'nothing was logged');
         }
     }

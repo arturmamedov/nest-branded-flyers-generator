@@ -43,13 +43,27 @@ function parse<S extends z.ZodType>(schema: S, body: unknown): z.infer<S> {
 }
 
 export class AiService {
+  /** Why the ledger could not be read, last time it could not: the log says a reason once, not on every request. */
+  private ledgerDown: string | null = null;
+
   constructor(private readonly deps: AiServiceDeps) {}
 
-  /** The `ai` block of api/config for this actor: nothing beyond `enabled: false` when they get no AI. */
+  /** The `ai` block of api/config for this actor: nothing beyond `enabled: false` when they get no AI. A ledger that
+      cannot be read hides the AI too: the editor renders nothing without api/config, so the AI's own storage must
+      never decide whether the app loads. The generation routes are not softened: a hidden AI never reaches them. */
   async status(actor: Actor): Promise<AiConfig> {
     if (!this.deps.provider || !this.deps.policy.enabled() || !this.deps.policy.mayUse(actor)) return { enabled: false };
     const limit = this.deps.policy.dailyLimit(actor);
-    const used = await this.deps.usage.countOk(actor.id, aiDay(this.deps.clock.now()));
+    let used: number;
+    try {
+      used = await this.deps.usage.countOk(actor.id, aiDay(this.deps.clock.now()));
+    } catch (e) {
+      const reason = e instanceof Error ? e.message : String(e);
+      if (reason !== this.ledgerDown) console.error(`AI: the ledger cannot be read, so the AI is hidden: ${reason}`);
+      this.ledgerDown = reason;
+      return { enabled: false };
+    }
+    this.ledgerDown = null;
     return { enabled: true, limit, remaining: Math.max(0, limit - used) };
   }
 

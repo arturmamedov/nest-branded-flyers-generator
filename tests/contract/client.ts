@@ -26,6 +26,8 @@ declare module 'vitest' {
     remote?: boolean;
     /** The AI provider the setup wired, when it wired one: 'fake' on node-ai and php-ai, which alone generate. */
     aiProvider?: 'fake';
+    /** Where those two projects' JSON store lives on disk, for damaging the AI ledger (ai.test.ts). */
+    dataDir?: string;
   }
 }
 

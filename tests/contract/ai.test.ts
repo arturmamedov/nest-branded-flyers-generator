@@ -1,9 +1,11 @@
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, inject, it } from 'vitest';
 import { AI_BUNDLE_FILE } from '../../server/paths.js';
-import { AI_DAILY_LIMIT, AI_INPUT_MAX } from '../../src/shared/ai.js';
+import { AI_DAILY_LIMIT, AI_INPUT_MAX, aiDay } from '../../src/shared/ai.js';
 import { newFlyerData } from '../../src/shared/defaults.js';
 import { AiFlyerResultSchema, AiShareResultSchema, ApiConfigSchema, type AiFlyerAnswer } from '../../src/shared/schema.js';
+import { STORAGE_FILES } from '../../src/shared/storage.js';
 import { config, fails, ok, seed, send } from './client.js';
 
 /* The AI assistant's routes (docs/api-contract.md, "The AI assistant"). Off is the state every backend starts in: no
@@ -13,6 +15,8 @@ import { config, fails, ok, seed, send } from './client.js';
    them, so the suite can't spend its day's generations. */
 
 const FAKE = inject('aiProvider') === 'fake';
+/** The JSON store of the project that generates, on this machine's disk: where its ledger can be damaged. */
+const STORE = inject('dataDir');
 const shareBody = () => ({ hostel: null, template: 'activity', data: newFlyerData() });
 /** api/config, fresh: the client's config() is cached, and `remaining` moves. */
 const status = async () => (await ok(send('GET', 'api/config'), ApiConfigSchema)).ai;
@@ -87,6 +91,21 @@ describe.skipIf(!FAKE)('AI on, with the fake provider (one day, in order)', () =
   it('answers ai_quota once the day’s generations are used up, and api/config says 0 left', async () => {
     await fails(send('POST', 'api/ai/flyer', idea()), 'ai_quota', { limit: AI_DAILY_LIMIT });
     await fails(send('POST', 'api/ai/share', shareBody()), 'ai_quota', { limit: AI_DAILY_LIMIT });
+    expect(await status()).toEqual({ enabled: true, limit: AI_DAILY_LIMIT, remaining: 0 });
+  });
+
+  // Last, and it puts the file back: the tests above share this store and its day. The editor loads api/config before
+  // anything else and renders nothing without it, so a ledger no read can take must cost the AI and nothing more.
+  it.skipIf(!STORE)('hides the AI when its ledger cannot be read, and leaves the rest of the app up', async () => {
+    const month = join(STORE!, STORAGE_FILES.aiUsageDir, `${aiDay(new Date().toISOString()).slice(0, 7)}.json`);
+    const kept = readFileSync(month);
+    writeFileSync(month, '{ damaged');
+    try {
+      expect(await status()).toEqual({ enabled: false });
+      expect((await send('GET', 'api/hostels')).status).toBe(200);
+    } finally {
+      writeFileSync(month, kept);
+    }
     expect(await status()).toEqual({ enabled: true, limit: AI_DAILY_LIMIT, remaining: 0 });
   });
 });

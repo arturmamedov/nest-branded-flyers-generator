@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { loadBundle } from '../../server/ai/bundle.js';
 import { createAiPolicy, type AiPolicy } from '../../server/ai/policy.js';
 import type { LlmProvider } from '../../server/ai/provider.js';
@@ -208,5 +208,54 @@ describe('the AI service', () => {
     expect(usage.records[0]).toMatchObject({ feature: 'share', ok: true });
     expect(usage.records[0].input).toContain("The flyer's fields:");
     expect(usage.records[0].input).toContain('Pool party');
+  });
+});
+
+/* api/config carries status(), and the editor renders nothing without api/config: so the AI's own storage must never
+   be what decides whether the app loads. A ledger that cannot be read hides the AI, and the log says why. */
+describe('a ledger that cannot be read', () => {
+  const DAMAGED = 'ai-usage/2026-09.json is damaged: 0.tokens.input invalid input';
+  /** A ledger whose count fails while `broken` is true. */
+  const flaky = () => {
+    const usage = new MemoryUsage();
+    const state = { broken: true };
+    const countOk = usage.countOk.bind(usage);
+    usage.countOk = async (actorId, day) => {
+      if (state.broken) throw new Error(DAMAGED);
+      return countOk(actorId, day);
+    };
+    return { usage, state };
+  };
+  const silenced = () => vi.spyOn(console, 'error').mockImplementation(() => {});
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('hides the AI in status, where it used to fail the whole of api/config', async () => {
+    silenced();
+    const { service } = make({ usage: flaky().usage });
+    expect(await service.status(actor)).toEqual({ enabled: false });
+  });
+
+  it('says why in the log, once for as long as the reason is the same', async () => {
+    const logged = silenced();
+    const { service } = make({ usage: flaky().usage });
+    await service.status(actor);
+    await service.status(actor);
+    expect(logged).toHaveBeenCalledTimes(1);
+    expect(logged.mock.calls[0].join(' ')).toContain(DAMAGED);
+  });
+
+  it('shows the AI again once the ledger reads, and speaks up again if it breaks again', async () => {
+    const logged = silenced();
+    const { usage, state } = flaky();
+    const { service } = make({ usage });
+    await service.status(actor);
+    state.broken = false;
+    expect(await service.status(actor)).toEqual({ enabled: true, limit: AI_DAILY_LIMIT, remaining: AI_DAILY_LIMIT });
+    state.broken = true;
+    expect(await service.status(actor)).toEqual({ enabled: false });
+    expect(logged).toHaveBeenCalledTimes(2);
   });
 });

@@ -123,7 +123,8 @@ path, is 404 `no_such_endpoint`.
 - `limits` drives photo preparation in the browser.
 - `ai` is what the AI assistant is for the caller (the actor, see below): nothing beyond `enabled: false` when it is
   off, else the actor's daily limit and how many generations are left of it today. Never the provider, the model or the
-  key.
+  key. It is `enabled: false` too when the AI's ledger cannot be read (the server's log says why): the editor loads
+  nothing without this answer, so the AI's storage never makes it fail.
 - `maxUploadBytes` is the largest upload this backend accepts. Node: 15 MiB. PHP: the smallest of 15 MiB,
   `upload_max_filesize`, and `post_max_size` minus 64 KiB.
 - `server` is diagnostics only: nothing reads it to decide anything. Node reports `node`. PHP reports `php`,

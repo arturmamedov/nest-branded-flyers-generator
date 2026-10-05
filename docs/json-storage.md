@@ -85,6 +85,11 @@ appear on the first append, so a read never writes, and a release from before th
 carry no id, so `meta.json`'s counters are untouched, and no migration id is needed. The copy tool carries the ledger
 with the library.
 
+A month's file that cannot be read costs the AI and nothing else. `api/config` then says `ai: { enabled: false }`, so
+the app loads as it does with the AI off, and the server's log names the file. Mend or remove the file and the AI is
+back on the next request. The two drivers read it differently: Node checks every record against the schema, PHP takes
+the list as it is, so Node refuses to write a record the schema would refuse (a token count that is no whole number).
+
 ## Moving a library in
 
 `npm run copy` reads a SQLite library and writes this format, keeping ids, timestamps and `archived`, and copying only

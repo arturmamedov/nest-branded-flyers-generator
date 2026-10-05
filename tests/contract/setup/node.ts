@@ -18,7 +18,9 @@ import { systemClock } from '../../../server/storage/types.js';
 const PROJECTS: Record<string, { storage: StorageDriver; ai?: 'fake' }> = {
   node: { storage: 'sqlite' },
   'node-json': { storage: 'json' },
-  'node-ai': { storage: 'sqlite', ai: 'fake' },
+  // On the JSON driver, as php-ai is: the ledger is then a file both backends keep, and ai.test.ts can damage it.
+  // SQLite's ledger over HTTP is the render suite's `ai` project (tests/render/ai.spec.ts).
+  'node-ai': { storage: 'json', ai: 'fake' },
 };
 
 /** The Node backend in-process on a fresh temp data folder, without a renderer
@@ -38,7 +40,10 @@ export default async function setup(project: TestProject) {
   const server = createServer(createApp({ repos, storage, uploadsDir: data.uploads, buildId: 'contract', ai }));
   await new Promise<void>((done) => server.listen(0, '127.0.0.1', done));
   project.provide('baseUrl', `http://127.0.0.1:${(server.address() as AddressInfo).port}/`);
-  if (settings.ai) project.provide('aiProvider', settings.ai);
+  if (settings.ai) {
+    project.provide('aiProvider', settings.ai);
+    project.provide('dataDir', data.root);
+  }
   return async () => {
     await new Promise((done) => server.close(done));
     await repos.close();

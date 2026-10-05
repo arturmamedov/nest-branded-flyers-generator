@@ -36,6 +36,7 @@ use NestFlyers\Tests\Support\TempDir;
 use NestFlyers\Validation\SchemaNormalizer;
 use NestFlyers\Validation\SchemaValidator;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 use stdClass;
 
 /**
@@ -320,6 +321,28 @@ final class AiServiceTest extends TestCase
         self::assertSame(self::LIMIT - 2, $service->share($this->actor, $this->shareBody())['remaining']);
         self::assertSame(2, $probe->calls);
         self::assertSame(2, $repos->aiUsage->countOk('anonymous', '2026-09-18'));
+    }
+
+    public function testALedgerThatCannotBeReadHidesTheAiAndTheLogSaysWhy(): void
+    {
+        // api/config carries status(), and the editor renders nothing without api/config: the AI's own storage must
+        // never decide whether the app loads (the twin of status() in server/ai/service.ts).
+        $broken = new class () implements AiUsageRepository {
+            public function record(array $entry): void
+            {
+            }
+
+            public function countOk(string $actorId, string $day): int
+            {
+                throw new RuntimeException('ai-usage/2026-09.json is damaged: expected a JSON array of ledger records.');
+            }
+        };
+        self::assertSame(['enabled' => false], $this->service(['usage' => $broken])->status($this->actor));
+        self::assertStringContainsString(
+            'Nest flyers: AI: the ledger cannot be read, so the AI is hidden: ai-usage/2026-09.json is damaged',
+            $this->log(),
+        );
+        self::assertSame(1, substr_count($this->log(), "\n"), 'one line');
     }
 
     // ---- helpers ----
