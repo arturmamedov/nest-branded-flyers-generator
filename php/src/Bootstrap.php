@@ -213,7 +213,7 @@ final class Bootstrap
         }
         return new AiService(
             $provider,
-            new ConfigAiPolicy($config->ai, $shared->ai()['dailyLimit']),
+            new ConfigAiPolicy($config->ai),
             $bundle,
             $repos->hostels,
             $repos->aiUsage,

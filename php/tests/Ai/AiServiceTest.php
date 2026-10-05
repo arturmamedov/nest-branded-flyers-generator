@@ -321,6 +321,16 @@ final class AiServiceTest extends TestCase
         self::assertSame(self::LIMIT - 1, $service->flyer($this->actor, $this->idea())['remaining']);
     }
 
+    // The owner's answer (2026-10-05): the cap is the site's own setting, 3 unless it says otherwise.
+    public function testItStopsAtTheSitesOwnCapAndSaysThatNumber(): void
+    {
+        $service = $this->service(['policy' => $this->policy(['provider' => 'fake', 'dailyLimit' => 1])]);
+        self::assertSame(['enabled' => true, 'limit' => 1, 'remaining' => 1, 'features' => self::FEATURES], $service->status($this->actor));
+        self::assertSame(0, $service->share($this->actor, $this->shareBody())['remaining']);
+        $this->failsWith(fn () => $service->flyer($this->actor, $this->idea()), 'ai_quota', ['limit' => 1]);
+        self::assertSame(['enabled' => true, 'limit' => 1, 'remaining' => 0, 'features' => self::FEATURES], $service->status($this->actor));
+    }
+
     public function testItCountsPerActor(): void
     {
         $service = $this->service();
@@ -486,7 +496,7 @@ final class AiServiceTest extends TestCase
      */
     private function policy(array $ai): AiPolicy
     {
-        return new ConfigAiPolicy(AiConfig::fromArray($ai + ['features' => $this->shared->ai()['features']], $this->shared->ai()), $this->shared->ai()['dailyLimit']);
+        return new ConfigAiPolicy(AiConfig::fromArray($ai + ['features' => $this->shared->ai()['features']], $this->shared->ai()));
     }
 
     /** @return list<string> every feature the app has but this one */

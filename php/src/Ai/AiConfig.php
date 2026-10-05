@@ -9,14 +9,14 @@ use InvalidArgumentException;
 /**
  * config.php's `ai` block, checked and resolved: the PHP side of loadAiSettings in server/config.ts. Off unless a
  * provider is named and, for a real one, keyed; `enabled` switches it off even then; `features` names what runs, and
- * nothing does until it names it. A missing block means off, never a 503; anything unexpected in a block that is there
- * makes config.php invalid, as AccessRule does, so a typo never silently runs a provider (or silently doesn't). The
- * provider names, default models, time limit and the app's features come from Shared::ai(), written once in
- * src/shared/ai.ts.
+ * nothing does until it names it; `dailyLimit` is the site's own cap. A missing block means off, never a 503; anything
+ * unexpected in a block that is there makes config.php invalid, as AccessRule does, so a typo never silently runs a
+ * provider (or silently doesn't). The provider names, default models, time limit, the app's features and the cap's
+ * default and bound come from Shared::ai(), written once in src/shared/ai.ts.
  */
 final class AiConfig
 {
-    private const KEYS = ['provider', 'apiKey', 'features', 'model', 'effort', 'timeoutMs', 'enabled'];
+    private const KEYS = ['provider', 'apiKey', 'features', 'dailyLimit', 'model', 'effort', 'timeoutMs', 'enabled'];
 
     private function __construct(
         /** 'openai' | 'anthropic' | 'fake', or null: no provider, so off */
@@ -37,18 +37,21 @@ final class AiConfig
          * @var list<string>
          */
         public readonly array $features,
+        /** The generations a day this site allows each actor: the shared default unless the block sets its own, and
+            never more than the shared bound. */
+        public readonly int $dailyLimit,
     ) {
     }
 
     /**
      * @param mixed $raw the `ai` value config.php returned; null when it has none
-     * @param array{timeoutMs:int, providers:list<string>, defaultModel:array<string, string>, fake:array{model:string}, features:list<string>} $facts Shared::ai()
+     * @param array{timeoutMs:int, providers:list<string>, defaultModel:array<string, string>, fake:array{model:string}, features:list<string>, dailyLimit:int, dailyLimitMax:int} $facts Shared::ai()
      * @throws InvalidArgumentException naming the offending key, never quoting a value (the key is one)
      */
     public static function fromArray(mixed $raw, array $facts): self
     {
         if ($raw === null) {
-            return new self(null, null, null, null, $facts['timeoutMs'], false, []);
+            return new self(null, null, null, null, $facts['timeoutMs'], false, [], $facts['dailyLimit']);
         }
         if (!is_array($raw) || ($raw !== [] && array_is_list($raw))) {
             throw new InvalidArgumentException('ai must be an array with ' . implode(', ', self::KEYS) . ' (see config.sample.php)');
@@ -75,6 +78,11 @@ final class AiConfig
         if (!is_bool($switch)) {
             throw new InvalidArgumentException('ai.enabled must be true or false');
         }
+        // The twin of AI_DAILY_LIMIT in .env: the shared default unless set, a whole number from 1 to the shared bound.
+        $dailyLimit = $raw['dailyLimit'] ?? $facts['dailyLimit'];
+        if (!is_int($dailyLimit) || $dailyLimit < 1 || $dailyLimit > $facts['dailyLimitMax']) {
+            throw new InvalidArgumentException('ai.dailyLimit must be null or a whole number from 1 to ' . $facts['dailyLimitMax']);
+        }
         $keyed = $provider === 'fake' || $apiKey !== null;
         return new self(
             $provider,
@@ -84,6 +92,7 @@ final class AiConfig
             $timeoutMs,
             $provider !== null && $keyed && $switch,
             self::features($raw, $facts['features']),
+            $dailyLimit,
         );
     }
 

@@ -4,13 +4,14 @@ declare(strict_types=1);
 
 namespace NestFlyers\Ai;
 
-/** The policy while there is no login: config.php's `ai` block decides, everyone may, one cap for all. */
+/**
+ * The policy while there is no login: config.php's `ai` block decides which features run and how much a day,
+ * everyone may, and one cap covers all.
+ */
 final class ConfigAiPolicy implements AiPolicy
 {
-    public function __construct(
-        private readonly AiConfig $config,
-        private readonly int $dailyLimit,
-    ) {
+    public function __construct(private readonly AiConfig $config)
+    {
     }
 
     public function runs(string $feature): bool
@@ -25,6 +26,6 @@ final class ConfigAiPolicy implements AiPolicy
 
     public function dailyLimit(Actor $actor): int
     {
-        return $this->dailyLimit;
+        return $this->config->dailyLimit;
     }
 }

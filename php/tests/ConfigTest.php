@@ -103,6 +103,7 @@ final class ConfigTest extends TestCase
                 'provider' => 'anthropic',
                 'apiKey' => 'sk-ant-test',
                 'features' => ['flyer', 'share'],
+                'dailyLimit' => null,
                 'model' => null,
                 'effort' => null,
                 'timeoutMs' => null,
@@ -116,6 +117,7 @@ final class ConfigTest extends TestCase
         self::assertTrue($config->ai->enabled);
         self::assertSame('claude-haiku-4-5', $config->ai->model);
         self::assertSame(['flyer', 'share'], $config->ai->features);
+        self::assertSame(3, $config->ai->dailyLimit);
     }
 
     public function testConfigSamplePhpAsShippedIsValidAndLeavesTheAiOff(): void
@@ -123,7 +125,7 @@ final class ConfigTest extends TestCase
         $root = $this->tempRoot();
         copy(Paths::repo() . '/php/web/config.sample.php', "$root/config.php");
         $raw = require "$root/config.php";
-        self::assertSame(['provider', 'apiKey', 'features', 'model', 'effort', 'timeoutMs', 'enabled'], array_keys($raw['ai'] ?? []), 'the sample shows every key');
+        self::assertSame(['provider', 'apiKey', 'features', 'dailyLimit', 'model', 'effort', 'timeoutMs', 'enabled'], array_keys($raw['ai'] ?? []), 'the sample shows every key');
         self::assertFalse(Config::load($root, self::shared())?->ai->enabled);
     }
 
@@ -132,7 +134,7 @@ final class ConfigTest extends TestCase
     public function testWithoutAnAiBlockTheAiIsOff(): void
     {
         $ai = Config::fromArray([], self::ROOT, self::shared())->ai;
-        self::assertSame([null, null, null, null, 25_000, false, []], [$ai->provider, $ai->apiKey, $ai->model, $ai->effort, $ai->timeoutMs, $ai->enabled, $ai->features]);
+        self::assertSame([null, null, null, null, 25_000, false, [], 3], [$ai->provider, $ai->apiKey, $ai->model, $ai->effort, $ai->timeoutMs, $ai->enabled, $ai->features, $ai->dailyLimit]);
     }
 
     public function testTheFakeProviderNeedsNoKey(): void
@@ -227,6 +229,51 @@ final class ConfigTest extends TestCase
         }
     }
 
+    /** @return iterable<string, array{mixed, int}> */
+    public static function dailyLimitAccepted(): iterable
+    {
+        foreach (self::settingsRows('dailyLimit', 'accepted') as $name => $row) {
+            yield $name => [$row['php'], $row['limit']];
+        }
+    }
+
+    // The owner's answer (2026-10-05): the cap is a setting, 3 by default, bounded in the code.
+    #[DataProvider('dailyLimitAccepted')]
+    public function testTheDailyCapIsTheSitesOwnOrTheDefault(mixed $set, int $limit): void
+    {
+        self::assertSame($limit, Config::fromArray(['ai' => ['provider' => 'fake', 'dailyLimit' => $set]], self::ROOT, self::shared())->ai->dailyLimit);
+    }
+
+    /** @return iterable<string, array{mixed}> */
+    public static function dailyLimitRefused(): iterable
+    {
+        foreach (self::settingsRows('dailyLimit', 'refused') as $name => $row) {
+            yield $name => [$row['php']];
+        }
+    }
+
+    #[DataProvider('dailyLimitRefused')]
+    public function testADailyCapOutOfBoundsIsRefusedByTheSettingsNameWhetherOrNotTheAiIsOn(mixed $set): void
+    {
+        foreach ([['dailyLimit' => $set], ['provider' => 'fake', 'dailyLimit' => $set]] as $block) {
+            try {
+                Config::fromArray(['ai' => $block], self::ROOT, self::shared());
+                self::fail('The block was accepted');
+            } catch (InvalidArgumentException $e) {
+                self::assertStringContainsString('ai.dailyLimit', $e->getMessage());
+            }
+        }
+    }
+
+    public function testTheVectorsDefaultAndTheirMostAreTheSharedFacts(): void
+    {
+        $facts = self::shared()->ai();
+        $limits = array_column(self::settingsRows('dailyLimit', 'accepted'), 'limit', 'name');
+        self::assertSame($facts['dailyLimit'], $limits['not set: the default']);
+        self::assertSame($facts['dailyLimitMax'], max($limits));
+        self::assertContains($facts['dailyLimitMax'] + 1, array_column(self::settingsRows('dailyLimit', 'refused'), 'php'));
+    }
+
     public function testARefusedAiBlockNeverQuotesTheKey(): void
     {
         try {
@@ -242,6 +289,13 @@ final class ConfigTest extends TestCase
             self::fail('The block was accepted');
         } catch (InvalidArgumentException $e) {
             self::assertStringContainsString('ai.features', $e->getMessage());
+            self::assertStringNotContainsString('sk-secret-123', $e->getMessage());
+        }
+        try {
+            Config::fromArray(['ai' => ['provider' => 'openai', 'dailyLimit' => 'sk-secret-123']], self::ROOT, self::shared());
+            self::fail('The block was accepted');
+        } catch (InvalidArgumentException $e) {
+            self::assertStringContainsString('ai.dailyLimit', $e->getMessage());
             self::assertStringNotContainsString('sk-secret-123', $e->getMessage());
         }
     }

@@ -178,6 +178,17 @@ final class BootstrapTest extends TestCase
         self::assertSame($named, array_map(static fn (stdClass $record): string => $record->feature, $ledger));
     }
 
+    // The owner's answer (2026-10-05): the cap is a setting, 3 unless config.php says otherwise.
+    public function testASiteThatSetsItsOwnCapSaysItInConfigAndAnswersAiQuotaInThatNumber(): void
+    {
+        $app = Bootstrap::fromAppRoot($this->appRoot, $this->config() + ['ai' => $this->fakeAi() + ['dailyLimit' => 1]], new FakeClock());
+        self::assertEquals((object) ['enabled' => true, 'limit' => 1, 'remaining' => 1, 'features' => ['flyer', 'share']], $this->ok($app->handle(self::request('GET', '/api/config')))->ai);
+        self::assertSame(0, $this->ok($app->handle(self::request('POST', '/api/ai/share', $this->aiBody('share'))))->remaining);
+        $error = $this->assertError($app->handle(self::request('POST', '/api/ai/flyer', $this->aiBody('flyer'))), 429, 'ai_quota');
+        self::assertSame(ErrorCatalog::fromShared(Shared::fromFile(Paths::schema('shared.json')))->make('ai_quota', ['limit' => 1])->getMessage(), $error->message);
+        self::assertSame(0, $this->ok($app->handle(self::request('GET', '/api/config')))->ai->remaining);
+    }
+
     public function testTheFakeProviderCountsInTheStoreAndTheDayEndsAtCanaryMidnight(): void
     {
         $clock = new FakeClock();
