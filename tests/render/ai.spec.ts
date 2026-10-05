@@ -94,7 +94,10 @@ test('the library offers "Create with AI" with what is left today, and the page 
   await expect(page.locator('nest-nav'), 'a focus page, like the editor').toHaveCount(0);
   await expect(backToLibrary(page)).toBeVisible();
   await expect(idea(page)).toBeEmpty();
-  expect(await idea(page).getAttribute('placeholder'), 'a real staff text, shortened').toContain('🕖');
+  // Free text, not a form: staff read the old placeholder (an emoji and a line per fact) as fields to fill in.
+  const placeholder = (await idea(page).getAttribute('placeholder'))!;
+  expect(placeholder, 'the owner’s words (2026-10-05)').toBe('Tomorrow at 19:00 we have a sunset stretching class by the pool. Bring water and a towel.');
+  expect(placeholder, 'one plain paragraph').not.toMatch(/\n|\p{Extended_Pictographic}/u);
   await expect(page.getByLabel('Hostel', { exact: true }).locator('option').first()).toHaveText('Let the AI decide');
   await expect(generate(page)).toBeDisabled();
   await expect(generate(page)).toContainText(`${n} left today`);

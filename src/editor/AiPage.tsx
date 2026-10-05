@@ -17,8 +17,9 @@ import { ShareCopy } from './share';
    built from the brief with flyerFromBrief() and shown by the same <Preview> and <Flyer> as everywhere: never a second
    renderer. Everything the model wrote is marked as the AI's. */
 
-/** A real staff text (docs/ai-flyers/examples), shortened: what an idea looks like. */
-const PLACEHOLDER = '¡HOY tenemos plan al atardecer! 🧘‍♀️\nClase de estiramientos + sunset para desconectar.\n\n🕖 19:00 h\n📍 Zona de la piscina\nTrae agua y tu toalla 💙';
+/** What an idea looks like: two plain sentences, the owner's words (2026-10-05). The first one was a real staff
+    post, an emoji and a line per fact, and staff read it as a form to fill in. Free text has no lines to copy. */
+const PLACEHOLDER = 'Tomorrow at 19:00 we have a sunset stretching class by the pool. Bring water and a towel.';
 
 interface Result {
   brief: Brief;
