@@ -1,7 +1,7 @@
 import { fetchJson, type FetchJson } from '../http.js';
 import { LlmFailure, type LlmCall, type LlmProvider, type LlmResult, type ProviderConfig } from '../provider.js';
 import { toAnthropicSchema } from '../providerSchema.js';
-import { answerBody, answerJson, redact, usageOf } from './common.js';
+import { answerBody, answerJson, modelOf, redact, usageOf } from './common.js';
 
 /* Anthropic over the Messages API (docs read 2026-10-02): the system text as `system`, the turns as `messages`, the
    schema as `output_config.format` (GA, no beta header), and the effort knob as `output_config.effort` when set
@@ -61,7 +61,7 @@ export class AnthropicProvider implements LlmProvider {
       json: answerJson(text, key),
       raw: text,
       usage: usageOf(data.usage?.input_tokens, data.usage?.output_tokens),
-      model: data.model ?? this.model,
+      model: modelOf(data.model, this.model),
     };
   }
 }

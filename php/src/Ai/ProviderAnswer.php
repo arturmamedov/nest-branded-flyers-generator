@@ -62,10 +62,10 @@ final class ProviderAnswer
         return $error instanceof stdClass && is_string($error->message ?? null) ? $error->message : null;
     }
 
-    /** The token counts, when the provider reported both. */
+    /** The token counts, when the provider reported both, each one a count the ledger takes: whole and not negative. */
     public static function usage(mixed $input, mixed $output): ?LlmUsage
     {
-        return is_int($input) && is_int($output) ? new LlmUsage($input, $output) : null;
+        return is_int($input) && is_int($output) && $input >= 0 && $output >= 0 ? new LlmUsage($input, $output) : null;
     }
 
     /** A status the provider gave instead of an answer, with its own words when it sent any, the key taken out. */

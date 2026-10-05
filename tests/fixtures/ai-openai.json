@@ -175,6 +175,42 @@
       "status": 200,
       "body": { "id": "resp_6", "status": "completed", "model": "gpt-6-luna", "output": [{ "type": "reasoning", "id": "rs_6", "summary": [] }], "usage": { "input_tokens": 120, "output_tokens": 2 } },
       "failure": "bad_output"
+    },
+    {
+      "name": "a token count that is no whole number: no usage, since the ledger takes whole counts only",
+      "status": 200,
+      "body": {
+        "id": "resp_7",
+        "status": "completed",
+        "model": "gpt-6-luna",
+        "output": [{ "type": "message", "id": "msg_7", "role": "assistant", "status": "completed", "content": [{ "type": "output_text", "text": "{\"a\":1}", "annotations": [] }] }],
+        "usage": { "input_tokens": 12.5, "output_tokens": 40 }
+      },
+      "result": { "json": { "a": 1 }, "raw": "{\"a\":1}", "usage": null, "model": "gpt-6-luna" }
+    },
+    {
+      "name": "a token count below zero: no usage",
+      "status": 200,
+      "body": {
+        "id": "resp_8",
+        "status": "completed",
+        "model": "gpt-6-luna",
+        "output": [{ "type": "message", "id": "msg_8", "role": "assistant", "status": "completed", "content": [{ "type": "output_text", "text": "{\"a\":1}", "annotations": [] }] }],
+        "usage": { "input_tokens": 120, "output_tokens": -1 }
+      },
+      "result": { "json": { "a": 1 }, "raw": "{\"a\":1}", "usage": null, "model": "gpt-6-luna" }
+    },
+    {
+      "name": "a model that is no string: the model that was asked for",
+      "status": 200,
+      "body": {
+        "id": "resp_9",
+        "status": "completed",
+        "model": 42,
+        "output": [{ "type": "message", "id": "msg_9", "role": "assistant", "status": "completed", "content": [{ "type": "output_text", "text": "{\"a\":1}", "annotations": [] }] }],
+        "usage": { "input_tokens": 120, "output_tokens": 40 }
+      },
+      "result": { "json": { "a": 1 }, "raw": "{\"a\":1}", "usage": { "input": 120, "output": 40 }, "model": "gpt-6-luna" }
     }
   ]
 }

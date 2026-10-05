@@ -200,6 +200,51 @@
         "usage": { "input_tokens": 120, "output_tokens": 0 }
       },
       "failure": "bad_output"
+    },
+    {
+      "name": "a token count that is no whole number: no usage, since the ledger takes whole counts only",
+      "status": 200,
+      "body": {
+        "id": "msg_7",
+        "type": "message",
+        "role": "assistant",
+        "model": "claude-haiku-4-5-20251001",
+        "content": [{ "type": "text", "text": "{\"a\":1}" }],
+        "stop_reason": "end_turn",
+        "stop_sequence": null,
+        "usage": { "input_tokens": 12.5, "output_tokens": 40 }
+      },
+      "result": { "json": { "a": 1 }, "raw": "{\"a\":1}", "usage": null, "model": "claude-haiku-4-5-20251001" }
+    },
+    {
+      "name": "a token count below zero: no usage",
+      "status": 200,
+      "body": {
+        "id": "msg_8",
+        "type": "message",
+        "role": "assistant",
+        "model": "claude-haiku-4-5-20251001",
+        "content": [{ "type": "text", "text": "{\"a\":1}" }],
+        "stop_reason": "end_turn",
+        "stop_sequence": null,
+        "usage": { "input_tokens": 120, "output_tokens": -1 }
+      },
+      "result": { "json": { "a": 1 }, "raw": "{\"a\":1}", "usage": null, "model": "claude-haiku-4-5-20251001" }
+    },
+    {
+      "name": "a model that is no string: the model that was asked for",
+      "status": 200,
+      "body": {
+        "id": "msg_9",
+        "type": "message",
+        "role": "assistant",
+        "model": 42,
+        "content": [{ "type": "text", "text": "{\"a\":1}" }],
+        "stop_reason": "end_turn",
+        "stop_sequence": null,
+        "usage": { "input_tokens": 120, "output_tokens": 40 }
+      },
+      "result": { "json": { "a": 1 }, "raw": "{\"a\":1}", "usage": { "input": 120, "output": 40 }, "model": "claude-haiku-4-5" }
     }
   ]
 }

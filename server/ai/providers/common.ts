@@ -37,7 +37,15 @@ export function answerBody<T>(who: string, res: JsonResponse, key: string): T {
   return body as T;
 }
 
-/** The token counts, when the provider reported both. */
+/** A count the ledger takes (StoredAiUsageSchema): whole and not negative. A provider's field is never trusted to be. */
+const isCount = (value: unknown): value is number => Number.isSafeInteger(value) && (value as number) >= 0;
+
+/** The token counts, when the provider reported both, each one a count. */
 export function usageOf(input: unknown, output: unknown): LlmUsage | null {
-  return typeof input === 'number' && typeof output === 'number' ? { input, output } : null;
+  return isCount(input) && isCount(output) ? { input, output } : null;
+}
+
+/** The model that answered, when the provider named one; else the one that was asked for. */
+export function modelOf(reported: unknown, asked: string): string {
+  return typeof reported === 'string' ? reported : asked;
 }

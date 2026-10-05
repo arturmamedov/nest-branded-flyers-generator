@@ -1,7 +1,7 @@
 import { fetchJson, type FetchJson } from '../http.js';
 import { LlmFailure, type LlmCall, type LlmProvider, type LlmResult, type ProviderConfig } from '../provider.js';
 import { dropNulls, toOpenAiSchema } from '../providerSchema.js';
-import { answerBody, answerJson, redact, usageOf } from './common.js';
+import { answerBody, answerJson, modelOf, redact, usageOf } from './common.js';
 
 /* OpenAI over the Responses API (docs read 2026-10-02): the system text as `instructions`, the turns as `input`, the
    schema as `text.format` in strict mode, `store: false` so staff text is not kept on OpenAI's side, and the effort
@@ -70,7 +70,7 @@ export class OpenAiProvider implements LlmProvider {
       json: dropNulls(answerJson(text, key), call.schema),
       raw: text,
       usage: usageOf(data.usage?.input_tokens, data.usage?.output_tokens),
-      model: data.model ?? this.model,
+      model: modelOf(data.model, this.model),
     };
   }
 }
