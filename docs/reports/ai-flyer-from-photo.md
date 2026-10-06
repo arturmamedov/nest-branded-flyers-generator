@@ -7,7 +7,7 @@ stage that is built. **A stage with no section here is not built.**
 |---|---|
 | 1. A limit per feature | Built, 2026-10-06 (below) |
 | 2. The read, on both backends | Built, 2026-10-06 (below, after stage 1). Its checkpoint: Artur's answers are built, the first case is in git, and the real reads are done, and what he chose from them is built (*The checkpoint*, at the end). **The checkpoint is closed** |
-| 3. The page | Not started. For a new session: `docs/prompts/ai-flyer-from-photo-stage-3.md` |
+| 3. The page | Built, 2026-10-06 (the last section). Looked at on both backends and reviewed. **Its checkpoint is open on one thing: a real phone** |
 | 4. The picture as the flyer's photo | Not started |
 
 # Stage 1: a limit per feature
@@ -606,7 +606,8 @@ seen red on both backends with the rule broken on purpose, and the rule put back
 nine tries. No point in that day shows the tries without losing a read the suite needs. Its expectations were not
 touched and stayed green, which shows that an ordinary day over HTTP is as it was.
 
-**The disk.** At the default limit a day's folder holds at most 9 pictures for one actor. `docs/deploy.md` keeps
+**The disk.** At the default limit a day's folder holds at most 9 pictures for one actor. (Not against reads sent
+at the same moment: stage 3's review found that, *The review* at the end of this report.) `docs/deploy.md` keeps
 its own cautious figure of about half a megabyte a picture: 45 MB over the thirty days when every read works, and
 three times that at the very most. The first case's picture is 0.15 MB, so the real figure is likely lower.
 
@@ -904,7 +905,8 @@ alone, which change nothing there, they differ from the repo's examples in the s
 - **A test holds every example to the three rules** (`tests/briefRules.ts`), the few-shot's and the picture
   cases'. Red first: four tests, on the old prompts and the old examples.
 
-**Not taken from his live flyers,** because he did not ask for them as rules: the WHEN chip with a time range
+**Not taken from his live flyers** at this point (the range became a rule the same day: *Two more answers of
+his*, below), because he did not ask for them as rules: the WHEN chip with a time range
 ("17:45-23:00"; the prompt keeps one time, since a range breaks over two lines in the chip), and the asks' own
 words ("Book/Contact us: …", "Reserva y vien con nosotros!"). His to say.
 
@@ -974,3 +976,378 @@ One sequence on 2026-10-06, on the tree of `43aa907`: the checkpoint's last comm
   the providers' prices.
 - **Nothing is pushed.** `.env` was not changed, and the live site was not called. One release was built, for the
   Laragon copy alone.
+
+# Stage 3: the page
+
+Branch `feat/ai-feature-switches`, on top of `ceea60f`, on 2026-10-06, in a session started from
+`docs/prompts/ai-flyer-from-photo-stage-3.md`. The branch was Artur's earlier answer ("Stay on this branch"). Asked
+how to commit, he chose "Each piece as it goes green". Nothing is pushed, and `main` stays at `684189e`.
+
+**The checkpoint is open on one thing: the real phone.** Everything below is built and green, was looked at in a
+browser on both backends, and was reviewed. No provider was called in this stage, by a test, a script or the look.
+
+## What it is
+
+"Create with AI" has a second way in. Where a site runs the picture read, the page shows a switch, **From your
+idea / From a photo**. A staff member chooses a picture, or takes one with a phone, and presses **Read the
+picture**. The words land in "Your idea". They check them, add what is missing, and press Generate: from there the
+page is the one it was. A flyer from a picture costs one read and one flyer, each from its own count.
+
+The stage itself changed the client alone: no route, schema or PHP class. A site that does not name `photo` looks
+and behaves exactly as before. (The review at its end also covered the checkpoint's commits, and what it found
+there touched one phrase of the flyer's prompt and one line of PHP: *The review*, below.)
+
+## Artur's answers (2026-10-06, this session)
+
+| Question | Answer | What follows |
+|---|---|---|
+| What does the page say when a read comes back empty? It can now mean "no event" as well as "no words" | **"The AI found no event in this picture. Write the event here yourself."** | Built. It replaces the brief's line |
+| Should the page add a line after the server's sentence when a read fails? | **"Add a line"**: "Your picture is still here: try again, or type the event yourself." | Built |
+| "Can't we mitigate somehow for this with an AJAX call or something that will wait the AI to answer and update the UI when it does?" | After the explanation below: **"Nothing more now"** | No polling, no second try, no new setting |
+| How to commit? | **"Each piece as it goes green"** | Eleven commits, staged by path |
+| The real phone? | **"This PC, office Wi-Fi, fake AI"** | Open: the checkpoint's last part |
+
+**A read that runs out of time, and why polling would not help.** The page already waits for the server for as long
+as it takes, and fills the box when the answer comes: the browser never gives up. What ends a slow read is the
+app's own 25 seconds on the provider call (`AI_TIMEOUT_MS`, `'timeoutMs'`).
+
+- That limit is there for the shared host, which ends a PHP request that runs too long. IONOS's own limit is not
+  known until the first live call.
+- Shared-hosting PHP has no process that outlives a request. A read started in one request and polled from
+  another would still run inside a request, under the same limit. It would work on Node alone, for a second
+  contract on both backends.
+- What helps is more time where the host allows it, and that setting exists. It is one number for every feature.
+- No real read has run out of time so far. The slowest took 21.9 s.
+
+## What was built
+
+- **The switch.** `App.tsx` asks `aiFor(ai, 'photo')`, as it asks for the other two features, and hands the page
+  the read's own count. With it the page shows the switch; without it, nothing. The bar keeps the flyer's count.
+- **From a photo.**
+  - **Choose a picture** everywhere. With a mouse, a picture can also be dropped on the box, or a screenshot
+    pasted.
+  - **Take a photo** where the main pointer is a finger: a file input with `capture="environment"`, which opens
+    the device's own camera. A laptop's browser ignores `capture`, so it has no such button.
+  - The chosen picture shows small with its name and a Remove. Choosing sends nothing.
+  - **✨ Read the picture (3 left today)**: the read's own count, and under it the used-up sentence when none is
+    left.
+- **The read.** The browser shrinks the picture first (`preparePhoto()`, as for a flyer's photo), to the read's
+  2048 px and under the site's upload limit, and sends it to `POST api/ai/photo`. While it works the button says
+  "Reading…", the stage says "✨ The AI is reading your picture… it can take half a minute.", and the other buttons
+  and the switch wait.
+- **After the read** the page is on From your idea, and the focus is on the line under the box.
+  - With words: they are in the box, and under it: "Read from your picture. Check every word, and add what is
+    missing (the price?). [?] marks a word the AI could not read. If it lists several activities, keep the one this
+    flyer is for."
+  - With none: Artur's line, and the box as it was.
+  - If the box held text, the page asks before the read is sent: "Replace your idea with the words the AI reads
+    from this picture? It uses one of the 3 picture reads left today."
+- **What goes wrong.**
+  - The day's reads used up: the server's sentence, and the read's count at 0. The flyer's count is untouched.
+  - The picture refused, a HEIC among them: the photo route's own message, alone.
+  - Anything else: the server's sentence and Artur's added line, while a read is left to try again with. The
+    picture stays chosen.
+- **The count after a failed read.** A failed read answers no count and is one of the day's tries, so the number
+  on the button could be too high. The page asks `GET api/config` again and moves the read's count alone. If that
+  request fails, the count stays, and the server still refuses at the right moment.
+- **No flyer left today:** Read the picture waits, and the flyers' own used-up sentence stands under it. A read
+  would be spent on words nothing can be made from.
+- **Leaving** asks first while words read are in the box, and while a read is on its way, until "Open in editor".
+  A picture chosen and not read, and a read that found no event, ask nothing.
+- **The docs:** `README.md`, `.env.example`, `config.sample.php`, `docs/deploy.md` (where staff find it, name
+  `photo` with `flyer`, two troubleshooting rows, a row in *Rolling back*), `docs/ai-flyers/README.md`, and one
+  line in `docs/api-contract.md`: a failed read's answer carries no count.
+
+**Where it lives:** `src/editor/AiPhoto.tsx` is the photo way's form and makes no request. `AiPage.tsx` holds the
+picture, has it read and takes the words. `photoPrep.ts` gained `pictureLimits()`; `preparePhoto()` itself is
+reused unchanged. `api.ts` gained `aiPhoto()`, which shares its form with `uploadPhoto()`.
+
+## How each piece was proved
+
+| Piece | Commit | Seen red | Then green |
+|---|---|---|---|
+| The switch and the read's count | `6801c52` | 3 browser specs waited for a switch that was not there | 23 in the AI project |
+| Choosing, dropping, pasting | `45d3cbf` | 1 spec: no input to choose with | 25 |
+| Take a photo | `79cdd28` | 1 spec: no such button in a touch context | 27 |
+| The read into the box | `c2bc8df` | 9 browser specs (Read did nothing) and 2 unit tests (`pictureLimits is not a function`) | 36, and 598 unit |
+| The leave guard | `aec6101` | 1 spec: with words read, "← Library" left without a question | 37 |
+| The phone layout | `03a1074` | not red first: a pin (below) | 38 |
+| The docs | `61cd7ec` | (documents) | |
+| What the review found in the page | `b629410` | 8 browser specs, each for its finding | 44 |
+| What it found in the checkpoint's commits | `27adc76` | 2 unit tests: the prompt's phrase, and the range no example was held to | 599 unit |
+| The focus ring on the line under the box | `9e5621a` | (one CSS rule, seen in the second look) | |
+
+**Six specs passed at once, because the code was already right or because they say what must not happen.** Each
+was then seen red with the code broken on purpose, and the code restored. So was a seventh (the fifth row), whose
+first red had been at an earlier line than the one it is named for:
+
+| Pin | Broken on purpose | What failed |
+|---|---|---|
+| A site without the read has no switch | the switch shown to every site | "expected 0, received 1" |
+| A paste on From your idea chooses nothing | a paste listened for page-wide | "expected 0, received 1" |
+| With a mouse there is no Take a photo | the button shown to every pointer | "expected hidden, received visible" |
+| The photo way fits a phone | the small picture given no bounds | the picture 44 % in view |
+| A failed read asks the server what is left | the recount taken out | no `GET api/config`; the button still said 2 |
+| The recount moves the read's count alone | the whole answer taken over | Generate read 1 where 3 was expected |
+| A picture over the read's edge is shrunk in the browser | the photo's own limits used | it went out 3000 px wide, not 2048 |
+
+**Two of those breaks found a weak test, and the tests were mended:**
+- The paste pin first passed for the wrong reason: it pasted before the page had rendered. It now waits for the
+  page, and then fails with the break.
+- The phone pin did not fail with the small picture's width alone unbounded. Its sideways check now measures the
+  form as well as the page, and it fails with both bounds gone.
+
+**Not seen red, said plainly:**
+- A stray drop being refused: the page's guard is older than the stage, and `editor.spec.ts` holds it. The spec
+  here reads the refusal off the event.
+- PHP's null array offset: PHP 8.3 says nothing about it. It is deprecated from 8.5 on.
+- The routed specs that passed with the read's first build were all red before it, at an earlier line than their
+  last assertion.
+
+**What the browser suite spends on the fake's day:** all three flyers (one more than before), two reads of three,
+and one of the nine tries. Everything else is routed. The file's header says so. The spec that spends the last
+flyer runs last, since with none left the photo way reads nothing.
+
+## Rulings
+
+Each was mine, with its cost if wrong.
+
+- **The question before replacing is asked before the read is spent,** as "Write with AI" asks. A no sends
+  nothing. If wrong: one line moves.
+- **An empty read never empties a box that held text.** Nothing is worth less than what was typed.
+- **The chosen picture is the page's state.** It survives the switch, a failed read and a good one, so stage 4 has
+  the original file at hand.
+- **A paste is listened for on From a photo alone,** and any file may be chosen: the server judges formats, as in
+  the editor.
+- **Take a photo shows by CSS, where the main pointer is a finger** (`pointer: coarse`). A touch laptop, and a
+  tablet with a mouse attached, get Choose a picture alone. If wrong: one media query.
+- **Both inputs name the same three formats** (`ACCEPTED_PHOTO_TYPES`), the camera's too. The phone will say
+  whether its camera wants `image/*`.
+- **"Refused" is a picture nothing was sent of, or a 4xx.** Then the message stands alone. Anything else gets the
+  added line and the recount, a dropped connection included: the read may have reached the provider.
+- **With no flyer left today, Read the picture waits** (from the review, which left it to the owner). Every way in
+  ends in a flyer. The other choice lets staff read today and make the flyer tomorrow, but the words do not
+  outlive the page. If wrong: one condition.
+- **A read on its way is unsaved work** (from the review; my first ruling was the opposite). A generation on its
+  way still is not: changing that would change the page for a site without the read.
+- **After a read the focus goes to the line under the box,** not to the box: on a phone the box would raise the
+  keyboard over the words to check.
+- **A new picture is a new start:** what the last one was told is cleared. So is a note once the action it spoke
+  of has finished.
+- **The line under the box stays until the next read.**
+- **The waiting line is the stage's,** as Generate's is. On a phone it is on screen under the form.
+- **The specs are at the end of `tests/render/ai.spec.ts`,** in one `describe`: one file, one account of the day.
+
+**Words that are mine, for Artur to change:**
+- the photo way's hint: "A poster, a board, a Canva page or a chat screenshot. The AI reads its words into “Your
+  idea”; you check them, then Generate.";
+- "Reading…", and "it can take half a minute" after the brief's waiting line;
+- "Or drop a picture here, or paste a screenshot.";
+- the question before replacing, and its last-one form: "It uses the last of today’s picture reads.";
+- "Still working on the last action — try the picture again in a moment.";
+- "Remove", beside the chosen picture.
+
+## The look in a real browser
+
+**Not in Artur's own Chrome profile:** a script drove the installed Chrome 143 through Playwright, with its own
+profile, at 1440 × 900 with a mouse and at 390 × 844 with a finger. Every screen was read in a screenshot.
+
+- **Node** was the built app on a throwaway data folder, with `AI_FEATURES=flyer,share,photo` in the command's own
+  environment. **PHP** was a `php -S` stage with the built client. Both ran the fake provider: nothing was spent.
+- `.env`, the Laragon copy and the live site were not touched.
+- The pictures were real: the Canva page of the first case, and two of Artur's from `backups/photo-reads/`. The
+  fake reads every picture as its first example's text, and fails or empties a picture by its width.
+- It ran twice: once on `61cd7ec`, before the review, and again on the states the review's fixes changed.
+
+| What was looked for | Node | PHP |
+|---|---|---|
+| The switch, and the read's own count | "From your idea" on; "✨ Read the picture (3 left today)" greyed until a picture is chosen | the same |
+| Choose, drop, paste | each shows the picture small with its name; the box turns green under a drag | the same |
+| Take a photo | on the phone, beside Choose a picture; its input asks for `capture="environment"`. None with a mouse | the same |
+| While it reads | "Reading…", the other buttons and the switch greyed, the waiting line in the stage | the same |
+| After the read | on From your idea, the words in the box, the line to check them by, the focus on that line | the same |
+| The whole path | the flyer of those words, then "Open in editor" with "Stretching class" in Line 1, no question asked | the same |
+| Each count its own | a read left Generate at 2; a flyer left the reads alone | the same |
+| A failed read | the server's sentence and the added line; the picture still chosen; the count still 2 | the same |
+| The day's last try failed | the server's sentence alone, over "0 left today" and the used-up sentence | the same |
+| No event | "The AI found no event in this picture. Write the event here yourself." under an empty box | the same |
+| Used up | "✨ Read the picture (0 left today)", greyed, over "Today’s 3 picture reads are used up. They come back at midnight, Canary Islands time." | the same |
+| No flyer left | Read the picture greyed with reads left, over "Today’s 3 AI flyers are used up. …" | the same |
+| `api/config` after the first look | flyer 1 of 3, share 3 of 3, photo 0 of 3 | the same |
+| What the site kept | four pictures in `ai-pictures/`: two of the Canva page (899 × 1599), the failed one, the empty one. Nothing in `uploads/` | the same four |
+| A site with `flyer` and `share` alone | no switch, at both sizes; `POST api/ai/photo` answers 404 | the same |
+| On the phone | no sideways scroll; Read in view with a picture chosen | the same |
+
+**Twenty of the first look's twenty-three pairs of screenshots are the same file, byte for byte, on both
+backends.** The page is one client. The three that differ are the library (each store has its own flyers) and two
+phone shots, by a few bytes.
+
+**One thing the second look found:** with a keyboard, the browser drew its own black ring tight on the line under
+the box, cutting into its first letters. It is the app's teal ring now (`9e5621a`).
+
+| | Node | PHP |
+|---|---|---|
+| From a photo, nothing chosen | ![](ai-flyer-from-photo/stage3-node-desktop-photo-empty.png) | ![](ai-flyer-from-photo/stage3-php-desktop-photo-empty.png) |
+| A picture chosen | ![](ai-flyer-from-photo/stage3-node-desktop-photo-chosen.png) | ![](ai-flyer-from-photo/stage3-php-desktop-photo-chosen.png) |
+| A picture over the box | ![](ai-flyer-from-photo/stage3-node-desktop-photo-dragover.png) | ![](ai-flyer-from-photo/stage3-php-desktop-photo-dragover.png) |
+| While it reads | ![](ai-flyer-from-photo/stage3-node-desktop-reading.png) | ![](ai-flyer-from-photo/stage3-php-desktop-reading.png) |
+| The words, to check | ![](ai-flyer-from-photo/stage3-node-desktop-words.png) | ![](ai-flyer-from-photo/stage3-php-desktop-words.png) |
+| The flyer of those words | ![](ai-flyer-from-photo/stage3-node-desktop-flyer.png) | ![](ai-flyer-from-photo/stage3-php-desktop-flyer.png) |
+| A failed read | ![](ai-flyer-from-photo/stage3-node-desktop-failed-read.png) | ![](ai-flyer-from-photo/stage3-php-desktop-failed-read.png) |
+| The day's last try failed | ![](ai-flyer-from-photo/stage3-node-desktop-last-try-failed.png) | ![](ai-flyer-from-photo/stage3-php-desktop-last-try-failed.png) |
+| No event | ![](ai-flyer-from-photo/stage3-node-desktop-no-event.png) | ![](ai-flyer-from-photo/stage3-php-desktop-no-event.png) |
+| The day's reads used up | ![](ai-flyer-from-photo/stage3-node-desktop-used-up.png) | ![](ai-flyer-from-photo/stage3-php-desktop-used-up.png) |
+| No flyer left today | ![](ai-flyer-from-photo/stage3-node-desktop-no-flyer-left.png) | ![](ai-flyer-from-photo/stage3-php-desktop-no-flyer-left.png) |
+| A site without the read | ![](ai-flyer-from-photo/stage3-node-no-photo-desktop-ai.png) | ![](ai-flyer-from-photo/stage3-php-no-photo-desktop-ai.png) |
+| On a phone: Take a photo | ![](ai-flyer-from-photo/stage3-node-phone-photo.png) | ![](ai-flyer-from-photo/stage3-php-phone-photo.png) |
+| On a phone: a picture chosen | ![](ai-flyer-from-photo/stage3-node-phone-photo-chosen.png) | ![](ai-flyer-from-photo/stage3-php-phone-photo-chosen.png) |
+| On a phone: while it reads | ![](ai-flyer-from-photo/stage3-node-phone-reading.png) | ![](ai-flyer-from-photo/stage3-php-phone-reading.png) |
+| On a phone: the words | ![](ai-flyer-from-photo/stage3-node-phone-words.png) | ![](ai-flyer-from-photo/stage3-php-phone-words.png) |
+| On a phone: the flyer | ![](ai-flyer-from-photo/stage3-node-phone-flyer.png) | ![](ai-flyer-from-photo/stage3-php-phone-flyer.png) |
+| On a phone: a site without the read | ![](ai-flyer-from-photo/stage3-node-no-photo-phone-ai.png) | ![](ai-flyer-from-photo/stage3-php-no-photo-phone-ai.png) |
+
+The line under the box with the keyboard's focus on it, after the fix:
+
+![](ai-flyer-from-photo/stage3-node-desktop-words-keyboard.png)
+
+**What the look cannot say,** and the phone is for:
+- whether Take a photo opens a real phone's camera, and whether the picture comes back upright;
+- what the browser's shrink to 2048 px does to a real camera photo: no picture so far was larger;
+- what an iPhone hands over. A HEIC is held by a spec, with a made-up file.
+
+After each look the servers were stopped by their ports, no `php` was left running, and the PHP stages' folders
+were removed.
+
+## The review
+
+One fresh-context review of `747e4c8..61cd7ec`, by another agent that was given the code and the brief and not my
+conclusions. Its range starts at the checkpoint, whose commits had no review of their own. It read the diff and
+both services side by side, and ran three read-only probes: the generator against the committed files, the Node
+service on the fake with a ledger in memory, and the built page in a headless browser with every request answered
+in the test. It ran no suite and wrote nothing.
+
+**It found no way for a switched-off feature to run, spend, be recorded or be shown, and no leak of the key or of
+a picture.** It also found sound: the tries on both backends, line for line, with the table's five days recomputed
+by hand; the default model per feature on both loaders; the counts in the client; that the `busy` flag always
+clears; that a site without `photo` has the same page as before; and the project's own rules (no value imported
+from `schema.ts`, nothing importing `samples.ts`, no second renderer).
+
+What it found in the page, and what was done (`b629410`), each test first:
+
+| What it found | What was done |
+|---|---|
+| A second read that found no event took the leave guard off the first read's words, still in the box | The guard follows the words, not the last read's line |
+| A read on its way was not unsaved work: "← Library" left a 5 to 22 second wait without a question | It asks, as the editor does for a photo on its way |
+| "Request failed (504) Your picture is still here…", and the same after a dropped connection | A message with no full stop of its own gets one before the line |
+| The line said "try again" over a button that read "0 left today" | The line shows only while a read is left; the used-up sentence says the rest |
+| "Still working on the last action…" stayed over the words once the read had landed | A finished action clears it |
+| The focus was dropped after a read, and the line was not reliably announced | The focus goes to the line, and the box is described by it |
+| A read could be spent with no flyer left to make from its words | Read the picture waits, under the flyers' sentence (a ruling, above) |
+| Three specs claimed more than they checked: the recount "moves only the read's", a stray drop "is refused", the browser "shrinks" | Each now checks it; the recount's and the shrink's were seen red with the code broken |
+
+What it found in the checkpoint's commits, and what was done (`27adc76`):
+
+| What it found | What was done |
+|---|---|
+| The flyer's prompt still sent "the end time" to the share text, as something the flyer had no room for | The phrase is out. **Not checked with a real generation** |
+| The range in WHEN was a rule no example was held to | `tests/briefRules.ts` holds every example to it |
+| PHP looked a feature's default model up under a null provider: deprecated from PHP 8.5 on | Guarded |
+| Two rows of the settings table named "every feature takes it" for the site's own model | Renamed |
+| The Teide example's notes said both that WHEN prints the start alone and that it prints the range | One story |
+| `docs/deploy.md` gave the read two speeds, and its 503 row listed the features without `photo` | Corrected |
+| This report said the range is not a rule in one place and a rule in another | A pointer where it was first said |
+
+**The finding that is not fixed, and is Artur's: the tries do not bound reads sent at the same moment.**
+
+- Each read is counted when it is answered. Reads that arrive together all see the same count and all pass.
+- The review's probe on Node: a limit of 1, so 3 tries, and 20 reads sent at once. 20 provider calls, and 20
+  pictures kept. PHP releases its lock before the provider is asked, so parallel workers do the same.
+- It is the known limit of every daily count ("two concurrent requests can both see `remaining: 1`"). It matters
+  most here: the tries were built as the bound for a site with no lock.
+- The docs said the bound held. `docs/deploy.md` and `docs/json-storage.md` now say what it does not hold against.
+- Holding it means recording a try before the provider is asked, on both backends and in each ledger driver. That
+  is a design of its own, and nothing was built.
+
+**Left as it is, with the reason:**
+- **The first example still answers `cost: "Free"`** for a text that says "te invitamos", against the rule that an
+  invitation is not a price. Artur answered "Free" for that flyer himself, and the real check saw the rule win over
+  the example once. `CLAUDE.md` said the examples "carry" the rules; it now names the exception. The price check in
+  `tests/briefRules.ts` refuses a stand-in ("Ask at reception"), not a `Free` nobody wrote.
+- **`ai/prompts/flyer.md` still shows `when: "Every day · 17:45"`** where it explains an event that runs every
+  day. It shows a start alone, which is right for an event with no end.
+- **"🇪🇸 Español abajo 👇" on a long caption is held by no test:** the prompt does not say how long is long.
+- **A generation on its way is still not guarded on leaving.** It is older than the stage (a ruling, above).
+- **The tries over HTTP, and "From a photo" on PHP in an automated browser:** not proved, as before. The tries are
+  held in process on both backends; the page on PHP was looked at.
+- **A request the host cuts off mid-call** keeps its picture and records no try. It needs a host limit under the
+  app's 25 s, which is unmeasured.
+
+## The gates
+
+One sequence on 2026-10-06, on the tree of `9e5621a`: the stage's last code commit.
+
+| Gate | Result | On `43aa907` (the checkpoint) |
+|---|---|---|
+| `npm run gen` | every generated file up to date | the same |
+| `npm run typecheck` | 0 errors | 0 |
+| `npm test` | 32 files, 599 tests passed | 31 files, 583 tests |
+| `npm run test:contract` | 38 files, 378 tests passed (7 files and 235 tests skipped by project) | the same |
+| `npm run test:php` | 893 tests, 10,254 assertions, 38 skipped (PHP 8.3.4) | 884 tests, 10,235 assertions, 38 skipped |
+| `npm run test:render` | 160 passed, 1 skipped (the opt-in baseline) | 135 passed |
+| `npm run test:php-smoke` | 2 passed | 2 passed |
+| `baseline.spec.ts` | 32 cases byte-identical against a capture of `ceea60f`, taken before any code changed | 32 |
+
+- **No test touches a provider, and no provider was called in this stage.**
+- The unit, contract, PHP and smoke gates ran on `27adc76`. `9e5621a` after it is one CSS rule, and the browser
+  suite and the baseline ran again on it.
+- The same gates were green on `61cd7ec`, before the review: 598 unit tests and 154 in the browser. The difference
+  is the tests the review added.
+- The 38 skipped PHP tests are the same 38. The one skipped browser spec is the opt-in baseline.
+- Between the checkpoint's gates and these, `50fe11a` and `fd03fdd` added tests of their own (596 unit and 893 PHP
+  on `50fe11a`).
+
+## What is left
+
+- **The checkpoint: a real phone.** On Artur's word the built app starts on this PC's office address
+  (192.168.100.41), with the fake provider and a throwaway data folder, for those minutes only. He opens it on his
+  phone and takes a photo. Then the kept picture is read off the disk: upright or not, and how the 2048 px edge
+  shrank it. Windows calls this Wi-Fi a public network, so its firewall will likely ask before letting the phone
+  in.
+- **Nothing is pushed.** `main` is at `684189e`. `.env` was not changed, no release was built, and neither the
+  Laragon copy nor the live site was touched.
+- **A release of this stage** needs nothing new on a host that already names `photo`: the page comes with the
+  files. A host names `photo` with `flyer`. Going back to a release with the read and without its page takes
+  nothing out of `config.php`.
+- **Stage 4** is not started: the picture as the flyer's photo.
+
+**For Artur to decide:**
+
+1. **Reads sent at the same moment pass the tries together** (*The review*, above). Leave it as the known limit
+   until the login, or build the reservation: a try recorded before the provider is asked, on both backends.
+2. **The words that are mine** (the list under *Rulings*).
+3. **With no flyer left today, Read the picture waits.** Say if staff should be able to read anyway.
+4. **Leaving asks in the flyer's words** ("This flyer has unsaved changes. Leave without saving?") for words read
+   and for a read on its way, where there is no flyer yet. A sentence of their own is yours to write.
+5. **A generation on its way is not guarded on leaving.** The read now is. Guarding both would change today's page
+   for every site.
+6. **The first example's "Free"** (above): keep your answer for that flyer, or let the example follow the rule.
+   It is also what the fake provider answers, so the tests that quote its flyer follow it.
+7. **The time limit.** Once your smoke call has measured IONOS, `timeoutMs` can go up to just under the host's own
+   limit, for every feature.
+8. **Older, unchanged:** the three items of stage 1 (the sentence at a limit of 1, a feature with nothing for its
+   number, "Try again (none left today)").
+
+**For the session that builds stage 4,** what this stage leaves ready:
+
+- The chosen picture is `AiPage`'s state (`picture`, a `File`) and survives the read, so the tick box has the
+  original at hand. It is not the copy that was sent: that one was shrunk to the read's edge.
+- `wordsRead` says the box holds words a read was spent on; the brief's "when the idea came from a picture" can
+  read it. It goes false when the box is emptied.
+- `handoff.ts`'s draft has no photo ("minus the photo an AI flyer never has"), and `Editor.tsx` sets
+  `photo: null` on taking it.
+- The upload wants the photo's own limits: `preparePhoto(picture, limits)`, not `pictureLimits(limits)`.
+- The browser suite spends all three of the fake's flyers. A new spec that makes a real flyer needs a routed
+  answer, or a higher limit pinned in `playwright.config.ts`.
+- A spec that sends the server a real read must run before the one that spends the last flyer, which is last in
+  its `describe`.
+- After a look, check for `php -S` processes left on the look's ports.

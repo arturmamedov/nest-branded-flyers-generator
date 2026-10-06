@@ -107,8 +107,8 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
 - The export runs in the browser where a backend has no renderer (`src/editor/export/`): same `<Flyer>`,
   same `prepareFlyer()`, modern-screenshot. `tests/render/fidelity.spec.ts` holds it to the server export.
 - The AI assistant: an idea → a flyer (`POST api/ai/flyer`), a flyer → its share text (`POST api/ai/share`), and a
-  picture → its words (`POST api/ai/photo`, the `photo` feature: the server's half, no page yet), one contract on
-  both backends (`docs/api-contract.md`, "The AI assistant").
+  picture → its words (`POST api/ai/photo`, the `photo` feature, whose page is "From a photo" on `#/ai`), one
+  contract on both backends (`docs/api-contract.md`, "The AI assistant").
   - `server/ai/` and `php/src/Ai/` are twins: the provider seam (`LlmProvider`: OpenAI, Anthropic, and a fake for
     the tests; which one runs is configuration, never code), the prompt builder, the service with its checks in
     the contract's order, and the actor and the policy, which are the seam a login will fill.
@@ -133,7 +133,7 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
       `ai_off` where the whole AI does.
     - `api/config` lists the features that run, and the client shows a feature only through `aiFor()`:
       `App.tsx` is the one place that asks. `flyer` off: no "Create with AI", and `#/ai` is the library.
-      `share` off: no "Write with AI".
+      `share` off: no "Write with AI". `photo` off: `#/ai` has no switch, and is the page it was.
     - One feature off is proved in process on each backend, over the generated list of features
       (`tests/unit/ai-app.test.ts`, `php/tests/BootstrapTest.php`), with no server per case.
     - An older release refuses `features`, `dailyLimit` and `dailyLimits` (503): on a host the release goes up
@@ -175,6 +175,31 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
     in `Editor.tsx`. `fields.ts` holds what the panel calls each field: the editor's labels come from it, and
     `briefFieldLabel()` names a brief's key for "The AI assumed…" (an assumption's `field` is the model's to choose,
     so a key no field has is shown as written).
+  - "From a photo" is the AI page's second way in (2026-10-06, stage 3 of `docs/prompts/ai-flyer-from-photo.md`): a
+    switch, From your idea / From a photo, shown only where `photo` runs. Both ways end in the idea box.
+    - `AiPhoto.tsx` is the photo way's form and makes no request: Choose a picture, drop and paste with a mouse,
+      and Take a photo (a file input with `capture="environment"`) where the main pointer is a finger. That is CSS,
+      `pointer: coarse` in `editor.css`: a laptop's browser ignores `capture`.
+    - `AiPage.tsx` holds the chosen picture, so it survives the switch and the read. It shrinks it with the
+      editor's `preparePhoto()` at `pictureLimits()` (the site's limits, the read's edge) and calls `api.aiPhoto()`.
+    - The read stops at the words: the page goes back to From your idea with them in the box. Text already there
+      is replaced only on a yes, asked before the read is spent. An empty read leaves the box as it was.
+    - After a read the focus goes to the line under the box, which the box is described by. Not to the box: on a
+      phone that raises the keyboard over the words.
+    - With no flyer left today Read the picture waits, under the flyers' own used-up sentence: every way in ends
+      in a flyer (my ruling, 2026-10-06, for Artur to confirm).
+    - A failed read answers no count and is one of the day's tries. `App.tsx`'s `recount(feature)` then asks
+      `api/config` again and moves that feature's count alone, through `aiFor()` and `onRemaining`.
+    - A picture the route refuses (4xx, or the browser's own HEIC check) shows that message alone. Any other
+      failure adds "Your picture is still here: try again, or type the event yourself." (Artur's line), while a
+      read is left to try again with; a message that ends with no full stop gets one first.
+    - The leave guard is armed while words a read was spent on are in the box (`wordsRead`, which a later empty
+      read leaves alone) and while a read is on its way, until "Open in editor". A generation on its way is not
+      guarded, as before the stage.
+    - Artur's words on this page are pinned as literals in `tests/render/ai.spec.ts`: the two lines under the box
+      ("Read from your picture. …", "The AI found no event in this picture. Write the event here yourself.") and the
+      added line. He asked whether a slow read could be polled and chose "Nothing more now": the page already waits
+      for the server, and the limit is the app's own `AI_TIMEOUT_MS` / `'timeoutMs'`, there for the shared host.
   - A picture is read into its words (`photo`, 2026-10-06; brief `docs/prompts/ai-flyer-from-photo.md`, stage 2).
     Artur's answers are in the brief and are not to be reopened: two calls (the read stops at the words, the flyer
     is the staff member's second call), the picture sent as a file, a read with no words counts, the picture kept
@@ -203,8 +228,9 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
   - No test touches a provider. The render suite has two projects: `render` (every spec but `ai.spec.ts`, the AI
     off whatever `.env` holds) and `ai` (`ai.spec.ts` on a second server with the fake, port 8798, every feature
     named and each feature's limit pinned in `playwright.config.ts`, since that server reads `.env` too; it spends
-    two of the flyer's three and one of the share text's, and a test that needs another count, or a site that runs
-    one feature, routes `api/config`). The contract suite's `node-ai` and `php-ai` run the AI routes on the fake
+    all three of the flyer's, one of the share text's and two of the picture reads', with one failed read of the nine
+    tries, and a test that needs another count, or a site that runs one feature, routes `api/config`). A picture is
+    made in the spec with sharp, and must not be 11 to 14 px wide by accident: those widths steer the fake. The contract suite's `node-ai` and `php-ai` run the AI routes on the fake
     with every feature named, both on the JSON driver, so `ai.test.ts` can damage the ledger's file.
   - `npm run ai:smoke` (`scripts/ai/smoke.ts`) is the one thing that calls a real provider, by hand.
     `scripts/site.ts` is how a script calls a site's API (`flyers:post` too): it never follows a redirect.
@@ -288,6 +314,8 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
 - The AI's copy follows the owner's own flyers (2026-10-06). He corrected flyers #4, #5 and #8 by hand on the live
   site, then asked for the same as rules. The rules are the prompt files in `ai/prompts/`; the two examples in
   `docs/ai-flyers/examples/` and the picture case carry them, and `tests/briefRules.ts` holds every example to them.
+  One exception, his own: the first example prints `Free` for a text that names no price, because he answered
+  "Free" for that flyer. The rule won over it in the real check, seen once.
   - **A price the text does not give is not printed:** no COST chip, no price line in the share text, and a note in
     "The AI assumed". It supersedes his rule of 2026-10-04 ("Ask at reception"). "Free" still needs the word.
   - **No full stop ends a title line:** `headline1`, `headline2` and the Spanish line. The ask keeps its own. The
@@ -358,7 +386,8 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
     `AiFlyerAnswerSchema` requires it.
   - Not on the live site yet. IONOS needs the new release, then the `ai` block with a key (`docs/deploy.md`, "The
     AI assistant"). Artur allowed it on live while it is unlocked (2026-10-02): the cap keeps it at 3 a day.
-  - Known limits: two concurrent requests can both see `remaining: 1`; `claude-haiku-4-5` retires no sooner than
+  - Known limits: two concurrent requests can both see `remaining: 1` (and so a burst passes the picture read's
+    tries together: found on 2026-10-06, for Artur to decide); `claude-haiku-4-5` retires no sooner than
     2026-10-15 (a default: one line of settings changes it); IONOS's FastCGI time limit is unmeasured until a live
     call; Anthropic's first call after the answer's schema changes takes about 20 s of the 25 s limit; a long staff
     text (a thousand characters) takes 14 to 20 s on `gpt-6-luna`, where a short one takes 6 to 9.
@@ -459,8 +488,30 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
       - The case's `source` is as its picture prints it, line for line and capital for capital (his answer).
     - No release was built. A host needs the release first, then `'models'` and `'photo'`; both come out before
       going back (`docs/deploy.md`, "Rolling back").
-  - **Stages 3 and 4 are not started,** and not to be started unasked: the page, and the picture as the flyer's
-    photo. Ask Artur which branch first.
+  - **Stage 3 is built: the page, "From a photo" on Create with AI** (2026-10-06, on `feat/ai-feature-switches`,
+    eleven commits on top of `ceea60f`, each as it went green on his word). Nothing is pushed.
+    - It is the client alone, on both backends: the architecture section above says how it works. With `photo` not
+      named the page is as it was, and the baseline is byte-identical (32 cases).
+    - Artur's answers: the empty read's line ("The AI found no event in this picture. Write the event here
+      yourself."); the line after a failed read; no polling and nothing more for a slow read ("Nothing more now");
+      the phone test from this PC over the office Wi-Fi, with the fake.
+    - The look ran on both backends, desktop and phone, in the installed Chrome driven by a script, on the fake:
+      nothing was spent. 20 of 23 pairs of screenshots are the same file on both backends.
+    - A fresh-context review of `747e4c8..61cd7ec` found no way for a switched-off feature to run or leak. What
+      it found is fixed, each test first: among it, words that lost their leave guard after a second, empty
+      read, a read on its way that leaving did not ask about, and "try again" over a button with none left.
+    - **Its checkpoint is open: a real phone.** Take a photo must open the camera, and the picture must come
+      back upright. Ask Artur when: the built app then starts on this PC's office address with the fake and a
+      throwaway data folder, for those minutes only, and the kept picture is read off the disk.
+    - **For Artur to decide** (the report has each): **reads sent at the same moment pass the tries together**
+      (found by the review: a limit of 1, 20 reads at once, 20 provider calls and 20 pictures kept; holding the
+      bound means recording a try before the provider is asked, on both backends); the words on the page that
+      are mine; that Read the picture waits when no flyer is left today; the leave question's words where there
+      is no flyer yet; whether a generation on its way should be guarded as a read now is; the first example's
+      "Free".
+    - No release was built. A host that names `photo` names it with `flyer`.
+  - **Stage 4 is not started,** and not to be started unasked: the picture as the flyer's photo. Ask Artur which
+    branch first.
 - Waiting, don't start unasked: **a second shape for the share text, "one mixed caption"** (Artur, 2026-10-06):
   one caption in English with the key facts repeated in Spanish, where today's has two blocks. He wants a switch
   to turn it on and generate it as another option for the share text. Not designed: where the switch lives (a
