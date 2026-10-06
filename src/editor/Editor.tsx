@@ -391,17 +391,18 @@ export function Editor({
                     }}
                   />
                 </div>
-                {/* A new tab: leaving the editor with unsaved work asks first, and a link must never cost a draft. */}
+                <p className="help">
+                  Or drop a photo on the preview. Drag the photo there to move it in any direction; click it and use the arrow keys to nudge
+                  (Shift for bigger steps).
+                </p>
+                {/* After the photo's own help, whose "Or" answers the button above. A new tab: leaving the editor with
+                    unsaved work asks first, and a link must never cost a draft. */}
                 <p className="help">
                   Need a photo? Search{' '}
                   <a className="linkish" href={PEXELS_URL} target="_blank" rel="noopener noreferrer">
                     Pexels
                   </a>
                   .
-                </p>
-                <p className="help">
-                  Or drop a photo on the preview. Drag the photo there to move it in any direction; click it and use the arrow keys to nudge
-                  (Shift for bigger steps).
                 </p>
                 {draft.photo && <PhotoControls photo={draft.photo} data={draft.data} canvas={canvas} onCrop={updateCrop} />}
               </>

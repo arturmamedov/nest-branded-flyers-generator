@@ -275,6 +275,8 @@ test('the Photo section points at Pexels in a new tab: nothing asks, and the uns
   await makeUnsaved(page);
   const link = panel(page).getByRole('link', { name: 'Pexels', exact: true });
   await expect(link.locator('xpath=..')).toHaveText('Need a photo? Search Pexels.');
+  // After the photo's own help: "Or drop a photo on the preview" answers the button above it, not this line.
+  await expect(link.locator('xpath=../preceding-sibling::p[1]')).toContainText('Or drop a photo on the preview');
   await expect(link).toHaveAttribute('href', 'https://www.pexels.com/');
   await expect(link).toHaveAttribute('target', '_blank');
   await expect(link).toHaveAttribute('rel', 'noopener noreferrer');
