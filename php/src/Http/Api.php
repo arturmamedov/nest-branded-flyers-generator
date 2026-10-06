@@ -28,6 +28,8 @@ final class Api
      *        still serves everything else
      * @param Closure(): ?AiService $ai built on the first AI request or api/config; null when config.php leaves the AI off
      * @param ActorResolver $actors who is asking (one anonymous actor until there is a login)
+     * @param Closure(): void $sweepPictures deletes the AI's kept pictures that are past their days (AiPictures::sweep
+     *        for today's Canary day); api/config calls it
      */
     public function __construct(
         private readonly HostelRepository $hostels,
@@ -40,6 +42,7 @@ final class Api
         private readonly Closure $photoService,
         private readonly Closure $ai,
         private readonly ActorResolver $actors,
+        private readonly Closure $sweepPictures,
     ) {
     }
 
@@ -65,6 +68,9 @@ final class Api
     /** What this backend can do, and the AI for the actor asking: nothing beyond `enabled: false` when off. */
     private function apiConfig(Request $request): Response
     {
+        // The one read that deletes: a shared host has no cron, and every visit asks this. At most once a day, never
+        // an error, and whether or not the AI is on (Ai\AiPictures).
+        ($this->sweepPictures)();
         $ai = ($this->ai)();
         return Response::json($this->config->toArray($ai === null ? ['enabled' => false] : $ai->status($this->actors->resolve($request))));
     }

@@ -32,8 +32,9 @@ export interface BackupInfo {
   photos: number;
 }
 
-/** The store's lock: PHP's file and Node's folder. Never part of a library. */
-const WORKING_FILES = new Set([STORAGE_FILES.lock, `${STORAGE_FILES.lock}.d`]);
+/** Never part of a library: the store's lock (PHP's file and Node's folder), and the pictures the AI read, which
+    the app keeps for thirty days and a backup would keep for as long as it lives. */
+const WORKING_FILES = new Set([STORAGE_FILES.lock, `${STORAGE_FILES.lock}.d`, STORAGE_FILES.aiPicturesDir]);
 
 export function backupDeployment(deploy: string, into: string = DEFAULT_BACKUPS): string {
   const d = openDeployment(deploy);

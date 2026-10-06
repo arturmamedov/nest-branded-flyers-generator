@@ -414,6 +414,8 @@ final class ApiTest extends TestCase
             static fn () => throw new LogicException('photo service built'),
             $this->ai ?? static fn (): ?AiService => null,
             $this->actors,
+            static function (): void {
+            },
         );
     }
 

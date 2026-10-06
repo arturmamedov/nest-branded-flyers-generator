@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { readFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { backupDeployment } from '../../scripts/php/backup-deploy.js';
@@ -9,6 +9,7 @@ import { startStage, writeTestConfig, type ServedStage } from '../../scripts/php
 import { FIXTURE_PHOTOS_DIR } from '../../server/paths.js';
 import { FlyerSavedSchema, FlyerListItemSchema, PhotoInfoSchema, type PhotoInfo } from '../../src/shared/schema.js';
 import { SAMPLE_FLYERS } from '../../src/shared/samples.js';
+import { STORAGE_FILES } from '../../src/shared/storage.js';
 import { WRITE_HEADERS } from '../../src/shared/writeGuard.js';
 
 /* "Copy data/ and uploads/ back" as a rehearsed fact rather than a sentence:
@@ -59,8 +60,16 @@ describe('back up, wipe, restore', () => {
     expect(created.status, await created.clone().text()).toBe(201);
     const { id } = FlyerSavedSchema.parse(await created.json());
 
+    // A picture the AI read, kept for its thirty days: no part of the library. A backup that carried it would keep
+    // it for as long as the backup lives.
+    const keptPicture = join(STORAGE_FILES.aiPicturesDir, '2026-09-18', '0123456789abcdef.jpg');
+    mkdirSync(join(served.stage, 'data', keptPicture, '..'), { recursive: true });
+    writeFileSync(join(served.stage, 'data', keptPicture), 'a picture');
+
     const backup = backupDeployment(served.stage, join(served.root, 'backups'));
     expect(JSON.parse(readFileSync(join(backup, 'backup.json'), 'utf8'))).toMatchObject({ flyers: 1, photos: 1, config: true });
+    expect(existsSync(join(backup, 'data', STORAGE_FILES.flyerIndex))).toBe(true);
+    expect(existsSync(join(backup, 'data', STORAGE_FILES.aiPicturesDir)), 'the kept pictures stay out of a backup').toBe(false);
 
     resetDeployData(served.stage);
     expect(await flyerTitles()).toEqual([]); // the app re-seeded an empty library

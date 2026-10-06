@@ -6,9 +6,11 @@ namespace NestFlyers;
 
 use Closure;
 use NestFlyers\Ai\AiBundle;
+use NestFlyers\Ai\AiDay;
 use NestFlyers\Ai\AiService;
 use NestFlyers\Ai\AnonymousActors;
 use NestFlyers\Ai\ConfigAiPolicy;
+use NestFlyers\Ai\FileAiPictures;
 use NestFlyers\Ai\HttpClientFactory;
 use NestFlyers\Ai\LlmProviderFactory;
 use NestFlyers\Diagnostics\HostFacts;
@@ -161,6 +163,10 @@ final class Bootstrap
         $uploadsDir = $this->path($shared->uploadsDir());
         $intake = self::once(static fn (): PhotoIntake => new PhotoIntake(new ImageSniffer($shared, $errors), $processor(), $limits, $errors));
         $photoService = self::once(static fn (): PhotoService => new PhotoService($repos->photos, $intake(), $shared, $clock, $uploadsDir));
+        // The pictures the AI read are kept in the data folder with either storage driver, and cleaned up whether or
+        // not the AI is on: a site that switched it off still has its last thirty days of them.
+        $pictures = new FileAiPictures($config->dataDir, $shared);
+        $day = new AiDay($shared->ai()['dayZone']);
         $ai = self::once(fn (): ?AiService => $this->aiService($config, $shared, $errors, $repos, $clock, $normalizer));
 
         $router = new Router();
@@ -180,6 +186,7 @@ final class Bootstrap
             $photoService,
             $ai,
             new AnonymousActors(),
+            static fn () => $pictures->sweep($day->day($clock->now())),
         ))->register($router);
 
         return static function () use ($seeder, $router): Router {

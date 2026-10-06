@@ -28,6 +28,8 @@ const data = SAMPLE_FLYERS[0].data;
 const photoPath = (n: number) => `uploads/2026/09/${n.toString(16).padStart(16, '0')}.jpg`;
 /** An image file in the uploads folder that no record points at: a copy is not a backup, so it must stay behind. */
 const STRAY_UPLOAD = `uploads/2025/12/${'ab'.repeat(8)}.jpg`;
+/** A picture the AI read, in the source's data folder. */
+const KEPT_PICTURE = `${STORAGE_FILES.aiPicturesDir}/2026-03-05/${'cd'.repeat(8)}.jpg`;
 
 const open = (storage: StorageDriver, dir: string, clock: Clock = new FakeClock()): Repositories =>
   createRepositories({ storage }, dataPaths(dir), clock);
@@ -84,7 +86,7 @@ async function writeFixture(dir: string): Promise<void> {
     output: '{"brief":{}}',
   });
   await repos.close();
-  for (const path of [photoPath(2), photoPath(9), STRAY_UPLOAD]) writeDataFile(dir, path, `bytes of ${path}`);
+  for (const path of [photoPath(2), photoPath(9), STRAY_UPLOAD, KEPT_PICTURE]) writeDataFile(dir, path, `bytes of ${path}`);
 }
 
 /** Everything a driver can be asked for, so two stores can be compared in one assertion. */
@@ -162,6 +164,14 @@ describe('copy', { timeout: 30_000 }, () => {
     // Names are random hex: a file already in the target is that same file, so it is left alone.
     const again = await runCopy(args('--force'));
     expect(again.uploads).toEqual({ copied: 0, skipped: 2 });
+  });
+
+  // The pictures the AI read are kept thirty days in the data folder and are no part of the library: the ledger's
+  // records travel, naming files the copy does not have, as the records of a picture already deleted do.
+  it('leaves the AI’s kept pictures behind', async () => {
+    await runCopy(args());
+    expect(existsSync(join(sourceDir, ...KEPT_PICTURE.split('/')))).toBe(true);
+    expect(existsSync(join(targetDir, STORAGE_FILES.aiPicturesDir))).toBe(false);
   });
 
   it('counts the photo files it cannot find and writes nothing', async () => {

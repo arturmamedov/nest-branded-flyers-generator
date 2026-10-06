@@ -245,6 +245,46 @@ final class BootstrapTest extends TestCase
         self::assertStringContainsString('2026-09.json is not valid JSON', $this->log());
     }
 
+    /** @return iterable<string, array{array<string, mixed>}> */
+    public static function aiOnAndOff(): iterable
+    {
+        yield 'with the AI off' => [[]];
+        yield 'with the AI on' => [['ai' => ['provider' => 'fake', 'features' => Shared::fromFile(Paths::schema('shared.json'))->ai()['features']]]];
+    }
+
+    // The owner's answer (2026-10-06): "Keep the picture for 30 days too". A shared host has no cron, so a request
+    // every visit makes deletes what is past its days: GET api/config, whether or not the AI is on.
+    /** @param array<string, mixed> $ai */
+    #[DataProvider('aiOnAndOff')]
+    public function testApiConfigDeletesThePicturesPastTheirThirtyDaysCountedOnTheClocksCanaryDay(array $ai): void
+    {
+        $clock = new FakeClock();
+        $app = Bootstrap::fromAppRoot($this->appRoot, $this->config() + $ai, $clock);
+        $day = 24 * 3600 * 1000;
+        $read = '2026-09-18'; // the fake clock's first day, in the Canary Islands too
+        $aDay = function () use ($read): void {
+            mkdir("$this->dataDir/ai-pictures/$read", 0775, true);
+            file_put_contents("$this->dataDir/ai-pictures/$read/0123456789abcdef.jpg", 'a picture');
+        };
+        $kept = fn (): array => array_values(preg_grep('~^ai-pictures/~', TempDir::files($this->dataDir)) ?: []);
+        $aDay();
+
+        $this->ok($app->handle(self::request('GET', '/api/config')));
+        self::assertSame(['ai-pictures/.swept', "ai-pictures/$read/0123456789abcdef.jpg"], $kept());
+        $clock->tick(30 * $day);
+        $this->ok($app->handle(self::request('GET', '/api/config')));
+        self::assertSame(['ai-pictures/.swept', "ai-pictures/$read/0123456789abcdef.jpg"], $kept(), 'thirty days on, it is still kept');
+        $clock->tick($day);
+        $this->ok($app->handle(self::request('GET', '/api/config')));
+        self::assertSame(['ai-pictures/.swept'], $kept(), 'a day later it is gone');
+        // Only api/config sweeps: it is the one read that deletes.
+        $aDay();
+        $clock->tick($day);
+        self::assertSame(200, $app->handle(self::request('GET', '/api/hostels'))->status);
+        self::assertSame(['ai-pictures/.swept', "ai-pictures/$read/0123456789abcdef.jpg"], $kept());
+        self::assertSame('', $this->log(), 'nothing was logged');
+    }
+
     public function testHostelsAndDoodlesAreSeededFromTheSeedFile(): void
     {
         $seed = Json::decode((string) file_get_contents(Paths::seed('hostels.json')));
