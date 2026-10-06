@@ -19,7 +19,9 @@ import { WRITE_HEADERS } from '../../src/shared/writeGuard';
    Write with AI) and two of the picture reads' (one with words, one with none). Every failure comes from the fake's
    markers or, for a read, from a picture's width. Those never count, though a failed read is one of the day's nine
    tries, and the file makes one. A limit reached is a routed answer. Counts are read from api/config, never assumed,
-   so each test checks what it spent itself, and a test that needs another count routes it. */
+   so each test checks what it spent itself, and a test that needs another count routes it. The specs of the steps and
+   of the picture as the flyer's photo answer the read and the flyer themselves, so they spend nothing; where a picture
+   is uploaded as a photo, the upload is a real one, to this server's own store. */
 
 test.use({ viewport: EDITOR_VIEWPORT });
 

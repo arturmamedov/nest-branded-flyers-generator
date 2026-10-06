@@ -293,7 +293,10 @@ keeps*, below.
 4. **Reload the app.** With `['share']`, a flyer's editor shows "✨ Write with AI (3 left today)" in
    its *Share text* section, and the library's bar shows nothing new. With both features, the bar
    also shows "✨ Create with AI · 3 left". With `photo` as well, that page has two ways in, "From
-   your idea" and "From a photo", and the second shows "✨ Read the picture (3 left today)".
+   your idea" and "From a photo", and the second shows "✨ Read the picture (3 left today)" under
+   three numbered steps: Picture, Check the words, Flyer. Once a picture is read, the steps stand
+   where the two ways were, and the flyer made from it offers "Use this picture as the flyer's
+   photo".
 
 **The staff trial: the share text alone on the host, both features on the developer's machine.**
 
@@ -351,6 +354,11 @@ What to know:
   - **Deleting the folder by hand is safe,** at any time: the app makes it again on the next read.
     The ledger then names pictures that are gone, which harms nothing.
   - **It is not part of the library:** leave it out of backups (*Backups*, above).
+  - **A picture used as a flyer's photo is a second copy, and an ordinary photo.** On the flyer the
+    AI made, staff can tick "Use this picture as the flyer's photo". The picture is then uploaded to
+    `uploads/` like any photo chosen in the editor. It is served with the flyer and is part of the
+    library and of its backups. It is not deleted after thirty days, and one uploaded for a flyer
+    nobody saved stays there, as a photo dropped in the editor does.
   - **Disk:** about 45 MB at 3 reads a day, and about 300 MB at 20. A failed read keeps its picture
     too, so at the very most it is three times that, with every try of every day used: the tries
     stop it there. They do not stop reads sent at the same moment, which are counted as each is

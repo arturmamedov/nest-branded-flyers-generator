@@ -42,6 +42,11 @@ page is "From a photo" on Create with AI: a staff member chooses or takes a pict
 The read stops at the words: they check them in "Your idea" and then ask for the flyer, as with any text. So a flyer
 from a picture is two calls, and everything above applies to the second.
 
+The page shows that way as three steps: Picture, Check the words, Flyer. On the flyer, staff can take the picture
+along as its photo ("Use this picture as the flyer's photo", unticked by default). That is an ordinary upload
+through `POST api/photos`, made from the picture as it was chosen: the model is asked nothing more, and the read's
+own copy in `ai-pictures/` is a different file.
+
 `image-examples/` is the read's eval set. It is no part of the few-shot: a picture is never a turn of the prompt.
 
 - A case is `<date>-<hostel>-<name>.json` with its picture beside it under the same name.

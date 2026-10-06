@@ -22,7 +22,8 @@ import { ShareCopy } from './share';
    built from the brief with flyerFromBrief() and shown by the same <Preview> and <Flyer> as everywhere: never a second
    renderer. Everything the model wrote is marked as the AI's.
    Where the site runs the picture read, the idea can come from a picture (docs/prompts/ai-flyer-from-photo.md, stage
-   3): the read stops at the words, in the idea box, and the flyer is the staff member's own next step. */
+   3): the read stops at the words, in the idea box, and the flyer is the staff member's own next step. That way shows
+   as three numbered steps (AiSteps.tsx), and its flyer can take the picture along as its photo (stage 4). */
 
 /** What an idea looks like: two plain sentences, the owner's words (2026-10-05). The first one was a real staff
     post, an emoji and a line per fact, and staff read it as a form to fill in. Free text has no lines to copy. */

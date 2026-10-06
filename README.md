@@ -148,7 +148,7 @@ full WHEN line) — download the stress-test flyer and look.
 | `docs/deploy.md` | the shared-hosting deploy, step by step, for the owner |
 | `src/shared/ai.ts`, `ai/prompts/`, `schema/ai.json` | the AI assistant's shared facts (each feature's daily limit, the day it counts in, the default models), its rules, and the generated bundle both backends send a provider |
 | `server/ai/`, `php/src/Ai/` | the AI assistant on each backend: the provider seam (OpenAI, Anthropic, and a fake for the tests), the prompt, the service with its checks, the actor and the policy |
-| `src/editor/AiPage.tsx`, `src/editor/AiPhoto.tsx`, `src/editor/handoff.ts` | "Create with AI" (`#/ai`), its second way in, "From a photo", and the flyer it hands to the editor, unsaved |
+| `src/editor/AiPage.tsx`, `src/editor/AiPhoto.tsx`, `src/editor/AiSteps.tsx`, `src/editor/handoff.ts` | "Create with AI" (`#/ai`), its second way in, "From a photo", with its three steps, and the flyer it hands to the editor, unsaved, with the picture as its photo when staff take it along |
 | `scripts/ai/smoke.ts`, `scripts/site.ts` | one real generation by hand, and the one way the scripts call a site's API |
 | `docs/ai-flyers/` | flyers from staff text: the examples (the model's few-shot and eval set), and how a site's ledger feeds them |
 | `assets/art/` | the built-in hand-drawn art (served at `/assets/art/…`) |
@@ -189,6 +189,10 @@ Unsaved work asks before it is left (`src/editor/leaveGuard.ts`, `tests/render/e
   flyer's share text. `photo` is "From a photo", a second way into Create with AI: a picture chosen, dropped,
   pasted or taken with a phone's camera is read into the words for "Your idea", and the flyer is made from
   there. It shows only where `flyer` runs too.
+  - The page shows that way as three numbered steps: Picture, Check the words, Flyer. A picture with no event
+    reads "Write the event" at the second.
+  - On the flyer, "Use this picture as the flyer's photo" is offered, unticked. Ticked, "Open in editor" uploads
+    the picture as an ordinary photo first, and the flyer opens with it "In a frame".
 - Which provider runs, and which features, is configuration, never code: `AI_PROVIDER`, `AI_API_KEY` and
   `AI_FEATURES` in `.env` (below), or the `ai` block of `config.php` on the PHP host (`docs/deploy.md`, *The AI
   assistant*). A site runs the features it names, and none until it names them: a key alone runs nothing. A
