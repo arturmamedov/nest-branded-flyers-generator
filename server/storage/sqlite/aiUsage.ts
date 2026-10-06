@@ -1,9 +1,9 @@
 import { checkedAiUsage, type StoredAiUsage } from '../../../src/shared/storage.js';
 import type { DB } from '../../db/open.js';
-import type { AiUsageRepository } from '../types.js';
+import type { AiUsageCounts, AiUsageRepository } from '../types.js';
 
 /* The AI ledger in SQLite (migration 3, `ai_usage`): one row per generation attempted, appended, never edited.
-   The row id orders all(); the quota reads the (actor_id, day, ok) index. */
+   The row id orders all(); the quota reads the (actor_id, day, ok) index, then groups the day's few rows by feature. */
 
 interface AiUsageRow {
   at: string;
@@ -61,8 +61,8 @@ export class SqliteAiUsageRepository implements AiUsageRepository {
   }
 
   async countOk(actorId: string, day: string) {
-    const row = this.db.prepare('SELECT COUNT(*) AS n FROM ai_usage WHERE actor_id = ? AND day = ? AND ok = 1').get(actorId, day) as { n: number };
-    return row.n;
+    const rows = this.db.prepare('SELECT feature, COUNT(*) AS n FROM ai_usage WHERE actor_id = ? AND day = ? AND ok = 1 GROUP BY feature').all(actorId, day) as { feature: string; n: number }[];
+    return Object.fromEntries(rows.map((r) => [r.feature, r.n])) as AiUsageCounts;
   }
 
   async all() {

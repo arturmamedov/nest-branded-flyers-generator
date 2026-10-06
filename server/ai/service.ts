@@ -58,7 +58,7 @@ export class AiService {
     const limit = this.deps.policy.dailyLimit(actor);
     let used: number;
     try {
-      used = await this.deps.usage.countOk(actor.id, aiDay(this.deps.clock.now()));
+      used = await this.used(actor, aiDay(this.deps.clock.now()));
     } catch (e) {
       const reason = e instanceof Error ? e.message : String(e);
       if (reason !== this.ledgerDown) console.error(`AI: the ledger cannot be read, so the AI is hidden: ${reason}`);
@@ -123,9 +123,14 @@ export class AiService {
   private async quota(actor: Actor): Promise<{ now: string; remaining: number }> {
     const now = this.deps.clock.now();
     const limit = this.deps.policy.dailyLimit(actor);
-    const used = await this.deps.usage.countOk(actor.id, aiDay(now));
+    const used = await this.used(actor, aiDay(now));
     if (used >= limit) throw new HttpError('ai_quota', { limit });
     return { now, remaining: limit - used };
+  }
+
+  /** What the actor has used of the day: the ledger counts it feature by feature, and one cap still covers them all. */
+  private async used(actor: Actor, day: string): Promise<number> {
+    return Object.values(await this.deps.usage.countOk(actor.id, day)).reduce((sum, n) => sum + n, 0);
   }
 
   /**

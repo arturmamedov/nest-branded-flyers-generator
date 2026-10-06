@@ -7,7 +7,7 @@ import { FAKE_UNKNOWN_HOSTEL, FakeProvider } from '../../server/ai/providers/fak
 import { AiService, type AiServiceDeps } from '../../server/ai/service.js';
 import { HttpError } from '../../server/errors.js';
 import { SEED_FILE } from '../../server/paths.js';
-import type { AiUsageRepository } from '../../server/storage/types.js';
+import type { AiUsageCounts, AiUsageRepository } from '../../server/storage/types.js';
 import { AI_ASSUMPTIONS_MAX, AI_DAILY_LIMIT, AI_FEATURES, AI_INPUT_MAX, type AiFeature } from '../../src/shared/ai.js';
 import { newFlyerData } from '../../src/shared/defaults.js';
 import { apiError, type ApiErrorKey } from '../../src/shared/errors.js';
@@ -26,7 +26,9 @@ class MemoryUsage implements AiUsageRepository {
     this.records.push(entry);
   }
   async countOk(actorId: string, day: string) {
-    return this.records.filter((r) => r.ok && r.actorId === actorId && r.day === day).length;
+    const counts: AiUsageCounts = {};
+    for (const r of this.records) if (r.ok && r.actorId === actorId && r.day === day) counts[r.feature] = (counts[r.feature] ?? 0) + 1;
+    return counts;
   }
   async all() {
     return [...this.records];
@@ -182,7 +184,7 @@ describe('the AI service', () => {
     expect(result.assumptions[0].field).toBe('hostel');
     expect(result.assumptions[0].note).toContain('no-such-nest');
     expect(result.assumptions.slice(1)).toEqual(example.answer.assumptions);
-    expect(await usage.countOk('anonymous', '2026-09-18')).toBe(1);
+    expect(await usage.countOk('anonymous', '2026-09-18')).toEqual({ flyer: 1 });
   });
 
   it('keeps to the assumptions the contract allows: its own note still comes first, and on a full list the model’s last goes', async () => {

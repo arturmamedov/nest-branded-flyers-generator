@@ -1,3 +1,4 @@
+import type { AiFeature } from '../../src/shared/ai.js';
 import type { FlyerInput, FlyerListItem, FlyerRecord, Hostel } from '../../src/shared/schema.js';
 import type { StoredAiUsage, StoredDoodle, StoredFlyer, StoredPhoto } from '../../src/shared/storage.js';
 
@@ -65,12 +66,16 @@ export interface FlyerRepository {
   put(f: StoredFlyer): Promise<void>;
 }
 
+/** A day's generations that count, feature by feature. A feature with none is absent: read it as 0. */
+export type AiUsageCounts = Partial<Record<AiFeature, number>>;
+
 /** The AI ledger (docs/json-storage.md, "The AI ledger"): append-only, one record per generation attempted. */
 export interface AiUsageRepository {
   /** Appends; nothing is ever edited or removed. */
   record(entry: StoredAiUsage): Promise<void>;
-  /** The actor's generations that count for a day (aiDay in src/shared/ai.ts): the `ok` ones. */
-  countOk(actorId: string, day: string): Promise<number>;
+  /** The actor's generations that count for a day (aiDay in src/shared/ai.ts): the `ok` ones, under each feature's
+      name. One read answers every feature, so api/config reads the ledger once however many features run. */
+  countOk(actorId: string, day: string): Promise<AiUsageCounts>;
   /** Every record, oldest first (the copy tool, and the eval set to be). */
   all(): Promise<StoredAiUsage[]>;
 }

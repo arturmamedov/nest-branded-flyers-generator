@@ -155,7 +155,7 @@ describe('the JSON store on disk', () => {
     await fill(repos);
     const ledgerFiles = () => tree(dir).filter((f) => f.startsWith(`${STORAGE_FILES.aiUsageDir}/`)).sort();
     // A read never writes: a count on a store without a ledger makes no folder and no file.
-    expect(await repos.aiUsage.countOk('anonymous', '2026-09-18')).toBe(0);
+    expect(await repos.aiUsage.countOk('anonymous', '2026-09-18')).toEqual({});
     expect(ledgerFiles()).toEqual([]);
 
     // The keys deliberately out of order: the file keeps the schema's, whichever driver wrote the record.
@@ -183,7 +183,7 @@ describe('the JSON store on disk', () => {
     for (const record of september) expect(Object.keys(record)).toEqual(Object.keys(AiUsageFileSchema.element.shape));
     expect(Object.keys(september[1].tokens as object)).toEqual(['input', 'output']);
     expect(await repos.aiUsage.all()).toHaveLength(3);
-    expect(await repos.aiUsage.countOk('anonymous', '2026-09-18')).toBe(1);
+    expect(await repos.aiUsage.countOk('anonymous', '2026-09-18')).toEqual({ flyer: 1 });
   });
 
   describe('a ledger file no read can take', () => {

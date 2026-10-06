@@ -18,7 +18,7 @@ const { AiService } = await import('../../server/ai/service.js');
 
 const deps = {
   hostels: { list: async () => [], bySlug: async () => null },
-  usage: { record: async () => {}, countOk: async () => 0 },
+  usage: { record: async () => {}, countOk: async () => ({}) },
   clock: { now: () => '2026-10-05T10:00:00.000Z' },
 };
 const bundle = { prompts: { flyer: '', share: '' }, examples: [], schemas: {} } as unknown as AiBundle;

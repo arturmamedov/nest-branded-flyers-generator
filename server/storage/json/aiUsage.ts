@@ -1,5 +1,5 @@
 import { AiUsageFileSchema, checkedAiUsage, schemaProblems, type StoredAiUsage } from '../../../src/shared/storage.js';
-import type { AiUsageRepository } from '../types.js';
+import type { AiUsageCounts, AiUsageRepository } from '../types.js';
 import type { JsonFiles } from './files.js';
 import type { JsonStore } from './store.js';
 
@@ -26,8 +26,12 @@ export class JsonAiUsageRepository implements AiUsageRepository {
     });
   }
 
-  async countOk(actorId: string, day: string): Promise<number> {
-    return this.store.run(async () => (await this.read(this.file(day))).filter((r) => r.ok && r.actorId === actorId && r.day === day).length);
+  async countOk(actorId: string, day: string): Promise<AiUsageCounts> {
+    return this.store.run(async () => {
+      const counts: AiUsageCounts = {};
+      for (const r of await this.read(this.file(day))) if (r.ok && r.actorId === actorId && r.day === day) counts[r.feature] = (counts[r.feature] ?? 0) + 1;
+      return counts;
+    });
   }
 
   async all(): Promise<StoredAiUsage[]> {
