@@ -24,6 +24,9 @@ data/                     wherever config.php's dataDir points (PHP) or DATA_DIR
     <id>.json             the flyer itself, including its whole `data` object
   ai-usage/
     YYYY-MM.json          the AI ledger: one row per generation attempted that month (Canary Islands days); appears on the first append
+  ai-pictures/            the pictures the AI read, kept thirty days; not part of the library; appears on the first read
+    YYYY-MM-DD/<16 hex>.jpg|png   one picture, as it was sent to the provider, under the Canary Islands day it was read on
+    .swept                the day the folder was last cleaned up
   .lock                   the lock file (PHP) — Node uses a `.lock.d` folder next to it
   .htaccess, index.html   written by the drivers, so the folder denies itself wherever it lives
   php-errors.log          PHP's error log, when the folder is writable; not part of the library
@@ -86,6 +89,11 @@ appear on the first append, so a read never writes, and a release from before th
 carry no id, so `meta.json`'s counters are untouched, and no migration id is needed. The copy tool carries the ledger
 with the library.
 
+A picture read (`feature: "photo"`) has no text to keep as its `input`, and never keeps the picture there. Its
+`input` is one line that names the kept picture, the same on both backends: the path under the data folder, the type,
+the pixels and the bytes, as in `ai-pictures/2026-10-07/9f2c4e1a0b7d3c55.jpg image/jpeg 1536x2048 412331 bytes`. Its
+`output` is the model's raw answer, as for the other features.
+
 A month's file that cannot be read costs the AI and nothing else. `api/config` then says `ai: { enabled: false }`, so
 the app loads as it does with the AI off, and the server's log names the file. Mend or remove the file and the AI is
 back on the next request. The two drivers read it differently: Node checks every record against the schema, PHP takes
@@ -95,6 +103,22 @@ A record of a feature a release does not know shows the same difference: one a l
 back to an older one. PHP counts it under its own name, so it moves no count of the features that release runs, and
 SQLite does the same. Node's JSON driver refuses the month, so the AI is hidden until the newer release is back. On PHP
 a record that names no feature at all counts for none.
+
+## The pictures the AI read
+
+`ai-pictures/` holds the picture of every read that reached the provider, a failed one included, as the provider was
+sent it: upright, shrunk to `AI_PICTURE_MAX_EDGE`, with no metadata. It is written before the provider is asked, so a
+disk that cannot take it stops the read with nothing spent. It lives in the data folder with either storage driver,
+on Node and on PHP.
+
+- **Thirty days** (`AI_PICTURE_DAYS`): a day's folder goes once that day is more than thirty days before today's
+  Canary Islands day.
+- **The app deletes them itself,** inside `GET api/config`, which every visit asks: at most once a day (`.swept`
+  holds the day), whether or not the AI is on, and it is the one read that deletes. Only folders named as a day are
+  ever deleted. A clean-up that fails is logged and costs nothing else.
+- **Not part of the library.** `npm run deploy:backup` leaves the folder out and `npm run copy` never carries it. The
+  ledger's records travel, and then name pictures the copy does not have, as they do for any picture past its days.
+- **A release from before the picture read** ignores the folder, and so never cleans it.
 
 ## Moving a library in
 
@@ -112,7 +136,8 @@ that copy. The same command works the other way (`--from-json … --to-sqlite �
 
 Copy the data folder and the uploads folder. Both are plain files, and a copy taken while the app is idle is
 consistent; the store has no separate journal. Keep `config.php` with them — it is the only file the release does not
-ship. `php-errors.log`, `.lock` and `.lock.d` are working files, not library: a backup can drop them.
+ship. `php-errors.log`, `.lock` and `.lock.d` are working files, not library: a backup can drop them. So is
+`ai-pictures/`, which should be dropped: a backup that holds it keeps those pictures past their thirty days.
 
 On a host that is a download by FTP (`docs/deploy.md`, *Backups*); for a deployment on this machine,
 `npm run deploy:backup` and `deploy:restore` do it, and `tests/cross/restore-drill.test.ts` proves the round trip.

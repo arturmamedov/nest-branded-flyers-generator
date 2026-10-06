@@ -81,7 +81,7 @@ export renderer works in dev too.
 | `npm run deploy:update` | a newer release over a local copy of a deployment: backup, build, an additive copy that deletes nothing, and a git tag. `tests/cross/update-drill.test.ts` proves the library, the photos and `config.php` untouched |
 | `npm run deploy:tag` | the git tag `release/<id>` for a deployed release, on the commit it was built from, with the site and the day in its message. It takes a deployment's folder or a site's address, refuses a release built from uncommitted changes, and never pushes |
 | `npm run flyers:post` | saves flyers from staff-text briefs on a site through its API (`FLYERS_BASE_URL`, or `--to`; `--dry-run` checks only). Idempotent; `docs/ai-flyers/README.md` |
-| `npm run ai:smoke` | one real AI generation, by hand, with the provider and key in `.env`: the brief, what it assumed, the share text, the tokens and the seconds. `--share` writes a flyer's share text; `--to <app root>` goes through a site's API and spends one of that feature's generations there for the day. It stops before spending anything when the feature it would call is off there. Never part of a test: no test touches a provider |
+| `npm run ai:smoke` | one real AI generation, by hand, with the provider and key in `.env`: the brief, what it assumed, the share text, the tokens and the seconds. `--share` writes a flyer's share text; `--photo <picture or image example .json>` reads one picture into its words instead, and `--save <file>` writes that picture as it was sent; `--to <app root>` goes through a site's API and spends one of that feature's generations there for the day. It stops before spending anything when the feature it would call is off there. Never part of a test: no test touches a provider |
 | `npm run copy` | moves a library between storage drivers (SQLite ⇄ JSON files) |
 | `npm run compare:design` | with `npm run dev` running and samples seeded: pixel-diffs the app against the design prototype (needs internet for the prototype's React). Diff images in `test-results/design-compare/`. The MVP matched it to 0 pixels; since the design pass below it differs on purpose in the headline and art — check nothing else moved |
 
@@ -239,11 +239,12 @@ A new build changes the renderer's build id, so cached exports are re-rendered a
 | `PHP_BIN` | `php` | only for the PHP tests: which interpreter to run (8.1+) |
 | `AI_PROVIDER` | unset: the AI is off | `openai`, `anthropic`, or `fake` (canned answers from the examples, for the tests and a demo; it needs no key) |
 | `AI_API_KEY` | unset | the provider's key. Server-side only: it never reaches `api/config`, a log line, the ledger or git |
-| `AI_FEATURES` | unset: no feature runs | the features this site runs, separated by commas: `flyer` ("Create with AI"), `share` ("Write with AI"). `AI_FEATURES=flyer,share` runs both. A name that is neither is refused at start-up |
+| `AI_FEATURES` | unset: no feature runs | the features this site runs, separated by commas: `flyer` ("Create with AI"), `share` ("Write with AI"), `photo` (a picture read into words; the server's half, its page is not built yet). `AI_FEATURES=flyer,share` runs the two with a page. A name that is no feature is refused at start-up |
 | `AI_DAILY_LIMIT` | `3` | generations a day of each feature, for the whole site: a whole number from 1 to 20. Every feature has its own count |
 | `AI_DAILY_LIMITS` | unset: every feature takes `AI_DAILY_LIMIT` | a feature's own number a day, as `feature:number` pairs separated by commas (`share:10,flyer:5`), 1 to 20 each. A name that is no feature, or a feature named twice, is refused at start-up |
-| `AI_MODEL` | `gpt-6-luna` (OpenAI), `claude-haiku-4-5` (Anthropic) | |
-| `AI_EFFORT` | unset | the provider's effort setting (`low` answers sooner). Leave it unset on `claude-haiku-4-5`, which refuses it |
+| `AI_MODEL` | `gpt-6-luna` (OpenAI), `claude-haiku-4-5` (Anthropic) | every feature's model, unless it has its own |
+| `AI_MODELS` | unset: every feature takes `AI_MODEL` | a feature's own model, as `feature:model` pairs separated by commas (`photo:<model>`). One provider and one key serve them all. The photo's model must read pictures |
+| `AI_EFFORT` | unset | the provider's effort setting (`low` answers sooner). One for the whole site: leave it unset when any feature runs on a model that refuses it, as `claude-haiku-4-5` does |
 | `AI_TIMEOUT_MS` | `25000` | how long a generation waits for the provider: a positive whole number |
 | `AI_ENABLED` | on, with a provider and its key | `0` switches the whole AI off and keeps the key and the features |
 

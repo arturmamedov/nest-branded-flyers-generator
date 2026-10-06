@@ -179,6 +179,11 @@ named with the date, e.g. `nest-flyers-2026-10-01`:
 A copy taken while nobody is saving a flyer is consistent. `data/.lock` and `data/php-errors.log`
 are working files; the backup does not need them.
 
+**Leave `data/ai-pictures/` out,** if the folder is there: delete it from the downloaded copy. It
+holds the pictures the AI read in the last thirty days (*The AI assistant*, below). The app deletes
+them itself after thirty days, and a backup that holds them keeps them for as long as the backup
+lives. `npm run deploy:backup` leaves the folder out by itself.
+
 **If `config.php` sets `dataDir`** to a folder outside the app folder (the safer setup when the
 host allows it), the library is in *that* folder, and `data/` is empty. Download that folder
 instead.
@@ -251,6 +256,11 @@ runs only where `config.php` names it. Both are **off until `config.php` names a
 its key and names the features.** A feature that is off shows nothing, and with both off the app
 looks and works as it did before.
 
+**A third feature, `photo`, reads a picture into words,** so that a flyer can start from a photo of
+a poster, a board or a screen. Its page comes with a later release: on this one the server can do
+the read, and naming `photo` shows nothing new in the app. Leave it out of `'features'` until
+that release is up. What it keeps on the host is under *What it keeps*, below.
+
 **To turn it on:**
 
 1. **Check curl.** On the preflight page, *PHP extensions* must list `curl` (IONOS has it). Without
@@ -314,9 +324,28 @@ What to know:
   what the model wrote back, and the tokens. It is part of the library and of its backups, and it
   never holds the key. `docs/ai-flyers/README.md` says how these records become the model's next
   examples.
+- **What a picture read keeps: the picture, for thirty days.** Each picture a staff member has the
+  AI read is kept in `data/ai-pictures/`, in a folder named by the day (`2026-10-07/`), as it was
+  sent to the provider: turned upright, shrunk, with no location or camera data in it.
+  - **Why:** when the AI misreads a poster, the picture is what shows why.
+  - **Who can see it:** nobody through the web. `data/` is never served. Anyone with the SFTP login
+    can open the folder.
+  - **For how long:** thirty days. The app deletes older days by itself, once a day, when someone
+    opens it. There is nothing to schedule.
+  - **Deleting the folder by hand is safe,** at any time: the app makes it again on the next read.
+    The ledger then names pictures that are gone, which harms nothing.
+  - **It is not part of the library:** leave it out of backups (*Backups*, above).
+  - **Disk:** about 45 MB at 3 reads a day, and about 300 MB at 20. If the host's disk is full, a
+    read stops with an error before the provider is asked, and nothing is counted.
 - **The other settings,** all optional:
   - `model`: the default is the provider's fast one;
-  - `effort`: `'low'` makes OpenAI answer sooner. Leave it out for Claude Haiku, which refuses it;
+  - `models`: a feature's own model, by its name: `'models' => ['photo' => '<model>']`. A feature
+    it does not name takes `model`. One provider and one key serve them all. The model named for
+    `photo` must be one that reads pictures: one that cannot makes every read fail with "The AI
+    didn't answer properly", and the log says why;
+  - `effort`: `'low'` makes OpenAI answer sooner. Leave it out for Claude Haiku, which refuses it.
+    There is one `effort` for the whole site: if any feature runs on a model that refuses it, leave
+    it out;
   - `timeoutMs`: how long the app waits for the provider, 25000 by default;
   - `enabled`: `false` hides the AI and keeps the key.
 - **Speed,** measured on 2026-10-04 and 2026-10-05:
@@ -344,9 +373,14 @@ them back later.
 
 | Going back to a release built | Take out |
 |---|---|
-| on 2026-10-06 (`2ad58f28364e`) | `dailyLimits`, from the `ai` block |
+| without the picture read (every release up to 2026-10-06, `2ad58f28364e` included) | `models`, from the `ai` block, and `'photo'` from its `features` |
+| on 2026-10-06 (`2ad58f28364e`) | `dailyLimits` as well |
 | before 2026-10-06 | `dailyLimits`, `features` and `dailyLimit`, from the `ai` block |
 | before 2026-10-03 | the whole `ai` block |
+
+**A release without the picture read leaves the kept pictures where they are.** It does not know
+`data/ai-pictures/`, so it deletes nothing there: delete the folder by hand if the site stays on
+that release. Its reads stay in the ledger and count for nothing on the older release.
 
 **Release `2ad58f28364e` has one limit for both features.** Going back to it, a `dailyLimit` is the
 whole site's total again: 5 is 5 generations a day in all, not 5 of each.

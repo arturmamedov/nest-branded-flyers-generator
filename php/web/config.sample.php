@@ -54,16 +54,19 @@ return [
     // a day of each feature unless 'dailyLimit' or 'dailyLimits' says otherwise, counted in the
     // Canary Islands. Needs PHP's curl extension.
     // Before going back to an older release, take out what it does not know, or it
-    // refuses config.php (503): 'dailyLimits' for release 2ad58f28364e (2026-10-06) or any
-    // before it, 'features' and 'dailyLimit' as well for one from before 2026-10-06, the
+    // refuses config.php (503): 'models', and 'photo' in 'features', for any release without
+    // the picture read; 'dailyLimits' as well for release 2ad58f28364e (2026-10-06) or any
+    // before it; 'features' and 'dailyLimit' as well for one from before 2026-10-06; the
     // whole block for one from before the AI (docs/deploy.md).
     'ai' => [
         // 'openai' or 'anthropic' ('fake' answers canned examples, for tests).
         'provider' => null,
         // The provider's API key. It stays on the server: never shown, logged or sent anywhere else.
         'apiKey' => null,
-        // The features that run: 'flyer' ("Create with AI") and 'share' ("Write with AI").
+        // The features that run: 'flyer' ("Create with AI"), 'share' ("Write with AI") and
+        // 'photo' (a picture read into words: the server's half, its page is not built yet).
         // None until named: [] keeps the AI off even with a key. The share text alone: ['share'].
+        // A read keeps its picture thirty days in data/ai-pictures/ (docs/deploy.md).
         'features' => [],
         // Generations a day of each feature, for the whole site; null = 3. A whole number from 1 to 20.
         // Every feature has its own count: 3 is 3 flyers and 3 share texts.
@@ -73,10 +76,12 @@ return [
         'dailyLimits' => null,
         // null = the provider's default model (src/shared/ai.ts).
         'model' => null,
-        // A feature's own model, by its name, e.g. ['share' => 'gpt-6-luna']; null = none.
-        // A feature it does not name takes 'model'.
+        // A feature's own model, by its name, e.g. ['photo' => 'gpt-6-luna']; null = none.
+        // A feature it does not name takes 'model'. One provider and one key serve them all.
+        // The photo's model must be one that reads pictures.
         'models' => null,
-        // The provider's effort setting ('low', …); null leaves it to the model. Leave it null for Claude Haiku.
+        // The provider's effort setting ('low', …); null leaves it to the model. One for the whole
+        // site: leave it null when any feature runs on a model that refuses it, as Claude Haiku does.
         'effort' => null,
         // How long to wait for an answer, in milliseconds; null = the default, under the host's time limit.
         'timeoutMs' => null,

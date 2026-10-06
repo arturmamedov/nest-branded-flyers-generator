@@ -31,6 +31,25 @@ The pieces, each defined once:
 | What both backends send a provider | `schema/ai.json` (generated): the prompts with their limits, these examples as few-shot turns, the answer's schema |
 | What a site keeps of each generation | the AI ledger (`docs/json-storage.md`) |
 | One real generation, by hand | `npm run ai:smoke` (`scripts/ai/smoke.ts`) |
+| The rules for reading a picture | `ai/prompts/photo.md` |
+| What a picture read answers | `AiPhotoAnswerSchema`: `{ text }`, the words as written, empty when the picture has none |
+| The picture reads' eval set | `image-examples/` ("From a picture", below) |
+
+## From a picture
+
+Since 2026-10-06 the server can read a picture into the words it shows (`POST api/ai/photo`, the `photo` feature;
+its page is not built yet). The read stops at the words: a staff member checks them in "Your idea" and then asks for
+the flyer, as with any text. So a flyer from a picture is two calls, and everything above applies to the second.
+
+`image-examples/` is the read's eval set. It is no part of the few-shot: a picture is never a turn of the prompt.
+
+- A case is `<date>-<hostel>-<name>.json` with its picture beside it under the same name.
+- `source` is the words the picture prints, typed out exactly: what a read should give.
+- `brief` is the flyer those words should give, as in `examples/`.
+- **A picture goes into git only after Artur has looked at it,** and as the read would send it: no larger than
+  2048 px, without its metadata. `npm run ai:smoke -- --photo <picture> --save <file>` writes exactly that file.
+- `tests/unit/ai-image-examples.test.ts` holds every case to this.
+- `npm run ai:smoke -- --photo <the case's .json>` reads a case for real, and prints the words read under `source`.
 
 ## Running it
 
