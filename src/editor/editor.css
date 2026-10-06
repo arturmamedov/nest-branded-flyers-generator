@@ -821,6 +821,22 @@ nest-nav > nav a.ai-entry .ai-count {
   opacity: 0.6;
 }
 
+/* The page's two links with a keyboard, where the browser draws a black ring tight on the words. "Change the
+   picture" stands by itself and shows the app's ring, as the controls do. "type the event yourself" is inside a
+   sentence, where a ring would lie over the full stop after it and the word before: it turns its colours round. */
+.ai-picture-read .linkish:focus-visible {
+  outline: 2px solid var(--teal);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+.note-error .linkish:focus-visible {
+  outline: none;
+  border-radius: 2px;
+  background: var(--err-ink);
+  color: var(--err-bg);
+}
+
 .ai-used-up {
   margin-top: 8px;
 }
