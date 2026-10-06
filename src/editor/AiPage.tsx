@@ -5,7 +5,7 @@ import { lintFlyer } from '../shared/copyRules';
 import { DEFAULT_CANVAS } from '../shared/layout';
 import type { AiAssumption, Brief, Hostel } from '../shared/schema';
 import { AiPhoto, AiPicture } from './AiPhoto';
-import { AiSteps } from './AiSteps';
+import { AiSteps, type Found } from './AiSteps';
 import { api, ApiError } from './api';
 import { offerDraft } from './handoff';
 import { useLeaveGuard } from './leaveGuard';
@@ -39,10 +39,10 @@ const WAY_HINT: Record<Way, string> = {
 /** Under the idea box after a read: what to check in the words it left there, or that it left none. The owner's
     words (2026-10-06). `none` is a picture with no words, or one that announces no event: a sign, a menu, an empty
     board. */
-const READ_NOTE = {
+const READ_NOTE: Record<Found, string> = {
   words: 'Read from your picture. Check every word, and add what is missing (the price?). [?] marks a word the AI could not read. If it lists several activities, keep the one this flyer is for.',
   none: 'The AI found no event in this picture. Write the event here yourself.',
-} as const;
+};
 
 /** After the server's own sentence when a read failed for no fault of the picture (the owner's line, 2026-10-06): the
     read was free, and the picture is still chosen. */
@@ -92,7 +92,7 @@ export function AiPage({
   const [idea, setIdea] = useState('');
   // The last read: the picture it was of, and what it left, words in the idea box or none. That picks the line under
   // the box, which stays until the next read.
-  const [read, setRead] = useState<{ of: File; found: keyof typeof READ_NOTE } | null>(null);
+  const [read, setRead] = useState<{ of: File; found: Found } | null>(null);
   // The box holds words a read was spent on. A later read that finds no event leaves them there, and this with them.
   const [wordsRead, setWordsRead] = useState(false);
   // The picture on the page is one that was read: it is on its way to a flyer. Another one chosen since is not.
@@ -256,7 +256,9 @@ export function AiPage({
               chosen and read, then in its place, with the picture that was read and the way back to choosing one.
               The last step is for the flyer made from this picture: one from an idea typed in, or from a picture
               chosen before, leaves this one at its words. */}
-          {(way === 'photo' || stepping) && <AiSteps at={way === 'photo' ? 1 : result?.picture === picture ? 3 : 2} />}
+          {(way === 'photo' || stepping) && (
+            <AiSteps at={way === 'photo' ? 1 : result?.picture === picture ? 3 : 2} found={pictureRead && read ? read.found : 'words'} />
+          )}
           {stepping && (
             <AiPicture picture={picture} className="ai-picture-read">
               <button type="button" className="linkish" disabled={!!busy} onClick={changePicture}>

@@ -6,17 +6,22 @@
 /** Where the staff member is: choosing the picture, on its words, or at the flyer made from them. */
 export type AiStep = 1 | 2 | 3;
 
-/** The steps' names, the owner's. */
-const NAMES = ['Picture', 'Check the words', 'Flyer'];
+/** What a read leaves in the idea box: the picture's words, or none (a picture that announces no event). */
+export type Found = 'words' | 'none';
 
-export function AiSteps({ at }: { at: AiStep }) {
+/** The steps' names, the owner's. The second is named after what the picture's read found: with no words to check,
+    the event is written by hand. */
+const SECOND: Record<Found, string> = { words: 'Check the words', none: 'Write the event' };
+const names = (found: Found) => ['Picture', SECOND[found], 'Flyer'];
+
+export function AiSteps({ at, found }: { at: AiStep; found: Found }) {
   return (
     // The role is said aloud: a list drawn without its markers is no list to Safari's screen reader.
     <ol className="ai-steps" role="list">
-      {NAMES.map((name, i) => {
+      {names(found).map((name, i) => {
         const n = i + 1;
         return (
-          <li key={name} className={n < at ? 'done' : n === at ? 'on' : undefined} aria-current={n === at ? 'step' : undefined}>
+          <li key={n} className={n < at ? 'done' : n === at ? 'on' : undefined} aria-current={n === at ? 'step' : undefined}>
             {/* The eye's number: a screen reader has the list's own. */}
             <span className="ai-step-n" aria-hidden="true">
               {n}

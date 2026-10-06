@@ -675,6 +675,34 @@ test.describe('From a photo', () => {
     await expect(currentStep(page)).toHaveText('Check the words');
   });
 
+  test('a read that found no event names the second step "Write the event": at the box, back at the picture, and with the flyer written for it', async ({ page }) => {
+    // Routed, so nothing is spent. A photo of the activity itself has no words to check.
+    await withLeft(page, { photo: 2, flyer: 2 });
+    await page.route(apiRoute('ai/photo'), (route) => route.fulfill({ json: { text: '', remaining: 1 } }));
+    await page.route(apiRoute('ai/flyer'), (route) => route.fulfill({ json: { ...example.answer, remaining: 1 } }));
+    await page.goto('/#/ai');
+    await fromPhoto(page).click();
+    await expect(stepNames(page), 'before a read the words are still to come').toHaveText(['Picture', 'Check the words', 'Flyer']);
+    await chooseInput(page).setInputFiles(await picture('pool.png'));
+    await readPicture(page).click();
+    await expect(readNote(page)).toHaveText('The AI found no event in this picture. Write the event here yourself.');
+    await expect(stepNames(page), 'the owner’s answer (2026-10-06)').toHaveText(['Picture ✓', 'Write the event', 'Flyer']);
+    await expect(currentStep(page)).toHaveText('Write the event');
+
+    // The step is named after what this picture's read found: back at the picture it keeps its name, and another
+    // picture is one whose words are still to come.
+    await changePicture(page).click();
+    await expect(stepNames(page)).toHaveText(['Picture', 'Write the event', 'Flyer']);
+    await fromIdea(page).click();
+    await idea(page).fill('Pool party on Saturday at 15:00');
+    await generate(page).click();
+    await expect(preview(page)).toContainText(brief.text!.headline1!);
+    await expect(stepNames(page)).toHaveText(['Picture ✓', 'Write the event ✓', 'Flyer']);
+    await changePicture(page).click();
+    await chooseInput(page).setInputFiles(await picture('poster.png'));
+    await expect(stepNames(page)).toHaveText(['Picture', 'Check the words', 'Flyer']);
+  });
+
   test('From your idea used by itself has no steps: not with a picture chosen and never read, and not with a flyer on screen', async ({ page }) => {
     // Routed, so nothing is spent: the page as it was before the read had one.
     await withLeft(page, 2);
@@ -788,9 +816,11 @@ test.describe('From a photo', () => {
     await readPicture(page).click();
     expect(AiPhotoResultSchema.parse(await (await answered).json())).toEqual({ text: '', remaining: reads - 1 });
 
-    // The picture was read, so the steps stand where the switch was, whatever the read found.
+    // The picture was read, so the steps stand where the switch was, whatever the read found. With no words to
+    // check, the step is to write them (the owner's answer, 2026-10-06).
     await expect(ways(page)).toHaveCount(0);
     await expect(stepNames(page).first()).toHaveText('Picture ✓');
+    await expect(currentStep(page)).toHaveText('Write the event');
     await expect(idea(page)).toBeEmpty();
     await expect(readNote(page), 'the owner’s words (2026-10-06)').toHaveText('The AI found no event in this picture. Write the event here yourself.');
     await expect(readNote(page)).toBeFocused();
