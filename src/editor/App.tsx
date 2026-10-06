@@ -39,10 +39,12 @@ export function App() {
   const onRemaining = useCallback((feature: AiFeature, remaining: number) => setAi((a) => aiWithRemaining(a, feature, remaining)), []);
 
   // A site runs the features it names (api/config lists them): the bar's link and the #/ai page are the flyer's,
-  // "Write with AI" in the editor is the share text's. Each shows only where its feature runs for this staff member,
-  // with its own count.
+  // "Write with AI" in the editor is the share text's, and "From a photo" on the #/ai page is the picture read's (its
+  // words land in the flyer's idea box, so it shows only where the flyer's page does). Each shows only where its
+  // feature runs for this staff member, with its own count.
   const flyerAi = aiFor(ai, 'flyer');
   const shareAi = aiFor(ai, 'share');
+  const photoAi = aiFor(ai, 'photo');
 
   // #/ai without its feature is the library, and its URL says so (a replace: Back never lands on it again).
   const page: Route['page'] = route.page === 'ai' && !flyerAi ? 'library' : route.page;
@@ -86,7 +88,7 @@ export function App() {
         (page === 'library' ? (
           <Library hostels={hostels} />
         ) : page === 'ai' && flyerAi ? (
-          <AiPage key={nav} hostels={hostels} ai={flyerAi} onRemaining={onRemaining} />
+          <AiPage key={nav} hostels={hostels} ai={flyerAi} photo={photoAi} onRemaining={onRemaining} />
         ) : (
           <Editor
             key={nav}

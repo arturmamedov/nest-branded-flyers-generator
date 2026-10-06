@@ -4,6 +4,7 @@ import { flyerFromBrief } from '../shared/brief';
 import { lintFlyer } from '../shared/copyRules';
 import { DEFAULT_CANVAS } from '../shared/layout';
 import type { AiAssumption, Brief, Hostel } from '../shared/schema';
+import { AiPhoto } from './AiPhoto';
 import { api, ApiError } from './api';
 import { offerDraft } from './handoff';
 import { useLeaveGuard } from './leaveGuard';
@@ -22,6 +23,15 @@ import { ShareCopy } from './share';
     post, an emoji and a line per fact, and staff read it as a form to fill in. Free text has no lines to copy. */
 const PLACEHOLDER = 'Tomorrow at 19:00 we have a sunset stretching class by the pool. Bring water and a towel.';
 
+/** The page's two ways in (the owner's answer, 2026-10-06: "Two ways in on one page"). Both end in the idea box: a
+    picture is read into it, and the flyer is made from there. */
+type Way = 'idea' | 'photo';
+const WAY_LABEL: Record<Way, string> = { idea: 'From your idea', photo: 'From a photo' };
+const WAY_HINT: Record<Way, string> = {
+  idea: 'Paste the event as you would post it in the group: a few lines, in Spanish or English. The AI writes the flyer; you check it in the editor.',
+  photo: 'A poster, a board, a Canva page or a chat screenshot. The AI reads its words into “Your idea”; you check them, then Generate.',
+};
+
 interface Result {
   brief: Brief;
   assumptions: AiAssumption[];
@@ -29,8 +39,22 @@ interface Result {
   idea: string;
 }
 
-/** `ai` is the flyer feature as api/config lists it: its own limit, and what is left of it today. */
-export function AiPage({ hostels, ai, onRemaining }: { hostels: Hostel[]; ai: AiFeatureOn; onRemaining: (feature: AiFeature, remaining: number) => void }) {
+export function AiPage({
+  hostels,
+  ai,
+  photo,
+  onRemaining,
+}: {
+  hostels: Hostel[];
+  /** The flyer feature as api/config lists it: its own limit, and what is left of it today. */
+  ai: AiFeatureOn;
+  /** The picture read for this staff member, with its own count: null where the site does not run it, and the page
+      then has its one way in, as before. */
+  photo: AiFeatureOn | null;
+  onRemaining: (feature: AiFeature, remaining: number) => void;
+}) {
+  const [chosenWay, setWay] = useState<Way>('idea');
+  const way: Way = photo ? chosenWay : 'idea';
   const [idea, setIdea] = useState('');
   const [hostel, setHostel] = useState('');
   const [busy, setBusy] = useState(false);
@@ -81,20 +105,35 @@ export function AiPage({ hostels, ai, onRemaining }: { hostels: Hostel[]; ai: Ai
         <div className="panel-head">
           <BackToLibrary className="btn btn-quiet" />
         </div>
-        <Section title="✨ Create with AI" hint="Paste the event as you would post it in the group: a few lines, in Spanish or English. The AI writes the flyer; you check it in the editor.">
-          <Field label="Your idea">
-            <textarea rows={10} value={idea} maxLength={AI_INPUT_MAX} placeholder={PLACEHOLDER} onChange={(e) => setIdea(e.target.value)} />
-          </Field>
-          <Field label={FIELD.hostel} help="Pick one, or let the AI read it from your text">
-            <select aria-label={FIELD.hostel} value={hostel} onChange={(e) => setHostel(e.target.value)}>
-              <option value="">Let the AI decide</option>
-              <HostelOptions hostels={hostels} />
-            </select>
-          </Field>
-          <button type="button" className="btn btn-accent" disabled={busy || !idea.trim() || left === 0} onClick={generate}>
-            {busy ? 'Writing…' : '✨ Generate'} <span className="ai-left">({left} left today)</span>
-          </button>
-          <AiUsedUp feature={ai.name} limit={ai.limit} left={left} />
+        <Section title="✨ Create with AI" hint={WAY_HINT[way]}>
+          {photo && (
+            <div className="seg ai-ways" role="group" aria-label="Start from">
+              {(Object.entries(WAY_LABEL) as [Way, string][]).map(([key, label]) => (
+                <button key={key} type="button" className={way === key ? 'on' : ''} aria-pressed={way === key} disabled={busy} onClick={() => setWay(key)}>
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
+          {way === 'photo' && photo ? (
+            <AiPhoto ai={photo} />
+          ) : (
+            <>
+              <Field label="Your idea">
+                <textarea rows={10} value={idea} maxLength={AI_INPUT_MAX} placeholder={PLACEHOLDER} onChange={(e) => setIdea(e.target.value)} />
+              </Field>
+              <Field label={FIELD.hostel} help="Pick one, or let the AI read it from your text">
+                <select aria-label={FIELD.hostel} value={hostel} onChange={(e) => setHostel(e.target.value)}>
+                  <option value="">Let the AI decide</option>
+                  <HostelOptions hostels={hostels} />
+                </select>
+              </Field>
+              <button type="button" className="btn btn-accent" disabled={busy || !idea.trim() || left === 0} onClick={generate}>
+                {busy ? 'Writing…' : '✨ Generate'} <span className="ai-left">({left} left today)</span>
+              </button>
+              <AiUsedUp feature={ai.name} limit={ai.limit} left={left} />
+            </>
+          )}
         </Section>
 
         {result && result.assumptions.length > 0 && (

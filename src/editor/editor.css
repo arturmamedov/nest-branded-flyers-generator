@@ -653,6 +653,16 @@ nest-nav > nav a.ai-entry .ai-count {
   margin-bottom: 10px;
 }
 
+/* The AI page's two ways in, From your idea / From a photo: shown only where the site runs the picture read. */
+.ai-ways {
+  margin-bottom: 12px;
+}
+
+.seg button:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
 .ai-used-up {
   margin-top: 8px;
 }

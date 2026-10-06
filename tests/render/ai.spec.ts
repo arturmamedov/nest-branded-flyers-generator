@@ -440,3 +440,64 @@ test('on a phone the bar entry shrinks to ✨ AI, and the page stacks like the e
   const stage = (await page.locator('.workspace').boundingBox())!;
   expect(stage.y, 'the workspace sits under the form').toBeGreaterThanOrEqual(panel.y + panel.height - 1);
 });
+
+/* "From a photo" (docs/prompts/ai-flyer-from-photo.md, stage 3): the page's second way in, where the site runs the
+   picture read. The read puts a picture's words in "Your idea", and from there the page is the one above. */
+const ways = (page: Page) => page.getByRole('group', { name: 'Start from' });
+const fromIdea = (page: Page) => ways(page).getByRole('button', { name: 'From your idea', exact: true });
+const fromPhoto = (page: Page) => ways(page).getByRole('button', { name: 'From a photo', exact: true });
+const readPicture = (page: Page) => page.getByRole('button', { name: /^✨ Read the picture/ });
+
+test.describe('From a photo', () => {
+  test('where the read runs the page has two ways in: From your idea is on, and From a photo shows the reads’ own count', async ({ page }) => {
+    const n = await left(page, 'photo');
+    await page.goto('/#/ai');
+    await expect(fromIdea(page)).toHaveAttribute('aria-pressed', 'true');
+    await expect(fromPhoto(page)).toHaveAttribute('aria-pressed', 'false');
+    await idea(page).fill('Yoga tomorrow at 9');
+
+    await fromPhoto(page).click();
+    await expect(fromPhoto(page)).toHaveAttribute('aria-pressed', 'true');
+    await expect(idea(page), 'the idea box is the other way’s').toHaveCount(0);
+    await expect(generate(page)).toHaveCount(0);
+    await expect(readPicture(page)).toContainText(`${n} left today`);
+    await expect(readPicture(page), 'no picture yet').toBeDisabled();
+    await expect(page.locator('.ai-used-up')).toHaveCount(0);
+
+    await fromIdea(page).click();
+    await expect(idea(page), 'what was typed is kept').toHaveValue('Yoga tomorrow at 9');
+  });
+
+  test('the read counts its own: the bar and Generate show the flyer’s, Read the picture the reads’', async ({ page }) => {
+    await withLeft(page, { flyer: 2, photo: 1 });
+    await page.goto('/');
+    await expect(entry(page), 'every way in ends in a flyer').toHaveAccessibleName('Create with AI, 2 left today');
+    await entry(page).click();
+    await expect(generate(page)).toContainText('2 left today');
+    await fromPhoto(page).click();
+    await expect(readPicture(page)).toContainText('1 left today');
+  });
+
+  test('with no reads left the photo way says what ran out and when it comes back, and the idea’s way still works', async ({ page }) => {
+    await withLeft(page, { photo: 0 });
+    await page.goto('/#/ai');
+    await fromPhoto(page).click();
+    await expect(readPicture(page)).toContainText('0 left today');
+    await expect(readPicture(page)).toBeDisabled();
+    await expect(page.locator('.ai-used-up')).toHaveText(`Today’s ${AI_DAILY_LIMIT} picture reads are used up. They come back at midnight, Canary Islands time.`);
+    // The reads' limit is the reads' alone: the flyer still has its three.
+    await fromIdea(page).click();
+    await expect(page.locator('.ai-used-up')).toHaveCount(0);
+    await idea(page).fill('Yoga tomorrow at 9');
+    await expect(generate(page)).toBeEnabled();
+  });
+
+  test('on a site that does not run the read the page has one way in, as before: no switch', async ({ page }) => {
+    await withLeft(page, 2, ['flyer', 'share']);
+    await page.goto('/#/ai');
+    await expect(idea(page)).toBeVisible();
+    await expect(generate(page)).toContainText('2 left today');
+    await expect(ways(page)).toHaveCount(0);
+    await expect(readPicture(page)).toHaveCount(0);
+  });
+});
