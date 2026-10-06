@@ -305,11 +305,29 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
     example's notes, the `fetchJson` test's room.
   - Releases: `deploy:update`, `deploy:tag`, three tags (`release/d1f7ddb40170` live, `release/8b9c8556afa1` and
     `release/3f909ea91548` the Laragon copy). The copy runs `3f909ea91548` with the AI on (its key is set again).
-  - Left, Artur's, in this order: `npm run build:php` and upload, then `npm run deploy:tag -- <the site>`; the
-    `ai` block in live's `config.php`, never before the new release is up; `npm run ai:smoke -- --to <the site>`,
-    once, whose seconds measure the host's time limit.
+  - Left then, Artur's: the release and the key on IONOS. The steps are in the next entry, which changed them
+    (the block names its features, and the smoke takes `--share`).
   - For Artur to decide (the report has each): a text with both "daily" and "tomorrow" printed "Every day";
     `"autoloader-suffix"` in `php/composer.json` would make a release id repeatable.
+- Done: the AI's feature switches, three editor changes and the library's pictures (branch
+  `feat/ai-feature-switches`, 2026-10-06; the brief was pasted into the session, the report is
+  `docs/reports/ai-feature-switches.md`). `main` is fast-forwarded to it, locally; nothing is pushed.
+  - Artur's answers (2026-10-05, quoted in the report): none until named; the cap a setting, 3 by default and
+    20 at most; WhatsApp the default on screen only; the library's pictures always WhatsApp, in today's row with
+    a thumbnail; the placeholder in English; the Laragon copy left with the share text alone.
+  - A fresh-context review found no way for a switched-off feature to run, be spent, be recorded or be shown.
+    Seven of its points were fixed, each with a test that failed first: among them a blank page when the
+    client met a backend older than itself (`aiFor` now reads any answer it does not know as "no AI").
+  - The Laragon copy runs release `2ad58f28364e` (tag `release/2ad58f28364e`, on `2c9e5f8`) with
+    `'features' => ['share']`. This machine's `.env` has `AI_FEATURES=flyer,share`.
+  - Three real generations, all captions on the Laragon copy: 5.4, 3.7 and 5.3 s.
+  - Left, Artur's, in this order: `npm run build:php` and upload, then `npm run deploy:tag -- <the site>`; the
+    `ai` block in live's `config.php` with `'features' => ['share']`, never before the new release is up;
+    `npm run ai:smoke -- --share --to <the site>`, once, whose seconds measure the host's time limit.
+  - For Artur to decide (the report has each): a small copy of each photo for the library's pictures (both
+    backends and a backfill); where a refused `config.php` logs its reason (the host's own PHP log today, not
+    `data/php-errors.log`); Node reads a few number spellings PHP refuses; the Node start-up line prints
+    `AI_MODEL` as typed.
 - Waiting, don't start unasked: step 7 (drag/nudge everything on the canvas, sizes, colours, order, reset),
   step 9 (doodle picker + icon uploads). With two canvases and two templates: step 7's stored `overrides`
   (dx/dy) are shared by every canvas, so it must decide how they apply per canvas; step 9, when it stores
