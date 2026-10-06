@@ -282,8 +282,9 @@ looks and works as it did before.
 - **On a Node machine** (`npm run dev`): `AI_FEATURES=flyer,share` in `.env`, beside the provider
   and its key.
 - **The release first, the keys second.** `features` and `dailyLimit` came with the release of
-  2026-10-06. An older release does not know them and refuses the whole `config.php`: every request
-  answers 503 until they are gone. Upload the release, see the app load, and only then add them.
+  2026-10-06 (`2ad58f28364e`), and `dailyLimits` with the one after it. An older release does not
+  know them and refuses the whole `config.php`: every request answers 503 until they are gone.
+  Upload the release, see the app load, and only then add them.
 - **A key alone runs nothing.** A block from before that release (a provider and its key, no
   `features`) shows no AI on this one. Name the features and it is back.
 
@@ -293,14 +294,22 @@ What to know:
   `.htaccess` denies it) and is in no release. The key never reaches the browser, `api/config`,
   the error log or the library. It *is* in every backup, because `config.php` is: keep backups
   where the key may be.
-- **Three a day, unless you set your own.** The whole site gets 3 generations a day, both features
-  together, counted on the Canary Islands day. A generation counts only when it gave a flyer or a
-  caption: a failed one is free. `'dailyLimit' => 5` in the block changes the number without a
-  release. It takes a whole number from 1 to 20: the bound lives in the code (`AI_DAILY_LIMIT_MAX`).
+- **Three a day of each feature, unless you set your own.** Every feature has its own daily limit.
+  With nothing set, the whole site gets 3 flyers and 3 share texts a day, counted on the Canary
+  Islands day.
+  - A generation counts only when it gave a flyer or a caption: a failed one is free.
+  - A flyer never uses up a share text, or the other way round. When one feature's are used up, its
+    button says what ran out and when it comes back, and the other still works.
+  - `'dailyLimit' => 5` in the block changes the number for every feature, without a release.
+  - `'dailyLimits' => ['share' => 10]` gives one feature its own number. The features it does not
+    name keep `dailyLimit`.
+  - Each takes a whole number from 1 to 20: the bound lives in the code (`AI_DAILY_LIMIT_MAX`).
+  - A `dailyLimit` set under release `2ad58f28364e` was the whole site's total, both features
+    together. From the next release on it is each feature's: 5 becomes 5 flyers and 5 share texts.
 - **While the app has no lock** (`allowPublic`), anyone who finds the address can spend the day's
   generations before the staff do. That is the whole exposure: the cost cannot pass the day's
-  limit. At 3 a day that is a few cents at most, which Artur accepted on 2026-10-02; a higher
-  `dailyLimit` raises it in step. The lock (steps 3–4) closes it.
+  limits, one per feature. At 3 a day each that is a few cents at most, which Artur accepted on
+  2026-10-02; higher limits raise it in step. The lock (steps 3–4) closes it.
 - **What it keeps.** `data/ai-usage/2026-10.json`, one file a month: each text a staff member sent,
   what the model wrote back, and the tokens. It is part of the library and of its backups, and it
   never holds the key. `docs/ai-flyers/README.md` says how these records become the model's next
@@ -335,8 +344,12 @@ them back later.
 
 | Going back to a release built | Take out |
 |---|---|
-| before 2026-10-06 | `features` and `dailyLimit`, from the `ai` block |
+| on 2026-10-06 (`2ad58f28364e`) | `dailyLimits`, from the `ai` block |
+| before 2026-10-06 | `dailyLimits`, `features` and `dailyLimit`, from the `ai` block |
 | before 2026-10-03 | the whole `ai` block |
+
+**Release `2ad58f28364e` has one limit for both features.** Going back to it, a `dailyLimit` is the
+whole site's total again: 5 is 5 generations a day in all, not 5 of each.
 
 **A release from 2026-10-03 to 2026-10-05 has one switch for both features.** With the provider and
 its key still in the block it runs "Create with AI" as well as "Write with AI". If only the share
@@ -386,7 +399,8 @@ smoke test) that deleting only archives, and photos no endpoint can remove.
 Remove the three lines from `.env` afterwards. While `CONTRACT_BASE_URL` is set, every test run
 goes to the host, and each run says so at the start.
 
-**The AI, with one real generation.** It spends one of the site's generations for the day:
+**The AI, with one real generation.** It spends one of the site's generations of that feature for
+the day:
 
 ```sh
 npm run ai:smoke -- --share --to https://nestpass.ai/activities/
@@ -395,10 +409,11 @@ npm run ai:smoke -- --share --to https://nestpass.ai/activities/
 `--share` asks for a share text ("Write with AI"); without it the script asks for a flyer ("Create
 with AI"). It asks `api/config` first and stops, spending nothing, when:
 
-- the site's release is from before the AI, or from before its features had their own switches;
+- the site's release is from before the AI, from before its features had their own switches, or
+  from before each had its own daily limit;
 - the AI is off there;
 - the site does not run the feature asked for (a flyer, on a site that runs the share text alone);
-- the day is used up.
+- that feature's day is used up.
 
 Then it prints what the site's model wrote and how long it took. For a locked site the login comes
 from `FLYERS_BASE_URL`, `FLYERS_BASIC_USER` and `FLYERS_BASIC_PASSWORD` in `.env`. The tokens are in
@@ -413,8 +428,8 @@ the site's `data/ai-usage/` file, which no address serves.
 | 500 on every page in the folder, the preflight page too (IONOS: 403, on its own page with a cookie banner) | the host refuses a line of `.htaccess`. Right after pasting a block, it is that block: take it out again (the lock's `<If …>` lines are the likely one). Right after an upload, put the previous release's `.htaccess` back and tell a developer |
 | photos alone answer 500 | the same, in `uploads/.htaccess` (IONOS accepts it as shipped) |
 | 503 `not_configured` | `config.php` is missing, has no access rule, or PHP could not read it (a typo): check it against the one the preflight page printed |
-| 503 on everything right after going back to an older release | `config.php` has a key the older release does not know: `features` or `dailyLimit` in the `ai` block, or the whole block. Take it out (*Rolling back* has the dates) |
-| 503 right after adding or changing the `ai` block | the release is older than the key (`features` and `dailyLimit` need the release of 2026-10-06: upload it first), or a typo in the block: a setting the sample does not have, a feature that is not `flyer` or `share`, a `dailyLimit` that is not a whole number from 1 to 20, or a value of the wrong kind. The reason names the setting, never its value. **It is in the host's own PHP error log** (the hosting panel's logs), not in `data/php-errors.log`: PHP's log moves into the data folder only once `config.php` has been read. "`ai.apiKey` must not hold spaces or line breaks" means the key was pasted with one: write it between single quotes, with nothing after its last character |
+| 503 on everything right after going back to an older release | `config.php` has a key the older release does not know: `dailyLimits`, `features` or `dailyLimit` in the `ai` block, or the whole block. Take it out (*Rolling back* has the dates) |
+| 503 right after adding or changing the `ai` block | the release is older than the key (`features` and `dailyLimit` need the release of 2026-10-06, `dailyLimits` the one after it: upload it first), or a typo in the block: a setting the sample does not have, a feature that is not `flyer` or `share`, a `dailyLimit` that is not a whole number from 1 to 20, a `dailyLimits` that is not written `['share' => 10]` with such a number, or a value of the wrong kind. The reason names the setting, never its value. **It is in the host's own PHP error log** (the hosting panel's logs), not in `data/php-errors.log`: PHP's log moves into the data folder only once `config.php` has been read. "`ai.apiKey` must not hold spaces or line breaks" means the key was pasted with one: write it between single quotes, with nothing after its last character |
 | nothing of the AI shows | the AI is off: `config.php` has no `ai` block, the block has no `provider`, no `apiKey` or no `features`, or it says `'enabled' => false`. A provider and its key alone run nothing: name the features. `GET api/config` shows `"ai": {"enabled": false}` |
 | "✨ Write with AI" in the editor, but no "✨ Create with AI" on the bar | by design where `features` names `share` alone. `GET api/config` shows `"features": ["share"]` |
 | "The AI didn't answer properly", every time | the provider refused or did not answer; nothing was counted. `data/php-errors.log` has the reason, on a line starting `Nest flyers: AI`: a wrong key (401), a timeout, an answer the app would not take, or "PHP has no curl extension" (the preflight page's *PHP extensions* line says so too: enable curl for this PHP version in the hosting panel) |

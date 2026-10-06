@@ -79,8 +79,9 @@ moves between machines. The API hands the same string out as the photo's `url`.
 
 `ai-usage/YYYY-MM.json` holds one record per generation the AI assistant attempted, appended and never edited
 (`$defs.aiUsage`): when, the Canary Islands day it counts for, the actor, the feature, the provider and model, the
-tokens, whether the answer passed validation, the text the model was given and its raw answer. The daily cap is the
-count of a day's `ok` records for the actor; the rest is the eval and few-shot set to be. The folder and a month's file
+tokens, whether the answer passed validation, the text the model was given and its raw answer. Each feature's daily
+limit is counted from a day's `ok` records of that feature for the actor, every feature's count from one read of the
+month's file; the rest is the eval and few-shot set to be. The folder and a month's file
 appear on the first append, so a read never writes, and a release from before the ledger ignores them: the records
 carry no id, so `meta.json`'s counters are untouched, and no migration id is needed. The copy tool carries the ledger
 with the library.

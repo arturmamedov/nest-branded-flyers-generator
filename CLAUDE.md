@@ -25,8 +25,8 @@ npm run deploy:update  # a newer release over a local copy of a deployment: back
 npm run deploy:tag     # the git tag release/<id> for a deployed release (a folder, or a site's address); never pushes
 npm run copy           # move a library between storage drivers (SQLite <-> JSON files)
 npm run ai:smoke       # one real AI generation by hand, with .env's AI_PROVIDER and AI_API_KEY (--share: a share text;
-                       # --to <app root>: through a site, spending one of its day's generations; it stops before
-                       # spending when the feature it would call is off there). Never part of a test
+                       # --to <app root>: through a site, spending one of that feature's generations for the day; it
+                       # stops before spending when the feature it would call is off there). Never part of a test
 npm run compare:design # reference pixel-diff vs the prototype (dev server running)
 npm run build          # vite build → dist/, tsc → dist-server/
 ```
@@ -54,9 +54,10 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
   button floating by the preview, never printed), `brief.ts` (`flyerFromBrief`: a flyer from its copy alone, the shape the staff-text
   workflow in `docs/ai-flyers/` writes — zod-free; `BriefSchema` is in `schema.ts`), `photo.ts` (crop maths),
   `copyRules.ts`, `writeGuard.ts` (the write header, and the methods that need none), `ai.ts` (the AI assistant's
-  facts: its features, the daily cap's default and bound, the idea's and the assumptions' limits, the day's zone,
-  the provider defaults, the fake provider's markers, and `aiFor`, which reads `api/config`'s answer for one
-  feature — zod-free), `samples.ts` (the seed and
+  facts: its features and what each one's generations are called, a feature's daily limit by default and its bound,
+  the idea's and the assumptions' limits, the day's zone, the provider defaults, the fake provider's markers, and
+  `aiFor`, which reads one feature's own limit and what is left of it off `api/config`'s answer — zod-free),
+  `samples.ts` (the seed and
   test flyers). Relative imports here use `.js` extensions
   (NodeNext). The client never imports a value from `schema.ts`: that would bundle zod into the editor and the
   export page. Nothing the browser loads imports `samples.ts` either: it imports `seed/hostels.json` for the
@@ -117,29 +118,38 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
     with their limits, the few-shot, the schemas) and the `ai` block of `schema/shared.json`.
   - The model's answer only ever becomes data held to `AiFlyerAnswerSchema` / `AiShareAnswerSchema`. A flyer's
     answer always carries its share text (required there, not in `BriefSchema`): one generation is a whole flyer.
-  - Settings: `AI_PROVIDER`, `AI_API_KEY`, `AI_FEATURES`, `AI_DAILY_LIMIT`, `AI_MODEL`, `AI_EFFORT`,
-    `AI_TIMEOUT_MS`, `AI_ENABLED` in `.env` (Node); the `ai` block of `config.php` (PHP: `features`, `dailyLimit`
-    and the rest). Off without a key or with no feature named, and then nothing of it shows. The key never reaches
-    `api/config`, a log line, the ledger, a release or git, and a refusal names a setting, never its value.
-    `tests/fixtures/ai-settings.json` holds both loaders to one table.
+  - Settings: `AI_PROVIDER`, `AI_API_KEY`, `AI_FEATURES`, `AI_DAILY_LIMIT`, `AI_DAILY_LIMITS`, `AI_MODEL`,
+    `AI_EFFORT`, `AI_TIMEOUT_MS`, `AI_ENABLED` in `.env` (Node); the `ai` block of `config.php` (PHP: `features`,
+    `dailyLimit`, `dailyLimits` and the rest). Off without a key or with no feature named, and then nothing of it
+    shows. The key never reaches `api/config`, a log line, the ledger, a release or git, and a refusal names a
+    setting, never its value. `tests/fixtures/ai-settings.json` holds both loaders to one table.
   - Each feature has its own switch (2026-10-06): a site runs the features its settings name, and none until
     they are named (the owner's answer: a key alone runs nothing). The setting `AI_FEATURES` shares its name with
     the constant in `src/shared/ai.ts`, which lists every feature the app has.
-    - The policy decides, in one place: `runs(feature)`, `mayUse(actor)`, `dailyLimit(actor)`. "The AI is on"
-      is derived as "some feature runs". A feature that is off answers `ai_off` where the whole AI does.
+    - The policy decides, in one place: `runs(feature)`, `mayUse(actor)`, `dailyLimit(actor, feature)`. "The AI
+      is on" is derived as "some feature runs". A feature that is off answers `ai_off` where the whole AI does.
     - `api/config` lists the features that run, and the client shows a feature only through `aiFor()`:
       `App.tsx` is the one place that asks. `flyer` off: no "Create with AI", and `#/ai` is the library.
       `share` off: no "Write with AI".
     - One feature off is proved in process on each backend, over the generated list of features
       (`tests/unit/ai-app.test.ts`, `php/tests/BootstrapTest.php`), with no server per case.
-    - An older release refuses `features` and `dailyLimit` (503): on a host the release goes up first, and the
-      keys come out before going back (`docs/deploy.md`, "Rolling back").
+    - An older release refuses `features`, `dailyLimit` and `dailyLimits` (503): on a host the release goes up
+      first, and the keys come out before going back (`docs/deploy.md`, "Rolling back").
+  - Each feature has its own daily limit (2026-10-06, the owner's answer): a generation counts against its own
+    feature alone.
+    - The settings: `AI_DAILY_LIMIT` / `dailyLimit` is every feature's number (3 unless set, `AI_DAILY_LIMIT_MAX` =
+      20 at most), and `AI_DAILY_LIMITS=share:10` / `'dailyLimits' => ['share' => 10]` a feature's own. Both
+      loaders resolve a number for every feature.
+    - `api/config` lists each running feature as `{ name, limit, remaining }`, and each route's `remaining` is its
+      own feature's. `ai_quota` names what ran out, from `AI_FEATURE_NOUNS` (`aiQuotaVars()` fills the sentence).
+    - The client keeps a count per feature (`App.tsx`): a limit reached empties that feature's alone. An answer
+      in an older shape shows no AI, as any answer `aiFor()` does not know.
   - The ledger (`aiUsage` in each storage driver; `ai-usage/YYYY-MM.json` in the JSON store) keeps one append-only
-    record per generation attempted. The cap is the site's own (`AI_DAILY_LIMIT`, 3 unless its settings say
-    otherwise, `AI_DAILY_LIMIT_MAX` = 20 at most): the count of the Canary Islands day's `ok` records for the
-    actor, both features together: today one anonymous actor, so site-wide. A ledger that cannot be read hides the AI
-    (`status()` answers `enabled: false` and logs why) and never takes `api/config` down: the editor renders
-    nothing without that answer. Node's drivers check a record before writing it (`checkedAiUsage`).
+    record per generation attempted. A feature's limit is counted from the Canary Islands day's `ok` records of
+    that feature for the actor: today one anonymous actor, so site-wide. `countOk(actorId, day)` answers every
+    feature's count from one read, because `api/config` asks on every page load. A ledger that cannot be read
+    hides the AI (`status()` answers `enabled: false` and logs why) and never takes `api/config` down: the editor
+    renders nothing without that answer. Node's drivers check a record before writing it (`checkedAiUsage`).
   - The client: `src/editor/AiPage.tsx` (`#/ai`, a focus page like the editor), `handoff.ts` (the unsaved flyer
     handed to the editor in memory), `panel.tsx` and `share.tsx` (what both focus pages share), and "Write with AI"
     in `Editor.tsx`. `fields.ts` holds what the panel calls each field: the editor's labels come from it, and
@@ -147,8 +157,8 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
     so a key no field has is shown as written).
   - No test touches a provider. The render suite has two projects: `render` (every spec but `ai.spec.ts`, the AI
     off whatever `.env` holds) and `ai` (`ai.spec.ts` on a second server with the fake, port 8798, every feature
-    named and the cap pinned, spending exactly the day's 3; a test that needs another count, or a site that runs
-    one feature, routes `api/config`). The contract suite's `node-ai` and `php-ai` run the AI routes on the fake
+    named and the limit pinned, spending two of the flyer's three and one of the share text's; a test that needs
+    another count, or a site that runs one feature, routes `api/config`). The contract suite's `node-ai` and `php-ai` run the AI routes on the fake
     with every feature named, both on the JSON driver, so `ai.test.ts` can damage the ledger's file.
   - `npm run ai:smoke` (`scripts/ai/smoke.ts`) is the one thing that calls a real provider, by hand.
     `scripts/site.ts` is how a script calls a site's API (`flyers:post` too): it never follows a redirect.

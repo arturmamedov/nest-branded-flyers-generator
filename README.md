@@ -71,7 +71,7 @@ export renderer works in dev too.
 | Command | What it proves |
 |---|---|
 | `npm run typecheck` | client and server compile |
-| `npm test` | shared logic (`·` split, layout, crop maths, copy rules, schema), the editor's history guard, the shared test vectors, the storage contract on every driver, SQLite migrations, that generated files are current, and the AI assistant on a fake provider: its checks in their order, the daily cap and its day, and both providers' adapters against recorded answers |
+| `npm test` | shared logic (`·` split, layout, crop maths, copy rules, schema), the editor's history guard, the shared test vectors, the storage contract on every driver, SQLite migrations, that generated files are current, and the AI assistant on a fake provider: its checks in their order, each feature's daily limit and its day, and both providers' adapters against recorded answers |
 | `npm run test:contract` | the HTTP contract (`docs/api-contract.md`) against every backend, the PHP one also behind a staff login (`php-basic`), and the access rule itself over HTTP (`php-access`: 401, 403, 503). The AI routes generate on the fake provider with every feature named (`node-ai`, `php-ai`); every other project proves them off. One feature switched off is proved in process on each backend (`tests/unit/ai-app.test.ts`, `php/tests/BootstrapTest.php`), with no server per case. `CONTRACT_BASE_URL` in `.env` points it at a deployment instead (`docs/deploy.md`) |
 | `npm run test:render` | builds, then renders every Activity sample in all three photo modes, and every This week sample once, on every canvas: every block where `layout.ts` puts it, inside the safe box, no overlapping blocks, no clipped text, real fonts loaded, highlighter clone, each week row printing what `src/shared/week.ts` says (short names, two-line prices, empty cells collapsed), exports each canvas at its exact size as PNG/JPG, cached per canvas until a save; the in-browser client export matches the server export (`fidelity.spec.ts`, ≤ 0.5 % per feature). `tests/render/baseline.spec.ts` is opt-in (`RENDER_BASELINE=capture\|check`, `RENDER_BASELINE_DIR`): byte-identical PNGs of the story, every sample Activity and This week alike, before and after a change; a check skips, by name, a case its capture lacks. `ai.spec.ts` drives "Create with AI" and "Write with AI" on a second server with the fake provider; every other spec runs with the AI off, whatever `.env` holds |
 | `npm run test:php` | the PHP backend's own tests (PHPUnit). `composer test` in `php/` does the same; `PHP_BIN` picks the interpreter |
@@ -81,7 +81,7 @@ export renderer works in dev too.
 | `npm run deploy:update` | a newer release over a local copy of a deployment: backup, build, an additive copy that deletes nothing, and a git tag. `tests/cross/update-drill.test.ts` proves the library, the photos and `config.php` untouched |
 | `npm run deploy:tag` | the git tag `release/<id>` for a deployed release, on the commit it was built from, with the site and the day in its message. It takes a deployment's folder or a site's address, refuses a release built from uncommitted changes, and never pushes |
 | `npm run flyers:post` | saves flyers from staff-text briefs on a site through its API (`FLYERS_BASE_URL`, or `--to`; `--dry-run` checks only). Idempotent; `docs/ai-flyers/README.md` |
-| `npm run ai:smoke` | one real AI generation, by hand, with the provider and key in `.env`: the brief, what it assumed, the share text, the tokens and the seconds. `--share` writes a flyer's share text; `--to <app root>` goes through a site's API and spends one of its generations for the day. It stops before spending anything when the feature it would call is off there. Never part of a test: no test touches a provider |
+| `npm run ai:smoke` | one real AI generation, by hand, with the provider and key in `.env`: the brief, what it assumed, the share text, the tokens and the seconds. `--share` writes a flyer's share text; `--to <app root>` goes through a site's API and spends one of that feature's generations there for the day. It stops before spending anything when the feature it would call is off there. Never part of a test: no test touches a provider |
 | `npm run copy` | moves a library between storage drivers (SQLite ⇄ JSON files) |
 | `npm run compare:design` | with `npm run dev` running and samples seeded: pixel-diffs the app against the design prototype (needs internet for the prototype's React). Diff images in `test-results/design-compare/`. The MVP matched it to 0 pixels; since the design pass below it differs on purpose in the headline and art — check nothing else moved |
 
@@ -146,7 +146,7 @@ full WHEN line) — download the stress-test flyer and look.
 | `php/preflight/` | the preflight page the owner uploads before a release (`docs/deploy.md`) |
 | `docs/api-contract.md`, `docs/json-storage.md` | the two seams written down |
 | `docs/deploy.md` | the shared-hosting deploy, step by step, for the owner |
-| `src/shared/ai.ts`, `ai/prompts/`, `schema/ai.json` | the AI assistant's shared facts (the daily cap, the day it counts in, the default models), its rules, and the generated bundle both backends send a provider |
+| `src/shared/ai.ts`, `ai/prompts/`, `schema/ai.json` | the AI assistant's shared facts (each feature's daily limit, the day it counts in, the default models), its rules, and the generated bundle both backends send a provider |
 | `server/ai/`, `php/src/Ai/` | the AI assistant on each backend: the provider seam (OpenAI, Anthropic, and a fake for the tests), the prompt, the service with its checks, the actor and the policy |
 | `src/editor/AiPage.tsx`, `src/editor/handoff.ts` | "Create with AI" (`#/ai`), and the flyer it hands to the editor, unsaved |
 | `scripts/ai/smoke.ts`, `scripts/site.ts` | one real generation by hand, and the one way the scripts call a site's API |
@@ -191,9 +191,10 @@ Unsaved work asks before it is left (`src/editor/leaveGuard.ts`, `tests/render/e
   `AI_FEATURES` in `.env` (below), or the `ai` block of `config.php` on the PHP host (`docs/deploy.md`, *The AI
   assistant*). A site runs the features it names, and none until it names them: a key alone runs nothing. A
   feature that is off shows nothing, and with none on the app is as it was.
-- At most 3 generations a day, both features together, counted on the Canary Islands day. A site may set its own
-  number, up to 20 (`AI_DAILY_LIMIT`; the default and the bound are in `src/shared/ai.ts`). There is no login,
-  so today the cap is site-wide.
+- Every feature has its own daily limit: at most 3 generations a day of each, counted on the Canary Islands day.
+  A flyer never uses up a share text. A site may set its own number for every feature, up to 20
+  (`AI_DAILY_LIMIT`), and one feature's own (`AI_DAILY_LIMITS=share:10`); the default and the bound are in
+  `src/shared/ai.ts`. There is no login, so today each limit is site-wide.
 - Every test runs on the fake provider or with the AI off, so a key in `.env` never reaches a test.
   `npm run dev` does use it.
 - The brief is `docs/prompts/ai-assistant.md`, the report `docs/reports/ai-assistant.md`.
@@ -239,7 +240,8 @@ A new build changes the renderer's build id, so cached exports are re-rendered a
 | `AI_PROVIDER` | unset: the AI is off | `openai`, `anthropic`, or `fake` (canned answers from the examples, for the tests and a demo; it needs no key) |
 | `AI_API_KEY` | unset | the provider's key. Server-side only: it never reaches `api/config`, a log line, the ledger or git |
 | `AI_FEATURES` | unset: no feature runs | the features this site runs, separated by commas: `flyer` ("Create with AI"), `share` ("Write with AI"). `AI_FEATURES=flyer,share` runs both. A name that is neither is refused at start-up |
-| `AI_DAILY_LIMIT` | `3` | generations a day for the whole site, both features together: a whole number from 1 to 20 |
+| `AI_DAILY_LIMIT` | `3` | generations a day of each feature, for the whole site: a whole number from 1 to 20. Every feature has its own count |
+| `AI_DAILY_LIMITS` | unset: every feature takes `AI_DAILY_LIMIT` | a feature's own number a day, as `feature:number` pairs separated by commas (`share:10,flyer:5`), 1 to 20 each. A name that is no feature, or a feature named twice, is refused at start-up |
 | `AI_MODEL` | `gpt-6-luna` (OpenAI), `claude-haiku-4-5` (Anthropic) | |
 | `AI_EFFORT` | unset | the provider's effort setting (`low` answers sooner). Leave it unset on `claude-haiku-4-5`, which refuses it |
 | `AI_TIMEOUT_MS` | `25000` | how long a generation waits for the provider: a positive whole number |
@@ -293,11 +295,12 @@ same command works the other way (`--from-json <folder>/data --uploads-from <fol
 --to-sqlite …`). A data folder is served by one backend at a time.
 
 **The AI on the PHP host** is the `ai` block of `config.php` (`docs/deploy.md`, *The AI assistant*):
-`provider`, `apiKey` and `features`, and optionally `dailyLimit`, `model`, `effort`, `timeoutMs` and
-`enabled`, the same eight settings as the `AI_*` ones above. It needs PHP's curl, which the preflight
-page checks. A release refuses a `config.php` with a key that came after it: `features` and
-`dailyLimit` come out before going back to a release built before 2026-10-06, and the whole block
-before one built before 2026-10-03 (`docs/deploy.md`, *Rolling back*).
+`provider`, `apiKey` and `features`, and optionally `dailyLimit`, `dailyLimits`, `model`, `effort`,
+`timeoutMs` and `enabled`, the same nine settings as the `AI_*` ones above. It needs PHP's curl, which
+the preflight page checks. A release refuses a `config.php` with a key that came after it:
+`dailyLimits` comes out before going back to the release of 2026-10-06 (`2ad58f28364e`), `features`
+and `dailyLimit` as well before one built before that day, and the whole block before one built
+before 2026-10-03 (`docs/deploy.md`, *Rolling back*).
 
 **Against a local copy of a deployment** (a Laragon folder): `npm run deploy:update` puts the
 current release there; `npm run deploy:backup`, `deploy:restore` and `deploy:reset` handle its
@@ -356,9 +359,10 @@ story or a WhatsApp 3:4 image (`docs/reports/output-canvases.md`). Then handoff 
 
 Built, on branch `feat/ai-assistant` (`docs/reports/ai-assistant.md`): the **AI assistant**, on both
 backends. "Create with AI" writes a flyer from a staff member's text, and "Write with AI" a flyer's
-share text, with OpenAI or Anthropic behind one seam, at most 3 generations a day unless a site sets
-its own. Each feature has its own switch (`docs/reports/ai-feature-switches.md`): a site runs the ones
-it names, and it is off until a site has a key and names them.
+share text, with OpenAI or Anthropic behind one seam, at most 3 generations a day of each unless a
+site sets its own. Each feature has its own switch (`docs/reports/ai-feature-switches.md`) and its own
+daily limit (`docs/reports/ai-flyer-from-photo.md`): a site runs the ones it names, and it is off until
+a site has a key and names them.
 
 Next (handoff steps 7 and 9): per-element drag/nudge with snapping and safe-box clamping,
 font-size multipliers, contrast-checked colour swatches, block reorder, Reset to template; the
