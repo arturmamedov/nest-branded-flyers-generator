@@ -31,6 +31,8 @@ export interface AiServiceDeps {
   usage: Pick<AiUsageRepository, 'record' | 'countOk'>;
   clock: Clock;
   timeoutMs: number;
+  /** The model each feature's calls name (AiSettings.models). */
+  models: Record<AiFeature, string>;
 }
 
 const fields = (err: z.ZodError): Record<string, string> => Object.fromEntries(err.issues.map((i) => [i.path.join('.') || '_', i.message]));
@@ -151,6 +153,7 @@ export class AiService {
     answerSchema: S,
   ): Promise<z.infer<S>> {
     const provider = this.deps.provider!;
+    const model = this.deps.models[feature];
     const record = (ok: boolean, result: { usage?: LlmResult['usage']; model?: string; output: string | null }) =>
       this.deps.usage.record({
         at: now,
@@ -158,7 +161,7 @@ export class AiService {
         actorId: actor.id,
         feature,
         provider: provider.name,
-        model: result.model ?? provider.model,
+        model: result.model ?? model,
         tokens: result.usage ?? null,
         ok,
         input,
@@ -167,10 +170,10 @@ export class AiService {
 
     let result: LlmResult;
     try {
-      result = await provider.complete({ ...prompt, schema, schemaName, maxOutputTokens: AI_MAX_OUTPUT_TOKENS, timeoutMs: this.deps.timeoutMs });
+      result = await provider.complete({ ...prompt, model, schema, schemaName, maxOutputTokens: AI_MAX_OUTPUT_TOKENS, timeoutMs: this.deps.timeoutMs });
     } catch (e) {
       if (!(e instanceof LlmFailure)) throw e;
-      console.error(`AI ${feature} (${provider.name} ${provider.model}): ${e.reason}: ${e.message}`);
+      console.error(`AI ${feature} (${provider.name} ${model}): ${e.reason}: ${e.message}`);
       await record(false, { output: e.raw });
       throw new HttpError('ai_failed');
     }

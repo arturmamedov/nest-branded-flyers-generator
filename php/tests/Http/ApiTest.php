@@ -431,6 +431,7 @@ final class ApiTest extends TestCase
             $this->usage,
             new FakeClock(),
             $config->timeoutMs,
+            $config->models,
             $this->shared,
             $this->errors,
             $validator,

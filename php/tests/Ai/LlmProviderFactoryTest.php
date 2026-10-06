@@ -34,17 +34,14 @@ final class LlmProviderFactoryTest extends TestCase
     {
         $fake = self::provider(['provider' => 'fake']);
         self::assertInstanceOf(FakeProvider::class, $fake);
-        self::assertSame('fake-1', $fake->model());
     }
 
-    public function testARealProviderWithItsKeyAndModel(): void
+    public function testARealProviderWithItsKey(): void
     {
         $openai = self::provider(['provider' => 'openai', 'apiKey' => 'sk-test']);
         self::assertInstanceOf(OpenAiProvider::class, $openai);
-        self::assertSame('gpt-6-luna', $openai->model());
         $anthropic = self::provider(['provider' => 'anthropic', 'apiKey' => 'k', 'model' => 'claude-sonnet-5-5']);
         self::assertInstanceOf(AnthropicProvider::class, $anthropic);
-        self::assertSame('claude-sonnet-5-5', $anthropic->model());
     }
 
     /** @param array<string, mixed>|null $ai */

@@ -39,19 +39,21 @@ function stub(answer: { status: number; text: string }) {
 const failureOf = (p: Promise<unknown>) => p.then(() => null, (e: unknown) => e as LlmFailure);
 
 const adapters = [
-  { name: 'openai', file: 'ai-openai.json', make: (c: Config, f: FetchJson) => new OpenAiProvider(c, f) },
-  { name: 'anthropic', file: 'ai-anthropic.json', make: (c: Config, f: FetchJson) => new AnthropicProvider(c, f) },
+  { name: 'openai', file: 'ai-openai.json', make: (c: Config, f: FetchJson) => new OpenAiProvider({ apiKey: c.apiKey, effort: c.effort }, f) },
+  { name: 'anthropic', file: 'ai-anthropic.json', make: (c: Config, f: FetchJson) => new AnthropicProvider({ apiKey: c.apiKey, effort: c.effort }, f) },
 ] as const;
 
 for (const adapter of adapters) {
   describe(`the ${adapter.name} adapter`, () => {
     const v = fixture(adapter.file);
     const good = v.answers.find((a) => a.result)!;
+    /** The call names its model (a feature's own, since 2026-10-06): an entry's `config.model` is the one it names. */
+    const call = (config: Config, which: 'call' | 'picture' = 'call'): LlmCall => ({ ...v[which], model: config.model });
 
     for (const r of v.requests) {
       it(`sends ${r.name}`, async () => {
         const { fetch, seen } = stub({ status: good.status, text: textOf(good) });
-        await adapter.make(r.config, fetch).complete(v[r.call ?? 'call']);
+        await adapter.make(r.config, fetch).complete(call(r.config, r.call));
         expect(seen).toHaveLength(1);
         expect(seen[0].url).toBe(r.url);
         expect(seen[0].init.headers).toEqual(r.headers);
@@ -64,10 +66,10 @@ for (const adapter of adapters) {
       it(`reads ${a.name}`, async () => {
         const provider = adapter.make(v.requests[0].config, stub({ status: a.status, text: textOf(a) }).fetch);
         if (a.result) {
-          expect(await provider.complete(v.call)).toEqual(a.result);
+          expect(await provider.complete(call(v.requests[0].config))).toEqual(a.result);
           return;
         }
-        const failure = await failureOf(provider.complete(v.call));
+        const failure = await failureOf(provider.complete(call(v.requests[0].config)));
         expect(failure).toBeInstanceOf(LlmFailure);
         expect(failure!.reason).toBe(a.failure);
         // The key never leaves the adapter, whatever the provider echoed back.
@@ -75,10 +77,15 @@ for (const adapter of adapters) {
       });
     }
 
-    it('names itself and its model for the ledger', () => {
-      const provider = adapter.make(v.requests[0].config, stub({ status: 200, text: '' }).fetch);
-      expect(provider.name).toBe(adapter.name);
-      expect(provider.model).toBe(v.requests[0].config.model);
+    it('names itself for the ledger', () => {
+      expect(adapter.make(v.requests[0].config, stub({ status: 200, text: '' }).fetch).name).toBe(adapter.name);
+    });
+
+    it('asks for the model the call names, and reports it when the answer names none', async () => {
+      const { fetch, seen } = stub({ status: good.status, text: JSON.stringify({ ...(good.body as object), model: undefined }) });
+      const result = await adapter.make(v.requests[0].config, fetch).complete({ ...v.call, model: 'a-feature-s-own' });
+      expect(JSON.parse(seen[0].init.body).model).toBe('a-feature-s-own');
+      expect(result.model).toBe('a-feature-s-own');
     });
   });
 }
@@ -145,6 +152,7 @@ describe('the fake provider', () => {
     ],
     schema: {},
     schemaName,
+    model: 'fake-1',
     maxOutputTokens: 1,
     timeoutMs: 1,
   });
@@ -167,6 +175,5 @@ describe('the fake provider', () => {
 
   it('names itself, and never touches the network', () => {
     expect(fake.name).toBe('fake');
-    expect(fake.model).toBe('fake-1');
   });
 });

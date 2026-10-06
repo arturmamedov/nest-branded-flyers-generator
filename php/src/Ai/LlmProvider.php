@@ -14,9 +14,6 @@ interface LlmProvider
     /** 'openai' | 'anthropic' | 'fake', for the ledger. */
     public function name(): string;
 
-    /** The model asked for; the answer may name the snapshot an alias resolved to (LlmResult::$model). */
-    public function model(): string;
-
     /** @throws LlmFailure when no usable answer came */
     public function complete(LlmCall $call): LlmResult;
 }

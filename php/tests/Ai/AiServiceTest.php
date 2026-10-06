@@ -16,6 +16,7 @@ use NestFlyers\Ai\HttpClient;
 use NestFlyers\Ai\HttpClientFactory;
 use NestFlyers\Ai\HttpResponse;
 use NestFlyers\Ai\LlmCall;
+use NestFlyers\Ai\LlmFailure;
 use NestFlyers\Ai\LlmProvider;
 use NestFlyers\Ai\LlmResult;
 use NestFlyers\Ai\LlmUsage;
@@ -133,11 +134,6 @@ final class AiServiceTest extends TestCase
             public function name(): string
             {
                 return 'fake';
-            }
-
-            public function model(): string
-            {
-                return 'never-asked';
             }
 
             public function complete(LlmCall $call): LlmResult
@@ -398,6 +394,32 @@ final class AiServiceTest extends TestCase
         self::assertStringContainsString('Pool party', $this->usage->records[0]['input']);
     }
 
+    // The owner's answer (2026-10-06): "A model per feature, now". One provider and one key; the call names the model.
+    public function testEachFeaturesCallAsksThatFeaturesOwnModelAndTheLedgerNamesItWhenNoAnswerCame(): void
+    {
+        $noAnswer = new class () implements LlmProvider {
+            /** @var list<string> */
+            public array $asked = [];
+
+            public function name(): string
+            {
+                return 'fake';
+            }
+
+            public function complete(LlmCall $call): LlmResult
+            {
+                $this->asked[] = $call->model;
+                throw new LlmFailure(LlmFailure::TIMEOUT, 'no answer');
+            }
+        };
+        $service = $this->service(['provider' => $noAnswer, 'models' => self::models(['share' => 'model-b'])]);
+        $this->failsWith(fn () => $service->flyer($this->actor, $this->idea()), 'ai_failed');
+        $this->failsWith(fn () => $service->share($this->actor, $this->shareBody()), 'ai_failed');
+        self::assertSame(['fake-1', 'model-b'], $noAnswer->asked);
+        self::assertSame([['flyer', 'fake-1', false], ['share', 'model-b', false]], array_map(static fn (array $r): array => [$r['feature'], $r['model'], $r['ok']], $this->usage->records));
+        self::assertSame(2, substr_count($this->log(), "\n"), 'each failure is one log line');
+    }
+
     public function testTheKeyAProviderEchoesNeverReachesTheLogOrTheLedger(): void
     {
         $echo = new class () implements HttpClient {
@@ -406,7 +428,7 @@ final class AiServiceTest extends TestCase
                 return new HttpResponse(401, '{"error": {"message": "Incorrect API key provided: sk-live-secret-42"}}');
             }
         };
-        $service = $this->service(['provider' => new OpenAiProvider(new ProviderConfig('sk-live-secret-42', 'gpt-6-luna', null), $echo)]);
+        $service = $this->service(['provider' => new OpenAiProvider(new ProviderConfig('sk-live-secret-42', null), $echo)]);
         $this->failsWith(fn () => $service->flyer($this->actor, $this->idea()), 'ai_failed');
         self::assertStringContainsString('OpenAI answered 401', $this->log());
         self::assertStringNotContainsString('sk-live-secret-42', $this->log());
@@ -417,7 +439,7 @@ final class AiServiceTest extends TestCase
     {
         // It used to be an undefined function: a 500, a trace in the log and no ledger record.
         $noCurl = HttpClientFactory::create(static fn (string $extension): bool => false);
-        $service = $this->service(['provider' => new OpenAiProvider(new ProviderConfig('sk-live-secret-42', 'gpt-6-luna', null), $noCurl)]);
+        $service = $this->service(['provider' => new OpenAiProvider(new ProviderConfig('sk-live-secret-42', null), $noCurl)]);
         $this->failsWith(fn () => $service->flyer($this->actor, $this->idea()), 'ai_failed');
         self::assertCount(1, $this->usage->records);
         self::assertSame([false, null, null], [$this->usage->records[0]['ok'], $this->usage->records[0]['tokens'], $this->usage->records[0]['output']]);
@@ -446,11 +468,6 @@ final class AiServiceTest extends TestCase
             public function name(): string
             {
                 return $this->inner->name();
-            }
-
-            public function model(): string
-            {
-                return $this->inner->model();
             }
 
             public function complete(LlmCall $call): LlmResult
@@ -494,7 +511,7 @@ final class AiServiceTest extends TestCase
      * The service on the fake provider, the memory ledger and the seed's hostels, unless $with says otherwise
      * (`'provider' => null` is AI off).
      *
-     * @param array{provider?: ?LlmProvider, policy?: AiPolicy, hostels?: HostelRepository, usage?: AiUsageRepository} $with
+     * @param array{provider?: ?LlmProvider, policy?: AiPolicy, hostels?: HostelRepository, usage?: AiUsageRepository, models?: array<string, string>} $with
      */
     private function service(array $with = []): AiService
     {
@@ -506,10 +523,26 @@ final class AiServiceTest extends TestCase
             $with['usage'] ?? $this->usage,
             $this->clock,
             1000,
+            $with['models'] ?? self::models(),
             $this->shared,
             $this->errors,
             new SchemaValidator(new SchemaNormalizer()),
         );
+    }
+
+    /**
+     * A model for every feature: its own where $own names it, else the fake's.
+     *
+     * @param array<string, string> $own
+     * @return array<string, string>
+     */
+    private static function models(array $own = []): array
+    {
+        $models = [];
+        foreach (self::FEATURES as $feature) {
+            $models[$feature] = $own[$feature] ?? 'fake-1';
+        }
+        return $models;
     }
 
     /** A provider that answers every call with this JSON, whatever it is asked: for answers the fake has no marker for. */
@@ -523,11 +556,6 @@ final class AiServiceTest extends TestCase
             public function name(): string
             {
                 return 'fake';
-            }
-
-            public function model(): string
-            {
-                return 'stub-1';
             }
 
             public function complete(LlmCall $call): LlmResult

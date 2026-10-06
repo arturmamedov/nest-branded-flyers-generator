@@ -13,8 +13,14 @@ export interface AiSettings {
   provider: AiProvider | null;
   /** Server-side only: it never reaches api/config, a log line, the ledger or a release. */
   apiKey: string | null;
+  /** The site's model: AI_MODEL, else the provider's default; null without a provider. */
   model: string | null;
-  /** The provider's effort knob (`reasoning.effort` / `output_config.effort`), sent only when set. */
+  /** The model each feature's calls name, for every feature the app has (the owner's answer, 2026-10-06: a model
+      per feature, so the picture read can run on a stronger one): the model AI_MODELS gives the feature, else
+      `model`. null without a provider. */
+  models: Record<AiFeature, string | null>;
+  /** The provider's effort knob (`reasoning.effort` / `output_config.effort`), sent only when set. One per site: a
+      site whose features run on two model families leaves it unset if either refuses it. */
   effort: string | null;
   timeoutMs: number;
   /** Off with no provider or no key, or when AI_ENABLED says so. */
@@ -75,6 +81,23 @@ function dailyLimits(value: string | undefined, others: number): Record<AiFeatur
   return Object.fromEntries(AI_FEATURES.map((feature) => [feature, own.get(feature) ?? others])) as Record<AiFeature, number>;
 }
 
+/** The AI_MODELS setting: a feature's own model, as `feature:model` pairs separated by commas. A model's id may hold
+    a colon, so a pair splits at its first one. A feature it does not name takes `others`, the site's model. */
+function models(value: string | undefined, others: string | null): Record<AiFeature, string | null> {
+  const own = new Map<string, string>();
+  for (const pair of (value ?? '').split(',').map((p) => p.trim()).filter(Boolean)) {
+    const colon = pair.indexOf(':');
+    const name = pair.slice(0, Math.max(colon, 0)).trim();
+    const model = pair.slice(colon + 1).trim();
+    if (colon < 0 || !(AI_FEATURES as readonly string[]).includes(name) || own.has(name) || model === '' || /[\s\x00-\x1f\x7f]/.test(model)) {
+      throw new Error(`AI_MODELS must be feature:model pairs separated by commas: a feature from ${AI_FEATURES.join(', ')}, each once, and a model's name with no spaces`);
+    }
+    own.set(name, model);
+  }
+  // Without a provider there is no model to ask for, whatever the line names: the pairs are still checked.
+  return Object.fromEntries(AI_FEATURES.map((feature) => [feature, others === null ? null : (own.get(feature) ?? others)])) as Record<AiFeature, string | null>;
+}
+
 /* A refusal names the setting and never repeats its value, as PHP's AiConfig does: these lines are typed by hand next
    to the key, and a key pasted on the wrong one would be printed back. */
 export function loadAiSettings(env: NodeJS.ProcessEnv): AiSettings {
@@ -92,6 +115,7 @@ export function loadAiSettings(env: NodeJS.ProcessEnv): AiSettings {
     provider,
     apiKey,
     model,
+    models: models(env.AI_MODELS, model),
     effort: env.AI_EFFORT || null,
     timeoutMs,
     enabled: provider !== null && keyed && !OFF.has((env.AI_ENABLED ?? '').trim().toLowerCase()),

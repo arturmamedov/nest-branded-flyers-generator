@@ -13,7 +13,6 @@ export const FAKE_UNKNOWN_HOSTEL = AI_FAKE.unknownHostel;
 
 export class FakeProvider implements LlmProvider {
   readonly name = 'fake' as const;
-  readonly model = FAKE_MODEL;
 
   constructor(private readonly bundle: Pick<AiBundle, 'examples'>) {}
 

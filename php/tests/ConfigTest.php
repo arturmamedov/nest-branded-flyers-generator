@@ -106,6 +106,7 @@ final class ConfigTest extends TestCase
                 'dailyLimit' => null,
                 'dailyLimits' => null,
                 'model' => null,
+                'models' => null,
                 'effort' => null,
                 'timeoutMs' => null,
                 'enabled' => true,
@@ -126,12 +127,13 @@ final class ConfigTest extends TestCase
         $root = $this->tempRoot();
         copy(Paths::repo() . '/php/web/config.sample.php', "$root/config.php");
         $raw = require "$root/config.php";
-        self::assertSame(['provider', 'apiKey', 'features', 'dailyLimit', 'dailyLimits', 'model', 'effort', 'timeoutMs', 'enabled'], array_keys($raw['ai'] ?? []), 'the sample shows every key');
+        self::assertSame(['provider', 'apiKey', 'features', 'dailyLimit', 'dailyLimits', 'model', 'models', 'effort', 'timeoutMs', 'enabled'], array_keys($raw['ai'] ?? []), 'the sample shows every key');
         self::assertFalse(Config::load($root, self::shared())?->ai->enabled);
         // None until named: a site that copies the sample and adds its key runs nothing until it names a feature itself.
         self::assertSame([], $raw['ai']['features'], 'the sample names no feature');
         self::assertNull($raw['ai']['dailyLimit'], 'the sample sets no cap of its own');
         self::assertNull($raw['ai']['dailyLimits'], 'the sample gives no feature a number of its own');
+        self::assertNull($raw['ai']['models'], 'the sample gives no feature a model of its own');
     }
 
     // ---- the `ai` block (AiConfig): the PHP side of server/config.ts's loadAiSettings ----
@@ -372,8 +374,112 @@ final class ConfigTest extends TestCase
         self::assertSame(self::everyFeature(3, [$other => 9]), $ai->dailyLimits);
     }
 
+    /**
+     * A model for every feature the app has: its own where $own names it, else $others.
+     *
+     * @param array<string, string> $own
+     * @return array<string, ?string>
+     */
+    private static function everyFeaturesModel(?string $others, array $own = []): array
+    {
+        $models = [];
+        foreach (self::shared()->ai()['features'] as $feature) {
+            $models[$feature] = $own[$feature] ?? $others;
+        }
+        return $models;
+    }
+
+    /**
+     * What a row of the per-feature models sets in the `ai` block: its pairs, and the site's own model when it has one.
+     *
+     * @param array<string, mixed> $row
+     * @return array<string, mixed>
+     */
+    private static function modelsBlock(array $row): array
+    {
+        return ['models' => $row['php']] + (array_key_exists('site', $row) ? ['model' => $row['site']] : []);
+    }
+
+    /** @return iterable<string, array{array<string, mixed>, array<string, string>, ?string}> */
+    public static function modelsAccepted(): iterable
+    {
+        foreach (self::settingsRows('models', 'accepted') as $name => $row) {
+            yield $name => [self::modelsBlock($row), $row['models'], $row['site'] ?? null];
+        }
+    }
+
+    // The owner's answer (2026-10-06): "A model per feature, now", so a feature can run on a stronger model than the
+    // rest. 'model' stays every feature's model unless the feature has its own.
+    /**
+     * @param array<string, mixed> $block
+     * @param array<string, string> $models
+     */
+    #[DataProvider('modelsAccepted')]
+    public function testEachFeatureTakesItsOwnModelOrTheSites(array $block, array $models, ?string $site): void
+    {
+        self::assertSame(self::everyFeaturesModel($site ?? 'fake-1', $models), Config::fromArray(['ai' => ['provider' => 'fake'] + $block], self::ROOT, self::shared())->ai->models);
+        // With a real provider the rest take its default model.
+        $openai = Config::fromArray(['ai' => ['provider' => 'openai', 'apiKey' => 'k'] + $block], self::ROOT, self::shared())->ai;
+        self::assertSame(self::everyFeaturesModel($site ?? 'gpt-6-luna', $models), $openai->models);
+    }
+
+    /** @return iterable<string, array{array<string, mixed>}> */
+    public static function modelsRefused(): iterable
+    {
+        foreach (self::settingsRows('models', 'refused') as $name => $row) {
+            yield $name => [self::modelsBlock($row)];
+        }
+    }
+
+    /** @param array<string, mixed> $block */
+    #[DataProvider('modelsRefused')]
+    public function testModelsNobodyWroteAreRefusedByTheSettingsNameWhetherOrNotTheAiIsOn(array $block): void
+    {
+        foreach ([$block, ['provider' => 'fake'] + $block] as $ai) {
+            try {
+                Config::fromArray(['ai' => $ai], self::ROOT, self::shared());
+                self::fail('The block was accepted');
+            } catch (InvalidArgumentException $e) {
+                self::assertStringContainsString('ai.models', $e->getMessage());
+            }
+        }
+    }
+
+    public function testTheModelVectorsNameRealFeatures(): void
+    {
+        foreach (self::settingsRows('models', 'accepted') as $name => $row) {
+            foreach (array_keys($row['models']) as $feature) {
+                self::assertContains($feature, self::shared()->ai()['features'], $name);
+            }
+        }
+    }
+
+    public function testWithNoProviderNoFeatureHasAModelWhateverModelsNames(): void
+    {
+        self::assertSame(self::everyFeaturesModel(null), Config::fromArray(['ai' => ['models' => ['share' => 'model-b']]], self::ROOT, self::shared())->ai->models);
+        self::assertSame(self::everyFeaturesModel(null), Config::fromArray([], self::ROOT, self::shared())->ai->models);
+    }
+
+    public function testAModelForAFeatureTheSiteDoesNotRunIsKeptAndRunsNothing(): void
+    {
+        [$runs, $other] = self::shared()->ai()['features'];
+        $ai = Config::fromArray(['ai' => ['provider' => 'fake', 'features' => [$runs], 'models' => [$other => 'model-b']]], self::ROOT, self::shared())->ai;
+        self::assertSame([$runs], $ai->features);
+        self::assertSame(self::everyFeaturesModel('fake-1', [$other => 'model-b']), $ai->models);
+    }
+
     public function testARefusedAiBlockNeverQuotesTheKey(): void
     {
+        // Pasted on the models' line, as a name and as a model with a space in it: neither comes back.
+        foreach (['sk-secret-123', ['sk-secret-123' => 'model-b'], ['share' => 'sk-secret-123 x']] as $pairs) {
+            try {
+                Config::fromArray(['ai' => ['provider' => 'openai', 'models' => $pairs]], self::ROOT, self::shared());
+                self::fail('The block was accepted');
+            } catch (InvalidArgumentException $e) {
+                self::assertStringContainsString('ai.models', $e->getMessage());
+                self::assertStringNotContainsString('sk-secret-123', $e->getMessage());
+            }
+        }
         try {
             Config::fromArray(['ai' => ['provider' => 'openai', 'apiKey' => 'sk-secret-123', 'timeoutMs' => 'slow']], self::ROOT, self::shared());
             self::fail('The block was accepted');

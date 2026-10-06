@@ -29,7 +29,7 @@ final class LlmProviderFactory
         if ($config->apiKey === null) {
             return null;
         }
-        $settings = new ProviderConfig($config->apiKey, $config->model, $config->effort);
+        $settings = new ProviderConfig($config->apiKey, $config->effort);
         return match ($config->provider) {
             'openai' => new OpenAiProvider($settings, $http),
             'anthropic' => new AnthropicProvider($settings, $http),

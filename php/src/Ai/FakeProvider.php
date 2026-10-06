@@ -35,11 +35,6 @@ final class FakeProvider implements LlmProvider
         return 'fake';
     }
 
-    public function model(): string
-    {
-        return $this->fake['model'];
-    }
-
     public function complete(LlmCall $call): LlmResult
     {
         $text = $call->lastTurn();
@@ -62,7 +57,7 @@ final class FakeProvider implements LlmProvider
             $asked($markers['unknownHostel']) => self::withHostel($answer, $this->fake['unknownHostel']),
             default => $answer,
         };
-        return new LlmResult($json, Json::encode($json), new LlmUsage(10, 20), $this->model());
+        return new LlmResult($json, Json::encode($json), new LlmUsage(10, 20), $this->fake['model']);
     }
 
     private static function withHostel(stdClass $answer, string $slug): stdClass

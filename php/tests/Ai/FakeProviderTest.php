@@ -52,7 +52,7 @@ final class FakeProviderTest extends TestCase
 
     public function testAMarkerInAnEarlierTurnDoesNothing(): void
     {
-        $call = new LlmCall('', [
+        $call = new LlmCall('fake-1', '', [
             ['role' => 'user', 'content' => '[[fake:timeout]]'],
             ['role' => 'assistant', 'content' => '{}'],
             ['role' => 'user', 'content' => 'Yoga at 9'],
@@ -63,7 +63,6 @@ final class FakeProviderTest extends TestCase
     public function testItNamesItself(): void
     {
         self::assertSame('fake', $this->fake->name());
-        self::assertSame('fake-1', $this->fake->model());
     }
 
     private function failure(string $text): LlmFailure
@@ -78,7 +77,7 @@ final class FakeProviderTest extends TestCase
 
     private static function call(string $text, string $schemaName = 'nest_flyer_brief'): LlmCall
     {
-        return new LlmCall('', [
+        return new LlmCall('fake-1', '', [
             ['role' => 'user', 'content' => 'an example'],
             ['role' => 'assistant', 'content' => '{}'],
             ['role' => 'user', 'content' => $text],

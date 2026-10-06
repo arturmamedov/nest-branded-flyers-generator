@@ -21,8 +21,11 @@ export interface LlmMessage {
 export const textOf = (content: LlmMessage['content']): string =>
   typeof content === 'string' ? content : content.flatMap((part) => (part.type === 'text' ? [part.text] : [])).join('\n');
 
-/** What a generation sends: the prompt (prompt.ts), the JSON Schema the answer must fit, and the two limits. */
+/** What a generation sends: the prompt (prompt.ts), the model to ask, the JSON Schema the answer must fit, and the
+    two limits. */
 export interface LlmCall {
+  /** The model asked for: the feature's own (AiSettings.models). One provider and one key serve every model. */
+  model: string;
   system: string;
   messages: LlmMessage[];
   /** The shared JSON Schema from schema/ai.json; each adapter turns it into its provider's dialect. */
@@ -65,14 +68,12 @@ export class LlmFailure extends Error {
 
 export interface LlmProvider {
   readonly name: AiProvider;
-  readonly model: string;
   complete(call: LlmCall): Promise<LlmResult>;
 }
 
-/** What a real adapter is built from (server/config.ts). */
+/** What a real adapter is built from (server/config.ts). The model is the call's to name. */
 export interface ProviderConfig {
   apiKey: string;
-  model: string;
   /** The provider's effort knob, sent only when set. */
   effort: string | null;
 }

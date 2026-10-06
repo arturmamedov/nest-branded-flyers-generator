@@ -35,18 +35,15 @@ const part = (p: LlmPart) =>
 
 export class OpenAiProvider implements LlmProvider {
   readonly name = 'openai' as const;
-  readonly model: string;
 
   constructor(
     private readonly config: ProviderConfig,
     private readonly fetch: FetchJson = fetchJson,
-  ) {
-    this.model = config.model;
-  }
+  ) {}
 
   async complete(call: LlmCall): Promise<LlmResult> {
     const body: Record<string, unknown> = {
-      model: this.model,
+      model: call.model,
       instructions: call.system,
       input: call.messages.map((m) => ({ role: m.role, content: typeof m.content === 'string' ? m.content : m.content.map(part) })),
       text: { format: { type: 'json_schema', name: call.schemaName, schema: toOpenAiSchema(call.schema), strict: true } },
@@ -77,7 +74,7 @@ export class OpenAiProvider implements LlmProvider {
       json: dropNulls(answerJson(text, key), call.schema),
       raw: text,
       usage: usageOf(data.usage?.input_tokens, data.usage?.output_tokens),
-      model: modelOf(data.model, this.model),
+      model: modelOf(data.model, call.model),
     };
   }
 }

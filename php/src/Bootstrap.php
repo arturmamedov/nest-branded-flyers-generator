@@ -219,6 +219,8 @@ final class Bootstrap
             $repos->aiUsage,
             $clock,
             $config->ai->timeoutMs,
+            // With a provider every feature has a model (AiConfig).
+            array_map(static fn (?string $model): string => (string) $model, $config->ai->models),
             $shared,
             $errors,
             $validator,

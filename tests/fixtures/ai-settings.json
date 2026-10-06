@@ -1,5 +1,5 @@
 {
-  "about": "The AI settings a site names itself, as both backends must read them: AI_FEATURES, AI_DAILY_LIMIT and AI_DAILY_LIMITS in .env (Node, loadAiSettings in server/config.ts), 'features', 'dailyLimit' and 'dailyLimits' in config.php's ai block (PHP, AiConfig). Replayed by tests/unit/ai-config.test.ts and php/tests/ConfigTest.php. `env` is the variable's value (null: not set), `php` the key's value; a row without one of them is the other backend's alone. A refusal names the setting and never repeats its value. The default and the most a site may set are AI_DAILY_LIMIT and AI_DAILY_LIMIT_MAX in src/shared/ai.ts: both tests hold these rows to them. A `dailyLimits` row may set the site's own number beside the pairs (`site`: AI_DAILY_LIMIT, 'dailyLimit'); an accepted one says which features end up with a number of their own (`limits`) and what every other feature gets (`others`), so a new feature changes no row.",
+  "about": "The AI settings a site names itself, as both backends must read them: AI_FEATURES, AI_DAILY_LIMIT, AI_DAILY_LIMITS and AI_MODELS in .env (Node, loadAiSettings in server/config.ts), 'features', 'dailyLimit', 'dailyLimits' and 'models' in config.php's ai block (PHP, AiConfig). Replayed by tests/unit/ai-config.test.ts and php/tests/ConfigTest.php. `env` is the variable's value (null: not set), `php` the key's value; a row without one of them is the other backend's alone. A refusal names the setting and never repeats its value. The default and the most a site may set are AI_DAILY_LIMIT and AI_DAILY_LIMIT_MAX in src/shared/ai.ts: both tests hold these rows to them. A `dailyLimits` row may set the site's own number beside the pairs (`site`: AI_DAILY_LIMIT, 'dailyLimit'); an accepted one says which features end up with a number of their own (`limits`) and what every other feature gets (`others`), so a new feature changes no row. A `models` row (AI_MODELS, 'models') reads the same way: `site` is the site's own model (AI_MODEL, 'model'), `models` the features that end up with a model of their own, and every other feature gets the site's, or the provider's default.",
   "features": {
     "accepted": [
       { "name": "not named: none run", "env": null, "php": null, "runs": [] },
@@ -72,6 +72,35 @@
       { "name": "a list of numbers", "php": [10, 5] },
       { "name": "a number, not pairs", "php": 5 },
       { "name": "a string", "php": "share:5" },
+      { "name": "true", "php": true }
+    ]
+  },
+  "models": {
+    "accepted": [
+      { "name": "not set: every feature takes the site's model", "env": null, "php": null, "models": {} },
+      { "name": "empty: none named", "env": "", "php": [], "models": {} },
+      { "name": "one feature its own model", "env": "share:model-b", "php": { "share": "model-b" }, "models": { "share": "model-b" } },
+      { "name": "two features, whatever order they are named in", "env": "share:model-b,flyer:model-c", "php": { "share": "model-b", "flyer": "model-c" }, "models": { "flyer": "model-c", "share": "model-b" } },
+      { "name": "a model whose id holds colons: the pair splits at its first", "env": "share:ft:model-b:nest", "php": { "share": "ft:model-b:nest" }, "models": { "share": "ft:model-b:nest" } },
+      { "name": "beside the site's own model: the rest take that", "site": "model-a", "env": "share:model-b", "php": { "share": "model-b" }, "models": { "share": "model-b" } },
+      { "name": "the site's own model alone: every feature takes it", "site": "model-a", "env": null, "php": null, "models": {} },
+      { "name": "spaces and a stray comma, as typed in .env", "env": " share : model-b , flyer:model-c ,", "models": { "flyer": "model-c", "share": "model-b" } }
+    ],
+    "refused": [
+      { "name": "a name no feature has", "env": "captions:model-b", "php": { "captions": "model-b" } },
+      { "name": "a good pair beside a bad name", "env": "share:model-b,captions:model-b", "php": { "share": "model-b", "captions": "model-b" } },
+      { "name": "capitals", "env": "Share:model-b", "php": { "Share": "model-b" } },
+      { "name": "a feature named twice", "env": "share:model-b,share:model-c" },
+      { "name": "a name with no model", "env": "share" },
+      { "name": "a name with nothing for its model: leave the feature out instead", "env": "share:", "php": { "share": null } },
+      { "name": "an empty model", "php": { "share": "" } },
+      { "name": "a model with no name", "env": ":model-b" },
+      { "name": "a space inside the model", "env": "share:model b", "php": { "share": "model b" } },
+      { "name": "a line break after the model", "php": { "share": "model-b\n" } },
+      { "name": "a number for the model", "php": { "share": 5 } },
+      { "name": "a list, not pairs", "php": ["share"] },
+      { "name": "a list of models", "php": ["model-b", "model-c"] },
+      { "name": "a string", "php": "share:model-b" },
       { "name": "true", "php": true }
     ]
   }

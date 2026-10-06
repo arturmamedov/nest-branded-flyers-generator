@@ -51,7 +51,7 @@ final class ProvidersTest extends TestCase
         $v = self::fixture($adapter);
         $good = self::good($v);
         $http = self::stub($good->status, self::textOf($good));
-        self::make($adapter, $request->config, $http)->complete(self::call($v, $request->call ?? 'call'));
+        self::make($adapter, $request->config, $http)->complete(self::call($v, $request->config->model, $request->call ?? 'call'));
         self::assertCount(1, $http->seen);
         self::assertSame($request->url, $http->seen[0]['url']);
         JsonAssert::same($request->headers, $http->seen[0]['headers']);
@@ -77,7 +77,7 @@ final class ProvidersTest extends TestCase
         $v = self::fixture($adapter);
         $provider = self::make($adapter, $v->requests[0]->config, self::stub($answer->status, self::textOf($answer)));
         if (isset($answer->result)) {
-            $result = $provider->complete(self::call($v));
+            $result = $provider->complete(self::call($v, $v->requests[0]->config->model));
             JsonAssert::same($answer->result, (object) [
                 'json' => $result->json,
                 'raw' => $result->raw,
@@ -87,7 +87,7 @@ final class ProvidersTest extends TestCase
             return;
         }
         try {
-            $provider->complete(self::call($v));
+            $provider->complete(self::call($v, $v->requests[0]->config->model));
             self::fail("$answer->name: no failure");
         } catch (LlmFailure $e) {
             self::assertSame($answer->failure, $e->reason, $e->getMessage());
@@ -103,22 +103,34 @@ final class ProvidersTest extends TestCase
     }
 
     #[DataProvider('adapters')]
-    public function testItNamesItselfAndItsModelForTheLedger(string $adapter): void
+    public function testItNamesItselfForTheLedger(string $adapter): void
     {
-        $config = self::fixture($adapter)->requests[0]->config;
-        $provider = self::make($adapter, $config, self::stub(200, ''));
-        self::assertSame($adapter, $provider->name());
-        self::assertSame($config->model, $provider->model());
+        self::assertSame($adapter, self::make($adapter, self::fixture($adapter)->requests[0]->config, self::stub(200, ''))->name());
+    }
+
+    #[DataProvider('adapters')]
+    public function testItAsksForTheModelTheCallNamesAndReportsItWhenTheAnswerNamesNone(string $adapter): void
+    {
+        $v = self::fixture($adapter);
+        $answer = clone self::good($v)->body;
+        unset($answer->model);
+        $http = self::stub(200, Json::encode($answer));
+        $result = self::make($adapter, $v->requests[0]->config, $http)->complete(self::call($v, 'a-feature-s-own'));
+        self::assertSame('a-feature-s-own', Json::decode($http->seen[0]['body'])->model);
+        self::assertSame('a-feature-s-own', $result->model);
     }
 
     private static function make(string $adapter, stdClass $config, HttpClient $http): LlmProvider
     {
-        $settings = new ProviderConfig($config->apiKey, $config->model, $config->effort);
+        $settings = new ProviderConfig($config->apiKey, $config->effort);
         return $adapter === 'openai' ? new OpenAiProvider($settings, $http) : new AnthropicProvider($settings, $http);
     }
 
-    /** The fixture's `call`, or the one a request entry names (`picture`: a turn that carries a picture). */
-    private static function call(stdClass $v, string $which = 'call'): LlmCall
+    /**
+     * The fixture's `call`, or the one a request entry names (`picture`: a turn that carries a picture). The call
+     * names its model (a feature's own, since 2026-10-06): an entry's `config.model` is the one it names.
+     */
+    private static function call(stdClass $v, string $model, string $which = 'call'): LlmCall
     {
         $c = $v->$which;
         $parts = static fn (array $content): array => array_map(static fn (stdClass $part): array => (array) $part, $content);
@@ -126,7 +138,7 @@ final class ProvidersTest extends TestCase
             static fn (stdClass $m): array => ['role' => $m->role, 'content' => is_array($m->content) ? $parts($m->content) : $m->content],
             $c->messages,
         );
-        return new LlmCall($c->system, $messages, $c->schema, $c->schemaName, $c->maxOutputTokens, $c->timeoutMs);
+        return new LlmCall($model, $c->system, $messages, $c->schema, $c->schemaName, $c->maxOutputTokens, $c->timeoutMs);
     }
 
     private static function good(stdClass $v): stdClass

@@ -30,11 +30,6 @@ final class AnthropicProvider implements LlmProvider
         return 'anthropic';
     }
 
-    public function model(): string
-    {
-        return $this->config->model;
-    }
-
     public function complete(LlmCall $call): LlmResult
     {
         $outputConfig = ['format' => ['type' => 'json_schema', 'schema' => ProviderSchema::toAnthropic($call->schema)]];
@@ -42,7 +37,7 @@ final class AnthropicProvider implements LlmProvider
             $outputConfig['effort'] = $this->config->effort;
         }
         $body = [
-            'model' => $this->config->model,
+            'model' => $call->model,
             'max_tokens' => $call->maxOutputTokens,
             'system' => $call->system,
             'messages' => array_map(
@@ -77,7 +72,7 @@ final class AnthropicProvider implements LlmProvider
             ProviderAnswer::answerJson($text, $key),
             $text,
             ProviderAnswer::usage($data->usage->input_tokens ?? null, $data->usage->output_tokens ?? null),
-            is_string($data->model ?? null) ? $data->model : $this->config->model,
+            is_string($data->model ?? null) ? $data->model : $call->model,
         );
     }
 

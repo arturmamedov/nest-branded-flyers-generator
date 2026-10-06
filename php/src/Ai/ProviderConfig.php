@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace NestFlyers\Ai;
 
-/** What a real adapter is built from (config.php's `ai` block, through AiConfig). */
+/** What a real adapter is built from (config.php's `ai` block, through AiConfig). The model is the call's to name. */
 final class ProviderConfig
 {
     /**
@@ -13,7 +13,6 @@ final class ProviderConfig
      */
     public function __construct(
         #[\SensitiveParameter] public readonly string $apiKey,
-        public readonly string $model,
         public readonly ?string $effort,
     ) {
     }

@@ -23,15 +23,21 @@ const vectors = JSON.parse(readFileSync(join(APP_ROOT, 'tests/fixtures/ai-settin
   features: { accepted: (Row & { runs: string[] })[]; refused: Row[] };
   dailyLimit: { accepted: (Row & { limit: number })[]; refused: Row[] };
   dailyLimits: { accepted: (LimitsRow & { limits: Record<string, number>; others: number })[]; refused: LimitsRow[] };
+  models: { accepted: (ModelsRow & { models: Record<string, string> })[]; refused: ModelsRow[] };
 };
+/** A row of the per-feature models: `site` is the site's own model (AI_MODEL), set beside the pairs. */
+type ModelsRow = Row & { site?: string };
 /** The rows Node reads, each with the environment that sets its variable (or leaves it out). */
 const rows = <R extends Row>(list: R[], variable: string): (Omit<R, 'env'> & { env: Record<string, string> })[] =>
   list.filter((r) => r.env !== undefined).map((r) => ({ ...r, env: r.env == null ? {} : { [variable]: r.env } }));
 /** The same for the per-feature limits, whose rows may set the site's own number too. */
 const limitRows = <R extends LimitsRow>(list: R[]) =>
   rows(list, 'AI_DAILY_LIMITS').map((r) => ({ ...r, env: { ...r.env, ...(r.site === undefined ? {} : { AI_DAILY_LIMIT: String(r.site) }) } }));
-/** A limit for every feature the app has: its own where `own` names it, else `others`. */
-const everyFeature = (others: number, own: Record<string, number> = {}) => Object.fromEntries(AI_FEATURES.map((f) => [f, own[f] ?? others]));
+/** The same for the per-feature models, whose rows may set the site's own model too. */
+const modelRows = <R extends ModelsRow>(list: R[]) =>
+  rows(list, 'AI_MODELS').map((r) => ({ ...r, env: { ...r.env, ...(r.site === undefined ? {} : { AI_MODEL: r.site }) } }));
+/** A limit, or a model, for every feature the app has: its own where `own` names it, else `others`. */
+const everyFeature = <T>(others: T, own: Record<string, T> = {}) => Object.fromEntries(AI_FEATURES.map((f) => [f, own[f] ?? others]));
 
 describe('AI settings', () => {
   it('are off with no provider', () => {
@@ -44,6 +50,7 @@ describe('AI settings', () => {
       enabled: false,
       features: [],
       dailyLimits: everyFeature(AI_DAILY_LIMIT),
+      models: everyFeature(null),
     });
   });
 
@@ -67,7 +74,36 @@ describe('AI settings', () => {
       enabled: true,
       features: [],
       dailyLimits: everyFeature(AI_DAILY_LIMIT),
+      models: everyFeature('claude-sonnet-5-5'),
     });
+  });
+
+  // The owner's answer (2026-10-06): "A model per feature, now", so a feature can run on a stronger model than the
+  // rest. AI_MODEL stays every feature's model unless the feature has its own.
+  it.each(modelRows(vectors.models.accepted))('AI_MODELS, $name', ({ env, site, models }) => {
+    expect(load({ AI_PROVIDER: 'fake', ...env }).models).toEqual(everyFeature(site ?? 'fake-1', models));
+    // With a real provider the rest take its default model.
+    expect(load({ AI_PROVIDER: 'openai', AI_API_KEY: 'k', ...env }).models).toEqual(everyFeature(site ?? AI_DEFAULT_MODEL.openai, models));
+  });
+
+  it.each(modelRows(vectors.models.refused))('refuses AI_MODELS with $name, whether or not the AI is on', ({ env }) => {
+    expect(() => load(env)).toThrow(/AI_MODELS/);
+    expect(() => load({ AI_PROVIDER: 'fake', ...env })).toThrow(/AI_MODELS/);
+  });
+
+  it('the model vectors name real features', () => {
+    for (const row of vectors.models.accepted) for (const feature of Object.keys(row.models)) expect(AI_FEATURES, row.name).toContain(feature);
+  });
+
+  it('with no provider no feature has a model, whatever AI_MODELS names', () => {
+    expect(load({ AI_MODELS: 'share:model-b' }).models).toEqual(everyFeature(null));
+  });
+
+  it('a model for a feature the site does not run is kept, and runs nothing', () => {
+    const [runs, other] = AI_FEATURES;
+    const settings = load({ AI_PROVIDER: 'fake', AI_FEATURES: runs, AI_MODELS: `${other}:model-b` });
+    expect(settings.features).toEqual([runs]);
+    expect(settings.models).toEqual(everyFeature('fake-1', { [other]: 'model-b' }));
   });
 
   // The owner's answers: the limit is a setting, 3 by default, bounded in the code (2026-10-05), and it is every
@@ -161,6 +197,11 @@ describe('AI settings', () => {
       expect(said({ AI_PROVIDER: 'openai', AI_API_KEY: 'k', AI_DAILY_LIMITS: value }), value).toMatch(/AI_DAILY_LIMITS/);
       expect(said({ AI_PROVIDER: 'openai', AI_API_KEY: 'k', AI_DAILY_LIMITS: value }), value).not.toContain(pasted);
     }
+    // The same on the models' line: as a name, and as a model with a space in it.
+    for (const value of [pasted, `${pasted}:model-b`, `share:${pasted} x`, `share:model-b,${pasted}`]) {
+      expect(said({ AI_PROVIDER: 'openai', AI_API_KEY: 'k', AI_MODELS: value }), value).toMatch(/AI_MODELS/);
+      expect(said({ AI_PROVIDER: 'openai', AI_API_KEY: 'k', AI_MODELS: value }), value).not.toContain(pasted);
+    }
   });
 
   // `AI_API_KEY="sk-…\n"` in .env is a key with a real line break at its end: every call then failed as "fetch
@@ -191,6 +232,6 @@ describe('AI settings', () => {
 
   it('every setting is in .env.example, commented out', () => {
     const example = readFileSync(join(APP_ROOT, '.env.example'), 'utf8');
-    for (const name of ['AI_PROVIDER', 'AI_API_KEY', 'AI_FEATURES', 'AI_DAILY_LIMIT', 'AI_DAILY_LIMITS', 'AI_MODEL', 'AI_EFFORT', 'AI_TIMEOUT_MS', 'AI_ENABLED']) expect(example).toMatch(new RegExp(`^# ?${name}=`, 'm'));
+    for (const name of ['AI_PROVIDER', 'AI_API_KEY', 'AI_FEATURES', 'AI_DAILY_LIMIT', 'AI_DAILY_LIMITS', 'AI_MODEL', 'AI_MODELS', 'AI_EFFORT', 'AI_TIMEOUT_MS', 'AI_ENABLED']) expect(example).toMatch(new RegExp(`^# ?${name}=`, 'm'));
   });
 });

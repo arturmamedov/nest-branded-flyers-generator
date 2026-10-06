@@ -30,20 +30,17 @@ const block = (p: LlmPart) =>
 
 export class AnthropicProvider implements LlmProvider {
   readonly name = 'anthropic' as const;
-  readonly model: string;
 
   constructor(
     private readonly config: ProviderConfig,
     private readonly fetch: FetchJson = fetchJson,
-  ) {
-    this.model = config.model;
-  }
+  ) {}
 
   async complete(call: LlmCall): Promise<LlmResult> {
     const outputConfig: Record<string, unknown> = { format: { type: 'json_schema', schema: toAnthropicSchema(call.schema) } };
     if (this.config.effort) outputConfig.effort = this.config.effort;
     const body = {
-      model: this.model,
+      model: call.model,
       max_tokens: call.maxOutputTokens,
       system: call.system,
       messages: call.messages.map((m) => ({ role: m.role, content: typeof m.content === 'string' ? m.content : m.content.map(block) })),
@@ -68,7 +65,7 @@ export class AnthropicProvider implements LlmProvider {
       json: answerJson(text, key),
       raw: text,
       usage: usageOf(data.usage?.input_tokens, data.usage?.output_tokens),
-      model: modelOf(data.model, this.model),
+      model: modelOf(data.model, call.model),
     };
   }
 }

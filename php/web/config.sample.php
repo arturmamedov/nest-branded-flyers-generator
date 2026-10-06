@@ -73,6 +73,9 @@ return [
         'dailyLimits' => null,
         // null = the provider's default model (src/shared/ai.ts).
         'model' => null,
+        // A feature's own model, by its name, e.g. ['share' => 'gpt-6-luna']; null = none.
+        // A feature it does not name takes 'model'.
+        'models' => null,
         // The provider's effort setting ('low', …); null leaves it to the model. Leave it null for Claude Haiku.
         'effort' => null,
         // How long to wait for an answer, in milliseconds; null = the default, under the host's time limit.

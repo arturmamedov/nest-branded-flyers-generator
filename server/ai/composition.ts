@@ -1,3 +1,4 @@
+import type { AiFeature } from '../../src/shared/ai.js';
 import type { AiBundle } from '../../src/shared/schema.js';
 import type { AiSettings } from '../config.js';
 import type { AiUsageRepository, Clock, HostelRepository } from '../storage/types.js';
@@ -16,10 +17,10 @@ import { AiService } from './service.js';
 
 /** The provider the settings name, keyed; null when the settings say off. */
 export function createProvider(settings: AiSettings, bundle: AiBundle, fetch?: FetchJson): LlmProvider | null {
-  if (!settings.enabled || settings.provider === null || settings.model === null) return null;
+  if (!settings.enabled || settings.provider === null) return null;
   if (settings.provider === 'fake') return new FakeProvider(bundle);
   if (settings.apiKey === null) return null;
-  const config = { apiKey: settings.apiKey, model: settings.model, effort: settings.effort };
+  const config = { apiKey: settings.apiKey, effort: settings.effort };
   return settings.provider === 'openai' ? new OpenAiProvider(config, fetch) : new AnthropicProvider(config, fetch);
 }
 
@@ -45,5 +46,7 @@ export function createAiService(settings: AiSettings, deps: AiDeps): AiService |
     usage: deps.usage,
     clock: deps.clock,
     timeoutMs: settings.timeoutMs,
+    // With a provider every feature has a model (loadAiSettings).
+    models: settings.models as Record<AiFeature, string>,
   });
 }

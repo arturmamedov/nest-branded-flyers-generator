@@ -41,6 +41,8 @@ final class AiService
         private readonly AiUsageRepository $usage,
         private readonly Clock $clock,
         private readonly int $timeoutMs,
+        /** @var array<string, string> the model each feature's calls name (AiConfig::$models) */
+        private readonly array $models,
         Shared $shared,
         private readonly ErrorCatalog $errors,
         private readonly SchemaValidator $validator,
@@ -195,7 +197,8 @@ final class AiService
     private function generate(string $feature, Actor $actor, string $now, string $input, Prompt $prompt, stdClass $schema): stdClass
     {
         $provider = $this->provider ?? throw $this->errors->make('ai_off');
-        $record = function (bool $ok, ?LlmResult $result, ?string $output) use ($feature, $actor, $now, $input, $provider): void {
+        $model = $this->models[$feature];
+        $record = function (bool $ok, ?LlmResult $result, ?string $output) use ($feature, $actor, $now, $input, $provider, $model): void {
             $usage = $result?->usage;
             $this->usage->record([
                 'at' => $now,
@@ -203,7 +206,7 @@ final class AiService
                 'actorId' => $actor->id,
                 'feature' => $feature,
                 'provider' => $provider->name(),
-                'model' => $result?->model ?? $provider->model(),
+                'model' => $result?->model ?? $model,
                 'tokens' => $usage === null ? null : ['input' => $usage->input, 'output' => $usage->output],
                 'ok' => $ok,
                 'input' => $input,
@@ -211,11 +214,11 @@ final class AiService
             ]);
         };
 
-        $call = new LlmCall($prompt->system, $prompt->messages, $schema, $this->facts['schemaNames'][$feature], $this->facts['maxOutputTokens'], $this->timeoutMs);
+        $call = new LlmCall($model, $prompt->system, $prompt->messages, $schema, $this->facts['schemaNames'][$feature], $this->facts['maxOutputTokens'], $this->timeoutMs);
         try {
             $result = $provider->complete($call);
         } catch (LlmFailure $e) {
-            error_log("Nest flyers: AI $feature ({$provider->name()} {$provider->model()}): {$e->reason}: {$e->getMessage()}");
+            error_log("Nest flyers: AI $feature ({$provider->name()} $model): {$e->reason}: {$e->getMessage()}");
             $record(false, null, $e->raw);
             throw $this->errors->make('ai_failed');
         }

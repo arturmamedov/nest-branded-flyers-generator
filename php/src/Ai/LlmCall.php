@@ -4,10 +4,15 @@ declare(strict_types=1);
 
 namespace NestFlyers\Ai;
 
-/** What a generation sends: the prompt (PromptBuilder), the JSON Schema the answer must fit, and the two limits. */
+/**
+ * What a generation sends: the prompt (PromptBuilder), the model to ask, the JSON Schema the answer must fit, and the
+ * two limits.
+ */
 final class LlmCall
 {
     /**
+     * @param string $model the model asked for: the feature's own (AiConfig::$models). One provider and one key
+     *        serve every model.
      * @param list<array{role:string, content:string|list<array<string, mixed>>}> $messages the turns, user and
      *        assistant, the staff text last. A turn's content is its text, or parts when it carries a picture, the
      *        picture first: `['type' => 'text', 'text' => …]` and `['type' => 'image', 'mediaType' => …, 'data' =>
@@ -18,6 +23,7 @@ final class LlmCall
      * @param string $schemaName OpenAI's name for the format (Shared::ai()['schemaNames']); the fake reads the feature off it
      */
     public function __construct(
+        public readonly string $model,
         public readonly string $system,
         public readonly array $messages,
         public readonly mixed $schema,

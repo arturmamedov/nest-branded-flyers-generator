@@ -17,16 +17,27 @@ use InvalidArgumentException;
  */
 final class AiConfig
 {
-    private const KEYS = ['provider', 'apiKey', 'features', 'dailyLimit', 'dailyLimits', 'model', 'effort', 'timeoutMs', 'enabled'];
+    private const KEYS = ['provider', 'apiKey', 'features', 'dailyLimit', 'dailyLimits', 'model', 'models', 'effort', 'timeoutMs', 'enabled'];
 
     private function __construct(
         /** 'openai' | 'anthropic' | 'fake', or null: no provider, so off */
         public readonly ?string $provider,
         /** Server-side only: never in api/config, a log line, the ledger, an exception or a release. */
         #[\SensitiveParameter] public readonly ?string $apiKey,
-        /** The model asked for: the block's, else the provider's default; null without a provider. */
+        /** The site's model: the block's, else the provider's default; null without a provider. */
         public readonly ?string $model,
-        /** The provider's effort knob (`reasoning.effort` / `output_config.effort`), sent only when set. */
+        /**
+         * The model each feature's calls name, for every feature the app has, in its order (the owner's answer,
+         * 2026-10-06: a model per feature, so the picture read can run on a stronger one): the model `models` gives
+         * the feature, else `model`. null without a provider.
+         *
+         * @var array<string, ?string>
+         */
+        public readonly array $models,
+        /**
+         * The provider's effort knob (`reasoning.effort` / `output_config.effort`), sent only when set. One per site:
+         * a site whose features run on two model families leaves it unset if either refuses it.
+         */
         public readonly ?string $effort,
         public readonly int $timeoutMs,
         /** On with a provider and, for a real one, a key, unless the block says `enabled => false`. */
@@ -57,7 +68,7 @@ final class AiConfig
     public static function fromArray(mixed $raw, array $facts): self
     {
         if ($raw === null) {
-            return new self(null, null, null, null, $facts['timeoutMs'], false, [], array_fill_keys($facts['features'], $facts['dailyLimit']));
+            return new self(null, null, null, array_fill_keys($facts['features'], null), null, $facts['timeoutMs'], false, [], array_fill_keys($facts['features'], $facts['dailyLimit']));
         }
         if (!is_array($raw) || ($raw !== [] && array_is_list($raw))) {
             throw new InvalidArgumentException('ai must be an array with ' . implode(', ', self::KEYS) . ' (see config.sample.php)');
@@ -91,10 +102,12 @@ final class AiConfig
             throw new InvalidArgumentException('ai.dailyLimit must be null or a whole number from 1 to ' . $facts['dailyLimitMax']);
         }
         $keyed = $provider === 'fake' || $apiKey !== null;
+        $model = $provider === null ? null : $model ?? ($provider === 'fake' ? $facts['fake']['model'] : $facts['defaultModel'][$provider]);
         return new self(
             $provider,
             $apiKey,
-            $provider === null ? null : $model ?? ($provider === 'fake' ? $facts['fake']['model'] : $facts['defaultModel'][$provider]),
+            $model,
+            self::models($raw, $facts['features'], $model),
             self::text($raw, 'effort'),
             $timeoutMs,
             $provider !== null && $keyed && $switch,
@@ -127,6 +140,33 @@ final class AiConfig
             $limits[$feature] = $own[$feature] ?? $others;
         }
         return $limits;
+    }
+
+    /**
+     * The `models` key: a feature's own model, keyed by the feature's name. The twin of AI_MODELS in .env, which
+     * spells the same pairs as `share:model-b,flyer:model-c`. A feature it does not name takes $others, the site's
+     * model.
+     *
+     * @param array<string, mixed> $raw
+     * @param list<string> $all every feature the app has
+     * @return array<string, ?string> a model for every feature, in the app's own order
+     */
+    private static function models(array $raw, array $all, ?string $others): array
+    {
+        $own = $raw['models'] ?? [];
+        $valid = is_array($own) && ($own === [] || !array_is_list($own));
+        foreach ($valid ? $own : [] as $name => $model) {
+            $valid = $valid && in_array($name, $all, true) && is_string($model) && $model !== '' && preg_match('/[\s\x00-\x1f\x7f]/', $model) !== 1;
+        }
+        if (!$valid) {
+            throw new InvalidArgumentException('ai.models must be null or an array of feature => model: a feature from ' . implode(', ', $all) . ", and a model's name with no spaces");
+        }
+        $models = [];
+        foreach ($all as $feature) {
+            // Without a provider there is no model to ask for, whatever the key names: the pairs are still checked.
+            $models[$feature] = $others === null ? null : $own[$feature] ?? $others;
+        }
+        return $models;
     }
 
     /**

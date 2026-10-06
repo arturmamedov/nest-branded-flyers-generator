@@ -29,15 +29,10 @@ final class OpenAiProvider implements LlmProvider
         return 'openai';
     }
 
-    public function model(): string
-    {
-        return $this->config->model;
-    }
-
     public function complete(LlmCall $call): LlmResult
     {
         $body = [
-            'model' => $this->config->model,
+            'model' => $call->model,
             'instructions' => $call->system,
             'input' => array_map(
                 static fn (array $m): array => ['role' => $m['role'], 'content' => is_string($m['content']) ? $m['content'] : array_map(self::sent(...), $m['content'])],
@@ -80,7 +75,7 @@ final class OpenAiProvider implements LlmProvider
             ProviderSchema::dropNulls(ProviderAnswer::answerJson($text, $key), $call->schema),
             $text,
             ProviderAnswer::usage($data->usage->input_tokens ?? null, $data->usage->output_tokens ?? null),
-            is_string($data->model ?? null) ? $data->model : $this->config->model,
+            is_string($data->model ?? null) ? $data->model : $call->model,
         );
     }
 

@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { loadBundle } from '../../server/ai/bundle.js';
 import { createAiPolicy, type AiPolicy } from '../../server/ai/policy.js';
-import type { LlmProvider } from '../../server/ai/provider.js';
+import { LlmFailure, type LlmProvider } from '../../server/ai/provider.js';
 import { FAKE_UNKNOWN_HOSTEL, FakeProvider } from '../../server/ai/providers/fake.js';
 import { AiService, type AiServiceDeps } from '../../server/ai/service.js';
 import { HttpError } from '../../server/errors.js';
@@ -44,7 +44,9 @@ type PerFeature = Partial<Record<AiFeature, number>>;
 /** A daily limit for every feature: its own where `own` names it, else the shared default. */
 const limits = (own: PerFeature = {}) => Object.fromEntries(AI_FEATURES.map((f) => [f, own[f] ?? AI_DAILY_LIMIT])) as Record<AiFeature, number>;
 /** A site that names every feature, each at the default limit: what a test is about, it takes away. */
-const settings = { provider: 'fake' as const, apiKey: null, model: 'fake-1', effort: null, timeoutMs: 1000, enabled: true, features: [...AI_FEATURES], dailyLimits: limits() };
+/** A model for every feature: its own where `own` names it, else the fake's. */
+const models = (own: Partial<Record<AiFeature, string>> = {}) => Object.fromEntries(AI_FEATURES.map((f) => [f, own[f] ?? 'fake-1'])) as Record<AiFeature, string>;
+const settings = { provider: 'fake' as const, apiKey: null, model: 'fake-1', models: models(), effort: null, timeoutMs: 1000, enabled: true, features: [...AI_FEATURES], dailyLimits: limits() };
 /** api/config's `ai` block on a site that runs `named`: each with its limit (`own`, else the default) and what is
     `left` of it today (all of it, unless said). */
 const on = (left: PerFeature = {}, named: readonly AiFeature[] = AI_FEATURES, own: PerFeature = {}) => ({
@@ -63,6 +65,7 @@ function make(over: Partial<AiServiceDeps> = {}) {
     usage,
     clock,
     timeoutMs: settings.timeoutMs,
+    models: settings.models,
     ...over,
   });
   return { service, clock, usage };
@@ -81,7 +84,6 @@ const idea = (marker = '') => ({ text: marker ? `${example.text}\n${marker}` : e
 /** A provider that answers every call with this, whatever it is asked: for answers the fake has no marker for. */
 const answering = (json: unknown): LlmProvider => ({
   name: 'fake',
-  model: 'stub-1',
   complete: async () => ({ json, raw: JSON.stringify(json), usage: { input: 10, output: 20 }, model: 'stub-1' }),
 });
 const shareBody = () => ({ hostel: null, template: 'activity' as const, data: newFlyerData(), idea: 'Pool party' });
@@ -115,7 +117,6 @@ describe('the AI service', () => {
       const asked = vi.fn();
       const provider: LlmProvider = {
         name: 'fake',
-        model: 'never-asked',
         complete: async () => {
           asked();
           throw new Error('the provider was asked');
@@ -179,6 +180,23 @@ describe('the AI service', () => {
         output: JSON.stringify(example.answer),
       },
     ]);
+  });
+
+  // The owner's answer (2026-10-06): "A model per feature, now". One provider and one key; the call names the model.
+  it('asks each feature’s call of that feature’s own model, and the ledger names it when no answer came', async () => {
+    const asked: string[] = [];
+    const provider: LlmProvider = {
+      name: 'fake',
+      complete: async (call) => {
+        asked.push(call.model);
+        throw new LlmFailure('timeout', 'no answer');
+      },
+    };
+    const { service, usage } = make({ provider, models: models({ share: 'model-b' }) });
+    await failsWith(service.flyer(actor, idea()), 'ai_failed');
+    await failsWith(service.share(actor, shareBody()), 'ai_failed');
+    expect(asked).toEqual(['fake-1', 'model-b']);
+    expect(usage.records.map((r) => [r.feature, r.model, r.ok])).toEqual([['flyer', 'fake-1', false], ['share', 'model-b', false]]);
   });
 
   it('lets the hostel the staff member chose win over the model’s', async () => {
