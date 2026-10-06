@@ -276,6 +276,39 @@ test('closing the tab with unsaved work asks the browser to confirm', async ({ p
   await expect(line1(page)).toHaveValue('Unsaved is a');
 });
 
+// Stock photos live on another site. The link opens beside the editor, never in its place: leaving the editor with
+// unsaved work asks first, and a draft must not be lost to a link. No test touches the network: the tab's request is
+// answered here.
+test('the Photo section points at Pexels in a new tab: nothing asks, and the unsaved work stays', async ({ page, context }) => {
+  await context.route('https://www.pexels.com/**', (route) => route.fulfill({ contentType: 'text/html', body: '<title>Pexels, routed</title>' }));
+  await page.goto('/#/new');
+  await makeUnsaved(page);
+  const link = panel(page).getByRole('link', { name: 'Pexels', exact: true });
+  await expect(link.locator('xpath=..')).toHaveText('Need a photo? Search Pexels.');
+  await expect(link).toHaveAttribute('href', 'https://www.pexels.com/');
+  await expect(link).toHaveAttribute('target', '_blank');
+  await expect(link).toHaveAttribute('rel', 'noopener noreferrer');
+
+  const dialogs: string[] = [];
+  page.on('dialog', (d) => {
+    dialogs.push(`${d.type()}: ${d.message()}`);
+    void d.dismiss();
+  });
+  const [tab] = await Promise.all([context.waitForEvent('page'), link.click()]);
+  await tab.waitForLoadState();
+  expect(tab.url()).toBe('https://www.pexels.com/');
+  await expect(tab).toHaveTitle('Pexels, routed');
+  await tab.close();
+  expect(dialogs, 'nothing asked').toEqual([]);
+  await expect(page).toHaveURL(/#\/new$/);
+  await expect(line1(page)).toHaveValue('Unsaved is a');
+  await expect(status(page)).toHaveText('Unsaved changes');
+
+  // The line belongs to the photo buttons: a flyer with no photo has neither.
+  await modeButton(page, 'none').click();
+  await expect(link).toHaveCount(0);
+});
+
 test('a jump over several entries, from the Back button menu, is refused as a whole, or lands where it was sent', async ({ page }) => {
   await page.goto('/#/');
   await expect(library(page)).toBeVisible();

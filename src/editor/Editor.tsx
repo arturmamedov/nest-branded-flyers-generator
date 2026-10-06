@@ -64,6 +64,10 @@ function withShortName(row: WeekRow, shortName: string): WeekRow {
   return shortName ? { ...rest, shortName } : rest;
 }
 
+/** Where staff look for a photo when they have none (the owner's line, 2026-10-05). The line says nothing about
+    licences: only the words he approved. */
+const PEXELS_URL = 'https://www.pexels.com/';
+
 /** The canvas on screen is how this viewer likes to work, never flyer data: the one they last chose, else the default. */
 const CANVAS_PREF = 'editor.canvas';
 const savedCanvas = (): CanvasId => {
@@ -387,6 +391,14 @@ export function Editor({
                     }}
                   />
                 </div>
+                {/* A new tab: leaving the editor with unsaved work asks first, and a link must never cost a draft. */}
+                <p className="help">
+                  Need a photo? Search{' '}
+                  <a className="linkish" href={PEXELS_URL} target="_blank" rel="noopener noreferrer">
+                    Pexels
+                  </a>
+                  .
+                </p>
                 <p className="help">
                   Or drop a photo on the preview. Drag the photo there to move it in any direction; click it and use the arrow keys to nudge
                   (Shift for bigger steps).
