@@ -751,11 +751,14 @@ nest-nav > nav a.ai-entry .ai-count {
   min-width: 0;
 }
 
+/* Beside the picture the title has two thirds of a phone's line: a title in one unbroken run wraps where it must,
+   or the library would scroll sideways. */
 .card-text {
   display: flex;
   flex-direction: column;
   gap: 4px;
   min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 /* A card's picture of its flyer (FlyerThumb.tsx). The box is this size in every state (waiting, shown, a flyer that

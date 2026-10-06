@@ -1,9 +1,11 @@
-import type { Locator, Page } from '@playwright/test';
+import type { APIRequestContext, Locator, Page } from '@playwright/test';
 import { expect, test } from '../browser';
 import { EDITOR_VIEWPORT, apiCall, apiRoute, exportFit, filterLibrary, hold, libraryCard as card } from '../editor';
 import { TEMPLATE_LABEL } from '../../src/editor/templates';
+import { newFlyerData } from '../../src/shared/defaults';
 import { CANVASES, DEFAULT_CANVAS } from '../../src/shared/layout';
-import { FlyerPayloadSchema, type FlyerListItem } from '../../src/shared/schema';
+import { FlyerPayloadSchema, FlyerSavedSchema, type FlyerListItem } from '../../src/shared/schema';
+import { WRITE_HEADERS } from '../../src/shared/writeGuard';
 
 /* Each library card shows its flyer (src/editor/FlyerThumb.tsx): the same <Flyer> the editor and the export mount,
    at its canvas's true size, scaled down and fitted as an export is. Never a second renderer, never a stored
@@ -25,6 +27,23 @@ async function size(l: Locator): Promise<{ width: number; height: number }> {
   return { width: Math.round(box.width * 100) / 100, height: Math.round(box.height * 100) / 100 };
 }
 
+/** Flyers a test saved: archived afterwards, so the specs after this one find the library as seeded. */
+const saved: number[] = [];
+test.afterEach(async ({ request }) => {
+  for (const id of saved.splice(0)) await request.delete(`/api/flyers/${id}`, { headers: WRITE_HEADERS });
+});
+
+/** A flyer of this spec's own, with no photo, saved through the API: the newest, so the library's first card. */
+async function save(request: APIRequestContext, title: string, headline: string): Promise<number> {
+  const blank = newFlyerData();
+  const data = { ...blank, photoMode: 'none', text: { ...blank.text, headline1: headline } };
+  const res = await request.post('/api/flyers', { headers: WRITE_HEADERS, data: { title, hostel: null, template: 'activity', data, photoId: null } });
+  expect(res.status(), await res.text()).toBe(201);
+  const { id } = FlyerSavedSchema.parse(await res.json());
+  saved.push(id);
+  return id;
+}
+
 /** The library as the API lists it: newest first, the order of the cards. */
 const flyers = async (page: Page) => (await (await page.request.get('/api/flyers')).json()) as FlyerListItem[];
 const sample = async (page: Page, title: string) => (await flyers(page)).find((f) => f.title === title)!;
@@ -38,6 +57,8 @@ test('each card shows its flyer: the real <Flyer> on the WhatsApp canvas, fitted
 
   await page.goto('/');
   const c = card(page, stress.title);
+  // Brought to the screen first: where it sits in the list depends on what the specs before this one saved.
+  await c.scrollIntoViewIfNeeded();
   await expect(shown(c)).toBeVisible();
   await expect(flyerIn(c)).toHaveAttribute('data-canvas', DEFAULT_CANVAS);
   const sizes = await flyerIn(c).evaluate((flyer) => [...flyer.querySelectorAll<HTMLElement>('[data-fit]')].map((el) => el.style.fontSize));
@@ -118,9 +139,12 @@ test('a picture that arrives after its list has gone shows nothing, and breaks n
   const [first] = await flyers(page);
   const other = first.template === 'week' ? 'activity' : 'week';
   const release = await hold(page, apiRoute(`flyers/${first.id}`));
+  const asked = page.waitForRequest((r) => r.method() === 'GET' && apiRoute(`flyers/${first.id}`)(new URL(r.url())));
   const late = page.waitForResponse(apiCall('GET', `flyers/${first.id}`));
   await page.goto('/');
   await expect(card(page, first.title)).toBeVisible();
+  // Its flyer is on its way, and held: without this wait the filter below could change before the card had asked.
+  await asked;
 
   // The list changes while the first card's flyer is still on its way.
   await filterLibrary(page, 'Template', { label: TEMPLATE_LABEL[other] }, `?template=${other}`);
@@ -136,6 +160,51 @@ test('a picture that arrives after its list has gone shows nothing, and breaks n
   expect(await page.locator('.card-thumb [data-flyer]').count()).toBeLessThanOrEqual(await now.count());
   await expect(page.locator('.banner-error')).toHaveCount(0);
   expect(errors).toEqual([]);
+});
+
+// The guard the test above cannot reach: there the late answer finds its card gone, and React drops it by itself.
+// Here the card stays and its flyer changes under it, which is where an old answer could be drawn over a new one.
+test('a card whose flyer was saved since shows the flyer as it is now, whatever order the answers come back in', async ({ page, request }) => {
+  const stamp = Date.now();
+  const [changing, leaving] = [`library spec changing ${stamp}`, `library spec leaving ${stamp}`];
+  const id = await save(request, changing, 'Before the save');
+  await save(request, leaving, 'Soon archived');
+
+  // The first answer for the flyer is taken at once, as the flyer was then, and kept back; later ones pass.
+  let release = () => {};
+  const kept = new Promise<void>((resolve) => (release = resolve));
+  let asked = 0;
+  let delivered = false;
+  await page.route(apiRoute(`flyers/${id}`), async (route) => {
+    if (route.request().method() !== 'GET' || ++asked > 1) return route.continue();
+    const before = await route.fetch();
+    await kept;
+    await route.fulfill({ response: before });
+    delivered = true;
+  });
+  await page.goto('/');
+  const c = card(page, changing);
+  await expect(c).toBeVisible();
+  await expect.poll(() => asked, { message: 'the card asked for its flyer' }).toBe(1);
+
+  // Saved elsewhere meanwhile (another tab, another staff member)…
+  const { flyer } = FlyerPayloadSchema.parse(await (await request.get(`/api/flyers/${id}`)).json());
+  const data = { ...flyer.data, text: { ...flyer.data.text, headline1: 'After the save' } };
+  const put = await request.put(`/api/flyers/${id}`, { headers: WRITE_HEADERS, data: { title: flyer.title, hostel: flyer.hostel, template: flyer.template, data, photoId: flyer.photoId } });
+  expect(put.status(), await put.text()).toBe(200);
+  // …and the list is loaded again in place, as archiving another flyer does: the card stays, and its flyer is newer.
+  page.once('dialog', (d) => void d.accept());
+  await card(page, leaving).getByRole('button', { name: 'Archive', exact: true }).click();
+  await expect(card(page, leaving)).toHaveCount(0);
+  await expect(shown(c)).toBeVisible();
+  await expect(flyerIn(c)).toContainText('After the save');
+
+  // The answer from before the save lands last, and changes nothing.
+  release();
+  await expect.poll(() => delivered, { message: 'the kept answer was handed to the page' }).toBe(true);
+  await page.evaluate(() => new Promise((resolve) => requestIdleCallback(resolve)));
+  await expect(flyerIn(c)).toContainText('After the save');
+  await expect(flyerIn(c)).not.toContainText('Before the save');
 });
 
 test('a card asks for its flyer only when it nears the screen, and once', async ({ page }) => {
@@ -161,10 +230,14 @@ test('a card asks for its flyer only when it nears the screen, and once', async 
   expect(new Set(asked).size, 'no flyer asked for twice').toBe(asked.length);
 });
 
-test('on a phone the picture is smaller, the card fits the screen, and nothing scrolls sideways', async ({ page }) => {
+test('on a phone the picture is smaller, the card fits the screen, and nothing scrolls sideways', async ({ page, request }) => {
   await page.setViewportSize({ width: 390, height: 844 });
+  // The picture takes a third of the card's line: a title in one unbroken run has to wrap in what is left.
+  const unbroken = `Bachata_night_at_the_rooftop_terrace_${Date.now()}`;
+  await save(request, unbroken, 'Bachata night');
   await page.goto('/');
   const c = page.locator('li.card').first();
+  await expect(c.locator('.card-title')).toHaveText(unbroken);
   await expect(c.locator('.card-thumb.card-thumb-ready')).toBeVisible();
   expect(await size(thumb(c))).toEqual(BOX.phone);
   expect(await size(flyerIn(c)), 'the whole flyer, scaled into the smaller box').toEqual(BOX.phone);
