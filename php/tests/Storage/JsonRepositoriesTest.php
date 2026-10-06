@@ -298,7 +298,7 @@ final class JsonRepositoriesTest extends RepositoryContractTestCase
     {
         // A store from before the ledger, or a site that never used the AI: tests/cross pins that reads add no file.
         $before = TempDir::files($this->dir);
-        self::assertSame(0, $this->repos->aiUsage->countOk('anonymous', '2026-09-18'));
+        self::assertSame([], $this->repos->aiUsage->countOk('anonymous', '2026-09-18'));
         self::assertSame($before, TempDir::files($this->dir));
     }
 
@@ -328,7 +328,7 @@ final class JsonRepositoriesTest extends RepositoryContractTestCase
         $file = "$this->dir/ai-usage/2026-09.json";
         file_put_contents($file, str_replace('"input": 10', '"input": 12.5', (string) file_get_contents($file), $replaced));
         self::assertSame(1, $replaced);
-        self::assertSame(1, $this->repos->aiUsage->countOk('anonymous', '2026-09-18'));
+        self::assertSame(['flyer' => 1], $this->repos->aiUsage->countOk('anonymous', '2026-09-18'));
     }
 
     public function testARecordFileDeletedByHandReadsAsEmpty(): void

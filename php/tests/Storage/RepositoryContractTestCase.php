@@ -295,24 +295,29 @@ abstract class RepositoryContractTestCase extends TestCase
 
     // ---- the AI ledger ----
 
-    public function testTheLedgerCountsOnlyTheActorsOkRecordsOfTheDay(): void
+    // Every feature has its own daily limit (the owner's answer, 2026-10-06), so the count is per feature. One read
+    // answers them all: api/config asks for every feature's count on every page load.
+    public function testTheLedgerCountsOnlyTheActorsOkRecordsOfTheDayFeatureByFeature(): void
     {
         $ledger = $this->repos->aiUsage;
         $ledger->record($this->usage());
         $ledger->record($this->usage(['feature' => 'share']));
+        $ledger->record($this->usage(['feature' => 'share']));
         $ledger->record($this->usage(['ok' => false]));
+        $ledger->record($this->usage(['feature' => 'share', 'ok' => false]));
         $ledger->record($this->usage(['actorId' => 'someone-else']));
         $ledger->record($this->usage(['day' => '2026-09-19']));
 
-        self::assertSame(2, $ledger->countOk('anonymous', '2026-09-18'));
-        self::assertSame(1, $ledger->countOk('someone-else', '2026-09-18'));
-        self::assertSame(1, $ledger->countOk('anonymous', '2026-09-19'));
-        self::assertSame(0, $ledger->countOk('nobody', '2026-09-18'));
+        self::assertSame(['flyer' => 1, 'share' => 2], $ledger->countOk('anonymous', '2026-09-18'));
+        self::assertSame(['flyer' => 1], $ledger->countOk('someone-else', '2026-09-18'));
+        self::assertSame(['flyer' => 1], $ledger->countOk('anonymous', '2026-09-19'));
+        // A feature with no ok record that day is absent, never a zero: the caller reads "absent" as none.
+        self::assertSame([], $ledger->countOk('nobody', '2026-09-18'));
     }
 
     public function testAStoreWithNoLedgerYetCountsNothing(): void
     {
-        self::assertSame(0, $this->repos->aiUsage->countOk('anonymous', '2026-09-18'));
+        self::assertSame([], $this->repos->aiUsage->countOk('anonymous', '2026-09-18'));
     }
 
     // ---- helpers ----

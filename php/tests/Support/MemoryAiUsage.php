@@ -17,8 +17,14 @@ final class MemoryAiUsage implements AiUsageRepository
         $this->records[] = $entry;
     }
 
-    public function countOk(string $actorId, string $day): int
+    public function countOk(string $actorId, string $day): array
     {
-        return count(array_filter($this->records, static fn (array $r): bool => $r['ok'] && $r['actorId'] === $actorId && $r['day'] === $day));
+        $counts = [];
+        foreach ($this->records as $r) {
+            if ($r['ok'] && $r['actorId'] === $actorId && $r['day'] === $day) {
+                $counts[$r['feature']] = ($counts[$r['feature']] ?? 0) + 1;
+            }
+        }
+        return $counts;
     }
 }

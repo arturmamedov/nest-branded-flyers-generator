@@ -36,13 +36,17 @@ final class JsonAiUsageRepository implements AiUsageRepository
         });
     }
 
-    public function countOk(string $actorId, string $day): int
+    public function countOk(string $actorId, string $day): array
     {
         $records = $this->lock->shared(fn (): array => $this->read($this->file($day)));
-        return count(array_filter(
-            $records,
-            static fn (stdClass $r): bool => ($r->ok ?? null) === true && ($r->actorId ?? null) === $actorId && ($r->day ?? null) === $day,
-        ));
+        $counts = [];
+        foreach ($records as $r) {
+            $feature = $r->feature ?? null;
+            if (($r->ok ?? null) === true && ($r->actorId ?? null) === $actorId && ($r->day ?? null) === $day && is_string($feature)) {
+                $counts[$feature] = ($counts[$feature] ?? 0) + 1;
+            }
+        }
+        return $counts;
     }
 
     /** The month's file: the first seven characters of the Canary day. */

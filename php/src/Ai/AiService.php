@@ -65,7 +65,7 @@ final class AiService
         }
         $limit = $this->policy->dailyLimit($actor);
         try {
-            $used = $this->usage->countOk($actor->id, $this->day->day($this->clock->now()));
+            $used = $this->used($actor, $this->day->day($this->clock->now()));
         } catch (Throwable $e) {
             // The editor renders nothing without api/config, so the AI's own storage never decides whether the app
             // loads: a ledger that cannot be read hides the AI. The generation routes are not softened.
@@ -174,11 +174,17 @@ final class AiService
     {
         $now = $this->clock->now();
         $limit = $this->policy->dailyLimit($actor);
-        $used = $this->usage->countOk($actor->id, $this->day->day($now));
+        $used = $this->used($actor, $this->day->day($now));
         if ($used >= $limit) {
             throw $this->errors->make('ai_quota', ['limit' => $limit]);
         }
         return [$now, $limit - $used];
+    }
+
+    /** What the actor has used of the day: the ledger counts it feature by feature, and one cap still covers them all. */
+    private function used(Actor $actor, string $day): int
+    {
+        return array_sum($this->usage->countOk($actor->id, $day));
     }
 
     /**
