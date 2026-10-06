@@ -12,7 +12,7 @@ use RuntimeException;
  * re-encoding drops every metadata block (Exif, GPS, XMP, ICC), which is the
  * "strip" part of the contract.
  *
- * GD images count against memory_limit, which is why PhotoService guards memory
+ * GD images count against memory_limit, which is why PhotoIntake guards memory
  * before calling this. Images are freed by dropping the last reference:
  * imagedestroy() is a no-op since PHP 8.0 (and deprecated in 8.5).
  */

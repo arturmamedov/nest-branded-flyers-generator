@@ -22,7 +22,7 @@ interface ImageProcessor
     /**
      * An upper estimate of the PHP memory (what memory_limit counts) that
      * process() needs for this image at its peak, on top of what the caller
-     * already holds (the upload's bytes). PhotoService compares it with the free
+     * already holds (the upload's bytes). PhotoIntake compares it with the free
      * memory_limit before decoding, so a huge photo gets a clear 413 instead of a
      * fatal "Allowed memory size exhausted". Only the processor knows its own
      * allocations: GD's pixels count against memory_limit, ImageMagick's don't.

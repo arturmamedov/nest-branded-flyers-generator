@@ -12,7 +12,7 @@ use ImagickPixel;
  * The ImageMagick processor, for hosts that have imagick and pick it in
  * config.php. Same contract as GD (ImageProcessorContractTestCase), with a
  * better resampling filter. ImageMagick allocates outside PHP's memory_limit,
- * so PhotoService's guard is only conservative here; the host's policy.xml
+ * so PhotoIntake's guard is only conservative here; the host's policy.xml
  * limits still apply and surface as exceptions (a 500).
  */
 final class ImagickImageProcessor implements ImageProcessor

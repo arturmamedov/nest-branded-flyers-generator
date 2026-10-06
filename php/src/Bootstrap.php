@@ -27,6 +27,7 @@ use NestFlyers\Http\WriteGuard;
 use NestFlyers\Image\ImageProcessor;
 use NestFlyers\Image\ImageProcessorFactory;
 use NestFlyers\Image\ImageSniffer;
+use NestFlyers\Photos\PhotoIntake;
 use NestFlyers\Photos\PhotoService;
 use NestFlyers\Photos\UploadLimits;
 use NestFlyers\Storage\Json\JsonRepositories;
@@ -158,16 +159,8 @@ final class Bootstrap
         $limits = UploadLimits::fromIni($shared);
         $processor = self::once(static fn (): ImageProcessor => ImageProcessorFactory::create($config->imageProcessor));
         $uploadsDir = $this->path($shared->uploadsDir());
-        $photoService = self::once(static fn (): PhotoService => new PhotoService(
-            $repos->photos,
-            new ImageSniffer($shared, $errors),
-            $processor(),
-            $limits,
-            $errors,
-            $shared,
-            $clock,
-            $uploadsDir,
-        ));
+        $intake = self::once(static fn (): PhotoIntake => new PhotoIntake(new ImageSniffer($shared, $errors), $processor(), $limits, $errors));
+        $photoService = self::once(static fn (): PhotoService => new PhotoService($repos->photos, $intake(), $shared, $clock, $uploadsDir));
         $ai = self::once(fn (): ?AiService => $this->aiService($config, $shared, $errors, $repos, $clock, $normalizer));
 
         $router = new Router();

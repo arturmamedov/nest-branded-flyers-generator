@@ -7,7 +7,7 @@ namespace NestFlyers\Image;
 use InvalidArgumentException;
 
 /**
- * Photo sizes, shared by the image processors and PhotoService's memory guard.
+ * Photo sizes, shared by the image processors and PhotoIntake's memory guard.
  * fitLongEdge() is the PHP twin of fitLongEdge() in src/shared/limits.ts; both are
  * held to tests/fixtures/fit-long-edge.json, which Vitest checks against sharp.
  */

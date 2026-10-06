@@ -20,7 +20,7 @@ use PHPUnit\Framework\TestCase;
  * Imagick are interchangeable behind config.php's imageProcessor. The expected
  * sizes and orientations are the shared vectors sharp is checked against in
  * tests/unit/shared-vectors.test.ts. Inputs go through the real ImageSniffer,
- * as they do in PhotoService. The fixtures are drawn with GD, so GD is needed
+ * as they do in PhotoIntake. The fixtures are drawn with GD, so GD is needed
  * to run the suite for any processor.
  */
 abstract class ImageProcessorContractTestCase extends TestCase
