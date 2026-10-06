@@ -14,7 +14,9 @@ import { tempRepo, type TempRepo } from '../tempRepo.js';
 const ID = '0123456789ab';
 const where = { site: 'https://nestpass.ai/activities/', date: '2026-10-01', today: '2026-10-05' };
 
-describe('a tag for a deployed release', () => {
+// Room, as git.test.ts has and for the same reason: a throwaway repository and a dozen runs of git per test, which
+// took up to 12 s beside the rest of `npm test` on 2026-10-06.
+describe('a tag for a deployed release', { timeout: 30_000 }, () => {
   let repo: TempRepo;
   beforeEach(() => {
     repo = tempRepo();

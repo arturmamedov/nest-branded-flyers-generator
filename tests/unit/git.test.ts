@@ -9,7 +9,9 @@ import { tempRepo, type TempRepo } from '../tempRepo.js';
    answers with a tag's name as soon as an annotated tag is reachable: the release tags themselves would have turned
    every later release's `commit` into `release/<id>-3-g1490956`. */
 
-describe('the commit a checkout is at', () => {
+// Each test makes a throwaway repository and runs git a dozen times. Alone a test takes one or two seconds; beside
+// the rest of `npm test`, right after a render suite, they took 8 to 10 s on 2026-10-06, past vitest's 5 s default.
+describe('the commit a checkout is at', { timeout: 30_000 }, () => {
   let repo: TempRepo;
   beforeEach(() => {
     repo = tempRepo();
