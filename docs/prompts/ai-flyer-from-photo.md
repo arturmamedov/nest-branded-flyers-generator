@@ -6,8 +6,10 @@ four stages. Run one stage per session: start in plan mode, build it, and stop a
 go-ahead. Suggested: Opus 5.5 at high effort.
 
 **Where it stands:** `docs/reports/ai-flyer-from-photo.md` has one section per stage that is built, and the next
-stage is the first one without a section. Stage 1 was built on 2026-10-06. "What the code holds today" below was
-read before it: its first block, the cap, describes what stage 1 replaced.
+stage is the first one without a section. Stages 1 and 2 were built on 2026-10-06; stage 2's checkpoint, the real
+reads, is open until Artur gives his go. "What the code holds today" below was read before stage 1: its first block,
+the cap, describes what stage 1 replaced, and "The provider seam is text only", "Photos" and "The examples" describe
+what stage 2 replaced.
 
 ## Why
 
@@ -429,4 +431,6 @@ with a script that prints nothing of the file, and leave it as Artur says.
   says.
 - Stages 2 to 4: `feat/ai-flyer-from-photo`, cut from stage 1's last commit. Ask Artur first: for stage 1 he
   chose to stay on the branch that was checked out.
+  - Stage 2 (2026-10-06): asked, he chose "Stay on feat/ai-feature-switches" again. It is built there, on top of
+    `650d3a9`. Ask again before stage 3.
 - Another session may be writing in this folder: stage files by path, no checkouts of other branches, no stashes.

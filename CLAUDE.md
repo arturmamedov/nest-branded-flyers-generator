@@ -25,6 +25,7 @@ npm run deploy:update  # a newer release over a local copy of a deployment: back
 npm run deploy:tag     # the git tag release/<id> for a deployed release (a folder, or a site's address); never pushes
 npm run copy           # move a library between storage drivers (SQLite <-> JSON files)
 npm run ai:smoke       # one real AI generation by hand, with .env's AI_PROVIDER and AI_API_KEY (--share: a share text;
+                       # --photo <picture | image example .json>: a picture read, --save <file> the picture as sent;
                        # --to <app root>: through a site, spending one of that feature's generations for the day; it
                        # stops before spending when the feature it would call is off there). Never part of a test
 npm run compare:design # reference pixel-diff vs the prototype (dev server running)
@@ -105,8 +106,9 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
   only by PHP's tests.
 - The export runs in the browser where a backend has no renderer (`src/editor/export/`): same `<Flyer>`,
   same `prepareFlyer()`, modern-screenshot. `tests/render/fidelity.spec.ts` holds it to the server export.
-- The AI assistant: an idea → a flyer (`POST api/ai/flyer`) and a flyer → its share text (`POST api/ai/share`),
-  one contract on both backends (`docs/api-contract.md`, "The AI assistant").
+- The AI assistant: an idea → a flyer (`POST api/ai/flyer`), a flyer → its share text (`POST api/ai/share`), and a
+  picture → its words (`POST api/ai/photo`, the `photo` feature: the server's half, no page yet), one contract on
+  both backends (`docs/api-contract.md`, "The AI assistant").
   - `server/ai/` and `php/src/Ai/` are twins: the provider seam (`LlmProvider`: OpenAI, Anthropic, and a fake for
     the tests; which one runs is configuration, never code), the prompt builder, the service with its checks in
     the contract's order, and the actor and the policy, which are the seam a login will fill.
@@ -159,6 +161,31 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
     in `Editor.tsx`. `fields.ts` holds what the panel calls each field: the editor's labels come from it, and
     `briefFieldLabel()` names a brief's key for "The AI assumed…" (an assumption's `field` is the model's to choose,
     so a key no field has is shown as written).
+  - A picture is read into its words (`photo`, 2026-10-06; brief `docs/prompts/ai-flyer-from-photo.md`, stage 2).
+    Artur's answers are in the brief and are not to be reopened: two calls (the read stops at the words, the flyer
+    is the staff member's second call), the picture sent as a file, a read with no words counts, the picture kept
+    30 days.
+    - The seam carries a picture: a turn's content is a string, or parts (`LlmPart` in `server/ai/provider.ts`;
+      the same arrays in PHP's `LlmCall`). A text turn goes out as the string it is. Each adapter fixture has a
+      second call, `picture`.
+    - A model per feature: `AI_MODELS=photo:<model>` / `'models' => ['photo' => '<model>']`. `AI_MODEL` / `'model'`
+      is every other feature's. The call names its model (`LlmCall.model`); a provider is built from the key and
+      the effort alone. One provider, one key and one effort per site.
+    - One photo intake per backend, used by `api/photos` and `api/ai/photo`: `preparePhoto()` and `storePhoto()`
+      in `server/services/photos.ts`; `Photos\PhotoIntake` (prepares) and `PhotoService` (stores) on PHP. The read
+      prepares at `AI_PICTURE_MAX_EDGE` (2048) and never writes to `uploads/`.
+    - The checks on `api/ai/photo`: the write guard, `ai_off`, `ai_forbidden`, the photo route's own checks, the
+      reads' limit, the provider. On Node the switch is asked in front of multer (`admitPhoto` in `app.ts`).
+    - The reader's rules are `ai/prompts/photo.md`; the answer is `AiPhotoAnswerSchema` (`{ text }`, at most
+      `AI_INPUT_MAX`, trimmed by the service). No hostels, no day, no few-shot: the bundle never holds a picture.
+    - The kept pictures (`server/ai/pictures.ts`, `Ai\AiPictures`): `<data folder>/ai-pictures/<Canary day>/`,
+      written before the provider is asked, named by the ledger's one-line `input`, never held by it. `GET
+      api/config` deletes what is past `AI_PICTURE_DAYS` (30), at most once a day (`.swept`), AI on or off: the
+      one read that deletes. `deploy:backup` and `npm run copy` leave the folder out.
+    - The fake answers a read with the first example's text, and is steered by the picture's width
+      (`AI_FAKE.pictureWidths`: 11 invalid, 12 timeout, 13 refused, 14 no words).
+    - `docs/ai-flyers/image-examples/` is the reads' eval set, never few-shot. A picture goes into git only after
+      Artur has looked at it. `tests/unit/ai-image-examples.test.ts` holds each case.
   - No test touches a provider. The render suite has two projects: `render` (every spec but `ai.spec.ts`, the AI
     off whatever `.env` holds) and `ai` (`ai.spec.ts` on a second server with the fake, port 8798, every feature
     named and each feature's limit pinned in `playwright.config.ts`, since that server reads `.env` too; it spends
@@ -357,11 +384,25 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
     - For Artur to decide (the report has each): the sentence at a limit of 1 ("Today’s 1 AI share texts are used
       up"); a feature with nothing for its number is refused (`['share' => null]`); the words "Try again (none
       left today)".
-  - **Stages 2 to 4 are not started,** and not to be started unasked: the read on both backends, the page, the
-    picture as the flyer's photo. They are for a new session, on `feat/ai-flyer-from-photo`, cut from stage 1's
-    last commit. Ask Artur which branch before cutting it.
-  - `docs/ai-flyers/image-examples/` is untracked: the first case's picture shows Artur's browser tabs, and goes
-    into git in stage 2, after he has looked at it.
+  - **Stage 2 is built: the read, on both backends, with no page** (2026-10-06, on `feat/ai-feature-switches` by
+    Artur's choice again: "Stay on feat/ai-feature-switches"; 14 commits on top of `650d3a9`, committed as each
+    piece went green, on his standing go-ahead for the stage). Nothing is pushed.
+    - With `photo` not named the app looks and behaves as before: the baseline is byte-identical (32 cases).
+    - A fresh-context review found no way for a switched-off read to run or spend. What it found is fixed, each
+      test first: among them a 500 on Node for a file under another field's name, and a clean-up of kept pictures
+      that one stuck folder stopped for good.
+    - **Its checkpoint is open: the real reads.** Not run: they wait for Artur's go and his pictures (the Canva
+      page, a handwritten board, a poster, a chat screenshot, a photo with no words), on both providers, on the
+      default model and a stronger one through `AI_MODELS`, and one through the Laragon copy. He then chooses the
+      photo's model and whether 2048 px stays. No provider was called in the stage.
+    - `docs/ai-flyers/image-examples/` is still untracked: the first case's picture shows Artur's browser tabs
+      and waits for his look. It should go in as the read sends it, a JPEG (154 KB, not the 1.4 MB PNG).
+    - For Artur to decide (the report has each): a failed read is free and keeps its picture, so an unlocked site's
+      disk can be filled; the reader's prompt's words; a PNG with transparency past Anthropic's 10 MB.
+    - No release was built. A host needs the release first, then `'models'` and `'photo'`; both come out before
+      going back (`docs/deploy.md`, "Rolling back").
+  - **Stages 3 and 4 are not started,** and not to be started unasked: the page, and the picture as the flyer's
+    photo. Ask Artur which branch first.
 - Waiting, don't start unasked: step 7 (drag/nudge everything on the canvas, sizes, colours, order, reset),
   step 9 (doodle picker + icon uploads). With two canvases and two templates: step 7's stored `overrides`
   (dx/dy) are shared by every canvas, so it must decide how they apply per canvas; step 9, when it stores
