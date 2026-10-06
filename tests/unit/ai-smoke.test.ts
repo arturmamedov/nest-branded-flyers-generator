@@ -1,13 +1,33 @@
 import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import sharp from 'sharp';
 import { afterAll, describe, expect, it, vi } from 'vitest';
-import { closing, opening, parseSmokeArgs, readExample, refusal, runDirect, shareRequest, siteAi, siteHint, siteLeft, siteSpends, USAGE, whatFailed } from '../../scripts/ai/smoke.js';
+import {
+  closing,
+  closingPhoto,
+  featureOf,
+  opening,
+  openingPhoto,
+  parseSmokeArgs,
+  readExample,
+  readPicture,
+  refusal,
+  runDirect,
+  runDirectPhoto,
+  shareRequest,
+  siteAi,
+  siteHint,
+  siteLeft,
+  siteSpends,
+  USAGE,
+  whatFailed,
+} from '../../scripts/ai/smoke.js';
 import { siteAt, SiteError } from '../../scripts/site.js';
 import { loadBundle } from '../../server/ai/bundle.js';
 import { loadAiSettings } from '../../server/config.js';
 import { APP_ROOT, SEED_FILE } from '../../server/paths.js';
-import { AI_FEATURES } from '../../src/shared/ai.js';
+import { AI_FAKE, AI_FEATURES, AI_PICTURE_MAX_EDGE } from '../../src/shared/ai.js';
 import { AiFlyerRequestSchema, AiFlyerResultSchema, AiShareRequestSchema, AiShareResultSchema, type AiFlyerResult } from '../../src/shared/schema.js';
 import { SeedFileSchema } from '../../src/shared/seed.js';
 
@@ -46,16 +66,33 @@ const said = (call: () => unknown): string => {
 
 describe('parseSmokeArgs', () => {
   it('means a flyer from the bundle’s first example, straight to the provider, when given nothing', () => {
-    expect(parseSmokeArgs([])).toEqual({ share: false, to: null, file: null });
+    expect(parseSmokeArgs([])).toEqual({ share: false, photo: null, save: null, to: null, file: null });
   });
 
   it('takes --share, a site as its app root, and one example file', () => {
-    expect(parseSmokeArgs(['--share', '--to', 'http://h/app', 'ex.json'])).toEqual({ share: true, to: 'http://h/app/', file: 'ex.json' });
+    expect(parseSmokeArgs(['--share', '--to', 'http://h/app', 'ex.json'])).toEqual({ share: true, photo: null, save: null, to: 'http://h/app/', file: 'ex.json' });
     expect(parseSmokeArgs(['--to', 'https://nestpass.ai/activities/']).to).toBe('https://nestpass.ai/activities/');
   });
 
+  it('takes --photo with a picture or an image example, and --save for the picture as it was sent', () => {
+    expect(parseSmokeArgs(['--photo', 'board.jpg'])).toEqual({ share: false, photo: 'board.jpg', save: null, to: null, file: null });
+    expect(parseSmokeArgs(['--photo', 'case.json', '--save', 'sent.jpg'])).toMatchObject({ photo: 'case.json', save: 'sent.jpg' });
+    expect(parseSmokeArgs(['--photo', 'board.jpg', '--to', 'http://h/app'])).toMatchObject({ photo: 'board.jpg', to: 'http://h/app/' });
+    expect(featureOf(parseSmokeArgs(['--photo', 'board.jpg']))).toBe('photo');
+    expect(featureOf(parseSmokeArgs(['--share']))).toBe('share');
+    expect(featureOf(parseSmokeArgs([]))).toBe('flyer');
+  });
+
   it('refuses what it does not know, with the usage line', () => {
-    for (const argv of [['--to'], ['--dry-run'], ['a.json', 'b.json'], ['--to', 'nestpass.ai/activities'], ['https://nestpass.ai/activities/']]) {
+    const photo = [
+      ['--photo'],
+      ['--photo', 'board.jpg', '--share'],
+      ['--photo', 'board.jpg', 'ex.json'],
+      // --save is the picture a read sent: nothing to save without one, and a site prepares its own.
+      ['--save', 'sent.jpg'],
+      ['--photo', 'board.jpg', '--save', 'sent.jpg', '--to', 'http://h/app'],
+    ];
+    for (const argv of [...photo, ['--to'], ['--dry-run'], ['a.json', 'b.json'], ['--to', 'nestpass.ai/activities'], ['https://nestpass.ai/activities/']]) {
       expect(said(() => parseSmokeArgs(argv)), argv.join(' ')).toContain(USAGE);
     }
   });
@@ -333,5 +370,93 @@ describe('opening: what a run says before it spends anything', () => {
     for (const part of ['openai', 'gpt-6-luna', 'low', '9 s', 'key set', '1 of 2', first.label]) expect(printed, part).toContain(part);
     expect(printed).not.toContain(KEY);
     expect(opening(loadAiSettings({ AI_PROVIDER: 'anthropic', AI_API_KEY: KEY }), first, true, { sent: 2, held: 0 })).toContain('claude-haiku-4-5');
+  });
+});
+
+/* --photo: one picture read, by hand. Stage 2's checkpoint runs it with real pictures on both providers; here it
+   runs on the fake, through the server's own intake and composition. */
+describe('--photo: a picture read', () => {
+  const fake = loadAiSettings({ AI_PROVIDER: 'fake', AI_FEATURES: 'photo' });
+  const jpeg = (width: number, height: number) => sharp({ create: { width, height, channels: 3, background: '#88aacc' } }).jpeg().toBuffer();
+  const caseFile = (name: string, picture: Buffer | null, ext = 'png') => {
+    if (picture !== null) writeFileSync(join(scratch, `${name}.${ext}`), picture);
+    return file(`${name}.json`, JSON.stringify({ source: 'Today\nBACHATA WORKSHOP', brief: first.brief }));
+  };
+
+  it('reads a picture file as it is: no words are expected of it', async () => {
+    const bytes = await jpeg(64, 48);
+    writeFileSync(join(scratch, 'board.jpg'), bytes);
+    const picture = readPicture(join(scratch, 'board.jpg'));
+    expect(picture).toEqual({ label: join(scratch, 'board.jpg'), bytes, expected: null });
+  });
+
+  it('reads an image example as its picture, beside it under the same name, and the words it should give', async () => {
+    const bytes = await jpeg(64, 48);
+    const picture = readPicture(caseFile('2026-10-05-bachata', bytes, 'jpg'));
+    expect(picture.bytes).toEqual(bytes);
+    expect(picture.expected).toBe('Today\nBACHATA WORKSHOP');
+    expect(picture.label).toContain('2026-10-05-bachata.jpg');
+  });
+
+  it('names what it cannot read: a case with no picture beside it, a .json that is no example, a file that is not there', () => {
+    expect(said(() => readPicture(caseFile('lonely', null)))).toMatch(/no picture beside it.*lonely\.(png|jpg)/);
+    expect(said(() => readPicture(file('notes.json', '{"hello": 1}')))).toContain('not an image example');
+    expect(said(() => readPicture(join(scratch, 'nowhere.jpg')))).toContain('nowhere.jpg');
+  });
+
+  it('prepares the picture as the server does, reads it, and hands back what was sent', async () => {
+    const big = await jpeg(3000, 1500);
+    const outcome = await runDirectPhoto(fake, { label: 'a poster', bytes: big, expected: bundle.examples[0].text }, bundle);
+    expect(outcome.error).toBeNull();
+    expect(outcome.result).toEqual({ text: bundle.examples[0].text, remaining: 2 });
+    expect(outcome.record).toMatchObject({ provider: 'fake', model: 'fake-1', feature: 'photo', ok: true, tokens: { input: 10, output: 20 } });
+    // What was sent is what the server would send: shrunk to the read's edge, and it is what the ledger's line names.
+    expect(outcome.sent).toMatchObject({ width: AI_PICTURE_MAX_EDGE, height: AI_PICTURE_MAX_EDGE / 2, mediaType: 'image/jpeg' });
+    expect(outcome.record?.input).toContain(`image/jpeg ${AI_PICTURE_MAX_EDGE}x${AI_PICTURE_MAX_EDGE / 2} ${outcome.sent?.bytes.length} bytes`);
+    const meta = await sharp(outcome.sent!.bytes).metadata();
+    expect([meta.format, meta.width]).toEqual(['jpeg', AI_PICTURE_MAX_EDGE]);
+  });
+
+  it('prints the words read under the ones expected, with the seconds, the tokens and what was sent', async () => {
+    const picture = { label: 'a case', bytes: await jpeg(64, 48), expected: 'Today\nBACHATA WORKSHOP' };
+    const printed = closingPhoto(await runDirectPhoto(fake, picture, bundle), picture);
+    expect(printed.indexOf('Expected:\nToday\nBACHATA WORKSHOP')).toBeGreaterThanOrEqual(0);
+    expect(printed.indexOf('Read:\n' + bundle.examples[0].text)).toBeGreaterThan(printed.indexOf('Expected:'));
+    for (const part of ['fake-1', '10 tokens in', '20 out', ' s.', 'Sent: 64x48 image/jpeg']) expect(printed, part).toContain(part);
+    // A picture with nothing expected of it prints no such block.
+    const plain = { ...picture, expected: null };
+    expect(closingPhoto(await runDirectPhoto(fake, plain, bundle), plain)).not.toContain('Expected:');
+  });
+
+  it('says so when the picture has no words, and when the read failed, with what the model wrote', async () => {
+    const tiny = (width: number) => sharp({ create: { width, height: 8, channels: 3, background: '#fff' } }).png().toBuffer();
+    const blank = { label: 'a blank wall', bytes: await tiny(AI_FAKE.pictureWidths.noWords), expected: null };
+    expect(closingPhoto(await runDirectPhoto(fake, blank, bundle), blank)).toContain('Read:\n(no words: the model found none about an event)');
+
+    const errors = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      const bad = { label: 'a bad answer', bytes: await tiny(AI_FAKE.pictureWidths.invalid), expected: null };
+      const outcome = await runDirectPhoto(fake, bad, bundle);
+      expect(outcome.result).toBeNull();
+      const printed = closingPhoto(outcome, bad);
+      for (const part of ['The AI didn’t answer properly', 'Nothing was counted', '{"text":42}', 'AI_MODELS=photo:']) expect(printed, part).toContain(part);
+    } finally {
+      errors.mockRestore();
+    }
+  });
+
+  it('refuses a file that is no picture in the photo route’s own words, before anything is asked', async () => {
+    const outcome = await runDirectPhoto(fake, { label: 'notes', bytes: Buffer.from('not an image'), expected: null }, bundle);
+    expect(outcome).toMatchObject({ result: null, record: null, sent: null, error: 'That file is not an image we can read. Use a JPG, PNG or WebP.' });
+  });
+
+  it('says before it spends anything which model reads: the photo’s own when the settings give it one, and never the key', () => {
+    const settings = loadAiSettings({ AI_PROVIDER: 'anthropic', AI_API_KEY: KEY, AI_FEATURES: 'photo', AI_MODELS: 'photo:claude-sonnet-5-5' });
+    const printed = openingPhoto(settings, { label: 'board.jpg', bytes: Buffer.alloc(2048), expected: null });
+    for (const part of ['anthropic', 'claude-sonnet-5-5', 'key set', 'board.jpg', '2 KB', `${AI_PICTURE_MAX_EDGE} px`]) expect(printed, part).toContain(part);
+    expect(printed).not.toContain('claude-haiku-4-5');
+    expect(printed).not.toContain(KEY);
+    // The flyer's line names the flyer's model, which is the site's.
+    expect(opening(settings, first, false, { sent: 1, held: 1 })).toContain('claude-haiku-4-5');
   });
 });

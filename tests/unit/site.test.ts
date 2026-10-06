@@ -84,6 +84,19 @@ describe('siteCaller', () => {
     expect(seen[1].headers.authorization).toBeUndefined();
   });
 
+  it('sends a form as it is: multipart, with the write header and the login, and no JSON type of its own', async () => {
+    const { baseUrl, seen } = await site((res) => json(res, 200, { text: 'Yoga', remaining: 2 }));
+    const Read = z.strictObject({ text: z.string(), remaining: z.number() });
+    const form = new FormData();
+    form.append('photo', new Blob([new Uint8Array([1, 2, 3])]), 'picture.jpg');
+    expect(await siteCaller({ baseUrl, basicAuth: login })('POST', 'api/ai/photo', Read, form)).toEqual({ text: 'Yoga', remaining: 2 });
+    expect(seen[0]).toMatchObject({ method: 'POST', url: '/app/api/ai/photo' });
+    expect(seen[0].headers['content-type']).toMatch(/^multipart\/form-data; boundary=/);
+    expect(seen[0].body).toContain('name="photo"; filename="picture.jpg"');
+    expect(seen[0].headers['x-nest-flyers']).toBe('1');
+    expect(seen[0].headers.authorization).toBe(SIGNED_IN);
+  });
+
   it('says a refusal in the API’s own words, with its status, its code and the fields it names', async () => {
     const { baseUrl } = await site((res, req) =>
       req.url.endsWith('quota')

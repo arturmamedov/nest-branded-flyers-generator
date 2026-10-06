@@ -66,8 +66,9 @@ export function siteCaller(target: Pick<RemoteSite, 'baseUrl' | 'basicAuth'>, op
   return async (method, path, schema, body) => {
     const res = await fetch(new URL(path, target.baseUrl), {
       method,
-      headers: { ...login, ...(body === undefined ? {} : { ...WRITE_HEADERS, 'Content-Type': 'application/json' }) },
-      body: body === undefined ? undefined : JSON.stringify(body),
+      // A form goes as it is, and fetch writes its multipart type and boundary: the routes that take a picture.
+      headers: { ...login, ...(body === undefined ? {} : body instanceof FormData ? WRITE_HEADERS : { ...WRITE_HEADERS, 'Content-Type': 'application/json' }) },
+      body: body === undefined ? undefined : body instanceof FormData ? body : JSON.stringify(body),
       // Never followed: a POST that follows a 301 arrives as a GET, and the site then answers some other question.
       redirect: 'manual',
       ...(options.timeoutMs === undefined ? {} : { signal: AbortSignal.timeout(options.timeoutMs) }),
