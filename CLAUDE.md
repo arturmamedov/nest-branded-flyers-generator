@@ -51,7 +51,7 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
   `chips.ts` (the `·` convention), `week.ts` (the This week rows: their limits, a row taken from a saved flyer,
   what a row prints — zod-free, so the client imports it and `schema.ts` takes its limits from it), `names.ts`
   (what a flyer is called in the library: an untitled flyer's name, the title's limit, the library's date — also
-  zod-free), `share.ts` (the share text's limit: a caption saved with the flyer, copied from the panel or the
+  zod-free), `share.ts` (the share text's limit and the line between its two languages: a caption saved with the flyer, copied from the panel or the
   button floating by the preview, never printed), `brief.ts` (`flyerFromBrief`: a flyer from its copy alone, the shape the staff-text
   workflow in `docs/ai-flyers/` writes — zod-free; `BriefSchema` is in `schema.ts`), `photo.ts` (crop maths),
   `copyRules.ts`, `writeGuard.ts` (the write header, and the methods that need none), `ai.ts` (the AI assistant's
@@ -285,6 +285,19 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
     one after it. A badge that fails to load drops out, and `ready.ts` waits for what takes its place. The marks may
     shrink in their 56 px row, so the widest eyebrow never pushes them past the safe edge.
 
+- The AI's copy follows the owner's own flyers (2026-10-06). He corrected flyers #4, #5 and #8 by hand on the live
+  site, then asked for the same as rules. The rules are the prompt files in `ai/prompts/`; the two examples in
+  `docs/ai-flyers/examples/` and the picture case carry them, and `tests/briefRules.ts` holds every example to them.
+  - **A price the text does not give is not printed:** no COST chip, no price line in the share text, and a note in
+    "The AI assumed". It supersedes his rule of 2026-10-04 ("Ask at reception"). "Free" still needs the word.
+  - **No full stop ends a title line:** `headline1`, `headline2` and the Spanish line. The ask keeps its own. The
+    This week template's built-in title ("this week.") is left as designed, by his answer.
+  - **The share text is English first,** then the line `-- 🇪🇸 --` (`SHARE_SPANISH_BREAK` in `share.ts`), then
+    Spanish. The English is written for English-speaking guests, not turned word for word. A long caption gets
+    "🇪🇸 Español abajo 👇" after its hook. The editor's placeholder shows the same order.
+  - His other changes to those live flyers (a time range in WHEN, the ask's own words) were not asked for as rules
+    and are not in the examples.
+
 ## How to work here
 
 - **SOLID and DRY, always** (the owner's standing rule). Infrastructure sits behind interfaces with
@@ -424,10 +437,17 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
         - A picture that is no event still gives its words; no model made an activity out of erased chalk.
         - Seconds of the 25: `claude-haiku-4-5` to 4.0, `claude-sonnet-5-5` to 11.5, `gpt-6.1-sol` to 17.7,
           `gpt-6-luna` to 20.7.
-      - **Open, Artur's choice from that table:** the photo's model; whether the read runs on the middle model
-        without being told to (today a site that names `photo` and no model reads on the fast one); whether
-        2048 px stays (no picture was larger, so nothing speaks against it); the reader's prompt's words. Only
-        `npm run ai:smoke`, by hand and on his go, called a provider.
+      - **Artur's choices from that table, all built:** `gpt-6.1-sol` reads pictures on OpenAI, and the read runs
+        on each provider's middle model by itself (`AI_FEATURE_DEFAULT_MODEL` in `src/shared/ai.ts`; on Anthropic
+        `claude-sonnet-5-5`). That default wins over `AI_MODEL` / `'model'`, which is the flyer's and the share
+        text's: only `AI_MODELS=photo:…` changes it (my ruling, in the report). 2048 px stays. The reader's
+        prompt gained three rules: a brand printed on a board is left out, each activity of a board goes on one
+        line, and a picture that announces no event answers empty.
+      - **Eleven check reads on `gpt-6.1-sol` with those rules:** no fact misread on any picture. Known from them:
+        the dense website screenshot took 21.9 s of the 25 s, and the rule about a maker's name also drops a
+        sound system's brand from a techno poster. Only `npm run ai:smoke`, by hand and on his go, called a
+        provider: 51 reads in all, about 27 cents.
+      - For stage 3's words: an empty answer can now mean "no event", not only "no words".
       - One read went through the Laragon copy, on his word: `gpt-6-luna`, 7.4 s with the upload. The copy now
         runs release `8c7a635bd009` (tag `release/8c7a635bd009`, on `a10e92f`), and is left with the share text
         alone, as he said.
@@ -436,6 +456,10 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
       going back (`docs/deploy.md`, "Rolling back").
   - **Stages 3 and 4 are not started,** and not to be started unasked: the page, and the picture as the flyer's
     photo. Ask Artur which branch first.
+- Waiting, don't start unasked: **a second shape for the share text, "one mixed caption"** (Artur, 2026-10-06):
+  one caption in English with the key facts repeated in Spanish, where today's has two blocks. He wants a switch
+  to turn it on and generate it as another option for the share text. Not designed: where the switch lives (a
+  site's setting, or a choice beside "Write with AI"), and no flyer of his shows the shape yet.
 - Waiting, don't start unasked: step 7 (drag/nudge everything on the canvas, sizes, colours, order, reset),
   step 9 (doodle picker + icon uploads). With two canvases and two templates: step 7's stored `overrides`
   (dx/dy) are shared by every canvas, so it must decide how they apply per canvas; step 9, when it stores

@@ -866,6 +866,66 @@ before"**.
   alone, and `POST api/ai/photo` there answers 404. The new release stays. The read's picture stays in the copy's
   data folder for its thirty days.
 
+### Beside the checkpoint: the flyer's and the share text's rules
+
+Not part of the photo's brief, which leaves the flyer's prompt alone. Artur asked for it on 2026-10-06, with his
+answer about the reader's words: "not include the price if it's not specified", "No points ending in the main
+title", and the share text "before in english and after spanish", "more for English speakers, so it's not always
+just translation". He named his flyers #4, #5 and #8 on the live site as references.
+
+**What those flyers showed.** He had corrected all three by hand that day. Read from the site with GET requests
+alone, which change nothing there, they differ from the repo's examples in the same three ways:
+
+| | The repo's examples, which the AI imitates | His flyers on the live site |
+|---|---|---|
+| The big title's second line | "at sunset.", "& stargazing." | "at sunset", "& stargazing", "at La Marquesina" |
+| The Spanish line | ends with a full stop | no full stop |
+| A text with no price | COST "Ask at reception", and a price line in the share text | #8: an empty COST chip, and no price line |
+| The share text | Spanish, a `---` line, English | English, a `-- 🇪🇸 --` line, Spanish. #5 also has "🇪🇸 Español abajo 👇" near the top |
+
+**His answers:**
+
+| Question | Answer |
+|---|---|
+| A text with no price? | **"Drop it, and say so":** no COST chip, no price line, and a note in "The AI assumed". It supersedes his rule of 2026-10-04, "Ask at reception". "Free" still needs the word |
+| How far does "no full stop" go? | **"Both title lines and the Spanish line".** The ask keeps its own punctuation. The This week template's built-in title, "this week.", is left as designed |
+| The share text? | **"As your flyers", as the default.** English first, written for English-speaking guests; the line `-- 🇪🇸 --`; then Spanish. On a long caption, "🇪🇸 Español abajo 👇" after the hook |
+| "One mixed caption"? | **Saved for later:** "I will build a switcher for enable it and try to generate it as another option for share text." Nothing of it is built |
+
+**What was built:**
+
+- **The rules,** in `ai/prompts/flyer.md` and `ai/prompts/share.md`, and the bundle both backends read.
+- **The examples,** which the AI imitates more than it obeys. The sunset class and the Teide tour take their share
+  texts from his live flyers as they are, with the line between the languages spelled one way. All three briefs,
+  the picture case's too, lose the full stops; the picture case loses its stand-in price.
+- **One fact for the line:** `SHARE_SPANISH_BREAK` in `src/shared/share.ts`. The editor's placeholder for a caption
+  shows the new order with it.
+- **A test holds every example to the three rules** (`tests/briefRules.ts`), the few-shot's and the picture
+  cases'. Red first: four tests, on the old prompts and the old examples.
+
+**Not taken from his live flyers,** because he did not ask for them as rules: the WHEN chip with a time range
+("17:45-23:00"; the prompt keeps one time, since a range breaks over two lines in the chip), and the asks' own
+words ("Book/Contact us: …", "Reserva y vien con nosotros!"). His to say.
+
+**Said plainly:**
+
+- **No real generation has checked these rules.** A prompt is a rule for a model, and only a real flyer and a real
+  share text show whether the model follows it. That needs Artur's go: it spends.
+- **The first example still prints "Free" for a text that names no price.** Artur answered "Free" for that flyer
+  when asked, so the example's answer carries it, with an assumption that says so. The rule beside it says "never
+  Free" without the word. That tension is older than this change; a real generation will show which one wins.
+- **The editor's placeholder changed** and no test reads it, so it was looked at in the installed Chrome, on the
+  built app with a throwaway data folder, at 1440 × 900 and 390 × 844. It reads as meant:
+
+  ![](ai-flyer-from-photo/editor-caption-placeholder.png)
+
+  On a Windows PC the flag in the line shows as the letters "ES": Windows has no flag emoji. On a phone, and where
+  the caption is pasted, it is the flag.
+- **Committed in `50fe11a`.** The gates ran green on that tree: `npm run gen` up to date, 0 type errors, 596 unit
+  tests, 378 contract tests (7 files and 235 tests skipped by project), 893 PHP tests (38 skipped), 135 in the
+  browser (1 skipped, the opt-in baseline), 2 on the PHP smoke, and the baseline byte-identical over 32 cases
+  against the capture of `747e4c8`.
+
 ### The gates
 
 One sequence on 2026-10-06, on the tree of `43aa907`: the checkpoint's last commit before this report.
@@ -888,9 +948,13 @@ One sequence on 2026-10-06, on the tree of `43aa907`: the checkpoint's last comm
 
 ### What is left of the checkpoint
 
-- **Artur's choices, from the table:** the photo's model, whether the read runs on the middle model without being
-  told to, whether 2048 px stays, and the reader's prompt's words. What he says yes to is built then, test first.
-- **Not tested, and his to ask for:** what the flyer's assistant makes of a sign's words or of a misread hostel
-  name; a smaller edge than 2048 px; a poster photographed at an angle; a chat screenshot of a message.
+- **Nothing of the checkpoint itself:** Artur chose from the table, and what he chose is built and checked with
+  real reads (above).
+- **A real flyer and a real share text with the new copy rules,** on his go: they spend, and no test can stand in
+  for them.
+- **Not tested, and his to ask for:** what the flyer's assistant makes of a misread hostel name; a smaller edge
+  than 2048 px; a poster photographed at an angle; a chat screenshot of a message.
+- **His to say:** whether a sound system's brand on a poster should be kept; whether a time range in WHEN and the
+  asks' own words on his live flyers are rules too.
 - **Nothing is pushed.** `.env` was not changed, and the live site was not called. One release was built, for the
   Laragon copy alone.
