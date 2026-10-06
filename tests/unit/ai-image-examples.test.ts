@@ -8,6 +8,7 @@ import { APP_ROOT } from '../../server/paths.js';
 import { preparePhoto } from '../../server/services/photos.js';
 import { AI_INPUT_MAX, AI_PICTURE_MAX_EDGE } from '../../src/shared/ai.js';
 import { AiExampleSchema } from '../../src/shared/schema.js';
+import { expectOwnersRules } from '../briefRules.js';
 
 /* The picture reads' eval set (docs/ai-flyers/image-examples/): a case is `<date>-<hostel>-<name>.json` with its
    picture beside it under the same name. `source` is the words the picture prints, typed out: what a read should
@@ -50,6 +51,11 @@ describe('the image examples', () => {
     // under a name that says so: `npm run ai:smoke -- --photo … --save` writes it, and holds its name the same way.
     expect(`image/${meta.format}`, 'a case keeps the format a read sends').toBe(sent.mediaType);
     expect(namesItsFormat(label, sent), `${label} is sent as ${sent.mediaType}`).toBe(true);
+  });
+
+  // A case's brief is the flyer its words should give, so it follows the rules a flyer follows (tests/briefRules.ts).
+  it.each(cases)('%s gives a flyer that follows the owner’s own: no full stop ending the title, no stand-in price, English first', (file) => {
+    expectOwnersRules(AiExampleSchema.parse(JSON.parse(readFileSync(join(DIR, file), 'utf8'))).brief, file);
   });
 
   it('is not part of the few-shot: no case’s words are a turn of the bundle', () => {

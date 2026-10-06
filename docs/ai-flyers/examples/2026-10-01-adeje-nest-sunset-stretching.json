@@ -6,8 +6,8 @@
     "text": {
       "eyebrow": "TODAY",
       "headline1": "Stretching class",
-      "headline2": "at sunset.",
-      "headlineEs": "Clase de estiramientos y sunset: muévete, respira y disfruta del atardecer.",
+      "headline2": "at sunset",
+      "headlineEs": "Clase de estiramientos y sunset: muévete, respira y disfruta del atardecer",
       "askEn": "See you there.",
       "askEs": "¡Te esperamos!"
     },
@@ -19,7 +19,7 @@
       "Bring water",
       "Comfy clothes"
     ],
-    "share": "🐱‍🏍¡HOY tenemos plan al atardecer! 🧘‍♀️✨\n\nTe invitamos a una clase de estiramientos + Sunset para desconectar, mover el cuerpo y disfrutar juntos del atardecer. 🌅💛\n\n🕖 19:00 h\n📍 Nos encontramos en la zona de la piscina\n🧴 Trae agua\n🧘‍♀️ Y no olvides tu toalla\n\nVen con ropa cómoda y ganas de relajarte. ¡Te esperamos! 💙\n\n¡Muévete, respira y disfruta del atardecer! 🌅\n\n---\n\n🌅 TODAY we have a sunset plan! 🧘‍♀️✨\n\nJoin us for a stretching + Sunset class to unwind, move your body and enjoy the sunset together. 🌅💛\n\n🕖 19:00 h\n📍 Meet us by the pool area\n🧴 Bring water\n🧘‍♀️ And don’t forget your towel\n\nCome in comfortable clothes and ready to relax. See you there! 💙\n\nMove, breathe and enjoy the sunset! 🌅"
+    "share": "🌅 TODAY we have a sunset plan! 🧘‍♀️✨\n\nJoin us for a stretching + Sunset class to unwind, move your body and enjoy the sunset together. 🌅💛\n\n🕖 19:00 h\n📍 Meet us by the pool area\n🧴 Bring water\n🧘‍♀️ And don’t forget your towel\n\nCome in comfortable clothes and ready to relax. See you there! 💙\n\nMove, breathe and enjoy the sunset! 🌅\n\n-- 🇪🇸 --\n\n🐱‍🏍¡HOY tenemos plan al atardecer! 🧘‍♀️✨\n\nTe invitamos a una clase de estiramientos + Sunset para desconectar, mover el cuerpo y disfrutar juntos del atardecer. 🌅💛\n\n🕖 19:00 h\n📍 Nos encontramos en la zona de la piscina\n🧴 Trae agua\n🧘‍♀️ Y no olvides tu toalla\n\nVen con ropa cómoda y ganas de relajarte. ¡Te esperamos! 💙\n\n¡Muévete, respira y disfruta del atardecer! 🌅"
   },
   "asked": [
     {
@@ -33,7 +33,7 @@
       "field": "cost"
     }
   ],
-  "notes": "Artur's own model text, already in both languages, so the share text is his text as it came. The team had made an image for it elsewhere (headline 'Clase de ESTIRAMIENTOS y SUNSET', 19:00 h, HOY, lleva una toalla, lleva agua, quedamos en la zona de la piscina, '¡Muévete, respira y disfruta del atardecer!'): the headlines follow it, in English first. No sign-up in the text, so the ask is the text's own 'See you there' / '¡Te esperamos!' instead of the reception default. That ask was a one-off for this flyer (Artur, 2026-10-04), not a rule: a text with no sign-up keeps the template's 'Sign up at reception', even when it ends with a call of its own. 'Today' and 'TODAY' only read right on the day: a flyer for a later day says the weekday and date.",
+  "notes": "Artur's own model text, already in both languages, so the share text is his text as it came. The team had made an image for it elsewhere (headline 'Clase de ESTIRAMIENTOS y SUNSET', 19:00 h, HOY, lleva una toalla, lleva agua, quedamos en la zona de la piscina, '¡Muévete, respira y disfruta del atardecer!'): the headlines follow it, in English first. No sign-up in the text, so the ask is the text's own 'See you there' / '¡Te esperamos!' instead of the reception default. That ask was a one-off for this flyer (Artur, 2026-10-04), not a rule: a text with no sign-up keeps the template's 'Sign up at reception', even when it ends with a call of its own. 'Today' and 'TODAY' only read right on the day: a flyer for a later day says the weekday and date. Since 2026-10-06 the flyer follows Artur's own corrections of it on the live site: no full stop ends a title line, and the share text is English first, then the line \"-- 🇪🇸 --\", then Spanish. The share text is still his own text, in his own order now.",
   "posted": [
     {
       "site": "https://nestpass.ai/activities/",

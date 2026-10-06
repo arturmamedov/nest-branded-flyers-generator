@@ -6,18 +6,17 @@
     "text": {
       "eyebrow": "TODAY",
       "headline1": "Bachata workshop",
-      "headline2": "on the rooftop.",
-      "headlineEs": "Taller de bachata en el rooftop: ven a bailar con nosotros."
+      "headline2": "on the rooftop",
+      "headlineEs": "Taller de bachata en el rooftop: ven a bailar con nosotros"
     },
     "when": "Today · 20:00",
     "where": "Rooftop",
-    "cost": "Ask at reception",
-    "share": "💃 ¡HOY taller de bachata! 🕺✨\n\nSube al rooftop a bailar, moverte y pasarlo bien con la gente del hostel. 🎶\n\n🕗 20:00 h\n📍 Rooftop de La Isleta Nest\n💶 Pregunta el precio y apúntate en recepción\n\n¡Te esperamos! 💙\n\n---\n\n💃 TODAY: bachata workshop! 🕺✨\n\nCome up to the rooftop to dance, move and have a good time with everyone at the hostel. 🎶\n\n🕗 20:00 h\n📍 La Isleta Nest rooftop\n💶 Ask for the price and sign up at reception\n\nSee you there! 💙"
+    "share": "💃 TODAY: bachata workshop! 🕺✨\n\nCome up to the rooftop to dance, move and have a good time with everyone at the hostel. 🎶\n\n🕗 20:00 h\n📍 La Isleta Nest rooftop\n✍️ Sign up at reception\n\nSee you there! 💙\n\n-- 🇪🇸 --\n\n💃 ¡HOY taller de bachata! 🕺✨\n\nSube al rooftop a bailar, moverte y pasarlo bien con la gente del hostel. 🎶\n\n🕗 20:00 h\n📍 Rooftop de La Isleta Nest\n✍️ Apúntate en recepción\n\n¡Te esperamos! 💙"
   },
   "asked": [
     {
       "question": "The image shows no price. What should the COST chip say?",
-      "answer": "Ask at reception",
+      "answer": "No COST chip (since 2026-10-06: a price the picture does not give is not printed; on 2026-10-05 the answer was \"Ask at reception\")",
       "field": "cost"
     },
     {
@@ -26,7 +25,7 @@
       "field": "when"
     }
   ],
-  "notes": "From a photo, not a staff text: Artur photographed a Canva page on a screen (page 10 of 'ACTIVITIES OFFICIAL TEMPLATES', a La Isleta Nest flyer), kept beside this file as the .jpg: the picture as a read sends it, a JPEG from the server's own intake (the phone's file was a PNG). `source` is what that flyer prints, typed out as the picture shows it, line for line and capital for capital ('BACHATA' and 'WORKSHOP' on two lines, 'La isleta Nest' with a small i: made exact on 2026-10-06, after four real reads all wrote the two lines); nothing else came with it. The first case of a flyer made from a picture, so it lives outside examples/: it is not a turn of the text assistant's few-shot. The image carries five facts (Today, bachata workshop, 20:00, La Isleta Nest, rooftop) and no price, no way to join and nothing to bring. The hostel is read off the image twice (the WHERE block and the logo). Headline: the image's two words on the black line and the place as the teal punch ('Bachata workshop' / 'on the rooftop.'), Artur's choice over 'Bachata' / 'workshop.', which left the teal line short; it follows 'Stretching class' / 'at sunset.'. WHERE is the spot alone, since the hostel's name prints on the chip's big line. No ask in the image, so the template's 'Sign up at reception.' prints. No extras. The share text is written fresh from those five facts, with one line for the price and the sign-up, both at reception. The picture on the Canva page (an illustration of couples dancing) is not the flyer's photo: the flyer is saved without one.",
+  "notes": "From a photo, not a staff text: Artur photographed a Canva page on a screen (page 10 of 'ACTIVITIES OFFICIAL TEMPLATES', a La Isleta Nest flyer), kept beside this file as the .jpg: the picture as a read sends it, a JPEG from the server's own intake (the phone's file was a PNG). `source` is what that flyer prints, typed out as the picture shows it, line for line and capital for capital ('BACHATA' and 'WORKSHOP' on two lines, 'La isleta Nest' with a small i: made exact on 2026-10-06, after four real reads all wrote the two lines); nothing else came with it. The first case of a flyer made from a picture, so it lives outside examples/: it is not a turn of the text assistant's few-shot. The image carries five facts (Today, bachata workshop, 20:00, La Isleta Nest, rooftop) and no price, no way to join and nothing to bring. The hostel is read off the image twice (the WHERE block and the logo). Headline: the image's two words on the black line and the place as the teal punch ('Bachata workshop' / 'on the rooftop.'), Artur's choice over 'Bachata' / 'workshop.', which left the teal line short; it follows 'Stretching class' / 'at sunset.'. WHERE is the spot alone, since the hostel's name prints on the chip's big line. No ask in the image, so the template's 'Sign up at reception.' prints. No extras. The share text is written fresh from those five facts, with one line for the price and the sign-up, both at reception. The picture on the Canva page (an illustration of couples dancing) is not the flyer's photo: the flyer is saved without one. Since 2026-10-06 the flyer follows Artur's own corrections of it on the live site: no full stop ends a title line, and the share text is English first, then the line \"-- 🇪🇸 --\", then Spanish. The picture gives no price, so the flyer prints no COST chip and the share text has no price line; signing up at reception stays, as the flyer's ask prints it. Flyer #8 on the live site has since been reused by Artur for another event (La Marquesina, 20:30): this case stays the Canva page's.",
   "posted": [
     {
       "site": "https://nestpass.ai/activities/",

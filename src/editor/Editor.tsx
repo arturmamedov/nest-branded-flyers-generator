@@ -8,7 +8,7 @@ import { DEFAULT_CROP, ZOOM_MAX, ZOOM_MIN, clampCrop, wholePhotoZoom, zoomCrop }
 import type { AiFeature, AiFeatureOn } from '../shared/ai';
 import type { Chip, ChipKey, Crop, FlyerData, FlyerInput, FlyerListItem, FlyerText, Hostel, PhotoInfo, Template, WeekRow } from '../shared/schema';
 import { TITLE_MAX, libraryName } from '../shared/names';
-import { SHARE_MAX } from '../shared/share';
+import { SHARE_MAX, SHARE_SPANISH_BREAK } from '../shared/share';
 import { WEEK_ROWS_MAX, WEEK_ROW_LIMITS, isPrintable, rowFromActivity } from '../shared/week';
 import { api, ApiError } from './api';
 import type { FlyerExporter } from './export';
@@ -445,7 +445,7 @@ export function Editor({
               value={draft.data.share}
               readOnly={busy === 'ai'}
               maxLength={SHARE_MAX}
-              placeholder={'¡HOY tenemos plan! 🌅\n🕖 19:00 h · 📍 La piscina\n\n---\n\nTODAY we have a plan! 🌅'}
+              placeholder={`TODAY we have a plan! 🌅\n🕖 19:00 h · 📍 The pool\n\n${SHARE_SPANISH_BREAK}\n\n¡HOY tenemos plan! 🌅`}
               onChange={(e) => setData({ share: e.target.value })}
             />
           </Field>

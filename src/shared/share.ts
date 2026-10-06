@@ -4,3 +4,9 @@
 
 /** Instagram's caption limit, the strictest place it is pasted. */
 export const SHARE_MAX = 2200;
+
+/** The line between a caption's two languages: English first, then this line, then Spanish. The owner's own, from the
+    flyers he corrected by hand on 2026-10-06 (the guests are mostly English speakers, so English leads; it stood
+    Spanish first with a `---` line until then). The prompts in ai/prompts/ spell it out, and a test holds them and
+    every example to it; the editor's placeholder shows it. */
+export const SHARE_SPANISH_BREAK = '-- 🇪🇸 --';

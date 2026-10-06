@@ -3,7 +3,10 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { ROOT, generate } from '../../scripts/gen-shared.js';
 import { SEED_FILE } from '../../server/paths.js';
+import type { Brief } from '../../src/shared/schema.js';
 import { SeedFileSchema } from '../../src/shared/seed.js';
+import { SHARE_SPANISH_BREAK } from '../../src/shared/share.js';
+import { expectOwnersRules } from '../briefRules.js';
 
 /* The committed copies of the shared sources of truth must be current: run
    `npm run gen` after changing src/shared. */
@@ -39,7 +42,7 @@ describe('the AI bundle (schema/ai.json) and the ai block of shared.json', () =>
     expect(bundle.prompts.flyer).toContain('assumptions');
     expect(bundle.prompts.flyer).toContain('headline1');
     expect(bundle.prompts.flyer).toMatch(/eyebrow[^\n]*18/);
-    expect(bundle.prompts.share).toContain('---');
+    expect(bundle.prompts.share).toContain(SHARE_SPANISH_BREAK);
     // The reader's prompt: its rule for a word it cannot read, and the idea box's limit, which the words must fit.
     expect(bundle.prompts.photo).toContain('[?]');
     expect(bundle.prompts.photo).toMatch(/\n## Limits\n[^\n]+\n- text: at most 4000 characters\n$/);
@@ -55,6 +58,27 @@ describe('the AI bundle (schema/ai.json) and the ai block of shared.json', () =>
     expect(rules).toContain('A picture that announces no event: answer with an empty text');
     // The guard against emptying a real poster: one that names an activity and gives no date is still an event.
     expect(rules).toContain('A poster that names one activity is an event even when it gives no day, time or place');
+  });
+
+  // The owner's corrections (2026-10-06): made by hand on his own flyers on the live site (#4, #5 and #8), then
+  // asked for as rules. A price the text does not give is not printed, where "Ask at reception" stood since
+  // 2026-10-04; no full stop ends a title line; and the share text is English first, written for English speakers.
+  it('the flyer’s and the share text’s rules follow the owner’s own flyers', () => {
+    const flyer = bundle.prompts.flyer as string;
+    expect(flyer).toContain('Leave `cost` out');
+    expect(flyer).not.toContain('`Ask at reception`, never `Free`');
+    expect(flyer).toContain('no full stop at the end');
+    expect(flyer).not.toContain('usually ends with a full stop');
+    // Both prompts write the same caption, so both say its order.
+    for (const rules of [flyer, bundle.prompts.share as string]) {
+      expect(rules).toContain(`English first, then a line with \`${SHARE_SPANISH_BREAK}\`, then Spanish`);
+      expect(rules).not.toContain('Spanish first');
+    }
+  });
+
+  it('every example follows them: an example is what the AI imitates', () => {
+    expect(bundle.examples.length).toBeGreaterThan(0);
+    for (const e of bundle.examples as { text: string; answer: { brief: Brief } }[]) expectOwnersRules(e.answer.brief, e.text.slice(0, 30));
   });
 
   it('the picture read answers its words alone, strictly: { text }', () => {

@@ -24,7 +24,7 @@ You cannot ask. For each thing the text leaves out, take the default below, and 
 | The day | No default: a flyer must say when. Leave `when` out, and make it the first assumption, so the staff member adds it |
 | The time | Leave it out. The WHEN block prints the day alone |
 | The place | At a hostel, leave it out (the hostel's name prints alone). Chain-wide, `where` is the meeting point when the text has one |
-| The price | `Ask at reception`, never `Free`. Only the word itself (`free`, `gratis`) or a price of 0 makes an event free: an invitation ("te invitamos", "join us") says nothing about the price. Use `Ask your guide` or `Ask the instructor` when the text names one |
+| The price | Leave `cost` out: the flyer then prints no COST chip, and the share text has no price line. Never `Free`: only the word itself (`free`, `gratis`) or a price of 0 makes an event free, and an invitation ("te invitamos", "join us") says nothing about the price. Note it in `assumptions` ("No price in the text: none printed"), so the staff member can add one |
 | How to join | The template's ask: sign up at reception. Nothing to note |
 | A phone number is given | Print it in the ask, one number (`Reserve: +34 …` / `Reserva: +34 …`). Every number goes in the share text as well |
 
@@ -37,11 +37,11 @@ You cannot ask. For each thing the text leaves out, take the default below, and 
 |---|---|---|
 | `text.eyebrow` | When it is, as a label | CAPITALS, short: `TODAY`, `TONIGHT`, `THIS SATURDAY`, `EVERY DAY`, `NEXT ACTIVITY` (the default). It never wraps, so keep it under the limit |
 | `text.headline1` | The lead-in, black | English, sentence case. About 18 characters before it shrinks |
-| `text.headline2` | The punch, big and teal | English, sentence case, usually ends with a full stop. About 15 characters |
-| `text.headlineEs` | The same idea in Spanish | One sentence, written fresh in natural Spanish, not word for word |
+| `text.headline2` | The punch, big and teal | English, sentence case, no full stop at the end. About 15 characters |
+| `text.headlineEs` | The same idea in Spanish | One line, written fresh in natural Spanish, not word for word, with no full stop at the end |
 | `when` | Day · time | `Today · 19:00`, `Saturday 3/10 · 20:30`. Big line `·` small line. Always 24 h (5:45pm → `17:45`). One time, the start: a range (`17:45 – 23:00`) breaks over two lines in the chip, so the end time goes in the share text |
 | `where` | The spot | Just the spot (`Pool area`, `The rooftop`): the hostel's name prints by itself on the big line. Chain-wide: `Place · detail`. Short small lines: a chip is narrow, and a hyphenated word splits (`Pick-up & drop-off` printed `drop- / off`; `Pick-up point` fits) |
-| `cost` | Price · what it includes | `10€ · drinks included`, `Free`. A free event says `Free`. Unknown: the default above |
+| `cost` | Price · what it includes | `10€ · drinks included`, `Free`. A free event says `Free`. No price in the text: leave it out, as above |
 | `extras` | 0–4 short facts | 2–3 words each, English: `Bring a towel`, `Comfy clothes`. No sentences, no dots (the flyer adds them). What doesn't fit stays in the share text |
 | `text.askEn` / `text.askEs` | The one thing to do | Default: leave them out (the flyer prints "Sign up at reception."). Set them only when the text names another place or way (`Sign up at the kitchen` / `Apúntate en la cocina`, the phone number) |
 
@@ -49,6 +49,7 @@ Brand voice (the app warns about these):
 - Exclamation marks: at most 3 on the whole flyer. The `¡TAG US!` pill's own don't count.
 - Separators: `·` or `—`, never bullets or slashes. A slash is fine inside a date (`3/10`).
 - Case: sentence case for headlines. Capitals only in the eyebrow.
+- Full stops: none at the end of a title line (`text.headline1`, `text.headline2`, `text.headlineEs`). The ask keeps its own.
 - "Book now": never write it, in any language.
 - Emoji: never on the flyer itself; they belong in the share text.
 - Translation: if the staff text is only in Spanish, translate it for the English fields, and the other way round.
@@ -56,7 +57,8 @@ Brand voice (the app warns about these):
 ## Write the share text (`share`): not printed, pasted beside the flyer
 
 The caption staff paste when they post the story or send the image to the guests' group.
-- Order: Spanish first, then a line with `---`, then the same text in English.
-- Shape of each block: a hook line with emoji; one or two sentences inviting people; one line per fact, each with its emoji (🕖 time, 📍 place, 💶 price, plus what to bring); a warm closing line and a short sign-off. The examples show it.
+- Order: English first, then a line with `-- 🇪🇸 --`, then Spanish. Most guests read English, so the English block leads and is written for them: natural English of its own, not the Spanish turned word for word. The Spanish block says the same facts in natural Spanish.
+- A long caption (a tour with its highlights): after the hook, a line `🇪🇸 Español abajo 👇`, so a Spanish reader knows to scroll.
+- Shape of each block: a hook line with emoji; one or two sentences inviting people; one line per fact, each with its emoji (🕖 time, 📍 place, 💶 price, plus what to bring); a warm closing line and a short sign-off. A fact the text does not give has no line: no price, no 💶 line. The examples show it.
 - Wording: keep the staff member's own words and emoji where they have them. Exclamation marks and emoji are free here: the flyer's limits don't apply.
 - Facts: every fact matches the flyer exactly: the same time, place and price. What the flyer had no room for (the end time, every phone number, the highlights) goes here.
