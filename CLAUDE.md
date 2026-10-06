@@ -128,8 +128,9 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
   - Each feature has its own switch (2026-10-06): a site runs the features its settings name, and none until
     they are named (the owner's answer: a key alone runs nothing). The setting `AI_FEATURES` shares its name with
     the constant in `src/shared/ai.ts`, which lists every feature the app has.
-    - The policy decides, in one place: `runs(feature)`, `mayUse(actor)`, `dailyLimit(actor, feature)`. "The AI
-      is on" is derived as "some feature runs". A feature that is off answers `ai_off` where the whole AI does.
+    - The policy decides, in one place: `runs(feature)`, `mayUse(actor)`, `dailyLimit(actor, feature)`,
+      `dailyTries(actor, feature)`. "The AI is on" is derived as "some feature runs". A feature that is off answers
+      `ai_off` where the whole AI does.
     - `api/config` lists the features that run, and the client shows a feature only through `aiFor()`:
       `App.tsx` is the one place that asks. `flyer` off: no "Create with AI", and `#/ai` is the library.
       `share` off: no "Write with AI".
@@ -148,10 +149,23 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
       feature and `aiWithRemaining()` moves its count, both in `src/shared/ai.ts` and the only readers of the
       answer. They read it loosely: an entry they cannot read stays as it came and never costs the page, and an
       answer in an older shape shows no AI.
+    - A picture read's failed tries are bounded too (2026-10-06, the owner's answers: "Yes, picture reads only",
+      "Three times its limit", "The used-up sentence"). A failed read is free and keeps its picture, so nothing
+      bounded them on a site with no lock.
+      - One fact, `AI_TRIES_PER_LIMIT = { photo: 3 }` in `src/shared/ai.ts`, generated for PHP. It is no setting:
+        a site's limit for the read moves its tries with it (3 reads, 9 tries).
+      - `dailyTries(actor, feature)` answers a number, or null for the flyer and the share text, whose failed
+        generations stay free however many.
+      - What is left of a feature is the smaller of what is left of its limit and of its tries: one function in
+        each service (`left()`), behind `api/config`'s `remaining` and each route's refusal. At none, the read
+        answers the same `ai_quota` before its picture is kept.
+      - `tests/fixtures/ai-tries.json` holds both services to it, in process: the contract suite's day never
+        reaches the tries.
   - The ledger (`aiUsage` in each storage driver; `ai-usage/YYYY-MM.json` in the JSON store) keeps one append-only
     record per generation attempted. A feature's limit is counted from the Canary Islands day's `ok` records of
-    that feature for the actor: today one anonymous actor, so site-wide. `countOk(actorId, day)` answers every
-    feature's count from one read, because `api/config` asks on every page load. A ledger that cannot be read
+    that feature for the actor, and its tries from all of that day's records: today one anonymous actor, so
+    site-wide. `countDay(actorId, day)` answers both for every feature from one read, because `api/config` asks
+    on every page load. A ledger that cannot be read
     hides the AI (`status()` answers `enabled: false` and logs why) and never takes `api/config` down: the editor
     renders nothing without that answer. Node's drivers check a record before writing it (`checkedAiUsage`).
     A record of a feature a release does not know (a later release's, met after going back) counts under its own
@@ -391,14 +405,18 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
     - A fresh-context review found no way for a switched-off read to run or spend. What it found is fixed, each
       test first: among them a 500 on Node for a file under another field's name, and a clean-up of kept pictures
       that one stuck folder stopped for good.
-    - **Its checkpoint is open: the real reads.** Not run: they wait for Artur's go and his pictures (the Canva
-      page, a handwritten board, a poster, a chat screenshot, a photo with no words), on both providers, on the
-      default model and a stronger one through `AI_MODELS`, and one through the Laragon copy. He then chooses the
-      photo's model and whether 2048 px stays. No provider was called in the stage.
-    - `docs/ai-flyers/image-examples/` is still untracked: the first case's picture shows Artur's browser tabs
-      and waits for his look. It should go in as the read sends it, a JPEG (154 KB, not the 1.4 MB PNG).
-    - For Artur to decide (the report has each): a failed read is free and keeps its picture, so an unlocked site's
-      disk can be filled; the reader's prompt's words; a PNG with transparency past Anthropic's 10 MB.
+    - **Its checkpoint, taken up in a later session the same day** (the report's *The checkpoint*; five commits
+      on top of `747e4c8`, each as it went green on Artur's word; the gates all green on `43aa907`):
+      - Artur's answers: stay on this branch, for the checkpoint and stage 3; a number of tries for the read alone,
+        three times its limit, with the used-up sentence (built, above); the reader's prompt's words are settled
+        after the real reads; the first case goes in as it is; a PNG with transparency is left, a known limit.
+      - The first case is in git as the read sends it: a JPEG of 154 KB from the server's own intake. The test
+        holds a case to the read's format. Artur's 1.4 MB PNG is in `backups/image-examples-originals/`, which git
+        ignores.
+      - **The real reads are still not run.** They wait for Artur's go, his pictures (the Canva page, a
+        handwritten board, a poster, a chat screenshot, a photo with no words) and his yes to the stronger model
+        of each provider. He then chooses the photo's model, whether 2048 px stays, and the prompt's words. One
+        read through the Laragon copy follows, on his word. No provider was called.
     - No release was built. A host needs the release first, then `'models'` and `'photo'`; both come out before
       going back (`docs/deploy.md`, "Rolling back").
   - **Stages 3 and 4 are not started,** and not to be started unasked: the page, and the picture as the flyer's

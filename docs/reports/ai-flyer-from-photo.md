@@ -6,7 +6,7 @@ stage that is built. **A stage with no section here is not built.**
 | Stage | State |
 |---|---|
 | 1. A limit per feature | Built, 2026-10-06 (below) |
-| 2. The read, on both backends | Built, 2026-10-06 (below, after stage 1). Its checkpoint, the real reads, is open |
+| 2. The read, on both backends | Built, 2026-10-06 (below, after stage 1). Its checkpoint: Artur's answers are built and the first case is in git (*The checkpoint*, at the end); the real reads wait for his go |
 | 3. The page | Not started |
 | 4. The picture as the flyer's photo | Not started |
 
@@ -303,6 +303,10 @@ stage ("Commit each as it goes green"). Nothing is pushed, and `main` stays at `
 **The checkpoint is open.** Everything below is built and green. The real reads have not been run: they wait for
 Artur's go and his pictures. No provider was called in this stage, by a test, a script or by hand.
 
+A later session the same day took the checkpoint up: Artur answered what this section left for him, and what he
+said yes to is built. That is *The checkpoint*, at the end of this section. The sections between here and there
+are as the stage left them.
+
 ## What it is
 
 The server can read a picture into the words it shows. `POST api/ai/photo` takes a picture and answers those words;
@@ -423,6 +427,8 @@ What it found, and what was done (`5ed6af0`), each test first:
 
 ## For Artur to decide
 
+Items 1 to 4 were answered on 2026-10-06: *The checkpoint*, below, has each answer and what was built from it.
+
 1. **A read that fails is free, and keeps its picture.** Both are your decisions: a failed call never counts, and a
    failed read's picture is the one worth having. Together, on a site with no lock, they have no bound: a stranger
    with a script can send pictures that fail (a page of dense text makes an answer over 4000 characters, which
@@ -525,3 +531,144 @@ browser, the baseline identical. The difference is the tests the review added.
 - A read's failure early (the switch, the write guard) may answer before a large upload is taken: a browser can
   see a dropped connection there instead of the refusal. No page shows the read where it is off, so it has not
   mattered yet.
+- Added by the checkpoint: a failed read answers no count, and it is one of the day's tries. So after failed reads
+  the page's "N left today" can be higher than the server's until `api/config` is asked again. The server still
+  refuses at the right moment, with the used-up sentence.
+
+## The checkpoint
+
+A later session on 2026-10-06, on `feat/ai-feature-switches`, on top of `747e4c8`. Asked which branch, Artur chose
+"Stay on this branch", for the checkpoint and for stage 3. Asked how to commit, he chose "Each piece as it goes
+green". Nothing is pushed, and `main` stays at `684189e`.
+
+**Where it stands:** Artur's answers are built, the first case is in git, and the gates are green. **The real
+reads have not been run.** They wait for his go, his pictures and his yes to the stronger model of each provider.
+No provider was called, by a test, a script or by hand.
+
+### Artur's answers (2026-10-06)
+
+| Question | Answer | What follows |
+|---|---|---|
+| A daily number for failed reads? | **"Yes, picture reads only"** | Built (below). Flyers and share texts stay as they were |
+| How many tries? | **"Three times its limit"** | 3 reads give 9 tries, 20 give 60. No new setting |
+| What does staff see when the tries run out first? | **"The used-up sentence"** | The same 429 `ai_quota`. The button's count is the smaller of reads left and tries left |
+| The words of `ai/prompts/photo.md` | **"Read with them, settle after"** | Open until the table of real reads |
+| The first case's picture | **"Yes, as it is"** | Committed as the read sends it (below) |
+| A PNG with transparency | **"Leave it"** | Nothing built. A known limit (below) |
+| Where does the original PNG go? | **"Move it to backups/"** | `backups/image-examples-originals/`, which git ignores |
+
+### A number of tries for the picture read
+
+A failed read is free and keeps its picture: both Artur's decisions. Together, on a site with no lock, nothing
+bounded them. Now a picture read gets three tries a day for each read of its limit, failed ones included.
+
+- **A try** is every read that reached the provider: the actor's ledger records of that feature for the Canary
+  day. The ledger already kept them, so there is no new stored data and no migration.
+- **What is left of the reads** is the smaller of reads left and tries left. That number is `remaining`, in
+  `api/config` and in the route's answer.
+- **With none left** the route answers the same 429 `ai_quota`, with the reads' limit in the sentence, before the
+  picture is kept: a refused read keeps nothing, asks no provider and is not recorded.
+- **It is no setting.** One fact, `AI_TRIES_PER_LIMIT = { photo: 3 }` in `src/shared/ai.ts`, generated for PHP. A
+  site's own limit for the read moves its tries with it.
+- **The flyer and the share text have no such bound.** Their failed generations never count, however many.
+- **The policy decides:** `dailyTries(actor, feature)`, a number, or null where there is no bound. Each service
+  has one function for what is left, behind `status()` and every route's check.
+- **The ledger answers both counts from one read.** `countOk` became `countDay`, which answers `{ ok, tried }`
+  feature by feature, so `api/config` still reads a month's file once.
+
+| Piece | Commit | Seen red | Then green |
+|---|---|---|---|
+| The ledger answers a day's tries, Node | `2f38e5f` | 9 tests of the storage contract and its two drivers' files: `countDay is not a function` | 577 unit |
+| The same on PHP | `51ce77d` | 6 errors and 2 failures in `JsonRepositoriesTest`: `Call to undefined method … countDay()` | 878 PHP |
+| The rule on both backends, and the contract's text | `54bc036` | Node: 3 tests. PHP: 3 failures. On both: the fact was missing, and the two days where the tries bind said more was left than the table allows | 583 unit, 884 PHP, 378 contract |
+| The docs | `43aa907` | (documents) | |
+
+**One table holds both backends:** `tests/fixtures/ai-tries.json`, five days as lists of steps, replayed by
+`tests/unit/ai-service.test.ts` and `php/tests/Ai/AiServiceTest.php` on the fake provider with a ledger in memory.
+
+**Three of its days passed before the rule existed, by design:** they say what must not change. Each was then
+seen red on both backends with the rule broken on purpose, and the rule put back:
+
+| Broken on purpose | What failed, the same on Node and on PHP |
+|---|---|
+| Every feature's tries bounded | 3 tests: "a failed flyer and a failed share text never count", the policy's test, and the day with another feature's records |
+| A failed read counted against the limit | 6 tests: "an ordinary day at the default limit is as it was" among them, with both days where the tries bind, the day with other records, and stage 2's own two "charges nothing" tests |
+| Every feature's tries counted together | 2 tests: "another actor's tries, another day's, another feature's and a later release's record move nothing", and the failed-flyer day |
+
+**Not seen red, said plainly:**
+- In that last day, the rows for another actor and another day are left out by the test's ledger in memory, not by
+  the service. What they hold the service to is asking the ledger for its own actor and day. The drivers' own
+  filter is the storage contract's, on both drivers and both backends.
+- `tests/unit/generated.test.ts` spells out the AI block PHP is told. It failed once the fact was generated, and
+  passed with the fact added to its list: a pin of the generated file, not a test written first.
+
+**Not proved over HTTP.** The contract suite's day makes three failed reads and needs three good ones: six of its
+nine tries. No point in that day shows the tries without losing a read the suite needs. Its expectations were not
+touched and stayed green, which shows that an ordinary day over HTTP is as it was.
+
+**The disk.** At the default limit a day's folder holds at most 9 pictures for one actor. `docs/deploy.md` keeps
+its own cautious figure of about half a megabyte a picture: 45 MB over the thirty days when every read works, and
+three times that at the very most. The first case's picture is 0.15 MB, so the real figure is likely lower.
+
+### The first case
+
+Committed in `7ff9b05`: `docs/ai-flyers/image-examples/2026-10-05-la-isleta-nest-bachata-workshop.json` with its
+`.jpg`.
+
+- **The picture is the JPEG a read sends:** 899 × 1599, 154,388 bytes, made by the server's own intake
+  (`preparePhoto()` at `AI_PICTURE_MAX_EDGE`). No provider was called. Read beside the PNG, it shows the same: the
+  pale "20:00", "La isleta Nest" and "Rooftop" are as legible as before.
+- **The phone's file** was a PNG of 1,441,995 bytes without transparency. It is in
+  `backups/image-examples-originals/` on Artur's machine, outside git.
+- **The test holds a case to the format a read sends,** and its name to that format. Seen red on the PNG:
+  "expected 'image/png' to be 'image/jpeg'". The naming rule is the one `--save` already held, so both use one
+  function (`namesItsFormat`, `scripts/ai/smoke.ts`).
+
+### A PNG with transparency: left as it is
+
+It stays a PNG for the read, as the brief says. A very large one could pass Anthropic's 10 MB and answer
+`ai_failed`, which would also be one of the day's tries. Through the page it is unlikely: the browser's own
+`preparePhoto()` already sends a PNG with no real transparency as a JPEG whenever it re-encodes one. It takes a
+picture that is truly see-through, photographic, and about 7.5 MB after shrinking.
+
+### The real reads: prepared, not run
+
+- **`.env`** names `AI_PROVIDER`, `AI_API_KEY`, `AI_FEATURES`, `AI_DAILY_LIMITS` and the parked
+  `ANTHROPIC_API_KEY`: read by name alone, no value printed. It sets no effort, no model and no time limit, so a
+  read needs nothing overridden beyond the feature, the provider and the model.
+- **The models, from the providers' pages on 2026-10-06:**
+
+  | | Fast (the default) | Middle | Strongest |
+  |---|---|---|---|
+  | OpenAI | `gpt-6-luna`, $0.10 in and $0.50 out per million tokens | `gpt-6.1-sol`, $2 and $10 | `gpt-6-astra`, $10 and $50 |
+  | Anthropic | `claude-haiku-4-5`, $1 and $5 | `claude-sonnet-5-5`, $2 and $10 | `claude-opus-5-5`, $4 and $20 |
+
+- **The Anthropic adapter needs no change for the stronger Claude models.** It sends no field they refuse. They
+  think before answering by default, and that time counts against the 25 s the app waits: the reads measure it.
+
+### The gates
+
+One sequence on 2026-10-06, on the tree of `43aa907`: the checkpoint's last commit before this report.
+
+| Gate | Result | On `5ed6af0` (stage 2) |
+|---|---|---|
+| `npm run gen` | every generated file up to date | the same |
+| `npm run typecheck` | 0 errors | 0 |
+| `npm test` | 31 files, 583 tests passed | 577 tests |
+| `npm run test:contract` | 38 files, 378 tests passed (7 files and 235 tests skipped by project) | the same |
+| `npm run test:php` | 884 tests, 10,235 assertions, 38 skipped (PHP 8.3.4) | 878 tests, 10,161 assertions, 38 skipped |
+| `npm run test:render` | 135 passed, 1 skipped (the opt-in baseline) | 135 passed |
+| `npm run test:php-smoke` | 2 passed | 2 passed |
+| `baseline.spec.ts` | 32 cases byte-identical against a capture of `747e4c8`, taken before any code changed | 32 |
+
+- **No test touches a provider.** The six new tests on each backend are the policy's and the table's five days.
+- The 38 skipped PHP tests are the same 38.
+- **No fresh-context review was run for the checkpoint.** By Artur's instruction there is one, at the end of
+  stage 3: its range starts at `747e4c8`, so it covers these commits too.
+
+### What is left of the checkpoint
+
+- **The real reads,** on Artur's go: his five pictures, both providers, the default model and a stronger one. He
+  gets the table and chooses the photo's model, whether 2048 px stays, and the reader's prompt's words.
+- **One read through the Laragon copy,** on his word, and how to leave the copy afterwards.
+- **Nothing is pushed.** No release was built, `.env` was not changed, and the live site was not called.

@@ -7,7 +7,9 @@ go-ahead. Suggested: Opus 5.5 at high effort.
 
 **Where it stands:** `docs/reports/ai-flyer-from-photo.md` has one section per stage that is built, and the next
 stage is the first one without a section. Stages 1 and 2 were built on 2026-10-06; stage 2's checkpoint, the real
-reads, is open until Artur gives his go. "What the code holds today" below was read before stage 1: its first block,
+reads, is open until Artur gives his go. A later session that day built his answers to what stage 2 left for him (a
+number of tries for the read, and the first case in git): the report's *The checkpoint* has them. The real reads
+still wait. "What the code holds today" below was read before stage 1: its first block,
 the cap, describes what stage 1 replaced, and "The provider seam is text only", "Photos" and "The examples" describe
 what stage 2 replaced.
 
@@ -433,4 +435,6 @@ with a script that prints nothing of the file, and leave it as Artur says.
   chose to stay on the branch that was checked out.
   - Stage 2 (2026-10-06): asked, he chose "Stay on feat/ai-feature-switches" again. It is built there, on top of
     `650d3a9`. Ask again before stage 3.
+  - Stage 2's checkpoint and stage 3 (2026-10-06, a later session): asked for both at once, he chose "Stay on this
+    branch". Stage 4 is not asked yet.
 - Another session may be writing in this folder: stage files by path, no checkouts of other branches, no stashes.
