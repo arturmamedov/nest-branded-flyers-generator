@@ -78,5 +78,5 @@ export interface ProviderConfig {
   effort: string | null;
 }
 
-/** The names the two features' answer formats go by, on the wire and in the fake (src/shared/ai.ts, shared with PHP). */
+/** The names the features' answer formats go by, on the wire and in the fake (src/shared/ai.ts, shared with PHP). */
 export const SCHEMA_NAMES = AI_SCHEMA_NAMES;

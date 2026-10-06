@@ -110,6 +110,7 @@ describe('the AI bundle (schema/ai.json) and the ai block of shared.json', () =>
         model: 'fake-1',
         unknownHostel: 'no-such-nest',
         markers: { invalid: '[[fake:invalid]]', unknownHostel: '[[fake:unknown-hostel]]', timeout: '[[fake:timeout]]', refused: '[[fake:refused]]' },
+        pictureWidths: { invalid: 11, timeout: 12, refused: 13, noWords: 14 },
       },
     });
   });

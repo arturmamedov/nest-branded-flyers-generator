@@ -39,6 +39,18 @@ final class LlmCall
         return $this->messages === [] ? '' : self::textOf($this->messages[array_key_last($this->messages)]['content']);
     }
 
+    /** The width in pixels of the picture the last turn carries, or null when it carries none: what steers the fake on a read. */
+    public function lastPictureWidth(): ?int
+    {
+        $content = $this->messages === [] ? '' : $this->messages[array_key_last($this->messages)]['content'];
+        foreach (is_array($content) ? $content : [] as $part) {
+            if ($part['type'] === 'image') {
+                return $part['width'];
+            }
+        }
+        return null;
+    }
+
     /**
      * The text of a turn: the string, or its text parts joined. What the fake reads its markers from.
      *

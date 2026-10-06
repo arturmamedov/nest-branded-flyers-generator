@@ -9,6 +9,7 @@ import { LlmFailure, type LlmCall } from '../../server/ai/provider.js';
 import { AnthropicProvider } from '../../server/ai/providers/anthropic.js';
 import { FakeProvider } from '../../server/ai/providers/fake.js';
 import { OpenAiProvider } from '../../server/ai/providers/openai.js';
+import { AI_FAKE, AI_PICTURE_ASK } from '../../src/shared/ai.js';
 
 /* The provider adapters against the shared vectors (tests/fixtures/ai-openai.json, ai-anthropic.json), which PHPUnit
    replays against the PHP adapters: the request each builds for one call, byte for byte, and what each recorded answer
@@ -171,6 +172,31 @@ describe('the fake provider', () => {
     expect(unknown.brief.hostel).toBe('no-such-nest');
     expect((await failureOf(fake.complete(call('[[fake:timeout]]'))))!.reason).toBe('timeout');
     expect((await failureOf(fake.complete(call('[[fake:refused]]'))))!.reason).toBe('refused');
+  });
+
+  /** A picture read's call: one turn, a picture this wide and the line that asks for its words. */
+  const read = (width: number, ask = AI_PICTURE_ASK): LlmCall => ({
+    ...call(''),
+    messages: [{ role: 'user', content: [{ type: 'image', mediaType: 'image/png', data: 'AAAA', width, height: 8 }, { type: 'text', text: ask }] }],
+    schemaName: 'nest_picture_text',
+  });
+
+  // What the brief asks of it: a read followed by Generate gives that example's flyer.
+  it('answers a picture read with the first example’s text: the words that example’s flyer is made from', async () => {
+    const answer = await fake.complete(read(640));
+    expect(answer).toEqual({ json: { text: bundle.examples[0].text }, raw: JSON.stringify({ text: bundle.examples[0].text }), usage: { input: 10, output: 20 }, model: 'fake-1' });
+    expect((await fake.complete(call(bundle.examples[0].text))).json).toEqual(bundle.examples[0].answer);
+  });
+
+  it('is steered by the picture’s width on a read, which has no typed text to carry a marker', async () => {
+    const { invalid, timeout, refused, noWords } = AI_FAKE.pictureWidths;
+    expect((await fake.complete(read(invalid))).json).toEqual({ text: 42 });
+    expect((await fake.complete(read(noWords))).json).toEqual({ text: '' });
+    expect((await failureOf(fake.complete(read(timeout))))!.reason).toBe('timeout');
+    expect((await failureOf(fake.complete(read(refused))))!.reason).toBe('refused');
+    // The height is no steer, and a width means nothing to the other features.
+    expect((await fake.complete({ ...read(640), messages: [{ role: 'user', content: [{ type: 'image', mediaType: 'image/png', data: 'AAAA', width: 640, height: timeout }, { type: 'text', text: AI_PICTURE_ASK }] }] })).json).toEqual({ text: bundle.examples[0].text });
+    expect((await fake.complete({ ...read(timeout), schemaName: 'nest_flyer_brief' })).json).toEqual(bundle.examples[0].answer);
   });
 
   it('names itself, and never touches the network', () => {

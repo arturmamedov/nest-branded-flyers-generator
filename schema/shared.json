@@ -228,6 +228,12 @@
         "unknownHostel": "[[fake:unknown-hostel]]",
         "timeout": "[[fake:timeout]]",
         "refused": "[[fake:refused]]"
+      },
+      "pictureWidths": {
+        "invalid": 11,
+        "timeout": 12,
+        "refused": 13,
+        "noWords": 14
       }
     }
   }

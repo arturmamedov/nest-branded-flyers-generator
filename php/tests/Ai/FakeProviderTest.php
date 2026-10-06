@@ -19,12 +19,15 @@ final class FakeProviderTest extends TestCase
 {
     private FakeProvider $fake;
     private stdClass $example;
+    /** @var array<string, mixed> Shared::ai() */
+    private array $ai;
 
     protected function setUp(): void
     {
         $examples = Json::decode((string) file_get_contents(Paths::schema('ai.json')))->examples;
         $this->example = $examples[0];
-        $this->fake = new FakeProvider($examples, Shared::fromFile(Paths::schema('shared.json'))->ai());
+        $this->ai = Shared::fromFile(Paths::schema('shared.json'))->ai();
+        $this->fake = new FakeProvider($examples, $this->ai);
     }
 
     public function testAFlyerCallGetsTheFirstExampleAndAShareCallItsShareText(): void
@@ -50,6 +53,34 @@ final class FakeProviderTest extends TestCase
         self::assertSame('refused', self::failure('[[fake:refused]]')->reason);
     }
 
+    // What the brief asks of it: a read followed by Generate gives that example's flyer.
+    public function testAPictureReadGetsTheFirstExamplesTextTheWordsThatExamplesFlyerIsMadeFrom(): void
+    {
+        $answer = $this->fake->complete($this->read(640));
+        JsonAssert::same((object) ['text' => $this->example->text], $answer->json);
+        self::assertSame(Json::encode(['text' => $this->example->text]), $answer->raw);
+        self::assertSame([10, 20, 'fake-1'], [$answer->usage?->input, $answer->usage?->output, $answer->model]);
+        JsonAssert::same($this->example->answer, $this->fake->complete(self::call($this->example->text))->json);
+    }
+
+    public function testThePicturesWidthSteersItOnAReadWhichHasNoTypedTextToCarryAMarker(): void
+    {
+        $widths = $this->ai['fake']['pictureWidths'];
+        JsonAssert::same((object) ['text' => 42], $this->fake->complete($this->read($widths['invalid']))->json);
+        JsonAssert::same((object) ['text' => ''], $this->fake->complete($this->read($widths['noWords']))->json);
+        foreach (['timeout', 'refused'] as $reason) {
+            try {
+                $this->fake->complete($this->read($widths[$reason]));
+                self::fail("No failure for a picture {$widths[$reason]} px wide");
+            } catch (LlmFailure $e) {
+                self::assertSame($reason, $e->reason);
+            }
+        }
+        // The height is no steer, and a width means nothing to the other features.
+        JsonAssert::same((object) ['text' => $this->example->text], $this->fake->complete($this->read(640, $widths['timeout']))->json);
+        JsonAssert::same($this->example->answer, $this->fake->complete($this->read($widths['timeout'], 8, 'nest_flyer_brief'))->json);
+    }
+
     public function testAMarkerInAnEarlierTurnDoesNothing(): void
     {
         $call = new LlmCall('fake-1', '', [
@@ -73,6 +104,13 @@ final class FakeProviderTest extends TestCase
             return $e;
         }
         self::fail("No failure for $text");
+    }
+
+    /** A picture read's call: one turn, a picture this wide and the line that asks for its words. */
+    private function read(int $width, int $height = 8, string $schemaName = 'nest_picture_text'): LlmCall
+    {
+        $picture = ['type' => 'image', 'mediaType' => 'image/png', 'data' => 'AAAA', 'width' => $width, 'height' => $height];
+        return new LlmCall('fake-1', '', [['role' => 'user', 'content' => [$picture, ['type' => 'text', 'text' => $this->ai['pictureAsk']]]]], new stdClass(), $schemaName, 1, 1);
     }
 
     private static function call(string $text, string $schemaName = 'nest_flyer_brief'): LlmCall

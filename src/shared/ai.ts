@@ -111,7 +111,8 @@ export const AI_PICTURE_MAX_EDGE = 2048;
 export const AI_PICTURE_ASK = 'Write out the words of the event in this picture.';
 
 /** The fake provider both backends ship for the tests and a demo (docs/api-contract.md, "The AI assistant"): its model
-    name, the slug it makes up, and the markers in the last user turn that steer it. */
+    name, the slug it makes up, the markers in the last user turn that steer it, and the picture widths that steer a
+    picture read. */
 export const AI_FAKE = {
   model: 'fake-1',
   unknownHostel: 'no-such-nest',
@@ -122,6 +123,17 @@ export const AI_FAKE = {
     unknownHostel: '[[fake:unknown-hostel]]',
     timeout: '[[fake:timeout]]',
     refused: '[[fake:refused]]',
+  },
+  /** A picture read has no typed text to carry a marker, so the picture's width in pixels steers the fake. A tiny
+      picture is never enlarged, so its width reaches the fake unchanged on both backends. Any other width is read as
+      the first example's text. */
+  pictureWidths: {
+    /** An answer that fails the schema. */
+    invalid: 11,
+    timeout: 12,
+    refused: 13,
+    /** A picture with no words: an empty text, which counts. */
+    noWords: 14,
   },
 } as const;
 

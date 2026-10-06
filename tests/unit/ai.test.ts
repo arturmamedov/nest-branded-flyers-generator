@@ -163,7 +163,12 @@ describe('the AI constants', () => {
       model: 'fake-1',
       unknownHostel: 'no-such-nest',
       markers: { invalid: '[[fake:invalid]]', unknownHostel: '[[fake:unknown-hostel]]', timeout: '[[fake:timeout]]', refused: '[[fake:refused]]' },
+      // A picture read has no typed text to carry a marker: the picture's width steers the fake.
+      pictureWidths: { invalid: 11, timeout: 12, refused: 13, noWords: 14 },
     });
+    // A width no real picture has by accident, and small enough that neither backend ever shrinks it.
+    for (const width of Object.values(AI_FAKE.pictureWidths)) expect(width).toBeLessThan(32);
+    expect(new Set(Object.values(AI_FAKE.pictureWidths)).size).toBe(4);
     expect(AI_SHARED.schemaNames).toBe(AI_SCHEMA_NAMES);
     expect(AI_SHARED.fake).toBe(AI_FAKE);
   });
