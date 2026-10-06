@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ChangeEvent } from 'react';
+import { useEffect, useRef, useState, type ChangeEvent, type ReactNode } from 'react';
 import type { AiFeatureOn } from '../shared/ai';
 import { ACCEPTED_PHOTO_TYPES } from '../shared/limits';
 import { AiUsedUp } from './panel';
@@ -92,7 +92,13 @@ export function AiPhoto({
           <input ref={chooseInput} type="file" accept={accept} hidden onChange={onChosen} />
         </div>
         <p className="help ai-mouse">Or drop a picture here, or paste a screenshot.</p>
-        {picture && <Chosen picture={picture} busy={busy} onRemove={() => onPick(null)} />}
+        {picture && (
+          <AiPicture picture={picture}>
+            <button type="button" className="btn btn-quiet" disabled={busy} onClick={() => onPick(null)}>
+              Remove
+            </button>
+          </AiPicture>
+        )}
       </div>
       <button type="button" className="btn btn-accent" disabled={busy || !picture || left === 0 || flyer.remaining === 0} onClick={onRead}>
         {reading ? 'Reading…' : '✨ Read the picture'} <span className="ai-left">({left} left today)</span>
@@ -103,9 +109,10 @@ export function AiPhoto({
   );
 }
 
-/** The chosen picture, small, straight from memory: nothing is uploaded before it is read. One the browser cannot
-    draw (an iPhone's HEIC) shows by its name alone. */
-function Chosen({ picture, busy, onRemove }: { picture: File; busy: boolean; onRemove: () => void }) {
+/** The page's picture, small, straight from memory: nothing is uploaded before it is read. One the browser cannot
+    draw (an iPhone's HEIC) shows by its name alone. Beside it goes what can be done with it where it shows
+    (`children`): taken away in the box it was chosen in, changed for another once it is read. */
+export function AiPicture({ picture, className, children }: { picture: File; className?: string; children: ReactNode }) {
   const [url, setUrl] = useState<string | null>(null);
   useEffect(() => {
     const made = URL.createObjectURL(picture);
@@ -117,12 +124,10 @@ function Chosen({ picture, busy, onRemove }: { picture: File; busy: boolean; onR
   }, [picture]);
 
   return (
-    <div className="ai-picture">
+    <div className={'ai-picture' + (className ? ` ${className}` : '')}>
       {url && <img src={url} alt="" onError={() => setUrl(null)} />}
       <span className="ai-picture-name">{picture.name}</span>
-      <button type="button" className="btn btn-quiet" disabled={busy} onClick={onRemove}>
-        Remove
-      </button>
+      {children}
     </div>
   );
 }

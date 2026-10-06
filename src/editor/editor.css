@@ -663,6 +663,65 @@ nest-nav > nav a.ai-entry .ai-count {
   opacity: 0.6;
 }
 
+/* From a picture to a flyer in three steps (AiSteps.tsx): under the two ways in while a picture is chosen and read,
+   in their place once it is. One line where it fits; on a narrow phone it wraps, and never scrolls sideways. */
+.ai-steps {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 12px;
+  padding: 0;
+  list-style: none;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.ai-steps li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+/* The join between a step and the one before it. */
+.ai-steps li + li::before {
+  content: '';
+  width: 12px;
+  height: 1px;
+  background: currentColor;
+  opacity: 0.45;
+}
+
+.ai-step-n {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 18px;
+  height: 18px;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  font-size: 11px;
+  line-height: 1;
+}
+
+/* The step the staff member is at, and the ones behind it. */
+.ai-steps .on {
+  color: var(--ink);
+}
+
+.ai-steps .on .ai-step-n {
+  border-color: var(--teal);
+  background: var(--teal);
+  color: #fff;
+}
+
+.ai-steps .done {
+  color: var(--teal);
+}
+
 /* From a photo (AiPhoto.tsx): the box a picture is chosen in and dropped on, and the chosen one, small. */
 .ai-picker {
   margin-bottom: 12px;
@@ -729,6 +788,37 @@ nest-nav > nav a.ai-entry .ai-count {
   flex: 1 1 auto;
   min-width: 0;
   overflow-wrap: anywhere;
+}
+
+/* Under the steps, the picture that was read (the owner's sketch): smaller, its name over the way back to choosing. */
+.ai-picture-read {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 2px 10px;
+  margin: 0 0 12px;
+}
+
+.ai-picture-read img {
+  grid-row: 1 / span 2;
+  max-width: 56px;
+  max-height: 56px;
+}
+
+.ai-picture-read .ai-picture-name {
+  grid-column: 2;
+  align-self: end;
+}
+
+.ai-picture-read .linkish {
+  grid-column: 2;
+  justify-self: start;
+  align-self: start;
+  color: var(--teal);
+}
+
+.ai-picture-read .linkish:disabled {
+  cursor: default;
+  opacity: 0.6;
 }
 
 .ai-used-up {

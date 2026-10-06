@@ -1,0 +1,33 @@
+/* From a picture to a flyer in three steps, on the AI page (the owner's sketch, 2026-10-06: "Numbered steps"). After a
+   read the page shows the idea box, which is also where it starts, and that read as a step back: the steps say it is
+   the next one. They show under the page's two ways in from the first tap on From a photo (his answer), and in their
+   place once the picture is read. */
+
+/** Where the staff member is: choosing the picture, or on its words. */
+export type AiStep = 1 | 2;
+
+/** The steps' names, the owner's. */
+const NAMES = ['Picture', 'Check the words', 'Flyer'];
+
+export function AiSteps({ at }: { at: AiStep }) {
+  return (
+    // The role is said aloud: a list drawn without its markers is no list to Safari's screen reader.
+    <ol className="ai-steps" role="list">
+      {NAMES.map((name, i) => {
+        const n = i + 1;
+        return (
+          <li key={name} className={n < at ? 'done' : n === at ? 'on' : undefined} aria-current={n === at ? 'step' : undefined}>
+            {/* The eye's number: a screen reader has the list's own. */}
+            <span className="ai-step-n" aria-hidden="true">
+              {n}
+            </span>
+            <span className="ai-step-name">
+              {name}
+              {n < at && ' ✓'}
+            </span>
+          </li>
+        );
+      })}
+    </ol>
+  );
+}

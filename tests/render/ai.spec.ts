@@ -462,6 +462,17 @@ const choosePicture = (page: Page) => page.getByRole('button', { name: 'Choose a
 const readNote = (page: Page) => page.locator('.ai-read-note');
 /** The line that offers drop and paste, a mouse device's. */
 const dropOrPaste = (page: Page) => picker(page).getByText('Or drop a picture here, or paste a screenshot.', { exact: true });
+/** The three steps from a picture to a flyer (the owner's sketch, 2026-10-06): under the switch on From a photo, and
+    in its place once the picture is read. */
+const steps = (page: Page) => page.locator('.ai-steps');
+/** The steps' names in order, each as it reads: a step that is done carries its ✓. */
+const stepNames = (page: Page) => steps(page).locator('.ai-step-name');
+/** The step the staff member is at. */
+const currentStep = (page: Page) => steps(page).locator('[aria-current="step"] .ai-step-name');
+/** Under the steps, beside the picture that was read: the way back to choosing one. */
+const changePicture = (page: Page) => page.getByRole('button', { name: 'Change the picture', exact: true });
+/** The hint under the page's title: the way's own, shown wherever the switch is. */
+const wayHint = (page: Page) => page.locator('.panel .section').first().locator('.hint');
 
 /** A small picture, made here. Its width steers the fake (AI_FAKE.pictureWidths); 64 is no steer. */
 async function picture(name: string, width = 64, height = 8): Promise<FilePayload> {
@@ -491,15 +502,21 @@ function readsSent(page: Page): string[] {
 }
 
 test.describe('From a photo', () => {
-  test('where the read runs the page has two ways in: From your idea is on, and From a photo shows the reads’ own count', async ({ page }) => {
+  test('where the read runs the page has two ways in: From your idea is on, and From a photo shows its three steps at the first, and the reads’ own count', async ({ page }) => {
     const n = await left(page, 'photo');
     await page.goto('/#/ai');
     await expect(fromIdea(page)).toHaveAttribute('aria-pressed', 'true');
     await expect(fromPhoto(page)).toHaveAttribute('aria-pressed', 'false');
+    await expect(steps(page), 'an idea typed in has no steps').toHaveCount(0);
     await idea(page).fill('Yoga tomorrow at 9');
 
     await fromPhoto(page).click();
     await expect(fromPhoto(page)).toHaveAttribute('aria-pressed', 'true');
+    // From the first tap (the owner's answer, 2026-10-06): the way from a picture to a flyer, under the switch.
+    await expect(stepNames(page), 'the owner’s sketch').toHaveText(['Picture', 'Check the words', 'Flyer']);
+    await expect(currentStep(page)).toHaveText('Picture');
+    expect((await steps(page).boundingBox())!.y, 'under the switch').toBeGreaterThan((await ways(page).boundingBox())!.y);
+    await expect(wayHint(page), 'the way’s hint stays where the switch is').toBeVisible();
     await expect(idea(page), 'the idea box is the other way’s').toHaveCount(0);
     await expect(generate(page)).toHaveCount(0);
     await expect(readPicture(page)).toContainText(`${n} left today`);
@@ -508,6 +525,7 @@ test.describe('From a photo', () => {
 
     await fromIdea(page).click();
     await expect(idea(page), 'what was typed is kept').toHaveValue('Yoga tomorrow at 9');
+    await expect(steps(page)).toHaveCount(0);
   });
 
   test('the read counts its own: the bar and Generate show the flyer’s, Read the picture the reads’', async ({ page }) => {
@@ -540,7 +558,86 @@ test.describe('From a photo', () => {
     await expect(idea(page)).toBeVisible();
     await expect(generate(page)).toContainText('2 left today');
     await expect(ways(page)).toHaveCount(0);
+    await expect(steps(page)).toHaveCount(0);
     await expect(readPicture(page)).toHaveCount(0);
+  });
+
+  test('once a picture is read the steps take the switch’s place: Picture is done, Check the words is the step, and the picture sits under them with "Change the picture"', async ({ page }) => {
+    // Routed, so nothing is spent. The owner saw the page land on the From your idea tab after a read, where it
+    // starts, and it read as a step back (2026-10-06): the steps say it is the next one.
+    await withLeft(page, { photo: 2 });
+    await page.route(apiRoute('ai/photo'), (route) => route.fulfill({ json: { text: 'Karaoke night 06/10 (today)', remaining: 1 } }));
+    await page.goto('/#/ai');
+    await fromPhoto(page).click();
+    await chooseInput(page).setInputFiles(await picture('karaoke-board.png'));
+    await readPicture(page).click();
+    await expect(idea(page)).toHaveValue('Karaoke night 06/10 (today)');
+
+    await expect(ways(page), 'the switch has left').toHaveCount(0);
+    await expect(stepNames(page), 'the owner’s sketch').toHaveText(['Picture ✓', 'Check the words', 'Flyer']);
+    await expect(currentStep(page)).toHaveText('Check the words');
+    await expect(steps(page).getByRole('listitem'), 'a list of three, for a screen reader').toHaveCount(3);
+    await expect(wayHint(page), 'no hint under the title, as in the sketch').toHaveCount(0);
+    // Under them the picture that was read, small, with the way back in the place of Remove.
+    await expect(chosen(page)).toContainText('karaoke-board.png');
+    await expect(chosen(page).locator('img')).toBeVisible();
+    await expect(changePicture(page)).toBeVisible();
+    await expect(chosen(page).getByRole('button', { name: 'Remove', exact: true })).toHaveCount(0);
+    expect((await chosen(page).boundingBox())!.y, 'between the steps and the box').toBeLessThan((await idea(page).boundingBox())!.y);
+    // The rest is as it was: the line to check the words by, with the focus, and Generate.
+    await expect(readNote(page)).toBeFocused();
+    await expect(generate(page)).toBeEnabled();
+  });
+
+  test('"Change the picture" goes back to choosing: the switch is back on From a photo at step 1, and the picture, the words and the leave question are kept', async ({ page }) => {
+    await withLeft(page, { photo: 2 });
+    await page.route(apiRoute('ai/photo'), (route) => route.fulfill({ json: { text: 'Karaoke night 06/10 (today)', remaining: 1 } }));
+    await page.goto('/#/ai');
+    await fromPhoto(page).click();
+    await chooseInput(page).setInputFiles(await picture('karaoke-board.png'));
+    await readPicture(page).click();
+    await expect(currentStep(page)).toHaveText('Check the words');
+
+    await changePicture(page).click();
+    await expect(fromPhoto(page)).toHaveAttribute('aria-pressed', 'true');
+    await expect(fromPhoto(page), 'the button that was pressed is gone: a keyboard and a screen reader stand at the way they are on').toBeFocused();
+    await expect(stepNames(page)).toHaveText(['Picture', 'Check the words', 'Flyer']);
+    await expect(currentStep(page)).toHaveText('Picture');
+    await expect(chosen(page)).toContainText('karaoke-board.png');
+    await expect(readPicture(page)).toBeEnabled();
+    await expect(readPicture(page)).toContainText('1 left today');
+
+    // The words were not touched: a read was spent on them, so leaving still asks.
+    expect(await answerConfirm(page, 'dismiss', () => backToLibrary(page).click())).toBe(LEAVE_PROMPT);
+    // Back to them with the same picture: the same words, and the steps where they were.
+    await fromIdea(page).click();
+    await expect(idea(page)).toHaveValue('Karaoke night 06/10 (today)');
+    await expect(ways(page)).toHaveCount(0);
+    await expect(currentStep(page)).toHaveText('Check the words');
+
+    // Another picture is one not read yet: From your idea is then the tab it was, with the words still in the box.
+    await changePicture(page).click();
+    await chooseInput(page).setInputFiles(await picture('poster.png'));
+    await fromIdea(page).click();
+    await expect(fromIdea(page)).toHaveAttribute('aria-pressed', 'true');
+    await expect(steps(page)).toHaveCount(0);
+    await expect(idea(page)).toHaveValue('Karaoke night 06/10 (today)');
+  });
+
+  test('From your idea used by itself has no steps: not with a picture chosen and never read, and not with a flyer on screen', async ({ page }) => {
+    // Routed, so nothing is spent: the page as it was before the read had one.
+    await withLeft(page, 2);
+    await page.route(apiRoute('ai/flyer'), (route) => route.fulfill({ json: { ...example.answer, remaining: 1 } }));
+    await page.goto('/#/ai');
+    await fromPhoto(page).click();
+    await chooseInput(page).setInputFiles(await picture('poster.png'));
+    await fromIdea(page).click();
+    await expect(steps(page)).toHaveCount(0);
+    await idea(page).fill('Yoga tomorrow at 9');
+    await generate(page).click();
+    await expect(preview(page)).toContainText(brief.text!.headline1!);
+    await expect(fromIdea(page)).toHaveAttribute('aria-pressed', 'true');
+    await expect(steps(page)).toHaveCount(0);
   });
 
   test('a picture is chosen with the button, dropped on the box or pasted: it shows small with its name, and nothing is sent until Read', async ({ page }) => {
@@ -623,8 +720,8 @@ test.describe('From a photo', () => {
     await expect(idea(page)).toHaveValue('Bachata workshop\nToday 20:00');
     expect(sent).toHaveLength(1);
 
-    // With one left the question counts in plain words.
-    await fromPhoto(page).click();
+    // With one left the question counts in plain words. The way back to the picture is under the steps now.
+    await changePicture(page).click();
     await expect(readPicture(page)).toContainText('1 left today');
     const last = await answerConfirm(page, 'dismiss', () => readPicture(page).click());
     expect(last).toBe('Replace your idea with the words the AI reads from this picture? It uses the last of today’s picture reads.');
@@ -640,7 +737,9 @@ test.describe('From a photo', () => {
     await readPicture(page).click();
     expect(AiPhotoResultSchema.parse(await (await answered).json())).toEqual({ text: '', remaining: reads - 1 });
 
-    await expect(fromIdea(page)).toHaveAttribute('aria-pressed', 'true');
+    // The picture was read, so the steps stand where the switch was, whatever the read found.
+    await expect(ways(page)).toHaveCount(0);
+    await expect(stepNames(page).first()).toHaveText('Picture ✓');
     await expect(idea(page)).toBeEmpty();
     await expect(readNote(page), 'the owner’s words (2026-10-06)').toHaveText('The AI found no event in this picture. Write the event here yourself.');
     await expect(readNote(page)).toBeFocused();
@@ -900,7 +999,7 @@ test.describe('From a photo', () => {
     await expect(idea(page)).toHaveValue(text);
 
     text = '';
-    await fromPhoto(page).click();
+    await changePicture(page).click();
     await chooseInput(page).setInputFiles(await picture('wall.png'));
     await answerConfirm(page, 'accept', () => readPicture(page).click());
     await expect(readNote(page)).toContainText('no event');
@@ -1019,8 +1118,9 @@ test.describe('From a photo', () => {
     expect(AiPhotoResultSchema.parse(await res.json())).toEqual({ text: example.text, remaining: reads - 1 });
     await page.unrouteAll({ behavior: 'wait' });
 
-    // The page is on From your idea, with the words to check: the flyer is the staff member's own next step.
-    await expect(fromIdea(page)).toHaveAttribute('aria-pressed', 'true');
+    // The page is on the words to check, the second step: the flyer is the staff member's own next one.
+    await expect(ways(page), 'the steps stand where the switch was').toHaveCount(0);
+    await expect(currentStep(page)).toHaveText('Check the words');
     await expect(idea(page)).toHaveValue(example.text);
     await expect(readNote(page), 'the owner’s words (2026-10-06)').toHaveText(
       'Read from your picture. Check every word, and add what is missing (the price?). [?] marks a word the AI could not read. If it lists several activities, keep the one this flyer is for.',
@@ -1034,9 +1134,10 @@ test.describe('From a photo', () => {
     await expect(generate(page)).toContainText(`${flyers} left today`);
     expect(await left(page, 'photo')).toBe(reads - 1);
     expect(await left(page, 'flyer'), 'a read costs the flyer nothing').toBe(flyers);
-    await fromPhoto(page).click();
+    await expect(chosen(page), 'the picture is still the page’s, under the steps').toContainText('poster.png');
+    await changePicture(page).click();
     await expect(readPicture(page)).toContainText(`${reads - 1} left today`);
-    await expect(chosen(page), 'the picture is still the page’s').toContainText('poster.png');
+    await expect(chosen(page)).toContainText('poster.png');
     await fromIdea(page).click();
 
     // From here it is the page as it was: Generate, that example's flyer, Open in editor.

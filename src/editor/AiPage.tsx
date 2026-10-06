@@ -4,7 +4,8 @@ import { flyerFromBrief } from '../shared/brief';
 import { lintFlyer } from '../shared/copyRules';
 import { DEFAULT_CANVAS } from '../shared/layout';
 import type { AiAssumption, Brief, Hostel } from '../shared/schema';
-import { AiPhoto } from './AiPhoto';
+import { AiPhoto, AiPicture } from './AiPhoto';
+import { AiSteps } from './AiSteps';
 import { api, ApiError } from './api';
 import { offerDraft } from './handoff';
 import { useLeaveGuard } from './leaveGuard';
@@ -86,13 +87,21 @@ export function AiPage({
   // The picture to read. It is kept here, so it is still chosen after a look at the other way, and after a read.
   const [picture, setPicture] = useState<File | null>(null);
   const [idea, setIdea] = useState('');
-  // What the last read left: words in the idea box, or none. It picks the line under the box.
-  const [read, setRead] = useState<keyof typeof READ_NOTE | null>(null);
+  // The last read: the picture it was of, and what it left, words in the idea box or none. That picks the line under
+  // the box, which stays until the next read.
+  const [read, setRead] = useState<{ of: File; found: keyof typeof READ_NOTE } | null>(null);
   // The box holds words a read was spent on. A later read that finds no event leaves them there, and this with them.
   const [wordsRead, setWordsRead] = useState(false);
-  // The reads that landed: each one moves the focus to the line under the box.
-  const [landed, setLanded] = useState(0);
+  // The picture on the page is one that was read: it is on its way to a flyer. Another one chosen since is not.
+  const pictureRead = picture !== null && read?.of === picture;
+  // On its words the steps then stand where the switch was (the owner's sketch, 2026-10-06): the page reads as a step
+  // forward, where the From your idea tab read as the page going back to its start.
+  const stepping = pictureRead && way === 'idea';
+  // Where the focus goes when the button that was pressed is gone with its screen: to the line under the box once a
+  // read lands, to the way the page is on again after "Change the picture".
+  const [focus, setFocus] = useState<{ on: 'note' | 'way' } | null>(null);
   const readNote = useRef<HTMLParagraphElement>(null);
+  const photoWay = useRef<HTMLButtonElement>(null);
   const readNoteId = useId();
   const [hostel, setHostel] = useState('');
   // One action at a time: the flyer's generation, or a picture's read.
@@ -115,10 +124,11 @@ export function AiPage({
   useLeaveGuard((result !== null || (wordsRead && idea.trim() !== '') || busy === 'photo') && !opening);
   // After a read the button that was pressed is gone with its way. The focus goes to the line under the box, so a
   // keyboard stands at the box and a screen reader hears what happened. Not to the box itself: on a phone that
-  // raises the keyboard over the words to check.
+  // raises the keyboard over the words to check. "Change the picture" is gone with the steps it stood under: the
+  // focus goes to From a photo in the switch, which says where the page is.
   useEffect(() => {
-    if (landed) readNote.current?.focus();
-  }, [landed]);
+    if (focus) ({ note: readNote, way: photoWay })[focus.on].current?.focus();
+  }, [focus]);
   // "Open in editor" moves once the guard has let go (its layout effect runs first), so the move asks nothing.
   useEffect(() => {
     if (opening) go('#/new');
@@ -160,9 +170,9 @@ export function AiPage({
         setIdea(r.text);
         setWordsRead(true);
       }
-      setRead(r.text ? 'words' : 'none');
+      setRead({ of: picture, found: r.text ? 'words' : 'none' });
       setWay('idea');
-      setLanded((n) => n + 1);
+      setFocus({ on: 'note' });
       // What was said while it was out (a picture that came too soon) is about a moment that is over.
       say(null);
     } catch (e) {
@@ -198,6 +208,13 @@ export function AiPage({
     }
   }
 
+  // Back to choosing a picture. The words stay in the box, with the guard that holds them: a read was spent on them,
+  // and the next one asks before it replaces them.
+  function changePicture() {
+    setWay('photo');
+    setFocus({ on: 'way' });
+  }
+
   function open() {
     if (!result || !flyer) return;
     offerDraft({ title: result.brief.title?.trim() ?? '', hostel: flyer.hostel, data: flyer.data }, result.idea);
@@ -211,15 +228,34 @@ export function AiPage({
         <div className="panel-head">
           <BackToLibrary className="btn btn-quiet" />
         </div>
-        <Section title="✨ Create with AI" hint={WAY_HINT[way]}>
-          {photo && (
+        {/* Where the steps stand alone they say what the hint would, as in the owner's sketch. */}
+        <Section title="✨ Create with AI" hint={stepping ? undefined : WAY_HINT[way]}>
+          {photo && !stepping && (
             <div className="seg ai-ways" role="group" aria-label="Start from">
               {(Object.entries(WAY_LABEL) as [Way, string][]).map(([key, label]) => (
-                <button key={key} type="button" className={way === key ? 'on' : ''} aria-pressed={way === key} disabled={!!busy} onClick={() => setWay(key)}>
+                <button
+                  key={key}
+                  ref={key === 'photo' ? photoWay : undefined}
+                  type="button"
+                  className={way === key ? 'on' : ''}
+                  aria-pressed={way === key}
+                  disabled={!!busy}
+                  onClick={() => setWay(key)}
+                >
                   {label}
                 </button>
               ))}
             </div>
+          )}
+          {/* From the first tap on From a photo (the owner's answer, 2026-10-06): under the switch while a picture is
+              chosen and read, then in its place, with the picture that was read and the way back to choosing one. */}
+          {(way === 'photo' || stepping) && <AiSteps at={way === 'photo' ? 1 : 2} />}
+          {stepping && (
+            <AiPicture picture={picture} className="ai-picture-read">
+              <button type="button" className="linkish" disabled={!!busy} onClick={changePicture}>
+                Change the picture
+              </button>
+            </AiPicture>
           )}
           {way === 'photo' && photo ? (
             <AiPhoto ai={photo} flyer={ai} picture={picture} busy={!!busy} reading={busy === 'photo'} onPick={pick} onRead={readPicture} />
@@ -242,7 +278,7 @@ export function AiPage({
               {/* Focused when a read lands (above), which is how it is announced: it holds its words from the start. */}
               {read && (
                 <p ref={readNote} id={readNoteId} tabIndex={-1} className="help ai-read-note">
-                  {READ_NOTE[read]}
+                  {READ_NOTE[read.found]}
                 </p>
               )}
               <Field label={FIELD.hostel} help="Pick one, or let the AI read it from your text">
