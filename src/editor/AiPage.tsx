@@ -126,7 +126,7 @@ export function AiPage({ hostels, ai, onRemaining }: { hostels: Hostel[]; ai: Ai
             <span className="status">✨ The AI’s draft · not saved yet</span>
             <span className="spacer" />
             <button type="button" className="btn btn-dark" disabled={busy || left === 0} onClick={generate}>
-              Try again (uses {left === 1 ? 'the last one' : `one of ${left} left`})
+              Try again ({left === 0 ? 'none left today' : left === 1 ? 'uses the last one' : `uses one of ${left} left`})
             </button>
             <button type="button" className="btn btn-accent" disabled={busy} onClick={open}>
               Open in editor

@@ -261,6 +261,20 @@ test('a limit reached: the page says when it comes back and that none are left, 
   await expect(page.locator('.ai-used-up')).toHaveCount(0);
 });
 
+test('the day’s last flyer leaves a Try again that says none are left', async ({ page }) => {
+  // Seen in a browser on both backends (2026-10-06): the greyed button read "Try again (uses one of 0 left)".
+  // Routed both ways, so nothing is spent: one flyer left on load, and the answer that spends it.
+  await withLeft(page, { flyer: 1 });
+  await page.route(apiRoute('ai/flyer'), (route) => route.fulfill({ json: { brief, assumptions: [], remaining: 0 } }));
+  await page.goto('/#/ai');
+  await idea(page).fill('Yoga tomorrow at 9');
+  await generate(page).click();
+  await expect(preview(page)).toBeVisible();
+  await expect(tryAgain(page)).toBeDisabled();
+  await expect(tryAgain(page)).toHaveText('Try again (none left today)');
+  await expect(openInEditor(page), 'the flyer just made can still be opened').toBeEnabled();
+});
+
 test('with none left the page says so, what ran out and when it comes back, before anyone presses anything', async ({ page }) => {
   // Seen with a real provider (2026-10-05): a day used up left a greyed Generate and not a word about midnight.
   await withLeft(page, 0);
