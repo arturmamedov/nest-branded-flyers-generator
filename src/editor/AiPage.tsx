@@ -9,9 +9,10 @@ import { AiPhoto, AiPicture } from './AiPhoto';
 import { AiSteps, type Found } from './AiSteps';
 import { api, ApiError } from './api';
 import { offerDraft } from './handoff';
-import { useLeaveGuard } from './leaveGuard';
+import { LEAVE_PROMPT, useLeaveGuard } from './leaveGuard';
 import { briefFieldLabel, FIELD } from './fields';
 import { AiUsedUp, BackToLibrary, Field, HostelOptions, Section } from './panel';
+import { PHOTO_UPLOADING } from './photoModes';
 import { pictureLimits, preparePhoto, type PhotoLimits } from './photoPrep';
 import { CutOffNote, Preview, useFitReports } from './Preview';
 import { go, onPage } from './route';
@@ -78,7 +79,7 @@ const USE_PICTURE = 'Use this picture as the flyer’s photo';
 
 /** What the stage says while an action is out. The first two are the AI's work and carry its ✨; the last is the
     picture taken along as the flyer's photo, on its way up (the owner's answer, 2026-10-06, with the editor's own
-    "Uploading…" on the button). */
+    word on the button: PHOTO_UPLOADING). */
 const WAITING = {
   flyer: '✨ The AI is writing your flyer… it can take half a minute.',
   photo: '✨ The AI is reading your picture… it can take half a minute.',
@@ -126,8 +127,10 @@ export function AiPage({
   // The last read: the picture it was of, and what it left, words in the idea box or none. That picks the line under
   // the box, which stays until the next read.
   const [read, setRead] = useState<{ of: File; found: Found } | null>(null);
-  // The box holds words a read was spent on. A later read that finds no event leaves them there, and this with them.
+  // The box holds words a read was spent on, and no flyer has been made from them yet. A later read that finds no
+  // event leaves them there, and this with them.
   const [wordsRead, setWordsRead] = useState(false);
+  const wordsUnmade = wordsRead && idea.trim() !== '';
   // The picture on the page is one that was read: it is on its way to a flyer. Another one chosen since is not.
   const pictureRead = picture !== null && read?.of === picture;
   // On its words the steps then stand where the switch was (the owner's sketch, 2026-10-06): the page reads as a step
@@ -175,7 +178,7 @@ export function AiPage({
   // the words read from a picture while they are in the box: a read was spent on them. So is a read on its way: it
   // counts once it is answered, and its words would land nowhere (the editor guards a photo on its way the same).
   // A picture chosen and not read cost nothing, and asks nothing.
-  useLeaveGuard((result !== null || (wordsRead && idea.trim() !== '') || busy === 'photo') && !opening);
+  useLeaveGuard((result !== null || wordsUnmade || busy === 'photo') && !opening);
   // After a read the button that was pressed is gone with its way. The focus goes to the line under the box, so a
   // keyboard stands at the box and a screen reader hears what happened. Not to the box itself: on a phone that
   // raises the keyboard over the words to check. "Change the picture" is gone with the steps it stood under: the
@@ -254,6 +257,8 @@ export function AiPage({
     try {
       const r = await api.aiFlyer(hostel ? { text: sent, hostel } : { text: sent });
       setResult({ brief: r.brief, assumptions: r.assumptions, idea: sent, picture: from });
+      // Words read from a picture are in a flyer now: the flyer is the unsaved work from here.
+      setWordsRead(false);
       onRemaining(ai.name, r.remaining);
       say(null);
     } catch (e) {
@@ -263,6 +268,13 @@ export function AiPage({
     } finally {
       setBusy(null);
     }
+  }
+
+  // The switch. From your idea, with the page's picture already read, is the way back to its words: the switch then
+  // leaves with the button that was pressed, so the focus goes to the line under the box, as after the read itself.
+  function chooseWay(to: Way) {
+    setWay(to);
+    if (to === 'idea' && pictureRead) setFocus({ on: 'note' });
   }
 
   // Back to choosing a picture. The words stay in the box, with the guard that holds them: a read was spent on them,
@@ -285,6 +297,9 @@ export function AiPage({
   // the read's edge. If the upload fails the page stays, with the photo route's own message and the tick still set.
   async function open() {
     if (!result || !flyer) return;
+    // Words a read was spent on are in the box and in no flyer: the one on the stage is an older one, made before
+    // them. Opening it leaves them behind, so it asks, as every other way out does, and before a picture is sent.
+    if (wordsUnmade && !confirm(LEAVE_PROMPT)) return;
     const draft = { title: result.brief.title?.trim() ?? '', hostel: flyer.hostel, data: flyer.data };
     const taking = usePicture ? offered : null;
     if (!taking) {
@@ -329,7 +344,7 @@ export function AiPage({
                   className={way === key ? 'on' : ''}
                   aria-pressed={way === key}
                   disabled={!!busy}
-                  onClick={() => setWay(key)}
+                  onClick={() => chooseWay(key)}
                 >
                   {label}
                 </button>
@@ -428,7 +443,7 @@ export function AiPage({
               Try again ({left === 0 ? 'none left today' : left === 1 ? 'uses the last one' : `uses one of ${left} left`})
             </button>
             <button type="button" className="btn btn-accent" disabled={!!busy} onClick={open}>
-              {busy === 'open' ? 'Uploading…' : 'Open in editor'}
+              {busy === 'open' ? PHOTO_UPLOADING : 'Open in editor'}
             </button>
           </div>
         )}

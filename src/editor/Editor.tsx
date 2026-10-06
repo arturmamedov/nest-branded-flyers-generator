@@ -16,7 +16,7 @@ import { takeDraft } from './handoff';
 import { useLeaveGuard } from './leaveGuard';
 import { FIELD } from './fields';
 import { AiUsedUp, BackToLibrary, Field, HostelOptions, Section } from './panel';
-import { PHOTO_MODE_LABEL } from './photoModes';
+import { PHOTO_MODE_LABEL, PHOTO_UPLOADING } from './photoModes';
 import { preparePhoto, type PhotoLimits } from './photoPrep';
 import { replaceHash } from './route';
 import { localStorageGet, localStorageSet } from './prefs';
@@ -371,7 +371,7 @@ export function Editor({
               <>
                 <div className="photo-row">
                   <button type="button" className="btn" disabled={!!busy} onClick={() => fileInput.current?.click()}>
-                    {busy === 'upload' ? 'Uploading…' : draft.photo ? 'Replace photo' : 'Choose photo'}
+                    {busy === 'upload' ? PHOTO_UPLOADING : draft.photo ? 'Replace photo' : 'Choose photo'}
                   </button>
                   {draft.photo && (
                     <button type="button" className="btn btn-quiet" onClick={() => set({ photo: null })}>

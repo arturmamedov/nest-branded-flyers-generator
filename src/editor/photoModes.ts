@@ -7,3 +7,7 @@ export const PHOTO_MODE_LABEL: Record<PhotoMode, string> = {
   band: 'In a frame',
   none: 'No photo',
 };
+
+/** What a button says while a photo is on its way to the server: the editor's photo button, and the AI page's "Open
+    in editor" when it takes the picture along (the owner's answer, 2026-10-06: the editor's own word). */
+export const PHOTO_UPLOADING = 'Uploading…';

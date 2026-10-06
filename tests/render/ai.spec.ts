@@ -653,6 +653,8 @@ test.describe('From a photo', () => {
     await expect(idea(page)).toHaveValue('Karaoke night 06/10 (today)');
     await expect(ways(page)).toHaveCount(0);
     await expect(currentStep(page)).toHaveText('Check the words');
+    // Found in this stage's review: the switch left with the button that was pressed, and the focus fell to the page.
+    await expect(readNote(page), 'the focus goes to the line under the box, as after the read itself').toBeFocused();
 
     // Another picture is one not read yet: From your idea is then the tab it was, with the words still in the box.
     await changePicture(page).click();
@@ -740,6 +742,57 @@ test.describe('From a photo', () => {
     await changePicture(page).click();
     await chooseInput(page).setInputFiles(await picture('poster.png'));
     await expect(stepNames(page)).toHaveText(['Picture', 'Check the words', 'Flyer']);
+  });
+
+  test('words read and not yet made into a flyer are unsaved work for "Open in editor" too: with an older flyer on the stage it asks first, and once their flyer is made it asks nothing', async ({ page }) => {
+    // Found in this stage's review, and older than it: every other way out asked. The flyer on the stage is an
+    // idea's, typed in; the words read afterwards are at "Check the words", and its finish button stands beside them.
+    await withLeft(page, { photo: 2, flyer: 3 });
+    await page.route(apiRoute('ai/photo'), (route) => route.fulfill({ json: { text: 'Karaoke night 06/10 (today)', remaining: 1 } }));
+    await page.route(apiRoute('ai/flyer'), (route) => route.fulfill({ json: { ...example.answer, remaining: 2 } }));
+    await page.goto('/#/ai');
+    await idea(page).fill('Yoga tomorrow at 9');
+    await generate(page).click();
+    await expect(preview(page)).toContainText(brief.text!.headline1!);
+    await fromPhoto(page).click();
+    await chooseInput(page).setInputFiles(await picture('karaoke-board.png'));
+    await answerConfirm(page, 'accept', () => readPicture(page).click());
+    await expect(idea(page)).toHaveValue('Karaoke night 06/10 (today)');
+    await expect(currentStep(page)).toHaveText('Check the words');
+
+    // A no keeps the page, the words and the flyer.
+    const asked = noDialogs(page);
+    await openInEditor(page).click();
+    await expect(page).toHaveURL(/#\/ai$/);
+    expect(asked(), 'the question every other way out asks').toEqual([LEAVE_PROMPT]);
+    await expect(idea(page)).toHaveValue('Karaoke night 06/10 (today)');
+    await expect(preview(page).locator('[data-flyer]')).toBeVisible();
+
+    // Made into a flyer, the words are in it: opening asks nothing, as it never did.
+    await tryAgain(page).click();
+    await expect(currentStep(page)).toHaveText('Flyer');
+    const quiet = noDialogs(page);
+    await openInEditor(page).click();
+    await expect(page).toHaveURL(/#\/new$/);
+    expect(quiet()).toEqual([]);
+  });
+
+  test('a yes to that question opens the older flyer, as it was asked to', async ({ page }) => {
+    await withLeft(page, { photo: 2, flyer: 3 });
+    await page.route(apiRoute('ai/photo'), (route) => route.fulfill({ json: { text: 'Karaoke night 06/10 (today)', remaining: 1 } }));
+    await page.route(apiRoute('ai/flyer'), (route) => route.fulfill({ json: { ...example.answer, remaining: 2 } }));
+    await page.goto('/#/ai');
+    await idea(page).fill('Yoga tomorrow at 9');
+    await generate(page).click();
+    await expect(preview(page)).toContainText(brief.text!.headline1!);
+    await fromPhoto(page).click();
+    await chooseInput(page).setInputFiles(await picture('karaoke-board.png'));
+    await answerConfirm(page, 'accept', () => readPicture(page).click());
+    await expect(currentStep(page)).toHaveText('Check the words');
+
+    expect(await answerConfirm(page, 'accept', () => openInEditor(page).click())).toBe(LEAVE_PROMPT);
+    await expect(page).toHaveURL(/#\/new$/);
+    await expect(page.getByLabel('Line 1')).toHaveValue(brief.text!.headline1!);
   });
 
   test('From your idea used by itself has no steps: not with a picture chosen and never read, and not with a flyer on screen', async ({ page }) => {
@@ -923,6 +976,30 @@ test.describe('From a photo', () => {
     await fromPhoto(page).click();
     await expect(chosen(page)).toContainText('blurry-board.png');
     await expect(readPicture(page)).toBeEnabled();
+  });
+
+  test('with forced colours the link still shows a keyboard’s focus: an outline the system can paint, where it otherwise turns its colours round', async ({ page }) => {
+    // Found in this stage's review. Windows' high contrast paints every colour itself, so a focus shown by colours
+    // alone shows nothing there. Routed, so nothing is spent.
+    await page.emulateMedia({ forcedColors: 'active' });
+    await withLeft(page, { photo: 2 });
+    const failed = apiError('ai_failed');
+    await page.route(apiRoute('ai/photo'), (route) => route.fulfill({ status: failed.status, json: { error: { code: failed.code, message: failed.message } } }));
+    await page.goto('/#/ai');
+    await fromPhoto(page).click();
+    await chooseInput(page).setInputFiles(await picture('blurry-board.png'));
+    await readPicture(page).click();
+    const link = errorNote(page).getByRole('button', { name: 'type the event yourself', exact: true });
+    // Reached with the keyboard, which is when a focus shows.
+    await link.focus();
+    await page.keyboard.press('Shift+Tab');
+    await page.keyboard.press('Tab');
+    await expect(link).toBeFocused();
+    const outline = await link.evaluate((el) => {
+      const style = getComputedStyle(el);
+      return { shown: el.matches(':focus-visible'), style: style.outlineStyle, width: style.outlineWidth };
+    });
+    expect(outline).toEqual({ shown: true, style: 'solid', width: '2px' });
   });
 
   test('after a failed read the button shows what the server says is left, which can be less: the day’s tries', async ({ page }) => {

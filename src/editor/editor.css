@@ -846,8 +846,11 @@ nest-nav > nav a.ai-entry .ai-count {
   border-radius: 2px;
 }
 
+/* The outline is there and unseen: where the system paints every colour itself (Windows' high contrast), the colours
+   turned round show nothing, and the outline is what it paints. */
 .note-error .linkish:focus-visible {
-  outline: none;
+  outline: 2px solid transparent;
+  outline-offset: 1px;
   border-radius: 2px;
   background: var(--err-ink);
   color: var(--err-bg);
