@@ -25,7 +25,7 @@ What staff will bring (Artur, 2026-10-06):
 - in his words, a "Blackboard with the activity or week of activities writed by hand in the hostel".
 
 The first real case is `docs/ai-flyers/image-examples/2026-10-05-la-isleta-nest-bachata-workshop.json` with its
-`.png`: a phone photo of page 10 of a Canva file, made into flyer #8 by hand. Look at the picture before planning.
+`.jpg`: a phone photo of page 10 of a Canva file, made into flyer #8 by hand. Look at the picture before planning.
 The flyer fills the middle third of the frame, and "20:00" and "Rooftop" are pale teal on white.
 
 Two things are built:

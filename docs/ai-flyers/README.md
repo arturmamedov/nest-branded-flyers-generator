@@ -47,7 +47,8 @@ the flyer, as with any text. So a flyer from a picture is two calls, and everyth
 - `source` is the words the picture prints, typed out exactly: what a read should give.
 - `brief` is the flyer those words should give, as in `examples/`.
 - **A picture goes into git only after Artur has looked at it,** and as the read would send it: no larger than
-  2048 px, without its metadata. `npm run ai:smoke -- --photo <picture> --save <file>` writes exactly that file.
+  2048 px, without its metadata, and in the read's format (a PNG without transparency goes out as a JPEG).
+  `npm run ai:smoke -- --photo <picture> --save <file>` writes exactly that file.
 - `tests/unit/ai-image-examples.test.ts` holds every case to this.
 - `npm run ai:smoke -- --photo <the case's .json>` reads a case for real, and prints the words read under `source`.
 

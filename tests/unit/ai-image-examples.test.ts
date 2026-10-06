@@ -2,7 +2,7 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import sharp from 'sharp';
 import { describe, expect, it } from 'vitest';
-import { readPicture } from '../../scripts/ai/smoke.js';
+import { namesItsFormat, readPicture } from '../../scripts/ai/smoke.js';
 import { loadBundle } from '../../server/ai/bundle.js';
 import { APP_ROOT } from '../../server/paths.js';
 import { preparePhoto } from '../../server/services/photos.js';
@@ -12,8 +12,9 @@ import { AiExampleSchema } from '../../src/shared/schema.js';
 /* The picture reads' eval set (docs/ai-flyers/image-examples/): a case is `<date>-<hostel>-<name>.json` with its
    picture beside it under the same name. `source` is the words the picture prints, typed out: what a read should
    give. `brief` is the flyer those words should give. Each picture goes into git only after the owner has looked at
-   it (2026-10-06: "Yes, shrunk and checked"), as the read would send it: no larger than the read's edge, and without
-   its metadata. `npm run gen` does not read the folder: a picture is never a turn of the few-shot.
+   it (2026-10-06: "Yes, shrunk and checked"), as the read would send it: no larger than the read's edge, without
+   its metadata, and in the format the read sends. `npm run gen` does not read the folder: a picture is never a turn
+   of the few-shot.
    A checkout with no case yet holds nothing to check. */
 
 const DIR = join(APP_ROOT, 'docs', 'ai-flyers', 'image-examples');
@@ -37,14 +38,18 @@ describe('the image examples', () => {
     expect(readPicture(join(DIR, file)).expected).toBe(example.source);
   });
 
-  it.each(cases)('%s keeps its picture as a read would send it: no larger than the read’s edge, and without metadata', async (file) => {
-    const { bytes } = readPicture(join(DIR, file));
+  it.each(cases)('%s keeps its picture as a read would send it: no larger than the read’s edge, without metadata, in the read’s format', async (file) => {
+    const { bytes, label } = readPicture(join(DIR, file));
     const meta = await sharp(bytes).metadata();
     expect(Math.max(meta.width ?? 0, meta.height ?? 0)).toBeLessThanOrEqual(AI_PICTURE_MAX_EDGE);
     expect([meta.exif, meta.orientation, meta.xmp, meta.iptc]).toEqual([undefined, undefined, undefined, undefined]);
     // And the server takes it as it is: nothing is shrunk or turned on the way to the model.
     const sent = await preparePhoto(bytes, AI_PICTURE_MAX_EDGE);
     expect([sent.width, sent.height]).toEqual([meta.width, meta.height]);
+    // Nor is its format changed. A PNG without transparency goes out as a JPEG, so that JPEG is the case's picture,
+    // under a name that says so: `npm run ai:smoke -- --photo … --save` writes it, and holds its name the same way.
+    expect(`image/${meta.format}`, 'a case keeps the format a read sends').toBe(sent.mediaType);
+    expect(namesItsFormat(label, sent), `${label} is sent as ${sent.mediaType}`).toBe(true);
   });
 
   it('is not part of the few-shot: no case’s words are a turn of the bundle', () => {

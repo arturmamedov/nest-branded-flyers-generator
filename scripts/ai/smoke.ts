@@ -444,11 +444,13 @@ export async function runDirectPhoto(settings: AiSettings, picture: SmokePicture
   }
 }
 
+/** Whether a file's name says what a prepared picture holds: .png for a PNG, .jpg or .jpeg for a JPEG. */
+export const namesItsFormat = (file: string, sent: Pick<PreparedPhoto, 'ext'>): boolean => (sent.ext === 'png' ? /\.png$/i : /\.jpe?g$/i).test(file);
+
 /** Writes the picture as it was sent, under a name that says what it is: a case commits this file, and an opaque
     PNG goes out as a JPEG. */
 export function savePicture(file: string, sent: PreparedPhoto): void {
-  const fits = sent.ext === 'png' ? /\.png$/i : /\.jpe?g$/i;
-  if (!fits.test(file)) throw new Error(`${file} would not say what it holds: the picture was sent as ${sent.mediaType}, so name it .${sent.ext}.`);
+  if (!namesItsFormat(file, sent)) throw new Error(`${file} would not say what it holds: the picture was sent as ${sent.mediaType}, so name it .${sent.ext}.`);
   writeFileSync(file, sent.bytes);
 }
 

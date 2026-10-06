@@ -1,0 +1,37 @@
+{
+  "source": "Today\nBACHATA WORKSHOP\n\nWHEN?\n20:00\n\nWHERE?\nLa Isleta Nest\nRooftop\n\nLA ISLETA Nest",
+  "brief": {
+    "hostel": "la-isleta-nest",
+    "template": "activity",
+    "text": {
+      "eyebrow": "TODAY",
+      "headline1": "Bachata workshop",
+      "headline2": "on the rooftop.",
+      "headlineEs": "Taller de bachata en el rooftop: ven a bailar con nosotros."
+    },
+    "when": "Today · 20:00",
+    "where": "Rooftop",
+    "cost": "Ask at reception",
+    "share": "💃 ¡HOY taller de bachata! 🕺✨\n\nSube al rooftop a bailar, moverte y pasarlo bien con la gente del hostel. 🎶\n\n🕗 20:00 h\n📍 Rooftop de La Isleta Nest\n💶 Pregunta el precio y apúntate en recepción\n\n¡Te esperamos! 💙\n\n---\n\n💃 TODAY: bachata workshop! 🕺✨\n\nCome up to the rooftop to dance, move and have a good time with everyone at the hostel. 🎶\n\n🕗 20:00 h\n📍 La Isleta Nest rooftop\n💶 Ask for the price and sign up at reception\n\nSee you there! 💙"
+  },
+  "asked": [
+    {
+      "question": "The image shows no price. What should the COST chip say?",
+      "answer": "Ask at reception",
+      "field": "cost"
+    },
+    {
+      "question": "The image says Today, 20:00. Which day should the flyer print?",
+      "answer": "TODAY, as on the image",
+      "field": "when"
+    }
+  ],
+  "notes": "From a photo, not a staff text: Artur photographed a Canva page on a screen (page 10 of 'ACTIVITIES OFFICIAL TEMPLATES', a La Isleta Nest flyer), kept beside this file as the .jpg: the picture as a read sends it, a JPEG from the server's own intake (the phone's file was a PNG). `source` is what that flyer prints, typed out; nothing else came with it. The first case of a flyer made from a picture, so it lives outside examples/: it is not a turn of the text assistant's few-shot. The image carries five facts (Today, bachata workshop, 20:00, La Isleta Nest, rooftop) and no price, no way to join and nothing to bring. The hostel is read off the image twice (the WHERE block and the logo). Headline: the image's two words on the black line and the place as the teal punch ('Bachata workshop' / 'on the rooftop.'), Artur's choice over 'Bachata' / 'workshop.', which left the teal line short; it follows 'Stretching class' / 'at sunset.'. WHERE is the spot alone, since the hostel's name prints on the chip's big line. No ask in the image, so the template's 'Sign up at reception.' prints. No extras. The share text is written fresh from those five facts, with one line for the price and the sign-up, both at reception. The picture on the Canva page (an illustration of couples dancing) is not the flyer's photo: the flyer is saved without one.",
+  "posted": [
+    {
+      "site": "https://nestpass.ai/activities/",
+      "id": 8,
+      "at": "2026-10-05T20:11:35.115Z"
+    }
+  ]
+}
