@@ -776,6 +776,50 @@ What was misread, with the seconds of each read:
      rules about lines pulled the fast models two ways);
    - whether a picture that is no event should answer empty, which no model did for the sign.
 
+**Artur's choices (2026-10-06), and what was built from them:**
+
+| Question | Answer | What was built |
+|---|---|---|
+| Which model reads pictures? | **"gpt-6.1-sol, on OpenAI"** | It is the read's default on OpenAI, below |
+| Should the read use the middle model by itself? | **"Yes, a default in the code"** | `a66309c`: `AI_FEATURE_DEFAULT_MODEL`, the read on `gpt-6.1-sol` (OpenAI) and `claude-sonnet-5-5` (Anthropic), on both backends |
+| Does the 2048 px edge stay? | **"It stays"** | Nothing to build |
+| The reader's words | **All three changes:** a brand on a board is left out; one line per activity; no event answers empty | `7597e75`: `ai/prompts/photo.md`, and the bundle both backends read |
+
+- **A ruling of mine in the default:** the read's default wins over the site's own model (`AI_MODEL`, `'model'`),
+  which is now the flyer's and the share text's. A host that pins the text model must not put the read back on a
+  model that misreads a board. Only the read's own setting changes it. If wrong: one line in each loader and one
+  row of `tests/fixtures/ai-settings.json`.
+- **"No event answers empty" went in against my advice,** which Artur heard: a model could empty a real poster
+  that gives no date. So the rule carries its own guard: "A poster that names one activity is an event even when it
+  gives no day, time or place: copy it." The check reads below show the guard holding on the one such poster.
+- **For stage 3's words:** an empty answer can now mean "no event", not only "no words". The brief's line for it
+  is "The AI found no words in this picture. Write the event here yourself."
+
+**The check reads: the chosen model with the new rules.** On Artur's go ("All eleven pictures"): 11 reads on
+`gpt-6.1-sol`, about 8 cents.
+
+| Picture | What came back | Seconds |
+|---|---|---|
+| Canva page | Every fact. "La Isleta Nest" for "La isleta Nest": the capital corrected again | 9.6 |
+| 1 web-tunnel | Every fact, `[?]` for the hidden place. "Funktion-One Soundsystem" left out: the new rule about a maker's name reaches it | **21.9** |
+| 2 photo-yoga | Empty | 4.6 |
+| 3 poster-femme | Every word. **Not emptied,** though it gives no day, time or place | 4.9 |
+| 4 poster-cacao | Every fact. "neccessary" corrected to "necessary" | 5.0 |
+| 5 poster-week | Every fact, **each class on one line** | 6.7 |
+| 6 sign-whatsapp | **Empty.** Before the rule it wrote the sign out | 5.1 |
+| 7 chair | Empty | 4.8 |
+| 8 board-empty | Empty | 6.2 |
+| 9 board-week | Every fact, each activity on one line, "Ashavana" read right, the beer brand left out | 14.0 |
+| 10 board-muaythai | "10:30", for the third time | 9.8 |
+
+- **No fact was misread on any of the eleven.** What is left are copying slips: one capital, one corrected
+  misspelling, and "Activities" for "ACTIVITIES".
+- **The rule about a maker's name has a side effect:** a sound system's brand on a techno poster is dropped with
+  the beer brand on the board. Artur's to say whether that matters.
+- **The seconds are the risk:** 21.9 s on the dense screenshot, of the 25 s the app waits, and 17.7 s the first
+  time. A read that runs out of time answers "The AI didn't answer properly", costs nothing against the reads, and
+  is one of the day's tries. On a host with a shorter limit than this machine's, that picture would fail.
+
 **What was prepared before the first read:**
 
 - **`.env`** names `AI_PROVIDER`, `AI_API_KEY`, `AI_FEATURES`, `AI_DAILY_LIMITS` and the parked
