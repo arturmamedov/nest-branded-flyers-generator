@@ -47,6 +47,24 @@ const READ_NOTE: Record<Found, string> = {
 /** After the server's own sentence when a read failed for no fault of the picture (the owner's line, 2026-10-06): the
     read was free, and the picture is still chosen. */
 const PICTURE_KEPT = 'Your picture is still here: try again, or type the event yourself.';
+/** The words of that line that are its link, to the idea box (his ask, the same day). */
+const TYPE_IT = 'type the event yourself';
+
+/** The line with its link. The link is cut out of the sentence, which stays one constant: what a spec pins letter for
+    letter cannot drift from what the page shows. */
+function PictureKept({ onType }: { onType: () => void }) {
+  const [before, after] = PICTURE_KEPT.split(TYPE_IT);
+  return (
+    <>
+      {' '}
+      {before}
+      <button type="button" className="linkish" onClick={onType}>
+        {TYPE_IT}
+      </button>
+      {after}
+    </>
+  );
+}
 
 /** A message as a sentence, for another to follow it. The server's own end with a full stop; a host's error page
     ("Request failed (504)") and the browser's words for a dropped connection may not. */
@@ -101,10 +119,12 @@ export function AiPage({
   // forward, where the From your idea tab read as the page going back to its start.
   const stepping = pictureRead && way === 'idea';
   // Where the focus goes when the button that was pressed is gone with its screen: to the line under the box once a
-  // read lands, to the way the page is on again after "Change the picture".
-  const [focus, setFocus] = useState<{ on: 'note' | 'way' } | null>(null);
+  // read lands, to the way the page is on again after "Change the picture", into the box after the failed-read
+  // line's link.
+  const [focus, setFocus] = useState<{ on: 'note' | 'way' | 'idea' } | null>(null);
   const readNote = useRef<HTMLParagraphElement>(null);
   const photoWay = useRef<HTMLButtonElement>(null);
+  const ideaBox = useRef<HTMLTextAreaElement>(null);
   const readNoteId = useId();
   const [hostel, setHostel] = useState('');
   // One action at a time: the flyer's generation, or a picture's read.
@@ -128,9 +148,10 @@ export function AiPage({
   // After a read the button that was pressed is gone with its way. The focus goes to the line under the box, so a
   // keyboard stands at the box and a screen reader hears what happened. Not to the box itself: on a phone that
   // raises the keyboard over the words to check. "Change the picture" is gone with the steps it stood under: the
-  // focus goes to From a photo in the switch, which says where the page is.
+  // focus goes to From a photo in the switch, which says where the page is. "type the event yourself" is gone with
+  // its note: the cursor goes into the box, where the keyboard is now wanted.
   useEffect(() => {
-    if (focus) ({ note: readNote, way: photoWay })[focus.on].current?.focus();
+    if (focus) ({ note: readNote, way: photoWay, idea: ideaBox })[focus.on].current?.focus();
   }, [focus]);
   // "Open in editor" moves once the guard has let go (its layout effect runs first), so the move asks nothing.
   useEffect(() => {
@@ -220,6 +241,14 @@ export function AiPage({
     setFocus({ on: 'way' });
   }
 
+  // The failed-read line's link: to the idea box, to type the event by hand. The picture stays chosen, for another
+  // try, and the note has said what it had to.
+  function typeIt() {
+    setWay('idea');
+    say(null);
+    setFocus({ on: 'idea' });
+  }
+
   function open() {
     if (!result || !flyer) return;
     offerDraft({ title: result.brief.title?.trim() ?? '', hostel: flyer.hostel, data: flyer.data }, result.idea);
@@ -272,6 +301,7 @@ export function AiPage({
             <>
               <Field label="Your idea">
                 <textarea
+                  ref={ideaBox}
                   rows={10}
                   value={idea}
                   maxLength={AI_INPUT_MAX}
@@ -347,7 +377,7 @@ export function AiPage({
               <div className="note note-error">
                 {error}
                 {/* "Try again" only while a read is left to try with: at none, the used-up sentence says the rest. */}
-                {pictureKept && photo && photo.remaining > 0 && ` ${PICTURE_KEPT}`}
+                {pictureKept && photo && photo.remaining > 0 && <PictureKept onType={typeIt} />}
               </div>
             )}
             {flyer && !busy && cutOff.length > 0 && <CutOffNote canvases={cutOff} />}

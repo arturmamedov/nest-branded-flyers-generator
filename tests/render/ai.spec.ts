@@ -861,6 +861,31 @@ test.describe('From a photo', () => {
     expect(await left(page, 'photo'), 'a failed read is free').toBe(reads);
   });
 
+  test('in the failed-read line "type the event yourself" is a link: it opens the idea box with the cursor in it, and the picture stays chosen', async ({ page }) => {
+    // Routed, so nothing is spent. The owner asked for the link (2026-10-06); his sentence stays letter for letter.
+    await withLeft(page, { photo: 2 });
+    const failed = apiError('ai_failed');
+    await page.route(apiRoute('ai/photo'), (route) => route.fulfill({ status: failed.status, json: { error: { code: failed.code, message: failed.message } } }));
+    const sent = readsSent(page);
+    await page.goto('/#/ai');
+    await fromPhoto(page).click();
+    await chooseInput(page).setInputFiles(await picture('blurry-board.png'));
+    await readPicture(page).click();
+    await expect(errorNote(page)).toHaveText(`${failed.message} Your picture is still here: try again, or type the event yourself.`);
+
+    await errorNote(page).getByRole('button', { name: 'type the event yourself', exact: true }).click();
+    await expect(fromIdea(page)).toHaveAttribute('aria-pressed', 'true');
+    await expect(idea(page), 'the cursor is in the box: the next thing is to type').toBeFocused();
+    await expect(idea(page)).toBeEmpty();
+    await expect(errorNote(page), 'the note has done its work').toHaveCount(0);
+    await expect(steps(page), 'no picture was read: this idea is typed in').toHaveCount(0);
+    expect(sent, 'the link sends nothing').toHaveLength(1);
+    // The picture is still the page's, for another try.
+    await fromPhoto(page).click();
+    await expect(chosen(page)).toContainText('blurry-board.png');
+    await expect(readPicture(page)).toBeEnabled();
+  });
+
   test('after a failed read the button shows what the server says is left, which can be less: the day’s tries', async ({ page }) => {
     // Routed, so nothing is spent. api/config says two reads on load and one when asked again, as it does once the
     // day's tries bind before its reads (three tries for each read of the limit, failed ones included). The second
