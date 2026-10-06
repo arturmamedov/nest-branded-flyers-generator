@@ -25,7 +25,7 @@ import type { AiService } from './ai/service.js';
 import type { StorageDriver } from './config.js';
 import { HttpError } from './errors.js';
 import { ASSETS_DIR, DIST_DIR, ROBOTS_FILE } from './paths.js';
-import { processPhoto } from './services/photos.js';
+import { photoUpload, processPhoto, uploadedPhoto } from './services/photos.js';
 import { StorageTooNewError } from './storage/json/store.js';
 import { renderKey, type Renderer } from './services/renderer.js';
 import type { AppRepositories } from './storage/types.js';
@@ -164,10 +164,8 @@ export function createApp(deps: AppDeps) {
     res.status(204).end();
   });
 
-  const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: MAX_UPLOAD_BYTES, files: 1 } });
-  api.post('/photos', upload.single('photo'), async (req, res) => {
-    if (!req.file) throw new HttpError('no_photo_field');
-    const stored = await processPhoto(req.file.buffer, deps.uploadsDir);
+  api.post('/photos', photoUpload, async (req, res) => {
+    const stored = await processPhoto(uploadedPhoto(req.file), deps.uploadsDir);
     res.status(201).json(toPhotoInfo(await repos.photos.insert(stored)));
   });
 
