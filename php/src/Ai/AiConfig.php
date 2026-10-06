@@ -12,7 +12,7 @@ use InvalidArgumentException;
  * nothing does until it names it; `dailyLimit` is the site's own number a day for each feature, and `dailyLimits` a
  * feature's own. A missing block means off, never a 503; anything unexpected in a block that is there makes config.php invalid, as
  * AccessRule does, so a typo never silently runs a provider (or silently doesn't). The provider names, default models,
- * time limit, the app's features and the cap's default and bound come from Shared::ai(), written once in
+ * time limit, the app's features and the daily limit's default and bound come from Shared::ai(), written once in
  * src/shared/ai.ts.
  */
 final class AiConfig

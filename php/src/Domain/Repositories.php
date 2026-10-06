@@ -12,7 +12,7 @@ final class Repositories
         public readonly DoodleRepository $doodles,
         public readonly PhotoRepository $photos,
         public readonly FlyerRepository $flyers,
-        /** The AI ledger: one record per generation, the daily cap's only count. */
+        /** The AI ledger: one record per generation, the only count each feature's daily limit has. */
         public readonly AiUsageRepository $aiUsage,
         /** Records which seed file was applied (the Seeder runs inside requests). */
         public readonly SeedState $seedState,

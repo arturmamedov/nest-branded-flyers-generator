@@ -6,7 +6,8 @@ namespace NestFlyers\Domain;
 
 /**
  * The AI ledger ($defs.aiUsage, docs/json-storage.md "The AI ledger"): one append-only record per generation that
- * reached a provider. The daily cap is counted from a day's `ok` records for the actor; there is no other counter.
+ * reached a provider. Each feature's daily limit is counted from a day's `ok` records for the actor, under that
+ * feature's name; there is no other counter.
  * Node's twin also lists every record, for its copy tool; PHP has no copy tool, so it needs no more than these two.
  */
 interface AiUsageRepository

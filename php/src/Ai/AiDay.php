@@ -8,7 +8,7 @@ use DateTimeImmutable;
 use DateTimeZone;
 
 /**
- * The day the AI's cap counts in, and the date the prompt calls "today": aiDay() and aiDateLine() in
+ * The day the AI's daily limits count in, and the date the prompt calls "today": aiDay() and aiDateLine() in
  * src/shared/ai.ts, held to the same vectors (tests/fixtures/ai-day.json). The zone comes from Shared::ai(), so the
  * time-zone rule is written once.
  */

@@ -26,7 +26,7 @@ final class AiService
 {
     private readonly AiDay $day;
     private readonly PromptBuilder $prompts;
-    /** @var array{inputMax:int, assumptionsMax:int, maxOutputTokens:int, features:list<string>, schemaNames:array{flyer:string, share:string}} */
+    /** @var array{inputMax:int, assumptionsMax:int, maxOutputTokens:int, features:list<string>, featureNouns:array<string, string>, schemaNames:array{flyer:string, share:string}} */
     private readonly array $facts;
 
     /**

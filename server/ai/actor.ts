@@ -1,6 +1,6 @@
 import type { Request } from 'express';
 
-/* Who is asking. The app has no login, so every request is the one anonymous actor and the AI's daily cap is
+/* Who is asking. The app has no login, so every request is the one anonymous actor and each feature's daily limit is
    site-wide. This is the seam the login brief fills: it replaces `anonymousActors` with a resolver that reads the
    session, and gives AiPolicy (policy.ts) a role to look at. Nothing else changes: the service counts per actor id
    and asks the policy, and the routes only pass the actor through. */
