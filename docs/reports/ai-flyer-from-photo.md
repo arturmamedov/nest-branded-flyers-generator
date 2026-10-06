@@ -6,7 +6,7 @@ stage that is built. **A stage with no section here is not built.**
 | Stage | State |
 |---|---|
 | 1. A limit per feature | Built, 2026-10-06 (below) |
-| 2. The read, on both backends | Built, 2026-10-06 (below, after stage 1). Its checkpoint: Artur's answers are built and the first case is in git (*The checkpoint*, at the end); the real reads wait for his go |
+| 2. The read, on both backends | Built, 2026-10-06 (below, after stage 1). Its checkpoint: Artur's answers are built, the first case is in git, and the real reads are done (*The checkpoint*, at the end). Open: his choice of the photo's model, the 2048 px edge and the reader's words |
 | 3. The page | Not started |
 | 4. The picture as the flyer's photo | Not started |
 
@@ -541,9 +541,9 @@ A later session on 2026-10-06, on `feat/ai-feature-switches`, on top of `747e4c8
 "Stay on this branch", for the checkpoint and for stage 3. Asked how to commit, he chose "Each piece as it goes
 green". Nothing is pushed, and `main` stays at `684189e`.
 
-**Where it stands:** Artur's answers are built, the first case is in git, and the gates are green. **The first
-case is read for real, on four models; the other four pictures wait for Artur to give them.** No test and no
-script but `npm run ai:smoke`, by hand and on his go, called a provider.
+**Where it stands:** Artur's answers are built, the first case is in git, and the gates are green. **The real
+reads are done: eleven pictures, 40 reads, and one more through the Laragon copy. What is open is Artur's choice
+from the table.** No test and no script but `npm run ai:smoke`, by hand and on his go, called a provider.
 
 ### Artur's answers (2026-10-06)
 
@@ -631,11 +631,23 @@ It stays a PNG for the read, as the brief says. A very large one could pass Anth
 `preparePhoto()` already sends a PNG with no real transparency as a JPEG whenever it re-encodes one. It takes a
 picture that is truly see-through, photographic, and about 7.5 MB after shrinking.
 
-### The real reads: the first case is read, four pictures to come
+### The real reads: eleven pictures, 40 reads
 
-Artur's go, 2026-10-06: **"Go: the first case now"**, on **"The middle one of each"** as the stronger model. The
-other four pictures (a handwritten board, a poster, a chat screenshot, a photo with no words) run when he gives
-them.
+Artur's go, 2026-10-06: **"Go: the first case now"**, on **"The middle one of each"** as the stronger model. He
+then put ten pictures of his own in `backups/photo-reads/`, some of them "lying and not from activities", to see
+what a mistaken upload does, and asked that the calls be optimized and each picture understood first.
+
+**What the reads say, before the tables:**
+
+- **Printed posters and screenshots: every model reads them.** The fast models are enough there.
+- **Handwriting: the fast models are not to be trusted with it.** On the Muay Thai board both wrote a wrong time,
+  three reads out of three each, and never a `[?]`: "19:30" and "20:30" where the board says "10:30". Both middle
+  models read "10:30" every time.
+- **A picture that is no event still gives its words.** All four models wrote out the framed "What's on today?"
+  sign. No model made up an activity from erased chalk.
+- **The seconds:** `claude-haiku-4-5` 1.7 to 4.0, `claude-sonnet-5-5` 4.3 to 11.5, `gpt-6.1-sol` 8.5 to 17.7,
+  `gpt-6-luna` 2.2 to 20.7, of the 25 s the app waits.
+- **The cost:** all 40 reads together came to about 19 cents.
 
 **The Canva page** (`2026-10-05-la-isleta-nest-bachata-workshop`), sent as 899 × 1599, a JPEG of 150 KB. Each read
 is `npm run ai:smoke -- --photo <the case's .json>` with the feature, the provider and the model in the command's
@@ -662,6 +674,107 @@ own environment; the ledger is in memory.
   under half a cent, a middle one about one cent. Less than the estimate given before them.
 - The stronger Claude model thought before answering (626 tokens out for 15 words) and still answered in 8.4 s of
   the 25 s.
+
+**The ten pictures Artur gave.** All are WhatsApp JPEGs of 1080 to 1534 px wide and at most 2048 px tall, so the
+intake sent each as it came: the 2048 px edge shrank none of them. They stay in `backups/photo-reads/`, outside
+git.
+
+| # | Short name | His file (`WhatsApp Image …`) | What it is |
+|---|---|---|---|
+| 1 | web-tunnel | `2026-09-21 at 11.24.51` | A phone screenshot of the Nests website, a partner's techno poster inside |
+| 2 | photo-yoga | `2026-09-28 at 10.43.45` | Yoga at sunset: no words |
+| 3 | poster-femme | `2026-10-01 at 10.57.13` | A designed poster: a slogan and a name, no date, no place |
+| 4 | poster-cacao | `2026-10-04 at 09.03.077` | A complete poster: date, time, price, place, a phone number |
+| 5 | poster-week | `2026-10-04 at 11.11.03` | A printed week of four dance classes |
+| 6 | sign-whatsapp | `2026-10-06 at 13.54.58` | **Lying:** the framed "What's on today?" sign with its QR code. It looks like a flyer and is no event |
+| 7 | chair | `2026-10-06 at 13.54.588` | **Lying:** a painted chair, its patterns like writing |
+| 8 | board-empty | `2026-10-06 at 13.54.589` | **Lying:** a chalkboard with four day names, empty boxes, and erased chalk still faint |
+| 9 | board-week | `2026-10-06 at 13.54.68` | The handwritten weekly board: four activities in six colours |
+| 10 | board-muaythai | `2026-10-06 at 13.54.78` | One handwritten event in bubble letters |
+
+**Each picture was read by eye first,** with its hard spots enlarged, and what it should give was written down
+before any model was asked. The misreads below are judged against that, not against each other.
+
+**The calls were made in two rounds, so none was spent where it could teach nothing.** Round 1: all ten on the two
+fast models. Round 2: the middle models on the five pictures where a fast model had slipped or where the answer is
+a judgment. The other five were read right by both fast models, so a stronger model had nothing to add: 10 reads
+not made. Then the one result the choice hangs on, the Muay Thai time, was read again, to see that it was not luck.
+
+What was misread, with the seconds of each read:
+
+| # | `gpt-6-luna` | `claude-haiku-4-5` | `gpt-6.1-sol` | `claude-sonnet-5-5` |
+|---|---|---|---|---|
+| 1 web-tunnel | One name of the line-up, "LIRR" for "LTRR". `[?]` for the half-hidden place. **20.7 s** | The venue "Tunel Las Brujas" and the half-hidden place left out, with no `[?]`. "Asymetric" corrected to "Asymmetric". 4.0 s | Nothing. `[?]` for the place and for the cut-off sentence. 17.7 s | Nothing. It added the sponsors' names. 11.5 s |
+| 2 photo-yoga | Nothing: empty. 2.2 s | Nothing: empty. 1.7 s | not run | not run |
+| 3 poster-femme | Nothing. 5.3 s | Nothing. 2.3 s | not run | not run |
+| 4 poster-cacao | "neccessary" corrected to "necessary". 7.3 s | Nothing: the misspelling copied. 2.8 s | not run | not run |
+| 5 poster-week | Nothing. Each class as a block of four lines. 6.2 s | Nothing. Each class on one line, with a "\|" the picture has as a drawn rule. 3.7 s | not run | not run |
+| 6 sign-whatsapp | The sign's words, where no event is. The word a light bulb hides was filled in. 5.1 s | The same. 3.1 s | The sign's words, with `[?]` for the hidden word. 10.2 s | The same as `gpt-6.1-sol`. 9.0 s |
+| 7 chair | Nothing: empty. 2.3 s | Nothing: empty. 1.7 s | not run | not run |
+| 8 board-empty | "DORADA Especial" and the four day names, where empty is right. 6.6 s | The same, with hearts. 2.7 s | Nothing: empty. 12.6 s | Nothing: empty. 4.3 s |
+| 9 board-week | The beer brand kept. "21h3[?]" for "21h". "Asharana" for the hostel Ashavana. A flourish read as "?" and as ":". 16.6 s | The beer brand kept. "Asharama" for Ashavana. A star emoji added to each row. 2.6 s | **Nothing.** "Ashavana" read right, each activity on one line. 14.6 s | "Asharana" for Ashavana. The rest right, each activity on one line. 8.5 s |
+| 10 board-muaythai | **The time: "19:30" for "10:30"**, with no `[?]`. 6.9 s | **The time: "20:30" for "10:30"**, with no `[?]`. 2.3 s | Nothing: "10:30". 9.2 s | Nothing: "10:30". 6.2 s |
+
+**The Muay Thai board, read again:**
+
+| | `gpt-6-luna` | `claude-haiku-4-5` | `gpt-6.1-sol` | `claude-sonnet-5-5` |
+|---|---|---|---|---|
+| Second read | "19:30" again | "20:30" again | "10:30" again | "10:30" again |
+| Third read | "19:30", and the title and the day in Thai script, the day as Friday | "20:30", and the title in Thai script | not run | not run |
+
+- **"10:30" is the reading by eye,** with the digits enlarged: a bubble "1" with a flag and a foot, joined to the
+  "0". Artur knows the real time, and can say if the board means another.
+- **The fast models' wrong time is steady, not chance:** each gave its own wrong answer three times out of three.
+  The reader's rule ("Never guess a word, a time or a price") did not help: a model that misreads a digit does not
+  know it is guessing.
+- **No model read the erased chalk as an activity,** on any of the three boards. The fast models did write what is
+  printed or still chalked on the empty board: the brand and the day names.
+- **The hostel's name in handwriting was read right by one model of four.** The reader is not given the hostels'
+  names, by the brief's shape. Whether the flyer's assistant, which has them, maps "Asharana" to Ashavana Nest was
+  not tested: that is a flyer generation, another feature.
+- **No model answered empty for the sign.** The reader copies words: it does not judge whether they announce an
+  event. What the flyer's assistant then makes of a sign's words was not tested either.
+- **One read is one sample.** Only the Muay Thai time was repeated. `gpt-6-luna` read the Canva page's two columns
+  in two different orders in two calls (*One read through the Laragon copy*, below).
+
+**The numbers, per model, over every direct read:**
+
+| Model | Reads | Seconds | Tokens in, per read | Tokens out, per read | Cost per read |
+|---|---|---|---|---|---|
+| `gpt-6-luna` | 13 | 2.2 to 20.7 | 2,158 to 3,359 | 14 to 1,671 | about 0.05 cent |
+| `claude-haiku-4-5` | 13 | 1.7 to 4.0 | 2,119 to 2,143 | 8 to 169 | about 0.25 cent |
+| `gpt-6.1-sol` | 7 | 8.5 to 17.7 | 2,158 to 3,139 | 84 to 462 | about 0.9 cent |
+| `claude-sonnet-5-5` | 7 | 4.3 to 11.5 | 2,644 to 3,682 | 225 to 1,170 | about 1.3 cents |
+
+- **The cost is from the tokens and the providers' prices,** not from a bill: about 19 cents for the 40 reads.
+- **`gpt-6-luna`'s seconds swing widely:** 20.7 s on the dense screenshot and 16.6 s on the weekly board, with
+  1,671 and 998 tokens out for answers of a few lines. It thinks at length on a hard picture. On a host with a
+  shorter limit than this machine's 25 s, those two reads are the ones at risk.
+- **`claude-haiku-4-5` is sent about the same tokens whatever the picture:** it reads at a lower resolution than
+  the other three, which fits its misreads of small and stylised text.
+
+**What the reads cannot say:**
+
+- **Whether 2048 px matters.** No picture here was larger, so the edge never shrank one: WhatsApp had already
+  brought each down to about 2000 px. A photo taken with the phone's own camera will be the first one shrunk:
+  stage 3's phone test.
+- **A photographed poster at an angle, and a chat screenshot of a message.** None of the ten is one. The closest
+  are the framed sign, photographed straight on behind cables, and the website screenshot.
+- **IONOS's own time limit.** Every read ran on this machine or the Laragon copy.
+
+**For Artur to choose, from this:**
+
+1. **The photo's model.** The middle model of the site's provider. On OpenAI, which this machine and the Laragon
+   copy run: `AI_MODELS=photo:gpt-6.1-sol`, the only model with no misread on any picture, at 8.5 to 17.7 s and
+   about a cent a read. On Anthropic: `claude-sonnet-5-5`, one handwritten name misread, at 4.3 to 11.5 s.
+2. **Whether the read should run on the middle model without being told to.** Today a site that names `photo` and
+   no model reads pictures on the fast one, the one that wrote the wrong time.
+3. **Whether 2048 px stays.** Nothing here speaks against it.
+4. **The reader's prompt's words.** What the reads suggest:
+   - say plainly that a brand printed on a board is left out (the fast models kept "DORADA Especial");
+   - say that each activity of a board goes on one line with its day, its time and its place (the prompt's two
+     rules about lines pulled the fast models two ways);
+   - whether a picture that is no event should answer empty, which no model did for the sign.
 
 **What was prepared before the first read:**
 
@@ -731,8 +844,9 @@ One sequence on 2026-10-06, on the tree of `43aa907`: the checkpoint's last comm
 
 ### What is left of the checkpoint
 
-- **The real reads of the other four pictures,** when Artur gives them: both providers, the default model and the
-  middle one. He then gets the whole table and chooses the photo's model, whether 2048 px stays, and the reader's
-  prompt's words.
+- **Artur's choices, from the table:** the photo's model, whether the read runs on the middle model without being
+  told to, whether 2048 px stays, and the reader's prompt's words. What he says yes to is built then, test first.
+- **Not tested, and his to ask for:** what the flyer's assistant makes of a sign's words or of a misread hostel
+  name; a smaller edge than 2048 px; a poster photographed at an angle; a chat screenshot of a message.
 - **Nothing is pushed.** `.env` was not changed, and the live site was not called. One release was built, for the
   Laragon copy alone.

@@ -414,13 +414,20 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
       - The first case is in git as the read sends it: a JPEG of 154 KB from the server's own intake. The test
         holds a case to the read's format. Artur's 1.4 MB PNG is in `backups/image-examples-originals/`, which git
         ignores.
-      - **The first case is read for real** (2026-10-06, on his go: `gpt-6-luna`, `gpt-6.1-sol`,
-        `claude-haiku-4-5`, `claude-sonnet-5-5`; every fact read by all four, 3.4 to 8.5 s; the report has the
-        rows). The stronger model of each provider is its middle one, his choice.
-      - **The other four pictures wait for him to give them:** a handwritten board, a poster, a chat screenshot,
-        a photo with no words. He pastes them into `backups/photo-reads/`, which git ignores. He then chooses the
-        photo's model, whether 2048 px stays, and the prompt's words. Only `npm run ai:smoke`, by hand and on his
-        go, called a provider.
+      - **The real reads are done** (2026-10-06, on his go: eleven pictures, 40 reads, about 19 cents, on
+        `gpt-6-luna`, `claude-haiku-4-5` and the middle model of each provider, `gpt-6.1-sol` and
+        `claude-sonnet-5-5`). His ten pictures are in `backups/photo-reads/`, which git ignores; some are no
+        event, on purpose. The report has every row. What they say:
+        - Printed posters and screenshots: every model reads them.
+        - Handwriting: both fast models wrote a wrong time on a board, three reads of three each, with no `[?]`.
+          Both middle models read it right. `gpt-6.1-sol` had no misread on any picture.
+        - A picture that is no event still gives its words; no model made an activity out of erased chalk.
+        - Seconds of the 25: `claude-haiku-4-5` to 4.0, `claude-sonnet-5-5` to 11.5, `gpt-6.1-sol` to 17.7,
+          `gpt-6-luna` to 20.7.
+      - **Open, Artur's choice from that table:** the photo's model; whether the read runs on the middle model
+        without being told to (today a site that names `photo` and no model reads on the fast one); whether
+        2048 px stays (no picture was larger, so nothing speaks against it); the reader's prompt's words. Only
+        `npm run ai:smoke`, by hand and on his go, called a provider.
       - One read went through the Laragon copy, on his word: `gpt-6-luna`, 7.4 s with the upload. The copy now
         runs release `8c7a635bd009` (tag `release/8c7a635bd009`, on `a10e92f`), and is left with the share text
         alone, as he said.
