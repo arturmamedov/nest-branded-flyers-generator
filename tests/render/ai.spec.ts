@@ -454,6 +454,10 @@ const picker = (page: Page) => page.locator('.ai-picker');
 const chooseInput = (page: Page) => picker(page).locator('input[type=file]:not([capture])');
 /** The chosen picture, small, with its name. */
 const chosen = (page: Page) => page.locator('.ai-picture');
+const takePhoto = (page: Page) => page.getByRole('button', { name: 'Take a photo', exact: true });
+const choosePicture = (page: Page) => page.getByRole('button', { name: 'Choose a picture', exact: true });
+/** The line that offers drop and paste, a mouse device's. */
+const dropOrPaste = (page: Page) => picker(page).getByText('Or drop a picture here, or paste a screenshot.', { exact: true });
 
 /** A small picture, made here. Its width steers the fake (AI_FAKE.pictureWidths); 64 is no steer. */
 async function picture(name: string, width = 64): Promise<FilePayload> {
@@ -572,5 +576,33 @@ test.describe('From a photo', () => {
     await expect(chosen(page)).toHaveCount(0);
     await expect(page).toHaveURL(/#\/ai$/);
     await expect(readPicture(page)).toBeDisabled();
+  });
+
+  test('with a mouse there is no Take a photo: a laptop has Choose a picture, drop and paste', async ({ page }) => {
+    await page.goto('/#/ai');
+    await fromPhoto(page).click();
+    await expect(choosePicture(page)).toBeVisible();
+    await expect(dropOrPaste(page)).toBeVisible();
+    await expect(takePhoto(page)).toBeHidden();
+  });
+
+  test.describe('on a phone or a tablet', () => {
+    // A finger as the main pointer: what tells a phone from a laptop, whose browser ignores `capture`.
+    test.use({ hasTouch: true, viewport: { width: 390, height: 844 } });
+
+    test('Take a photo asks the device for its camera, beside Choose a picture, and the picture it hands back is chosen', async ({ page }) => {
+      await page.goto('/#/ai');
+      await fromPhoto(page).click();
+      await expect(takePhoto(page)).toBeVisible();
+      await expect(choosePicture(page)).toBeVisible();
+      await expect(dropOrPaste(page), 'nothing to drop or paste with a finger').toBeHidden();
+
+      const [chooser] = await Promise.all([page.waitForEvent('filechooser'), takePhoto(page).click()]);
+      expect(await chooser.element().getAttribute('capture'), 'the camera at the back, where a poster is').toBe('environment');
+      expect(await chooser.element().getAttribute('accept'), 'a photo, not any file').toMatch(/^image\//);
+      await chooser.setFiles(await picture('camera.png'));
+      await expect(chosen(page)).toContainText('camera.png');
+      await expect(readPicture(page)).toBeEnabled();
+    });
   });
 });

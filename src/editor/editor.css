@@ -682,6 +682,21 @@ nest-nav > nav a.ai-entry .ai-count {
   margin: 0 0 8px;
 }
 
+/* Take a photo is a phone's and a tablet's, where the main pointer is a finger; drop and paste are a mouse's. */
+.btn.ai-touch {
+  display: none;
+}
+
+@media (pointer: coarse) {
+  .btn.ai-touch {
+    display: inline-flex;
+  }
+
+  .ai-mouse {
+    display: none;
+  }
+}
+
 .ai-picture {
   display: flex;
   align-items: center;

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ChangeEvent } from 'react';
 import type { AiFeatureOn } from '../shared/ai';
 import { ACCEPTED_PHOTO_TYPES } from '../shared/limits';
 import { AiUsedUp } from './panel';
@@ -20,9 +20,17 @@ export function AiPhoto({
   /** A picture chosen, dropped or pasted, in the place of the one before; null takes the one there away. */
   onPick: (picture: File | null) => void;
 }) {
+  const cameraInput = useRef<HTMLInputElement>(null);
   const chooseInput = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
   const left = ai.remaining;
+  const accept = ACCEPTED_PHOTO_TYPES.join(',');
+  // Emptied afterwards, so the same file chosen again is a change again.
+  const onChosen = (e: ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    if (f) onPick(f);
+    e.target.value = '';
+  };
 
   // A screenshot off the clipboard (Ctrl+V), while this way is on screen. Text alone is no picture, and is left to
   // whatever has the focus.
@@ -58,22 +66,19 @@ export function AiPhoto({
         }}
       >
         <div className="photo-row">
+          {/* The device's own camera (the owner's answer, 2026-10-06: "Phone's own camera; none on a laptop"). A
+              laptop's browser ignores `capture` and would open the same file dialog as the button beside it, so
+              this one shows only where the main pointer is a finger (editor.css). */}
+          <button type="button" className="btn ai-touch" onClick={() => cameraInput.current?.click()}>
+            Take a photo
+          </button>
           <button type="button" className="btn" onClick={() => chooseInput.current?.click()}>
             Choose a picture
           </button>
-          <input
-            ref={chooseInput}
-            type="file"
-            accept={ACCEPTED_PHOTO_TYPES.join(',')}
-            hidden
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) onPick(f);
-              e.target.value = '';
-            }}
-          />
+          <input ref={cameraInput} type="file" accept={accept} capture="environment" hidden onChange={onChosen} />
+          <input ref={chooseInput} type="file" accept={accept} hidden onChange={onChosen} />
         </div>
-        <p className="help">Or drop a picture here, or paste a screenshot.</p>
+        <p className="help ai-mouse">Or drop a picture here, or paste a screenshot.</p>
         {picture && <Chosen picture={picture} onRemove={() => onPick(null)} />}
       </div>
       <button type="button" className="btn btn-accent" disabled={!picture || left === 0}>
