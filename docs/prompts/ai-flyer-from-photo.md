@@ -9,7 +9,8 @@ go-ahead. Suggested: Opus 5.5 at high effort.
 stage is the first one without a section. Stages 1, 2 and 3 were built on 2026-10-06.
 - Stage 2's checkpoint, the real reads, is closed: the report's *The checkpoint* has Artur's answers, the reads and
   what he chose from them.
-- Stage 3's checkpoint is open on one thing, the real phone. Stage 4 is not started.
+- Stage 3's checkpoint has all it asked for: the screenshots, and a real phone the same evening. What it left is
+  Artur's to decide (the report's *For Artur to decide*). Stage 4 is not started.
 - Stage 3 changed two things in "The shape" below, both Artur's answers of that day: an empty read says "The AI
   found no event in this picture. Write the event here yourself.", and a failed read adds "Your picture is still
   here: try again, or type the event yourself." The report has the rest: what the page does that the shape does not

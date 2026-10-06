@@ -7,7 +7,7 @@ stage that is built. **A stage with no section here is not built.**
 |---|---|
 | 1. A limit per feature | Built, 2026-10-06 (below) |
 | 2. The read, on both backends | Built, 2026-10-06 (below, after stage 1). Its checkpoint: Artur's answers are built, the first case is in git, and the real reads are done, and what he chose from them is built (*The checkpoint*, at the end). **The checkpoint is closed** |
-| 3. The page | Built, 2026-10-06 (the last section). Looked at on both backends and reviewed. **Its checkpoint is open on one thing: a real phone** |
+| 3. The page | Built, 2026-10-06 (the last section). Looked at on both backends, reviewed, and tried on a real phone the same evening. **Its checkpoint has all it asked for; what is left is Artur's to decide** |
 | 4. The picture as the flyer's photo | Not started |
 
 # Stage 1: a limit per feature
@@ -983,8 +983,9 @@ Branch `feat/ai-feature-switches`, on top of `ceea60f`, on 2026-10-06, in a sess
 `docs/prompts/ai-flyer-from-photo-stage-3.md`. The branch was Artur's earlier answer ("Stay on this branch"). Asked
 how to commit, he chose "Each piece as it goes green". Nothing is pushed, and `main` stays at `684189e`.
 
-**The checkpoint is open on one thing: the real phone.** Everything below is built and green, was looked at in a
-browser on both backends, and was reviewed. No provider was called in this stage, by a test, a script or the look.
+**The checkpoint has all it asked for:** the screenshots on both backends, and what a real phone did (*The
+phone*, below). Everything is built and green, was looked at in a browser on both backends, and was reviewed. No
+provider was called in this stage, by a test, a script, the look or the phone.
 
 ## What it is
 
@@ -1004,8 +1005,8 @@ there touched one phrase of the flyer's prompt and one line of PHP: *The review*
 | What does the page say when a read comes back empty? It can now mean "no event" as well as "no words" | **"The AI found no event in this picture. Write the event here yourself."** | Built. It replaces the brief's line |
 | Should the page add a line after the server's sentence when a read fails? | **"Add a line"**: "Your picture is still here: try again, or type the event yourself." | Built |
 | "Can't we mitigate somehow for this with an AJAX call or something that will wait the AI to answer and update the UI when it does?" | After the explanation below: **"Nothing more now"** | No polling, no second try, no new setting |
-| How to commit? | **"Each piece as it goes green"** | Eleven commits, staged by path |
-| The real phone? | **"This PC, office Wi-Fi, fake AI"** | Open: the checkpoint's last part |
+| How to commit? | **"Each piece as it goes green"** | Twelve commits, staged by path |
+| The real phone? | **"This PC, office Wi-Fi, fake AI"** | Done the same evening, over this PC's own hotspot: *The phone*, below |
 
 **A read that runs out of time, and why polling would not help.** The page already waits for the server for as long
 as it takes, and fills the box when the answer comes: the browser never gives up. What ends a slow read is the
@@ -1218,6 +1219,52 @@ The line under the box with the keyboard's focus on it, after the fix:
 After each look the servers were stopped by their ports, no `php` was left running, and the PHP stages' folders
 were removed.
 
+## The phone
+
+Artur's Galaxy S23, Chrome on Android, on the evening of 2026-10-06, against the built app on this PC with the fake
+provider and a throwaway data folder. Nothing was spent.
+
+- **Take a photo opened the camera, and Choose a picture the gallery.** Each picture showed small on the page, the
+  right way up.
+- **Both reads worked:** the words landed in "Your idea". Each upload arrived in a fifth of a second, and the answer
+  came in about a second.
+- **The browser's shrink ran on a real camera photo for the first time.** Both pictures reached the server at
+  1153 × 2048: the long edge is the read's, exactly. No picture of the real reads had been larger than 2048 px.
+- **The pictures came back upright,** with no orientation tag left: both were read by eye as the server kept them.
+- **Handwriting stays legible at that size.** One is a chalk board photographed at an angle, a second board beside
+  it: "Karaoke Night 06/10 (today), free event, Medano Nest hostel". The other is the Muay Thai board of the real
+  reads: "Tuesday 6 at 10:30".
+
+| | Take a photo | Choose a picture |
+|---|---|---|
+| What it was | the karaoke board, taken on the spot | the Muay Thai board, from the gallery |
+| The upload, as the browser sent it | 606,897 bytes, complete in 168 ms | 658,147 bytes, complete in 205 ms |
+| The answer | 200 after 988 ms | 200 after 1,074 ms |
+| What the server kept | 1153 × 2048, a JPEG of 520,841 bytes | 1153 × 2048, a JPEG of 562,680 bytes |
+
+**What went wrong on the way, none of it the app's:**
+
+- **The hostel's Wi-Fi keeps its devices apart.** On it the phone could not reach this PC at all ("address
+  unreachable"). It is also no closed office network, so the app was stopped there at once: it has no lock.
+- **On this PC's own hotspot** the page loaded, then the phone switched Wi-Fi by itself and the first reads died on
+  the way. The server had logged nothing, kept nothing and counted nothing.
+- **The page said what it should:** "Failed to fetch. Your picture is still here: try again, or type the event
+  yourself." That is the failed-read line with the full stop the review asked for, seen on a real phone, and the
+  picture was still chosen.
+- A small relay in front of the app showed that no request of the phone's was arriving. With the phone back on the
+  hotspot, both reads went through.
+
+**Not tried on the phone, said plainly:**
+- Generate and "Open in editor": no flyer was asked for, and the server's count stayed at 5 of 5.
+- A photo taken sideways: both were upright.
+- An iPhone, and so a HEIC. A spec holds the hint, with a made-up file.
+- A real provider: the words that came back were the fake's.
+- Whether the camera opened straight away or after a menu was not said.
+
+**Kept, outside git:** `backups/phone-test-2026-10-06/` has the two pictures as the server kept them, and the
+relay's log. The camera's picture exists nowhere else. The throwaway data folder is deleted, and both servers were
+stopped.
+
 ## The review
 
 One fresh-context review of `747e4c8..61cd7ec`, by another agent that was given the code and the brief and not my
@@ -1308,11 +1355,8 @@ One sequence on 2026-10-06, on the tree of `9e5621a`: the stage's last code comm
 
 ## What is left
 
-- **The checkpoint: a real phone.** On Artur's word the built app starts on this PC's office address
-  (192.168.100.41), with the fake provider and a throwaway data folder, for those minutes only. He opens it on his
-  phone and takes a photo. Then the kept picture is read off the disk: upright or not, and how the 2048 px edge
-  shrank it. Windows calls this Wi-Fi a public network, so its firewall will likely ask before letting the phone
-  in.
+- **Nothing of the checkpoint itself.** The phone was tried (*The phone*, above). What it did not try is listed
+  there: Generate on the phone, a sideways photo, an iPhone.
 - **Nothing is pushed.** `main` is at `684189e`. `.env` was not changed, no release was built, and neither the
   Laragon copy nor the live site was touched.
 - **A release of this stage** needs nothing new on a host that already names `photo`: the page comes with the
@@ -1334,7 +1378,9 @@ One sequence on 2026-10-06, on the tree of `9e5621a`: the stage's last code comm
    It is also what the fake provider answers, so the tests that quote its flyer follow it.
 7. **The time limit.** Once your smoke call has measured IONOS, `timeoutMs` can go up to just under the host's own
    limit, for every feature.
-8. **Older, unchanged:** the three items of stage 1 (the sentence at a limit of 1, a feature with nothing for its
+8. **The phone's two pictures as cases for the reads' eval set** (`backups/phone-test-2026-10-06/`): a board
+   photographed at an angle is what the real reads lacked. They go into git only after you have looked at them.
+9. **Older, unchanged:** the three items of stage 1 (the sentence at a limit of 1, a feature with nothing for its
    number, "Try again (none left today)").
 
 **For the session that builds stage 4,** what this stage leaves ready:
@@ -1351,3 +1397,5 @@ One sequence on 2026-10-06, on the tree of `9e5621a`: the stage's last code comm
 - A spec that sends the server a real read must run before the one that spends the last flyer, which is last in
   its `describe`.
 - After a look, check for `php -S` processes left on the look's ports.
+- A phone reaches this PC over the PC's own hotspot (`192.168.137.1`), never over a hostel's Wi-Fi, which keeps
+  its devices apart and is no closed network. The phone must be kept from switching Wi-Fi by itself meanwhile.

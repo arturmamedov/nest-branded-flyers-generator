@@ -489,7 +489,7 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
     - No release was built. A host needs the release first, then `'models'` and `'photo'`; both come out before
       going back (`docs/deploy.md`, "Rolling back").
   - **Stage 3 is built: the page, "From a photo" on Create with AI** (2026-10-06, on `feat/ai-feature-switches`,
-    eleven commits on top of `ceea60f`, each as it went green on his word). Nothing is pushed.
+    twelve commits on top of `ceea60f`, each as it went green on his word). Nothing is pushed.
     - It is the client alone, on both backends: the architecture section above says how it works. With `photo` not
       named the page is as it was, and the baseline is byte-identical (32 cases).
     - Artur's answers: the empty read's line ("The AI found no event in this picture. Write the event here
@@ -500,9 +500,13 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
     - A fresh-context review of `747e4c8..61cd7ec` found no way for a switched-off feature to run or leak. What
       it found is fixed, each test first: among it, words that lost their leave guard after a second, empty
       read, a read on its way that leaving did not ask about, and "try again" over a button with none left.
-    - **Its checkpoint is open: a real phone.** Take a photo must open the camera, and the picture must come
-      back upright. Ask Artur when: the built app then starts on this PC's office address with the fake and a
-      throwaway data folder, for those minutes only, and the kept picture is read off the disk.
+    - **The real phone was tried the same evening** (his Galaxy S23, Chrome, the fake provider): Take a photo
+      opened the camera, Choose a picture the gallery, and both reads worked. The browser shrank each camera-sized
+      photo to 1153 × 2048, and the server kept it upright. Not tried there: Generate, a sideways photo, an iPhone.
+      The two pictures are in `backups/phone-test-2026-10-06/`, outside git.
+    - A phone reaches this PC over the PC's own hotspot (`192.168.137.1`), with the server bound to that address
+      alone. A hostel's Wi-Fi keeps its devices apart and is no closed network: the app is never served on it.
+    - **The checkpoint has all it asked for.** Stage 4 waits for his word.
     - **For Artur to decide** (the report has each): **reads sent at the same moment pass the tries together**
       (found by the review: a limit of 1, 20 reads at once, 20 provider calls and 20 pictures kept; holding the
       bound means recording a try before the provider is asked, on both backends); the words on the page that
