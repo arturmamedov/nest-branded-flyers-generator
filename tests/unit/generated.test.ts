@@ -89,12 +89,15 @@ describe('the AI bundle (schema/ai.json) and the ai block of shared.json', () =>
     for (const e of bundle.examples as { text: string; answer: { brief: Brief } }[]) expectOwnersRules(e.answer.brief, e.text.slice(0, 30));
   });
 
-  it('the rules the examples are held to refuse a range with spaces round its dash, or a long dash', () => {
-    // Found in review (2026-10-06): the range was a rule of the prompt's and no example was held to it.
-    for (const when of ['Every day · 17:45 – 23:00', 'Every day · 17:45 - 23:00', 'Today · 19:00—21:00']) {
+  it('the rules the examples are held to refuse a spaced hyphen or a long dash in WHEN, whatever stands on either side', () => {
+    // Found in review (2026-10-06): the range was a rule of the prompt's and no example was held to it. Found in the
+    // next one: the check wanted a digit on both sides of the dash, so a range of days passed it.
+    for (const when of ['Every day · 17:45 – 23:00', 'Every day · 17:45 - 23:00', 'Today · 19:00—21:00', 'Mon 5/10 – Fri 9/10', 'Fri 9 – Sun 11 · 10:00', 'Mon - Fri · 10:00']) {
       expect(() => expectOwnersRules({ when } as Brief, when), when).toThrow();
     }
-    for (const when of ['Every day · 17:45-23:00', 'Today · 19:00', 'Saturday 3/10 · 20:30']) {
+    // A day and its time are parted by the dot, never by a hyphen with spaces: that is no range, and is refused as well.
+    expect(() => expectOwnersRules({ when: 'Sat 3/10 - 20:30' } as Brief, 'a hyphen for the dot')).toThrow();
+    for (const when of ['Every day · 17:45-23:00', 'Today · 19:00', 'Saturday 3/10 · 20:30', 'Mon-Fri · 10:00']) {
       expect(() => expectOwnersRules({ when } as Brief, when), when).not.toThrow();
     }
   });

@@ -18,8 +18,9 @@ export function expectOwnersRules(brief: Brief, where: string): void {
   // A price nobody gave is not printed: no stand-in for it.
   expect(brief.cost ?? '', `${where}: no stand-in for a missing price`).not.toMatch(/^ask\b/i);
   // A start and an end are one range, written as on his Teide flyer: a hyphen and no spaces. With spaces round the
-  // dash, or a long dash, it broke over two lines in the chip.
-  expect(brief.when ?? '', `${where}: a start and an end are one range, a hyphen and no spaces`).not.toMatch(/\d\s*[–—]\s*\d|\d\s+-\s*\d|\d-\s+\d/);
+  // dash, or a long dash, it broke over two lines in the chip. So WHEN holds no long dash and no hyphen beside a
+  // space, whatever stands on either side: two times, two dates or two days. A day and its time are parted by `·`.
+  expect(brief.when ?? '', `${where}: a start and an end are one range, a hyphen and no spaces`).not.toMatch(/[–—]|\s-|-\s/);
   if (brief.share === undefined) return;
   // The share text: English first, then the line, then Spanish.
   const blocks = brief.share.split(`\n${SHARE_SPANISH_BREAK}\n`);
