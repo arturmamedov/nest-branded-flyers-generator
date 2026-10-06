@@ -1318,6 +1318,35 @@ test.describe('From a photo', () => {
     await expect(page.locator('.note-warn', { hasText: 'AI draft' })).toHaveCount(0);
   });
 
+  test('a picture that lands after the staff member left and came back to Create with AI opens nothing either: the page that asked is gone', async ({ page }) => {
+    // The page in the URL is the same one, and a new one: the answer belongs to the page that was left.
+    await flyerFromPicture(page, await picture('poster.png'));
+    await usePicture(page).check();
+    const release = await hold(page, apiRoute('photos'), 'POST');
+    await openInEditor(page).click();
+    await expect(page.locator('.ai-waiting')).toBeVisible();
+    expect(await answerConfirm(page, 'accept', () => backToLibrary(page).click())).toBe(LEAVE_PROMPT);
+    await expect(page.getByRole('heading', { name: 'Flyer library' })).toBeVisible();
+    await entry(page).click();
+    await expect(idea(page), 'a new page, with nothing of the one that was left').toBeEmpty();
+
+    const landed = page.waitForResponse(apiCall('POST', 'photos'));
+    release();
+    const res = await landed;
+    expect(res.status()).toBe(201);
+    await res.finished();
+    await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))));
+    await expect(page).toHaveURL(/#\/ai$/);
+    await expect(preview(page), 'no flyer arrived on the new page').toHaveCount(0);
+    // Nothing was handed over, so nothing waits for the next new flyer.
+    const quiet = noDialogs(page);
+    await backToLibrary(page).click();
+    await page.getByRole('link', { name: 'New flyer' }).click();
+    await expect(page.getByLabel('Line 1')).toHaveValue('');
+    await expect(page.locator('.note-warn', { hasText: 'AI draft' })).toHaveCount(0);
+    expect(quiet(), 'the new page had nothing unsaved').toEqual([]);
+  });
+
   test('a picture the photo route refuses keeps the page: its own message alone, the tick still set, the flyer still there; pressed again, it opens', async ({ page }) => {
     await flyerFromPicture(page, await picture('poster.png'));
     await usePicture(page).check();
@@ -1460,6 +1489,7 @@ test.describe('From a photo', () => {
     const reads = await left(page, 'photo');
     const flyers = await left(page, 'flyer');
     expect(Math.min(reads, flyers), 'this file spends a read and the day’s last flyer here').toBeGreaterThan(0);
+    const uploads = uploadsSent(page);
     await page.goto('/#/ai');
     await fromPhoto(page).click();
     await chooseInput(page).setInputFiles(await picture('poster.png'));
@@ -1510,8 +1540,12 @@ test.describe('From a photo', () => {
     await expect(currentStep(page), 'the picture’s flyer: the last step').toHaveText('Flyer');
     await expect(generate(page)).toContainText(`${flyers - 1} left today`);
     expect(await left(page, 'photo'), 'a flyer costs the reads nothing').toBe(reads - 1);
+    // The picture is offered as the flyer's photo, and left unticked the flyer opens as an AI flyer always did.
+    await expect(usePicture(page), 'offered, off by default').not.toBeChecked();
     await openInEditor(page).click();
     await expect(page).toHaveURL(/#\/new$/);
     await expect(page.getByLabel('Line 1')).toHaveValue(brief.text!.headline1!);
+    await expect(photoMode(page, 'none')).toHaveClass('on');
+    expect(uploads, 'unticked, nothing was uploaded').toEqual([]);
   });
 });

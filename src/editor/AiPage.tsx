@@ -161,6 +161,14 @@ export function AiPage({
   const [ticked, setTicked] = useState<File | null>(null);
   const usePicture = offered !== null && ticked === offered;
   const [opening, setOpening] = useState(false);
+  // Whether this page is still the one on screen, for an answer that lands after the staff member has left (open()).
+  const here = useRef(true);
+  useEffect(() => {
+    here.current = true;
+    return () => {
+      here.current = false;
+    };
+  }, []);
   const { onFit, cutOff } = useFitReports();
 
   // A flyer made and not yet opened is unsaved work, and a generation spent: leaving asks, as the editor does. So are
@@ -289,8 +297,10 @@ export function AiPage({
       const { blob, name } = await preparePhoto(taking, limits);
       const photo = await api.uploadPhoto(blob, name);
       // The staff member may have left meanwhile, on a yes to the leave question. An answer that lands then hands
-      // nothing over: the next new flyer would open as this draft.
-      if (!onPage('ai')) return;
+      // nothing over: the next new flyer would open as this draft. The URL says so at once, where React unmounts a
+      // page a few tasks after the move; the page itself says so when they have since come back to Create with AI,
+      // which is the same URL and another page.
+      if (!onPage('ai') || !here.current) return;
       offerDraft({ ...draft, data: withPhoto(draft.data), photo }, result.idea);
       setOpening(true);
     } catch (e) {
