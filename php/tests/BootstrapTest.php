@@ -142,6 +142,16 @@ final class BootstrapTest extends TestCase
         self::assertDirectoryDoesNotExist("$this->dataDir/ai-usage");
     }
 
+    // Off reads nothing: a site with a provider and no feature named serves whatever state schema/ai.json is in, as
+    // one with no key does. The twin of tests/unit/ai-composition.test.ts ("builds no service and reads no bundle").
+    public function testWithNoFeatureNamedTheAiBundleIsNeverRead(): void
+    {
+        unlink("$this->appRoot/schema/ai.json");
+        $app = Bootstrap::fromAppRoot($this->appRoot, $this->config() + ['ai' => ['provider' => 'fake']], new FakeClock());
+        self::assertEquals((object) ['enabled' => false], $this->ok($app->handle(self::request('GET', '/api/config')))->ai);
+        self::assertSame($this->message('ai_off'), $this->assertError($app->handle(self::request('POST', '/api/ai/share', $this->aiBody('share'))), 404, 'not_found')->message);
+    }
+
     /** @return iterable<string, array{string}> every feature the app has (schema/shared.json), each switched off in turn */
     public static function features(): iterable
     {

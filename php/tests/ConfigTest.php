@@ -127,6 +127,9 @@ final class ConfigTest extends TestCase
         $raw = require "$root/config.php";
         self::assertSame(['provider', 'apiKey', 'features', 'dailyLimit', 'model', 'effort', 'timeoutMs', 'enabled'], array_keys($raw['ai'] ?? []), 'the sample shows every key');
         self::assertFalse(Config::load($root, self::shared())?->ai->enabled);
+        // None until named: a site that copies the sample and adds its key runs nothing until it names a feature itself.
+        self::assertSame([], $raw['ai']['features'], 'the sample names no feature');
+        self::assertNull($raw['ai']['dailyLimit'], 'the sample sets no cap of its own');
     }
 
     // ---- the `ai` block (AiConfig): the PHP side of server/config.ts's loadAiSettings ----
