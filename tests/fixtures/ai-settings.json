@@ -65,6 +65,7 @@
       { "name": "a plus sign", "env": "share:+5" },
       { "name": "a feature named twice", "env": "share:5,share:6" },
       { "name": "a name with no number", "env": "share" },
+      { "name": "a name with nothing for its number: leave the feature out instead", "env": "share:", "php": { "share": null } },
       { "name": "a number with no name", "env": ":5" },
       { "name": "a pair with two colons", "env": "share:5:6" },
       { "name": "a list, not pairs", "php": ["share"] },

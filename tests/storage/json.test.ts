@@ -212,6 +212,14 @@ describe('the JSON store on disk', () => {
       await expect(open(dir).repos.aiUsage.countOk('anonymous', '2026-09-18')).rejects.toThrow(/ai-usage\/2026-09\.json is damaged: 0\.tokens\.input/);
     });
 
+    // A record a later release wrote, met after going back to this one: this driver checks every record, so the month
+    // is closed and the AI hidden until the newer release is back. PHP and SQLite count it under its own name instead.
+    it('is named when a record in it is of a feature this release does not know', async () => {
+      const { dir, record } = await withLedger();
+      put(dir, month, [record, { ...record, feature: 'a-later-feature' }]);
+      await expect(open(dir).repos.aiUsage.countOk('anonymous', '2026-09-18')).rejects.toThrow(/ai-usage\/2026-09\.json is damaged: 1\.feature/);
+    });
+
     it('is named when it is not JSON', async () => {
       const { dir } = await withLedger();
       writeFileSync(join(dir, ...month.split('/')), '{ damaged', 'utf8');

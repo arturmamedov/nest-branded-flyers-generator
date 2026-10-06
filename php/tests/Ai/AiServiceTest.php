@@ -43,7 +43,8 @@ use stdClass;
 
 /**
  * The rules of a generation (docs/api-contract.md, "The AI assistant"), the twin of tests/unit/ai-service.test.ts case
- * for case: the checks and their order, what counts against the cap and when the cap resets, what the ledger keeps.
+ * for case: the checks and their order, what counts against a feature's daily limit and when the day ends, what the
+ * ledger keeps.
  * The provider is the fake, the ledger in memory: the driver is proved by the repository contract, the HTTP shapes by
  * ApiTest and the contract suite.
  */
@@ -170,7 +171,8 @@ final class AiServiceTest extends TestCase
             $last = $this->usage->records[array_key_last($this->usage->records)];
             self::assertSame([$feature, true], [$last['feature'], $last['ok']]);
         }
-        // Each one spent one of its own: no feature's count moved another's.
+        // Each one spent one of its own. With two features one runs here: that no count moves another's is held where
+        // both run (testEachFeatureStopsAtItsOwnLimit…, below).
         self::assertSame($this->on(array_fill_keys($named, self::LIMIT - 1), $named), $service->status($this->actor));
     }
 
@@ -351,6 +353,20 @@ final class AiServiceTest extends TestCase
             $service->flyer($this->actor, $this->idea());
         }
         self::assertSame($this->on(), $service->status(new Actor('someone-else')));
+    }
+
+    // A record a later release wrote, met after going back to this one. While one limit covered every feature, every ok
+    // record of the day counted against it. Now such a record is counted under its own name, which no feature here has.
+    public function testARecordOfAFeatureItDoesNotKnowCountsAgainstNoFeatureItRuns(): void
+    {
+        $service = $this->service();
+        $service->flyer($this->actor, $this->idea());
+        for ($i = 0; $i < self::LIMIT; $i++) {
+            $this->usage->records[] = ['feature' => 'a-later-feature'] + $this->usage->records[0];
+        }
+        self::assertSame($this->on(['flyer' => self::LIMIT - 1]), $service->status($this->actor));
+        self::assertSame(self::LIMIT - 2, $service->flyer($this->actor, $this->idea())['remaining']);
+        self::assertSame(self::LIMIT - 1, $service->share($this->actor, $this->shareBody())['remaining']);
     }
 
     // api/config asks on every page load: every feature's count comes from one read of the ledger.

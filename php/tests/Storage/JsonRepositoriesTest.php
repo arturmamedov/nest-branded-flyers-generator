@@ -331,6 +331,26 @@ final class JsonRepositoriesTest extends RepositoryContractTestCase
         self::assertSame(['flyer' => 1], $this->repos->aiUsage->countOk('anonymous', '2026-09-18'));
     }
 
+    public function testARecordOfAFeatureThisReleaseDoesNotKnowIsCountedUnderItsOwnName(): void
+    {
+        // A later release's record, met after going back to this one. This driver reads the list as it is, so the
+        // record neither closes the month (as it does on Node's JSON driver) nor counts for a feature this release runs.
+        $this->repos->aiUsage->record($this->usage());
+        $this->repos->aiUsage->record($this->usage(['feature' => 'a-later-feature']));
+        self::assertSame(['flyer' => 1, 'a-later-feature' => 1], $this->repos->aiUsage->countOk('anonymous', '2026-09-18'));
+    }
+
+    public function testARecordThatNamesNoFeatureCountsForNone(): void
+    {
+        // Written by hand, or damaged: there is no name to count it under, and the rest of the day still counts.
+        $this->repos->aiUsage->record($this->usage());
+        $this->repos->aiUsage->record($this->usage(['feature' => 'share']));
+        $file = "$this->dir/ai-usage/2026-09.json";
+        file_put_contents($file, str_replace('"feature": "share"', '"feature": 7', (string) file_get_contents($file), $replaced));
+        self::assertSame(1, $replaced);
+        self::assertSame(['flyer' => 1], $this->repos->aiUsage->countOk('anonymous', '2026-09-18'));
+    }
+
     public function testARecordFileDeletedByHandReadsAsEmpty(): void
     {
         $this->addHostels();

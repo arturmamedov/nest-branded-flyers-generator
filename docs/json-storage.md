@@ -91,6 +91,11 @@ the app loads as it does with the AI off, and the server's log names the file. M
 back on the next request. The two drivers read it differently: Node checks every record against the schema, PHP takes
 the list as it is, so Node refuses to write a record the schema would refuse (a token count that is no whole number).
 
+A record of a feature a release does not know shows the same difference: one a later release wrote, met after going
+back to an older one. PHP counts it under its own name, so it moves no count of the features that release runs, and
+SQLite does the same. Node's JSON driver refuses the month, so the AI is hidden until the newer release is back. On PHP
+a record that names no feature at all counts for none.
+
 ## Moving a library in
 
 `npm run copy` reads a SQLite library and writes this format, keeping ids, timestamps and `archived`, and copying only

@@ -175,14 +175,15 @@ final class BootstrapTest extends TestCase
         self::assertEquals(self::on(self::allBut($off)), $this->ok($app->handle(self::request('GET', '/api/config')))->ai);
     }
 
+    // With two features, a site that leaves one out runs one. That a count leaves the others alone is held where both
+    // run: the site with its own numbers, below.
     #[DataProvider('features')]
-    public function testASiteRunsTheFeaturesItNamesAndCountsEachAgainstItsOwnLimit(string $off): void
+    public function testASiteRunsTheFeaturesItNamesEachSpendsOneOfItsOwnAndIsRecordedUnderItsName(string $off): void
     {
         $named = self::allBut($off);
         $app = Bootstrap::fromAppRoot($this->appRoot, $this->config() + ['ai' => $this->fakeAi($named)], new FakeClock());
         foreach ($named as $feature) {
             $result = $this->ok($app->handle(self::request('POST', "/api/ai/$feature", $this->aiBody($feature))));
-            // One of its own is spent, whatever the features before it spent of theirs.
             self::assertSame(2, $result->remaining);
         }
         $ledger = Json::decode((string) file_get_contents("$this->dataDir/ai-usage/2026-09.json"));

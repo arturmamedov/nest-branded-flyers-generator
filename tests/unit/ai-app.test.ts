@@ -74,12 +74,13 @@ describe.each([...AI_FEATURES])('a site that names every feature but %s', (off) 
     expect(config.body.ai).toEqual(on(named));
   });
 
-  it('runs the features it names, and counts each against its own limit', async () => {
+  // With two features, a site that leaves one out runs one. That a count leaves the others alone is held where both
+  // run: the two sites with their own numbers, below.
+  it('runs the features it names: each spends one of its own, and is recorded under its name', async () => {
     const { app, repos } = await site(named);
     for (const feature of named) {
       const res = await request(app).post(`/api/ai/${feature}`).set(WRITE_HEADERS).send(BODY[feature]());
       expect(res.status, JSON.stringify(res.body)).toBe(200);
-      // One of its own is spent, whatever the features before it spent of theirs.
       expect(res.body.remaining).toBe(AI_DAILY_LIMIT - 1);
     }
     expect((await repos.aiUsage.all()).map((r) => [r.feature, r.ok])).toEqual(named.map((feature) => [feature, true]));

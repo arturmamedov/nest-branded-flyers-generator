@@ -137,7 +137,8 @@ describe('the AI service', () => {
         await call[feature](service);
         expect(usage.records.at(-1)).toMatchObject({ feature, ok: true });
       }
-      // Each one spent one of its own: no feature's count moved another's.
+      // Each one spent one of its own. With two features one runs here: that no count moves another's is held where
+      // both run ("stops each feature at its own limit…", below).
       expect(await service.status(actor)).toEqual(on(Object.fromEntries(named.map((f) => [f, AI_DAILY_LIMIT - 1])), named));
     });
   });
@@ -276,6 +277,17 @@ describe('the AI service', () => {
     const { service } = make();
     for (let i = 0; i < AI_DAILY_LIMIT; i++) await service.flyer(actor, idea());
     expect(await service.status({ id: 'someone-else' })).toEqual(on());
+  });
+
+  // A record a later release wrote, met after going back to this one. While one limit covered every feature, every ok
+  // record of the day counted against it. Now such a record is counted under its own name, which no feature here has.
+  it('counts a record of a feature it does not know against no feature it runs', async () => {
+    const { service, usage } = make();
+    await service.flyer(actor, idea());
+    for (let i = 0; i < AI_DAILY_LIMIT; i++) usage.records.push({ ...usage.records[0], feature: 'a-later-feature' as AiFeature });
+    expect(await service.status(actor)).toEqual(on({ flyer: AI_DAILY_LIMIT - 1 }));
+    expect((await service.flyer(actor, idea())).remaining).toBe(AI_DAILY_LIMIT - 2);
+    expect((await service.share(actor, shareBody())).remaining).toBe(AI_DAILY_LIMIT - 1);
   });
 
   // api/config asks on every page load: every feature's count comes from one read of the ledger.
