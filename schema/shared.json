@@ -185,6 +185,7 @@
       "flyerIndex": "flyers/index.json",
       "flyerDir": "flyers",
       "aiUsageDir": "ai-usage",
+      "aiPicturesDir": "ai-pictures",
       "lock": ".lock"
     }
   },
@@ -219,6 +220,7 @@
       "photo": "nest_picture_text"
     },
     "pictureMaxEdge": 2048,
+    "pictureDays": 30,
     "pictureAsk": "Write out the words of the event in this picture.",
     "fake": {
       "model": "fake-1",

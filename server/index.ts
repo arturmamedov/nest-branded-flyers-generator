@@ -1,6 +1,7 @@
 import { createServer } from 'node:http';
 import type { ViteDevServer } from 'vite';
 import { createAiService } from './ai/composition.js';
+import { createFileAiPictures } from './ai/pictures.js';
 import { computeBuildId, createApp } from './app.js';
 import { createRepositories } from './composition.js';
 import { loadConfig } from './config.js';
@@ -26,7 +27,7 @@ if (!config.isProd) {
   });
 }
 
-const app = createApp({ repos, storage: config.storage, uploadsDir: data.uploads, renderer, vite, buildId: computeBuildId(config.isProd), ai });
+const app = createApp({ repos, storage: config.storage, uploadsDir: data.uploads, renderer, vite, buildId: computeBuildId(config.isProd), ai, aiPictures: createFileAiPictures(data.root) });
 httpServer.on('request', app);
 
 httpServer.listen(config.port, config.host, () => {

@@ -4,6 +4,7 @@ import express, { type ErrorRequestHandler, type NextFunction, type Request, typ
 import multer from 'multer';
 import type { ViteDevServer } from 'vite';
 import { z } from 'zod';
+import { aiDay } from '../src/shared/ai.js';
 import { formatMb } from '../src/shared/errors.js';
 import { flyerFilename } from '../src/shared/filename.js';
 import { isCanvasId } from '../src/shared/layout.js';
@@ -21,6 +22,7 @@ import {
 import type { StoredDoodle, StoredPhoto } from '../src/shared/storage.js';
 import { WRITE_GUARD } from '../src/shared/writeGuard.js';
 import { anonymousActors, type ActorResolver } from './ai/actor.js';
+import type { AiPictures } from './ai/pictures.js';
 import type { AiService } from './ai/service.js';
 import type { StorageDriver } from './config.js';
 import { HttpError } from './errors.js';
@@ -28,7 +30,7 @@ import { ASSETS_DIR, DIST_DIR, ROBOTS_FILE } from './paths.js';
 import { photoUpload, processPhoto, uploadedPhoto } from './services/photos.js';
 import { StorageTooNewError } from './storage/json/store.js';
 import { renderKey, type Renderer } from './services/renderer.js';
-import type { AppRepositories } from './storage/types.js';
+import { systemClock, type AppRepositories, type Clock } from './storage/types.js';
 
 export { HttpError };
 
@@ -46,6 +48,11 @@ export interface AppDeps {
   ai?: AiService;
   /** Who is asking; every request is the one anonymous actor until the login brief (server/ai/actor.ts). */
   actors?: ActorResolver;
+  /** The pictures the AI read (server/ai/pictures.ts): GET api/config deletes the ones past their days, whether or
+      not the AI is on. Absent, as in most tests, nothing is swept. */
+  aiPictures?: Pick<AiPictures, 'sweep'>;
+  /** What "today" is for that; the system's unless a test hands one in. */
+  clock?: Clock;
 }
 
 const idParam = (req: Request) => {
@@ -84,7 +91,11 @@ export function createApp(deps: AppDeps) {
 
   const actors = deps.actors ?? anonymousActors;
 
+  const clock = deps.clock ?? systemClock;
+
   api.get('/config', async (req, res) => {
+    // The one read that deletes: a shared host has no cron, and every visit asks this. At most once a day, never an error.
+    deps.aiPictures?.sweep(aiDay(clock.now()));
     const config: ApiConfig = {
       backend: 'node',
       storage: deps.storage,

@@ -105,6 +105,7 @@ describe('the AI bundle (schema/ai.json) and the ai block of shared.json', () =>
       defaultModel: { openai: 'gpt-6-luna', anthropic: 'claude-haiku-4-5' },
       schemaNames: { flyer: 'nest_flyer_brief', share: 'nest_share_text', photo: 'nest_picture_text' },
       pictureMaxEdge: 2048,
+      pictureDays: 30,
       pictureAsk: 'Write out the words of the event in this picture.',
       fake: {
         model: 'fake-1',

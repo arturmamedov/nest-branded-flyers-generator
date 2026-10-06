@@ -106,6 +106,11 @@ export const AI_SCHEMA_NAMES = { flyer: 'nest_flyer_brief', share: 'nest_share_t
     courtesy. Whether it stays is the owner's to say once real reads are measured. */
 export const AI_PICTURE_MAX_EDGE = 2048;
 
+/** The days a site keeps the picture of a read (the owner's answer, 2026-10-06: "Keep the picture for 30 days too"),
+    in STORAGE_FILES.aiPicturesDir of its data folder. A day's pictures go once that day is more than this many days
+    before today, counted in Canary days. */
+export const AI_PICTURE_DAYS = 30;
+
 /** The one line a picture read's turn says after its picture. The rules are the reader's prompt
     (ai/prompts/photo.md); nothing else is added at request time. */
 export const AI_PICTURE_ASK = 'Write out the words of the event in this picture.';
@@ -152,6 +157,7 @@ export const AI_SHARED = {
   defaultModel: AI_DEFAULT_MODEL,
   schemaNames: AI_SCHEMA_NAMES,
   pictureMaxEdge: AI_PICTURE_MAX_EDGE,
+  pictureDays: AI_PICTURE_DAYS,
   pictureAsk: AI_PICTURE_ASK,
   fake: AI_FAKE,
 } as const;

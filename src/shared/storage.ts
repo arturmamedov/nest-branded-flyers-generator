@@ -25,8 +25,14 @@ export const STORAGE_FILES = {
   flyerDir: 'flyers',
   /** The AI ledger: `ai-usage/YYYY-MM.json`, one file per month of the Canary day, made on the first append. */
   aiUsageDir: 'ai-usage',
+  /** The pictures the AI read, kept for AI_PICTURE_DAYS: `ai-pictures/<Canary day>/<16 hex>.jpg|png`. In the data
+      folder with every driver, and no part of the library: a backup and a copy leave it out. */
+  aiPicturesDir: 'ai-pictures',
   lock: '.lock',
 } as const;
+
+/** A kept picture's path as the ledger names it, relative to the data folder. */
+export const AI_PICTURE_PATH = /^ai-pictures\/\d{4}-\d{2}-\d{2}\/[0-9a-f]{16}\.(jpg|png)$/;
 
 const Id = z.number().int().positive();
 
