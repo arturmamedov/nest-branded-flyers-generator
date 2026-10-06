@@ -713,9 +713,16 @@ nest-nav > nav a.ai-entry .ai-count {
   border-radius: 6px;
 }
 
-/* Under the idea box after a picture was read: what to check, or that it had no event. */
+/* Under the idea box after a picture was read: what to check, or that it had no event. The focus lands on it when a
+   read does (AiPage.tsx): with a keyboard that shows, as on the controls, with room round the words. */
 .ai-read-note {
   margin: -6px 0 12px;
+  border-radius: 4px;
+}
+
+.ai-read-note:focus-visible {
+  outline: 2px solid var(--teal);
+  outline-offset: 4px;
 }
 
 .ai-picture-name {
