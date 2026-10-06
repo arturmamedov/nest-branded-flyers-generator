@@ -43,7 +43,6 @@ describe('AI settings', () => {
       timeoutMs: AI_TIMEOUT_MS,
       enabled: false,
       features: [],
-      dailyLimit: AI_DAILY_LIMIT,
       dailyLimits: everyFeature(AI_DAILY_LIMIT),
     });
   });
@@ -67,14 +66,14 @@ describe('AI settings', () => {
       timeoutMs: 9000,
       enabled: true,
       features: [],
-      dailyLimit: AI_DAILY_LIMIT,
       dailyLimits: everyFeature(AI_DAILY_LIMIT),
     });
   });
 
-  // The owner's answer (2026-10-05): the cap is a setting, 3 by default, bounded in the code.
-  it.each(rows(vectors.dailyLimit.accepted, 'AI_DAILY_LIMIT'))('AI_DAILY_LIMIT, $name', ({ env, limit }) => {
-    expect(load({ AI_PROVIDER: 'fake', ...env }).dailyLimit).toBe(limit);
+  // The owner's answers: the limit is a setting, 3 by default, bounded in the code (2026-10-05), and it is every
+  // feature's own number unless the feature has one of its own (2026-10-06).
+  it.each(rows(vectors.dailyLimit.accepted, 'AI_DAILY_LIMIT'))('AI_DAILY_LIMIT, $name: every feature’s number', ({ env, limit }) => {
+    expect(load({ AI_PROVIDER: 'fake', ...env }).dailyLimits).toEqual(everyFeature(limit));
   });
 
   it.each(rows(vectors.dailyLimit.refused, 'AI_DAILY_LIMIT'))('refuses AI_DAILY_LIMIT with $name, whether or not the AI is on', ({ env }) => {

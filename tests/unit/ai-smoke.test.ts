@@ -169,19 +169,26 @@ describe('siteAt', () => {
 });
 
 describe('siteAi: what a site’s api/config says there is to spend', () => {
-  it('gives the limit and what is left of it today, for a feature the site runs', () => {
-    expect(siteAi({ backend: 'php', ai: { enabled: true, limit: 3, remaining: 2, features: ['flyer', 'share'] } }, 'flyer')).toEqual({ limit: 3, remaining: 2 });
-    expect(siteAi({ backend: 'php', ai: { enabled: true, limit: 3, remaining: 2, features: ['share'] } }, 'share')).toEqual({ limit: 3, remaining: 2 });
+  const flyer = { name: 'flyer', limit: 3, remaining: 2 };
+  const share = { name: 'share', limit: 10, remaining: 10 };
+
+  // The owner's answer (2026-10-06): every feature its own daily limit, so a run spends the one of the feature it calls.
+  it('gives the feature’s own limit and what is left of it today, for a feature the site runs', () => {
+    expect(siteAi({ backend: 'php', ai: { enabled: true, features: [flyer, share] } }, 'flyer')).toEqual({ limit: 3, remaining: 2 });
+    expect(siteAi({ backend: 'php', ai: { enabled: true, features: [flyer, share] } }, 'share')).toEqual({ limit: 10, remaining: 10 });
+    expect(siteAi({ backend: 'php', ai: { enabled: true, features: [share] } }, 'share')).toEqual({ limit: 10, remaining: 10 });
   });
 
   // The trial on the live site runs the share text alone: a smoke for a flyer there must stop before it is sent.
   it('stops when the site does not run the feature, naming the ones it does and the setting', () => {
-    const flyerOff = said(() => siteAi({ backend: 'php', ai: { enabled: true, limit: 3, remaining: 2, features: ['share'] } }, 'flyer'));
+    const flyerOff = said(() => siteAi({ backend: 'php', ai: { enabled: true, features: [share] } }, 'flyer'));
     expect(flyerOff).toContain('flyer');
-    expect(flyerOff).toContain('share');
+    // The features it does run, by their names.
+    expect(flyerOff).toContain('its settings name share alone');
     expect(flyerOff).toContain("'features'");
     expect(flyerOff).toContain('--share');
-    const shareOff = said(() => siteAi({ backend: 'node', ai: { enabled: true, limit: 3, remaining: 2, features: ['flyer'] } }, 'share'));
+    const shareOff = said(() => siteAi({ backend: 'node', ai: { enabled: true, features: [flyer] } }, 'share'));
+    expect(shareOff).toContain('its settings name flyer alone');
     expect(shareOff).toContain('AI_FEATURES');
     expect(shareOff).not.toContain('--share');
   });
@@ -203,11 +210,14 @@ describe('siteAi: what a site’s api/config says there is to spend', () => {
     expect(before).toContain('npm run build:php');
   });
 
-  it('stops when the AI is off there, or the day is used up, in the catalogue’s words', () => {
+  it('stops when the AI is off there, or the feature’s day is used up, in the catalogue’s words', () => {
     expect(said(() => siteAi({ ai: { enabled: false } }, 'flyer'))).toContain('off');
-    const used = said(() => siteAi({ ai: { enabled: true, limit: 3, remaining: 0, features: ['flyer', 'share'] } }, 'share'));
-    expect(used).toContain('3 AI generations are used up');
+    const features = [flyer, { ...share, remaining: 0 }];
+    const used = said(() => siteAi({ ai: { enabled: true, features } }, 'share'));
+    expect(used).toContain('10 AI share texts are used up');
     expect(used).toContain('midnight');
+    // The flyer's own count is not the share text's: it still has two.
+    expect(siteAi({ ai: { enabled: true, features } }, 'flyer')).toEqual({ limit: 3, remaining: 2 });
   });
 
   it('refuses an answer that is not the app’s', () => {
@@ -234,7 +244,7 @@ describe('what to do about a call that failed', () => {
 
   it('says why fetch failed, which its own message does not', () => {
     expect(whatFailed(fetchFailed('ECONNREFUSED'))).toBe('fetch failed (ECONNREFUSED)');
-    expect(whatFailed(new SiteError('Today’s 3 AI generations are used up.', 429, 'ai_quota'))).toBe('Today’s 3 AI generations are used up.');
+    expect(whatFailed(new SiteError('Today’s 3 AI flyers are used up.', 429, 'ai_quota'))).toBe('Today’s 3 AI flyers are used up.');
   });
 });
 

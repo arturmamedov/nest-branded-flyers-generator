@@ -1,18 +1,19 @@
 import type { AiConfig } from './schema.js';
 
-/* The AI assistant's shared facts (docs/prompts/ai-assistant.md): the daily cap, the longest idea text, the day the cap
-   counts in, and the provider defaults. No zod here (the import above is a type's, and is gone once compiled): the
-   editor imports the cap and the input limit, and `npm run gen` copies the constants into schema/shared.json for the
-   PHP backend, so a number is written once. */
+/* The AI assistant's shared facts (docs/prompts/ai-assistant.md): each feature's daily limit, the longest idea text,
+   the day a limit counts in, and the provider defaults. No zod here (the import above is a type's, and is gone once
+   compiled): the editor imports the limit and the input limit, and `npm run gen` copies the constants into
+   schema/shared.json for the PHP backend, so a number is written once. */
 
-/** Generations a day, both features together (the owner's cap, 2026-10-01): a flyer from an idea already includes its
-    share text, so one generation is a whole flyer. Counted per actor; today every request is the one anonymous actor.
-    This is the default: a site may set its own (the owner's answer, 2026-10-05) through the setting that has this
-    constant's name on Node (AI_DAILY_LIMIT in .env) and is `dailyLimit` in config.php's `ai` block. */
+/** Generations a day of each feature (the owner's cap, 2026-10-01, and since 2026-10-06 each feature's own): a flyer
+    from an idea already includes its share text, so one generation is a whole flyer. Counted per actor; today every
+    request is the one anonymous actor. This is the default. A site may set its own number for every feature (the
+    owner's answer, 2026-10-05) through the setting that has this constant's name on Node (AI_DAILY_LIMIT in .env) and
+    is `dailyLimit` in config.php's `ai` block, and one feature's own through AI_DAILY_LIMITS / `dailyLimits`. */
 export const AI_DAILY_LIMIT = 3;
 
-/** The most a site's own setting may allow a day: the app is public until its login exists, so the cap is what keeps
-    a stranger's cost known. Above it the setting is refused. */
+/** The most a site's own setting may allow a feature a day: the app is public until its login exists, so the limits
+    are what keeps a stranger's cost known. Above it the setting is refused. */
 export const AI_DAILY_LIMIT_MAX = 20;
 
 /** The longest idea text, in code points: a long group-chat post, not a document. */
@@ -28,17 +29,29 @@ export const AI_ASSUMPTIONS_MAX = 12;
 export const AI_FEATURES = ['flyer', 'share'] as const;
 export type AiFeature = (typeof AI_FEATURES)[number];
 
-/** api/config's `ai` block when the AI is on for the caller: their limit, what is left today, the features that run. */
-export type AiOn = Extract<AiConfig, { enabled: true }>;
+/** What a feature's generations are called where their number is said in words: the used-up sentence (ai_quota), and
+    the smoke script's lines. Each feature has its own daily limit, so the sentence names what ran out. */
+export const AI_FEATURE_NOUNS: Record<AiFeature, string> = { flyer: 'AI flyers', share: 'AI share texts' };
 
-/** The AI as far as one feature goes, from api/config's answer: the caller's limit and what is left when the site
-    runs that feature for them, else null. The editor shows a feature only through this.
+/** What the ai_quota sentence is filled with for one feature: its limit, and what its generations are called. */
+export const aiQuotaVars = (feature: AiFeature, limit: number) => ({ limit, what: AI_FEATURE_NOUNS[feature] });
+
+/** api/config's `ai` block when the AI is on for the caller: the features that run, each with its own count. */
+export type AiOn = Extract<AiConfig, { enabled: true }>;
+/** One feature as api/config lists it: its name, the caller's daily limit for it, and what is left of that today. */
+export type AiFeatureOn = AiOn['features'][number];
+
+/** The AI as far as one feature goes, from api/config's answer: that feature's own limit and what is left of it
+    when the site runs it for the caller, else null. The editor shows a feature only through this.
     The editor never parses an answer (zod stays out of its bundle), so a backend older than this client is met
-    here, as it is while a release is being uploaded: one from before the switches lists no features, one from
-    before the AI has no `ai` block at all. Either way nothing of the AI shows, and the page still loads. */
-export function aiFor(ai: AiConfig, feature: AiFeature): AiOn | null {
+    here, as it is while a release is being uploaded: one from before each feature had its own limit lists the
+    features by name, one from before the switches lists none, one from before the AI has no `ai` block at all.
+    Whatever it cannot read, nothing of the AI shows, and the page still loads. */
+export function aiFor(ai: AiConfig, feature: AiFeature): AiFeatureOn | null {
   const answer = ai as Partial<AiOn> | null | undefined;
-  return answer?.enabled === true && Array.isArray(answer.features) && answer.features.includes(feature) ? (answer as AiOn) : null;
+  if (answer?.enabled !== true || !Array.isArray(answer.features)) return null;
+  const listed = (answer.features as unknown[]).find((f): f is AiFeatureOn => typeof f === 'object' && f !== null && (f as AiFeatureOn).name === feature);
+  return listed && Number.isInteger(listed.limit) && Number.isInteger(listed.remaining) ? listed : null;
 }
 
 /** The day a generation counts for is the Canary Islands day: WET in winter, WEST in summer. */
@@ -85,6 +98,7 @@ export const AI_SHARED = {
   inputMax: AI_INPUT_MAX,
   assumptionsMax: AI_ASSUMPTIONS_MAX,
   features: AI_FEATURES,
+  featureNouns: AI_FEATURE_NOUNS,
   dayZone: AI_DAY_ZONE,
   timeoutMs: AI_TIMEOUT_MS,
   maxOutputTokens: AI_MAX_OUTPUT_TOKENS,

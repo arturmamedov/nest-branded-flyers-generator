@@ -89,6 +89,7 @@ describe('the AI bundle (schema/ai.json) and the ai block of shared.json', () =>
       inputMax: 4000,
       assumptionsMax: 12,
       features: ['flyer', 'share'],
+      featureNouns: { flyer: 'AI flyers', share: 'AI share texts' },
       dayZone: 'Atlantic/Canary',
       timeoutMs: 25000,
       maxOutputTokens: 8000,

@@ -149,7 +149,7 @@
     "ai_quota": {
       "status": 429,
       "code": "ai_quota",
-      "message": "Today’s {limit} AI generations are used up. They come back at midnight, Canary Islands time."
+      "message": "Today’s {limit} {what} are used up. They come back at midnight, Canary Islands time."
     },
     "server_error": {
       "status": 500,
@@ -197,6 +197,10 @@
       "flyer",
       "share"
     ],
+    "featureNouns": {
+      "flyer": "AI flyers",
+      "share": "AI share texts"
+    },
     "dayZone": "Atlantic/Canary",
     "timeoutMs": 25000,
     "maxOutputTokens": 8000,

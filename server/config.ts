@@ -22,11 +22,9 @@ export interface AiSettings {
   /** The features this site runs, in AI_FEATURES' order. None until the AI_FEATURES setting names them (the owner's
       answer, 2026-10-05): a provider and its key alone run nothing. */
   features: AiFeature[];
-  /** The generations a day this site allows each actor: AI_DAILY_LIMIT unless the setting of that name says
-      otherwise, and never more than AI_DAILY_LIMIT_MAX. */
-  dailyLimit: number;
-  /** Each feature's own number a day, for every feature the app has: the one AI_DAILY_LIMITS gives it, else
-      `dailyLimit` (the owner's answer, 2026-10-06). */
+  /** The generations a day this site allows each actor of each feature, for every feature the app has (the owner's
+      answer, 2026-10-06: every feature its own limit): the number AI_DAILY_LIMITS gives the feature, else the site's
+      AI_DAILY_LIMIT, else the constant of that name. Never more than AI_DAILY_LIMIT_MAX. */
   dailyLimits: Record<AiFeature, number>;
 }
 
@@ -52,8 +50,9 @@ function namedFeatures(value: string | undefined): AiFeature[] {
   return AI_FEATURES.filter((feature) => named.includes(feature));
 }
 
-/** The AI_DAILY_LIMIT setting: the generations a day this site allows. It shares its name with the constant in
-    src/shared/ai.ts, which is the default; AI_DAILY_LIMIT_MAX is the most a site may set. */
+/** The AI_DAILY_LIMIT setting: the generations a day this site allows of each feature that has no number of its own.
+    It shares its name with the constant in src/shared/ai.ts, which is the default; AI_DAILY_LIMIT_MAX is the most a
+    site may set. */
 function dailyLimit(value: string | undefined): number {
   const limit = Number(value || AI_DAILY_LIMIT);
   if (!Number.isInteger(limit) || limit < 1 || limit > AI_DAILY_LIMIT_MAX) throw new Error(`AI_DAILY_LIMIT must be a whole number from 1 to ${AI_DAILY_LIMIT_MAX}`);
@@ -89,7 +88,6 @@ export function loadAiSettings(env: NodeJS.ProcessEnv): AiSettings {
   const timeoutMs = Number(env.AI_TIMEOUT_MS || AI_TIMEOUT_MS);
   if (!Number.isInteger(timeoutMs) || timeoutMs <= 0) throw new Error('AI_TIMEOUT_MS must be a positive whole number of milliseconds');
   const features = namedFeatures(env.AI_FEATURES);
-  const limit = dailyLimit(env.AI_DAILY_LIMIT);
   return {
     provider,
     apiKey,
@@ -98,8 +96,7 @@ export function loadAiSettings(env: NodeJS.ProcessEnv): AiSettings {
     timeoutMs,
     enabled: provider !== null && keyed && !OFF.has((env.AI_ENABLED ?? '').trim().toLowerCase()),
     features,
-    dailyLimit: limit,
-    dailyLimits: dailyLimits(env.AI_DAILY_LIMITS, limit),
+    dailyLimits: dailyLimits(env.AI_DAILY_LIMITS, dailyLimit(env.AI_DAILY_LIMIT)),
   };
 }
 

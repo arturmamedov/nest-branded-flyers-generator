@@ -34,7 +34,7 @@ httpServer.listen(config.port, config.host, () => {
   console.log(`Data in ${data.root}`);
   console.log(
     ai
-      ? `AI assistant on: ${config.ai.provider}, ${config.ai.model}; features: ${config.ai.features.join(', ')}; ${config.ai.dailyLimit} a day`
+      ? `AI assistant on: ${config.ai.provider}, ${config.ai.model}; features: ${config.ai.features.map((f) => `${f} (${config.ai.dailyLimits[f]} a day)`).join(', ')}`
       : 'AI assistant off (AI_PROVIDER, AI_API_KEY and AI_FEATURES in .env turn it on)',
   );
   if (!['127.0.0.1', 'localhost', '::1'].includes(config.host)) {

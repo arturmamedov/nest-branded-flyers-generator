@@ -10,7 +10,7 @@ import { SEED_FILE } from '../../server/paths.js';
 import { applySeedFile } from '../../server/storage/seed.js';
 import { createSqliteRepositories } from '../../server/storage/sqlite/index.js';
 import { systemClock } from '../../server/storage/types.js';
-import { AI_DAILY_LIMIT, AI_FEATURES, type AiFeature } from '../../src/shared/ai.js';
+import { AI_DAILY_LIMIT, AI_FEATURES, aiQuotaVars, type AiFeature } from '../../src/shared/ai.js';
 import { newFlyerData } from '../../src/shared/defaults.js';
 import { apiError, type ApiErrorKey } from '../../src/shared/errors.js';
 import { WRITE_HEADERS } from '../../src/shared/writeGuard.js';
@@ -44,6 +44,13 @@ async function site(named: readonly AiFeature[], env: Record<string, string> = {
   return { app, repos };
 }
 
+/** api/config's `ai` block on a site that runs `named`: each with its limit (`own`, else the default) and what is
+    `left` of it today (all of it, unless said). */
+const on = (named: readonly AiFeature[], left: Partial<Record<AiFeature, number>> = {}, own: Partial<Record<AiFeature, number>> = {}) => ({
+  enabled: true,
+  features: named.map((name) => ({ name, limit: own[name] ?? AI_DAILY_LIMIT, remaining: left[name] ?? own[name] ?? AI_DAILY_LIMIT })),
+});
+
 async function refused(sent: Test, key: ApiErrorKey, vars?: Record<string, string | number>) {
   const res = await sent;
   const spec = apiError(key, vars);
@@ -64,29 +71,48 @@ describe.each([...AI_FEATURES])('a site that names every feature but %s', (off) 
     await refused(request(app).post(route).set('Content-Type', 'application/json').send('{"text": '), 'malformed');
     expect(await repos.aiUsage.all()).toEqual([]);
     const config = await request(app).get('/api/config').expect(200);
-    expect(config.body.ai).toEqual({ enabled: true, limit: AI_DAILY_LIMIT, remaining: AI_DAILY_LIMIT, features: named });
+    expect(config.body.ai).toEqual(on(named));
   });
 
-  it('runs the features it names, and counts them', async () => {
+  it('runs the features it names, and counts each against its own limit', async () => {
     const { app, repos } = await site(named);
-    for (const [i, feature] of named.entries()) {
+    for (const feature of named) {
       const res = await request(app).post(`/api/ai/${feature}`).set(WRITE_HEADERS).send(BODY[feature]());
       expect(res.status, JSON.stringify(res.body)).toBe(200);
-      expect(res.body.remaining).toBe(AI_DAILY_LIMIT - i - 1);
+      // One of its own is spent, whatever the features before it spent of theirs.
+      expect(res.body.remaining).toBe(AI_DAILY_LIMIT - 1);
     }
     expect((await repos.aiUsage.all()).map((r) => [r.feature, r.ok])).toEqual(named.map((feature) => [feature, true]));
+    expect((await request(app).get('/api/config').expect(200)).body.ai).toEqual(on(named, Object.fromEntries(named.map((f) => [f, AI_DAILY_LIMIT - 1]))));
   });
 });
 
-// The owner's answer (2026-10-05): the cap is a setting, 3 unless the site says otherwise.
-it('a site that sets its own cap says it in api/config, and answers ai_quota in that number once it is reached', async () => {
+// The owner's answers (2026-10-05, 2026-10-06): the limit is a setting, 3 unless the site says otherwise, and it is
+// each feature's own: AI_DAILY_LIMIT is every feature's number, AI_DAILY_LIMITS a feature's own.
+it('a site that sets its own number gives it to each feature, and answers ai_quota in that number and by what ran out', async () => {
   const { app } = await site(AI_FEATURES, { AI_DAILY_LIMIT: '1' });
-  expect((await request(app).get('/api/config').expect(200)).body.ai).toEqual({ enabled: true, limit: 1, remaining: 1, features: AI_FEATURES });
+  const all1 = Object.fromEntries(AI_FEATURES.map((f) => [f, 1]));
+  expect((await request(app).get('/api/config').expect(200)).body.ai).toEqual(on(AI_FEATURES, {}, all1));
   const first = await request(app).post('/api/ai/share').set(WRITE_HEADERS).send(BODY.share());
   expect(first.status, JSON.stringify(first.body)).toBe(200);
   expect(first.body.remaining).toBe(0);
-  await refused(request(app).post('/api/ai/flyer').set(WRITE_HEADERS).send(BODY.flyer()), 'ai_quota', { limit: 1 });
-  expect((await request(app).get('/api/config').expect(200)).body.ai).toMatchObject({ limit: 1, remaining: 0 });
+  await refused(request(app).post('/api/ai/share').set(WRITE_HEADERS).send(BODY.share()), 'ai_quota', aiQuotaVars('share', 1));
+  // The flyer has its own one, untouched by the share text's.
+  const flyer = await request(app).post('/api/ai/flyer').set(WRITE_HEADERS).send(BODY.flyer());
+  expect(flyer.status, JSON.stringify(flyer.body)).toBe(200);
+  expect(flyer.body.remaining).toBe(0);
+  await refused(request(app).post('/api/ai/flyer').set(WRITE_HEADERS).send(BODY.flyer()), 'ai_quota', aiQuotaVars('flyer', 1));
+  expect((await request(app).get('/api/config').expect(200)).body.ai).toEqual(on(AI_FEATURES, Object.fromEntries(AI_FEATURES.map((f) => [f, 0])), all1));
+});
+
+it('a site that gives one feature its own number: that feature stops there, and the rest keep the site’s', async () => {
+  const { app } = await site(AI_FEATURES, { AI_DAILY_LIMIT: '2', AI_DAILY_LIMITS: 'share:1' });
+  const own = { flyer: 2, share: 1 };
+  expect((await request(app).get('/api/config').expect(200)).body.ai).toEqual(on(AI_FEATURES, {}, own));
+  expect((await request(app).post('/api/ai/share').set(WRITE_HEADERS).send(BODY.share())).body.remaining).toBe(0);
+  await refused(request(app).post('/api/ai/share').set(WRITE_HEADERS).send(BODY.share()), 'ai_quota', aiQuotaVars('share', 1));
+  expect((await request(app).post('/api/ai/flyer').set(WRITE_HEADERS).send(BODY.flyer())).body.remaining).toBe(1);
+  expect((await request(app).get('/api/config').expect(200)).body.ai).toEqual(on(AI_FEATURES, { flyer: 1, share: 0 }, own));
 });
 
 // The owner's answer (2026-10-05): none until named. A provider, even keyed, runs nothing by itself.

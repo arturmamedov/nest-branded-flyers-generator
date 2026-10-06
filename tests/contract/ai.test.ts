@@ -2,7 +2,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, inject, it } from 'vitest';
 import { AI_BUNDLE_FILE } from '../../server/paths.js';
-import { AI_DAILY_LIMIT, AI_FEATURES, AI_INPUT_MAX, aiDay } from '../../src/shared/ai.js';
+import { AI_DAILY_LIMIT, AI_FEATURES, AI_INPUT_MAX, aiDay, aiQuotaVars, type AiFeature } from '../../src/shared/ai.js';
 import { newFlyerData } from '../../src/shared/defaults.js';
 import { AiFlyerResultSchema, AiShareResultSchema, ApiConfigSchema, type AiFlyerAnswer } from '../../src/shared/schema.js';
 import { STORAGE_FILES } from '../../src/shared/storage.js';
@@ -20,6 +20,12 @@ const STORE = inject('dataDir');
 const shareBody = () => ({ hostel: null, template: 'activity', data: newFlyerData() });
 /** api/config, fresh: the client's config() is cached, and `remaining` moves. */
 const status = async () => (await ok(send('GET', 'api/config'), ApiConfigSchema)).ai;
+/** The `ai` block these servers answer: every feature runs, each at the default limit, with this `left` of it today
+    (all of it, unless said). */
+const on = (left: Partial<Record<AiFeature, number>> = {}) => ({
+  enabled: true,
+  features: AI_FEATURES.map((name) => ({ name, limit: AI_DAILY_LIMIT, remaining: left[name] ?? AI_DAILY_LIMIT })),
+});
 
 describe.skipIf(FAKE)('AI off', () => {
   it('api/config says only enabled: false', async () => {
@@ -43,8 +49,9 @@ describe.skipIf(!FAKE)('AI on, with the fake provider (one day, in order)', () =
   const example = bundle.examples[0];
   const idea = (marker = '') => ({ text: marker ? `${example.text}\n${marker}` : example.text });
 
-  it('api/config says the limit, what is left today and the features that run', async () => {
-    expect(await status()).toEqual({ enabled: true, limit: AI_DAILY_LIMIT, remaining: AI_DAILY_LIMIT, features: AI_FEATURES });
+  // Every feature has its own daily limit (the owner's answer, 2026-10-06): a generation counts against its own alone.
+  it('api/config lists each feature that runs, with its own limit and what is left of it today', async () => {
+    expect(await status()).toEqual(on());
   });
 
   it('needs the write header', async () => {
@@ -65,7 +72,7 @@ describe.skipIf(!FAKE)('AI on, with the fake provider (one day, in order)', () =
     await fails(send('POST', 'api/ai/flyer', idea('[[fake:timeout]]')), 'ai_failed');
     await fails(send('POST', 'api/ai/flyer', idea('[[fake:refused]]')), 'ai_failed');
     await fails(send('POST', 'api/ai/share', { ...shareBody(), idea: '[[fake:invalid]]' }), 'ai_failed');
-    expect(await status()).toEqual({ enabled: true, limit: AI_DAILY_LIMIT, remaining: AI_DAILY_LIMIT, features: AI_FEATURES });
+    expect(await status()).toEqual(on());
   });
 
   it('turns a hostel the model made up into chain-wide, with an assumption first, and counts the generation', async () => {
@@ -76,22 +83,28 @@ describe.skipIf(!FAKE)('AI on, with the fake provider (one day, in order)', () =
     expect(result.remaining).toBe(AI_DAILY_LIMIT - 1);
   });
 
-  it('writes a share text for a flyer, and counts it', async () => {
+  it('writes a share text for a flyer, and counts it against the share text’s own limit', async () => {
     const result = await ok(send('POST', 'api/ai/share', { ...shareBody(), idea: example.text }), AiShareResultSchema);
-    expect(result).toEqual({ share: example.answer.brief.share, remaining: AI_DAILY_LIMIT - 2 });
+    // The flyer above spent one of its own: the share text still had all of its.
+    expect(result).toEqual({ share: example.answer.brief.share, remaining: AI_DAILY_LIMIT - 1 });
+    expect(await status()).toEqual(on({ flyer: AI_DAILY_LIMIT - 1, share: AI_DAILY_LIMIT - 1 }));
   });
 
   it('keeps the hostel the staff member chose', async () => {
     const chosen = seed.hostels.find((h) => h.slug !== example.answer.brief.hostel)!.slug;
     const result = await ok(send('POST', 'api/ai/flyer', { ...idea(), hostel: chosen }), AiFlyerResultSchema);
     expect(result.brief.hostel).toBe(chosen);
-    expect(result.remaining).toBe(AI_DAILY_LIMIT - 3);
+    expect(result.remaining).toBe(AI_DAILY_LIMIT - 2);
   });
 
-  it('answers ai_quota once the day’s generations are used up, and api/config says 0 left', async () => {
-    await fails(send('POST', 'api/ai/flyer', idea()), 'ai_quota', { limit: AI_DAILY_LIMIT });
-    await fails(send('POST', 'api/ai/share', shareBody()), 'ai_quota', { limit: AI_DAILY_LIMIT });
-    expect(await status()).toEqual({ enabled: true, limit: AI_DAILY_LIMIT, remaining: 0, features: AI_FEATURES });
+  it('answers ai_quota for a feature once its own limit is used up, naming what ran out, while the other still runs', async () => {
+    for (let left = AI_DAILY_LIMIT - 2; left > 0; left--) expect((await ok(send('POST', 'api/ai/flyer', idea()), AiFlyerResultSchema)).remaining).toBe(left - 1);
+    await fails(send('POST', 'api/ai/flyer', idea()), 'ai_quota', aiQuotaVars('flyer', AI_DAILY_LIMIT));
+    expect(await status()).toEqual(on({ flyer: 0, share: AI_DAILY_LIMIT - 1 }));
+    // The share text is not stopped by the flyer's limit: it runs until its own.
+    for (let left = AI_DAILY_LIMIT - 1; left > 0; left--) expect((await ok(send('POST', 'api/ai/share', shareBody()), AiShareResultSchema)).remaining).toBe(left - 1);
+    await fails(send('POST', 'api/ai/share', shareBody()), 'ai_quota', aiQuotaVars('share', AI_DAILY_LIMIT));
+    expect(await status()).toEqual(on({ flyer: 0, share: 0 }));
   });
 
   // Last, and it puts the file back: the tests above share this store and its day. The editor loads api/config before
@@ -106,6 +119,6 @@ describe.skipIf(!FAKE)('AI on, with the fake provider (one day, in order)', () =
     } finally {
       writeFileSync(month, kept);
     }
-    expect(await status()).toEqual({ enabled: true, limit: AI_DAILY_LIMIT, remaining: 0, features: AI_FEATURES });
+    expect(await status()).toEqual(on({ flyer: 0, share: 0 }));
   });
 });

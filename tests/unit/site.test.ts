@@ -87,13 +87,13 @@ describe('siteCaller', () => {
   it('says a refusal in the API’s own words, with its status, its code and the fields it names', async () => {
     const { baseUrl } = await site((res, req) =>
       req.url.endsWith('quota')
-        ? json(res, 429, { error: { code: 'ai_quota', message: 'Today’s 3 AI generations are used up.' } })
+        ? json(res, 429, { error: { code: 'ai_quota', message: 'Today’s 3 AI flyers are used up.' } })
         : json(res, 400, { error: { code: 'invalid', message: 'Check the idea text.', fields: { text: 'Too small' } } }),
     );
     const call = siteCaller({ baseUrl });
     const quota = await refusal(call('POST', 'api/quota', Hostels, {}));
     expect(quota).toBeInstanceOf(SiteError);
-    expect(quota).toMatchObject({ status: 429, code: 'ai_quota', movedTo: null, message: 'Today’s 3 AI generations are used up.' });
+    expect(quota).toMatchObject({ status: 429, code: 'ai_quota', movedTo: null, message: 'Today’s 3 AI flyers are used up.' });
     const invalid = await refusal(call('POST', 'api/ai/flyer', Hostels, { text: '' }));
     expect(invalid).toMatchObject({ status: 400, code: 'invalid', message: 'Check the idea text. {"text":"Too small"}' });
   });

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { aiFor } from '../shared/ai';
+import { aiFor, type AiFeature } from '../shared/ai';
 import type { AiConfig, ApiConfig, Hostel } from '../shared/schema';
 import { assetUrl } from '../flyer/urls';
 import { AiPage } from './AiPage';
@@ -17,8 +17,9 @@ export function App() {
   const [hostels, setHostels] = useState<Hostel[] | null>(null);
   // What this backend can do: which exporter runs, and the photo upload limits.
   const [backend, setBackend] = useState<{ exporter: FlyerExporter; limits: ApiConfig['limits'] } | null>(null);
-  // The AI for this staff member (api/config): off shows nothing of it anywhere. What is left today follows every
-  // answer, so the bar and the buttons count down without asking the server again.
+  // The AI for this staff member (api/config): off shows nothing of it anywhere. Each feature has its own daily limit,
+  // and what is left of it today follows every answer, so the bar and the buttons count down without asking the
+  // server again.
   const [ai, setAi] = useState<AiConfig>({ enabled: false });
   const [error, setError] = useState<string | null>(null);
 
@@ -34,10 +35,16 @@ export function App() {
     );
   }, []);
 
-  const onRemaining = useCallback((remaining: number) => setAi((a) => (a.enabled ? { ...a, remaining } : a)), []);
+  // One feature's count moves, and only that one: a generation, or its limit reached, says nothing of the others.
+  const onRemaining = useCallback(
+    (feature: AiFeature, remaining: number) =>
+      setAi((a) => (a.enabled ? { ...a, features: a.features.map((f) => (f.name === feature ? { ...f, remaining } : f)) } : a)),
+    [],
+  );
 
   // A site runs the features it names (api/config lists them): the bar's link and the #/ai page are the flyer's,
-  // "Write with AI" in the editor is the share text's. Each shows only where its feature runs for this staff member.
+  // "Write with AI" in the editor is the share text's. Each shows only where its feature runs for this staff member,
+  // with its own count.
   const flyerAi = aiFor(ai, 'flyer');
   const shareAi = aiFor(ai, 'share');
 

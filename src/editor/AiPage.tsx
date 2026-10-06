@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { AI_INPUT_MAX, type AiOn } from '../shared/ai';
+import { AI_INPUT_MAX, type AiFeature, type AiFeatureOn } from '../shared/ai';
 import { flyerFromBrief } from '../shared/brief';
 import { lintFlyer } from '../shared/copyRules';
 import { DEFAULT_CANVAS } from '../shared/layout';
@@ -29,7 +29,8 @@ interface Result {
   idea: string;
 }
 
-export function AiPage({ hostels, ai, onRemaining }: { hostels: Hostel[]; ai: AiOn; onRemaining: (remaining: number) => void }) {
+/** `ai` is the flyer feature as api/config lists it: its own limit, and what is left of it today. */
+export function AiPage({ hostels, ai, onRemaining }: { hostels: Hostel[]; ai: AiFeatureOn; onRemaining: (feature: AiFeature, remaining: number) => void }) {
   const [idea, setIdea] = useState('');
   const [hostel, setHostel] = useState('');
   const [busy, setBusy] = useState(false);
@@ -57,10 +58,10 @@ export function AiPage({ hostels, ai, onRemaining }: { hostels: Hostel[]; ai: Ai
     try {
       const r = await api.aiFlyer(hostel ? { text: sent, hostel } : { text: sent });
       setResult({ brief: r.brief, assumptions: r.assumptions, idea: sent });
-      onRemaining(r.remaining);
+      onRemaining(ai.name, r.remaining);
     } catch (e) {
-      // The cap was reached elsewhere (another tab, another staff member): say so in the count too.
-      if (e instanceof ApiError && e.status === 429) onRemaining(0);
+      // The limit was reached elsewhere (another tab, another staff member): say so in this feature's count too.
+      if (e instanceof ApiError && e.status === 429) onRemaining(ai.name, 0);
       setError(e instanceof Error ? e.message : String(e));
     } finally {
       setBusy(false);
@@ -93,7 +94,7 @@ export function AiPage({ hostels, ai, onRemaining }: { hostels: Hostel[]; ai: Ai
           <button type="button" className="btn btn-accent" disabled={busy || !idea.trim() || left === 0} onClick={generate}>
             {busy ? 'Writing…' : '✨ Generate'} <span className="ai-left">({left} left today)</span>
           </button>
-          <AiUsedUp limit={ai.limit} left={left} />
+          <AiUsedUp feature={ai.name} limit={ai.limit} left={left} />
         </Section>
 
         {result && result.assumptions.length > 0 && (

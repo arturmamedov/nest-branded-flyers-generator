@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { aiQuotaVars, type AiFeature } from '../shared/ai';
 import { apiError } from '../shared/errors';
 import type { Hostel } from '../shared/schema';
 import { LangFlag, type Lang } from './LangFlag';
@@ -49,13 +50,13 @@ export function Field({ label, help, optional, lang, children }: { label: string
   );
 }
 
-/** Under a button that would start a generation, once the day has none left: the server's own sentence for a refused
-    one, so the staff member reads when they come back without having to press anything. */
-export function AiUsedUp({ limit, left }: { limit: number; left: number }) {
+/** Under a button that would start a generation, once the day has none left of its feature: the server's own sentence
+    for a refused one, so the staff member reads what ran out and when it comes back without having to press anything. */
+export function AiUsedUp({ feature, limit, left }: { feature: AiFeature; limit: number; left: number }) {
   if (left > 0) return null;
   return (
     <p className="help ai-used-up" role="status">
-      {apiError('ai_quota', { limit }).message}
+      {apiError('ai_quota', aiQuotaVars(feature, limit)).message}
     </p>
   );
 }

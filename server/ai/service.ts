@@ -1,5 +1,5 @@
 import type { z } from 'zod';
-import { AI_ASSUMPTIONS_MAX, AI_FEATURES, AI_INPUT_MAX, AI_MAX_OUTPUT_TOKENS, aiDay, type AiFeature } from '../../src/shared/ai.js';
+import { AI_ASSUMPTIONS_MAX, AI_FEATURES, AI_INPUT_MAX, AI_MAX_OUTPUT_TOKENS, aiDay, aiQuotaVars, type AiFeature } from '../../src/shared/ai.js';
 import {
   AiFlyerAnswerSchema,
   AiFlyerRequestSchema,
@@ -11,7 +11,7 @@ import {
   type AiShareResult,
 } from '../../src/shared/schema.js';
 import { HttpError } from '../errors.js';
-import type { AiUsageRepository, Clock, HostelRepository } from '../storage/types.js';
+import type { AiUsageCounts, AiUsageRepository, Clock, HostelRepository } from '../storage/types.js';
 import type { Actor } from './actor.js';
 import type { AiPolicy } from './policy.js';
 import { buildFlyerCall, buildShareCall, type Prompt } from './prompt.js';
@@ -48,17 +48,17 @@ export class AiService {
 
   constructor(private readonly deps: AiServiceDeps) {}
 
-  /** The `ai` block of api/config for this actor: nothing beyond `enabled: false` when they get no AI, else their
-      limit, what is left of it today and the features that run, so the editor shows only those. A ledger that
-      cannot be read hides the AI too: the editor renders nothing without api/config, so the AI's own storage must
-      never decide whether the app loads. The generation routes are not softened: a hidden AI never reaches them. */
+  /** The `ai` block of api/config for this actor: nothing beyond `enabled: false` when they get no AI, else the
+      features that run, each with its own limit and what is left of it today, so the editor shows only those. One
+      read of the ledger answers every feature's count. A ledger that cannot be read hides the AI too: the editor
+      renders nothing without api/config, so the AI's own storage must never decide whether the app loads. The
+      generation routes are not softened: a hidden AI never reaches them. */
   async status(actor: Actor): Promise<AiConfig> {
     const features = this.running();
     if (!this.deps.provider || features.length === 0 || !this.deps.policy.mayUse(actor)) return { enabled: false };
-    const limit = this.deps.policy.dailyLimit(actor);
-    let used: number;
+    let used: AiUsageCounts;
     try {
-      used = await this.used(actor, aiDay(this.deps.clock.now()));
+      used = await this.deps.usage.countOk(actor.id, aiDay(this.deps.clock.now()));
     } catch (e) {
       const reason = e instanceof Error ? e.message : String(e);
       if (reason !== this.ledgerDown) console.error(`AI: the ledger cannot be read, so the AI is hidden: ${reason}`);
@@ -66,7 +66,13 @@ export class AiService {
       return { enabled: false };
     }
     this.ledgerDown = null;
-    return { enabled: true, limit, remaining: Math.max(0, limit - used), features };
+    return {
+      enabled: true,
+      features: features.map((name) => {
+        const limit = this.deps.policy.dailyLimit(actor, name);
+        return { name, limit, remaining: Math.max(0, limit - (used[name] ?? 0)) };
+      }),
+    };
   }
 
   /** An idea → a brief with its assumptions. A hostel the staff member chose wins over the model's; one the model
@@ -77,7 +83,7 @@ export class AiService {
     const hostels = await this.deps.hostels.list();
     const known = (slug: string) => hostels.some((h) => h.slug === slug);
     if (request.hostel !== undefined && !known(request.hostel)) throw new HttpError('unknown_hostel');
-    const { now, remaining } = await this.quota(actor);
+    const { now, remaining } = await this.quota(actor, 'flyer');
 
     const prompt = buildFlyerCall(this.deps.bundle, hostels, now, request);
     const answer = await this.generate('flyer', actor, now, request.text, prompt, SCHEMA_NAMES.flyer, this.deps.bundle.schemas.flyerAnswer, AiFlyerAnswerSchema);
@@ -99,7 +105,7 @@ export class AiService {
     const request = parse(AiShareRequestSchema, body);
     const hostels = await this.deps.hostels.list();
     if (request.hostel !== null && !hostels.some((h) => h.slug === request.hostel)) throw new HttpError('unknown_hostel');
-    const { now, remaining } = await this.quota(actor);
+    const { now, remaining } = await this.quota(actor, 'share');
 
     const prompt = buildShareCall(this.deps.bundle, hostels, now, request);
     const input = prompt.messages.at(-1)?.content ?? '';
@@ -119,18 +125,14 @@ export class AiService {
     if (!this.deps.policy.mayUse(actor)) throw new HttpError('ai_forbidden');
   }
 
-  /** The cap, counted on the day of this instant; the same instant stamps the ledger. */
-  private async quota(actor: Actor): Promise<{ now: string; remaining: number }> {
+  /** The feature's own daily limit, counted on the day of this instant; the same instant stamps the ledger. What the
+      other features used of theirs does not count here, and the refusal names what ran out. */
+  private async quota(actor: Actor, feature: AiFeature): Promise<{ now: string; remaining: number }> {
     const now = this.deps.clock.now();
-    const limit = this.deps.policy.dailyLimit(actor);
-    const used = await this.used(actor, aiDay(now));
-    if (used >= limit) throw new HttpError('ai_quota', { limit });
+    const limit = this.deps.policy.dailyLimit(actor, feature);
+    const used = (await this.deps.usage.countOk(actor.id, aiDay(now)))[feature] ?? 0;
+    if (used >= limit) throw new HttpError('ai_quota', aiQuotaVars(feature, limit));
     return { now, remaining: limit - used };
-  }
-
-  /** What the actor has used of the day: the ledger counts it feature by feature, and one cap still covers them all. */
-  private async used(actor: Actor, day: string): Promise<number> {
-    return Object.values(await this.deps.usage.countOk(actor.id, day)).reduce((sum, n) => sum + n, 0);
   }
 
   /**

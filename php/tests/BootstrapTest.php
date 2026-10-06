@@ -172,51 +172,61 @@ final class BootstrapTest extends TestCase
         $this->assertError($app->handle(self::request('POST', $route, $this->aiBody($off), [], self::LOOPBACK, [])), 403, 'forbidden');
         $this->assertError($app->handle(self::request('POST', $route, '{"text": ', [], self::LOOPBACK, [])), 400, 'invalid');
         self::assertDirectoryDoesNotExist("$this->dataDir/ai-usage");
-        self::assertEquals((object) ['enabled' => true, 'limit' => 3, 'remaining' => 3, 'features' => self::allBut($off)], $this->ok($app->handle(self::request('GET', '/api/config')))->ai);
+        self::assertEquals(self::on(self::allBut($off)), $this->ok($app->handle(self::request('GET', '/api/config')))->ai);
     }
 
     #[DataProvider('features')]
-    public function testASiteRunsTheFeaturesItNamesAndCountsThem(string $off): void
+    public function testASiteRunsTheFeaturesItNamesAndCountsEachAgainstItsOwnLimit(string $off): void
     {
         $named = self::allBut($off);
         $app = Bootstrap::fromAppRoot($this->appRoot, $this->config() + ['ai' => $this->fakeAi($named)], new FakeClock());
-        foreach ($named as $i => $feature) {
+        foreach ($named as $feature) {
             $result = $this->ok($app->handle(self::request('POST', "/api/ai/$feature", $this->aiBody($feature))));
-            self::assertSame(3 - $i - 1, $result->remaining);
+            // One of its own is spent, whatever the features before it spent of theirs.
+            self::assertSame(2, $result->remaining);
         }
         $ledger = Json::decode((string) file_get_contents("$this->dataDir/ai-usage/2026-09.json"));
         self::assertSame($named, array_map(static fn (stdClass $record): string => $record->feature, $ledger));
+        self::assertEquals(self::on($named, array_fill_keys($named, 2)), $this->ok($app->handle(self::request('GET', '/api/config')))->ai);
     }
 
-    // The owner's answer (2026-10-05): the cap is a setting, 3 unless config.php says otherwise.
-    public function testASiteThatSetsItsOwnCapSaysItInConfigAndAnswersAiQuotaInThatNumber(): void
+    // The owner's answers (2026-10-05, 2026-10-06): the limit is a setting, 3 unless config.php says otherwise, and it
+    // is each feature's own: 'dailyLimit' is every feature's number, 'dailyLimits' a feature's own.
+    public function testASiteThatSetsItsOwnNumbersSaysThemInConfigAndAnswersAiQuotaInThatNumberAndByWhatRanOut(): void
     {
-        $app = Bootstrap::fromAppRoot($this->appRoot, $this->config() + ['ai' => $this->fakeAi() + ['dailyLimit' => 1]], new FakeClock());
-        self::assertEquals((object) ['enabled' => true, 'limit' => 1, 'remaining' => 1, 'features' => ['flyer', 'share']], $this->ok($app->handle(self::request('GET', '/api/config')))->ai);
+        $app = Bootstrap::fromAppRoot($this->appRoot, $this->config() + ['ai' => $this->fakeAi() + ['dailyLimit' => 2, 'dailyLimits' => ['share' => 1]]], new FakeClock());
+        $shared = Shared::fromFile(Paths::schema('shared.json'));
+        $all = $shared->ai()['features'];
+        $own = array_fill_keys($all, 2);
+        $own['share'] = 1;
+        self::assertEquals(self::on($all, [], $own), $this->ok($app->handle(self::request('GET', '/api/config')))->ai);
         self::assertSame(0, $this->ok($app->handle(self::request('POST', '/api/ai/share', $this->aiBody('share'))))->remaining);
-        $error = $this->assertError($app->handle(self::request('POST', '/api/ai/flyer', $this->aiBody('flyer'))), 429, 'ai_quota');
-        self::assertSame(ErrorCatalog::fromShared(Shared::fromFile(Paths::schema('shared.json')))->make('ai_quota', ['limit' => 1])->getMessage(), $error->message);
-        self::assertSame(0, $this->ok($app->handle(self::request('GET', '/api/config')))->ai->remaining);
+        $error = $this->assertError($app->handle(self::request('POST', '/api/ai/share', $this->aiBody('share'))), 429, 'ai_quota');
+        self::assertSame(ErrorCatalog::fromShared($shared)->make('ai_quota', ['limit' => 1, 'what' => $shared->ai()['featureNouns']['share']])->getMessage(), $error->message);
+        // The flyer is not stopped by the share text's limit: it has its own two.
+        self::assertSame(1, $this->ok($app->handle(self::request('POST', '/api/ai/flyer', $this->aiBody('flyer'))))->remaining);
+        self::assertEquals(self::on($all, ['flyer' => 1, 'share' => 0], $own), $this->ok($app->handle(self::request('GET', '/api/config')))->ai);
     }
 
     public function testTheFakeProviderCountsInTheStoreAndTheDayEndsAtCanaryMidnight(): void
     {
         $clock = new FakeClock();
         $app = Bootstrap::fromAppRoot($this->appRoot, $this->config() + ['ai' => $this->fakeAi()], $clock);
+        $all = Shared::fromFile(Paths::schema('shared.json'))->ai()['features'];
         $ai = fn (): stdClass => $this->ok($app->handle(self::request('GET', '/api/config')))->ai;
-        self::assertEquals((object) ['enabled' => true, 'limit' => 3, 'remaining' => 3, 'features' => ['flyer', 'share']], $ai());
+        self::assertEquals(self::on($all), $ai());
         self::assertDirectoryDoesNotExist("$this->dataDir/ai-usage", 'reading the count wrote nothing');
 
         $result = $this->ok($app->handle(self::request('POST', '/api/ai/flyer', (object) ['text' => 'Yoga mañana a las 9 en la terraza'])));
         self::assertSame(2, $result->remaining);
         self::assertSame(['ai-usage/2026-09.json'], array_values(preg_grep('~^ai-usage/~', TempDir::files($this->dataDir)) ?: []));
-        self::assertEquals((object) ['enabled' => true, 'limit' => 3, 'remaining' => 2, 'features' => ['flyer', 'share']], $ai());
+        self::assertEquals(self::on($all, ['flyer' => 2]), $ai());
 
         // 10:00Z on 18 September is 11:00 WEST; thirteen hours on, it is midnight in the Canary Islands.
         $clock->tick(13 * 3600 * 1000 - 1);
-        self::assertSame(2, $ai()->remaining, 'still the 18th there');
+        self::assertEquals(self::on($all, ['flyer' => 2]), $ai(), 'still the 18th there');
         $clock->tick(1);
-        self::assertSame(3, $ai()->remaining);
+        self::assertEquals(self::on($all), $ai());
         self::assertSame('', $this->log(), 'nothing was logged');
     }
 
@@ -391,6 +401,24 @@ final class BootstrapTest extends TestCase
     private static function allBut(string $off): array
     {
         return array_values(array_diff(Shared::fromFile(Paths::schema('shared.json'))->ai()['features'], [$off]));
+    }
+
+    /**
+     * api/config's `ai` block, as decoded, on a site that runs $named: each with its limit ($own, else the default 3)
+     * and what is $left of it today (all of it, unless said).
+     *
+     * @param list<string> $named
+     * @param array<string, int> $left
+     * @param array<string, int> $own
+     */
+    private static function on(array $named, array $left = [], array $own = []): stdClass
+    {
+        $features = [];
+        foreach ($named as $name) {
+            $limit = $own[$name] ?? 3;
+            $features[] = (object) ['name' => $name, 'limit' => $limit, 'remaining' => $left[$name] ?? $limit];
+        }
+        return (object) ['enabled' => true, 'features' => $features];
     }
 
     /** A good body for a feature's route, which is api/ai/<the feature's name>. */

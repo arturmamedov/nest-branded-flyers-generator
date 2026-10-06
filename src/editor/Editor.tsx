@@ -5,7 +5,7 @@ import { lintFlyer } from '../shared/copyRules';
 import { DEFAULT_PHOTO_MODE, followHostel, marksFor, newFlyerData, switchTemplate, weekTitle } from '../shared/defaults';
 import { CANVASES, CANVAS_IDS, DEFAULT_CANVAS, bodyOf, isCanvasId, photoFrame, type CanvasId, type PhotoMode } from '../shared/layout';
 import { DEFAULT_CROP, ZOOM_MAX, ZOOM_MIN, clampCrop, wholePhotoZoom, zoomCrop } from '../shared/photo';
-import type { AiOn } from '../shared/ai';
+import type { AiFeature, AiFeatureOn } from '../shared/ai';
 import type { Chip, ChipKey, Crop, FlyerData, FlyerInput, FlyerListItem, FlyerText, Hostel, PhotoInfo, Template, WeekRow } from '../shared/schema';
 import { TITLE_MAX, libraryName } from '../shared/names';
 import { SHARE_MAX } from '../shared/share';
@@ -93,11 +93,11 @@ export function Editor({
   hostels: Hostel[];
   exporter: FlyerExporter;
   limits: PhotoLimits;
-  /** The share text's AI ("Write with AI") for this staff member: null where the site does not run it for them, and
-      the editor then shows nothing of it. */
-  ai: AiOn | null;
-  /** Tells the app what is left today after an AI answer. */
-  onRemaining: (remaining: number) => void;
+  /** The share text's AI ("Write with AI") for this staff member, with its own limit and what is left of it today:
+      null where the site does not run it for them, and the editor then shows nothing of it. */
+  ai: AiFeatureOn | null;
+  /** Tells the app what is left today of a feature after an AI answer. */
+  onRemaining: (feature: AiFeature, remaining: number) => void;
 }) {
   // A new flyer the AI page made (handoff.ts): taken once, it starts the draft, unsaved, so the leave guard is armed at
   // once and the first save makes its URL as for any new flyer.
@@ -264,10 +264,10 @@ export function Editor({
         const { hostel: slug, data } = latestDraft.current!;
         const r = await api.aiShare({ hostel: slug, template: data.template, data, ...(handoff ? { idea: handoff.idea } : {}) });
         setData({ share: r.share });
-        onRemaining(r.remaining);
+        onRemaining(ai.name, r.remaining);
         return '✨ The AI wrote the caption: read it before you post.';
       } catch (e) {
-        if (e instanceof ApiError && e.status === 429) onRemaining(0);
+        if (e instanceof ApiError && e.status === 429) onRemaining(ai.name, 0);
         throw e;
       }
     });
@@ -436,7 +436,7 @@ export function Editor({
               <button type="button" className="btn" disabled={!!busy || ai.remaining === 0} onClick={writeShare}>
                 {busy === 'ai' ? 'Writing…' : '✨ Write with AI'} <span className="ai-left">({ai.remaining} left today)</span>
               </button>
-              <AiUsedUp limit={ai.limit} left={ai.remaining} />
+              <AiUsedUp feature={ai.name} limit={ai.limit} left={ai.remaining} />
             </div>
           )}
           <Field label="Caption" optional>

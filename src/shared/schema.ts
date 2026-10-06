@@ -159,7 +159,7 @@ export const AiFlyerAnswerSchema = z.strictObject({
 });
 export type AiFlyerAnswer = z.infer<typeof AiFlyerAnswerSchema>;
 
-/** The route's answer: the model's, plus how many generations the actor has left today. */
+/** The route's answer: the model's, plus how many generations of this feature the actor has left today. */
 export const AiFlyerResultSchema = AiFlyerAnswerSchema.extend({ remaining: z.number().int().nonnegative() });
 export type AiFlyerResult = z.infer<typeof AiFlyerResultSchema>;
 
@@ -178,16 +178,22 @@ export type AiShareAnswer = z.infer<typeof AiShareAnswerSchema>;
 export const AiShareResultSchema = AiShareAnswerSchema.extend({ remaining: z.number().int().nonnegative() });
 export type AiShareResult = z.infer<typeof AiShareResultSchema>;
 
+/** One feature in the `ai` block of GET api/config: the actor's daily limit for it, and what is left of that today. */
+export const AiFeatureStatusSchema = z.strictObject({
+  name: z.enum(AI_FEATURES),
+  limit: z.number().int().nonnegative(),
+  remaining: z.number().int().nonnegative(),
+});
+
 /** The `ai` block of GET api/config: nothing beyond `enabled: false` when AI is off (no key, switched off, no feature
-    named, or a guest); when on, the actor's limit, what is left of it today, and the features that run for them, in
-    AI_FEATURES' order. On means some feature runs, so the list is never empty. */
+    named, or a guest); when on, the features that run for the actor, in AI_FEATURES' order and each once, each with
+    its own limit and what is left of it today (the owner's answer, 2026-10-06: every feature its own daily limit).
+    On means some feature runs, so the list is never empty. */
 export const AiConfigSchema = z.discriminatedUnion('enabled', [
   z.strictObject({ enabled: z.literal(false) }),
   z.strictObject({
     enabled: z.literal(true),
-    limit: z.number().int().nonnegative(),
-    remaining: z.number().int().nonnegative(),
-    features: z.array(z.enum(AI_FEATURES)).min(1),
+    features: z.array(AiFeatureStatusSchema).min(1),
   }),
 ]);
 export type AiConfig = z.infer<typeof AiConfigSchema>;

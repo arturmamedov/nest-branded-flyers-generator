@@ -75,7 +75,7 @@ errors. The catalogue is `src/shared/errors.ts`, which PHP reads from `schema/sh
 | `heic` | 415 | `heic` | iPhone HEIC photos are not supported — export it as JPG (Settings › Camera › Formats › Most Compatible) and try again. |
 | `unreadable` | 415 | `unsupported` | That file is not an image we can read. Use a JPG, PNG or WebP. |
 | `unsupported_format` | 415 | `unsupported` | {format} files are not supported. Use a JPG, PNG or WebP. |
-| `ai_quota` | 429 | `ai_quota` | Today’s {limit} AI generations are used up. They come back at midnight, Canary Islands time. |
+| `ai_quota` | 429 | `ai_quota` | Today’s {limit} {what} are used up. They come back at midnight, Canary Islands time. |
 | `server_error` | 500 | `server_error` | Something went wrong on the server. |
 | `storage_too_new` | 500 | `server_error` | The data folder was written by a newer version of this app. Update the app before using it. |
 | `ai_failed` | 502 | `ai_failed` | The AI didn’t answer properly. Try again in a moment. |
@@ -116,17 +116,21 @@ path, is 404 `no_such_endpoint`.
   exporters: ['client'] | ['client', 'server'],
   limits: { maxUploadBytes, maxPhotoEdge },
   server: { …free-form diagnostics },
-  ai: { enabled: false } | { enabled: true, limit, remaining, features } }
+  ai: { enabled: false } | { enabled: true, features: [{ name, limit, remaining }, …] } }
 ```
 
 - The editor picks its exporter from `exporters`: server if it is listed, else client.
 - `limits` drives photo preparation in the browser.
 - `ai` is what the AI assistant is for the caller (the actor, see below): nothing beyond `enabled: false` when it is
-  off, else the actor's daily limit, how many generations are left of it today, and `features`: the features that run
-  for them, one or more of `flyer` and `share`, in that order and each once (`AI_FEATURES` in `src/shared/ai.ts`). The
-  editor shows a feature only when it is listed. Never the provider, the model or the key. It is `enabled: false` too
-  when the AI's ledger cannot be read (the server's log says why): the editor loads nothing without this answer, so
-  the AI's storage never makes it fail.
+  off, else `features`: the features that run for them, one or more of `flyer` and `share`, in that order and each
+  once (`AI_FEATURES` in `src/shared/ai.ts`).
+  - Each is `{ name, limit, remaining }`: the actor's daily limit for that feature, and how many of its generations
+    are left today. Every feature has its own limit, and a generation counts against its own alone.
+  - The editor shows a feature only when it is listed. An answer in another shape shows no AI: a backend from
+    before each feature had its own limit answers one `limit` and one `remaining`, with the features by name.
+  - Never the provider, the model or the key.
+  - It is `enabled: false` too when the AI's ledger cannot be read (the server's log says why): the editor loads
+    nothing without this answer, so the AI's storage never makes it fail.
 - `maxUploadBytes` is the largest upload this backend accepts. Node: 15 MiB. PHP: the smallest of 15 MiB,
   `upload_max_filesize`, and `post_max_size` minus 64 KiB.
 - `server` is diagnostics only: nothing reads it to decide anything. Node reports `node`. PHP reports `php`,
@@ -234,27 +238,32 @@ few-shot examples both backends read.
   runs until it is named: a provider and its key alone run nothing. The route of a feature the site does not run
   answers `ai_off` exactly as it does with the whole AI off, and `api/config` lists the ones that run.
 - **The actor.** Every request has one: today the single anonymous actor (a login will replace the resolver and give the
-  policy a role; a guest then gets 403 `ai_forbidden`). The cap is counted per actor id, so today it is site-wide.
+  policy a role; a guest then gets 403 `ai_forbidden`). Every count is per actor id, so today it is site-wide.
+- **A limit per feature.** Every feature has its own daily limit for the actor. A site sets them itself:
+  `AI_DAILY_LIMIT` (Node) or `'dailyLimit'` (PHP) is the number of every feature, 3 unless set, and `AI_DAILY_LIMITS`
+  (pairs, `share:10,flyer:5`) or `'dailyLimits'` (`['share' => 10]`) gives a feature its own. Each is a whole number
+  from 1 to `AI_DAILY_LIMIT_MAX`.
 - **Checks, in order:** the body (`malformed`), the write guard, `ai_off` (the whole AI, or this route's feature),
   `ai_forbidden`, the body's shape (400 `ai_input`, with `fields` as for `invalid`; the idea text is trimmed and holds
-  1 to `AI_INPUT_MAX` code points), a `hostel` slug that doesn't exist (`unknown_hostel`), the cap (429 `ai_quota`,
-  when today's `ok` generations for the actor have reached the limit), then the provider: a timeout, a provider error,
-  a refusal, or an answer that fails its schema is 502 `ai_failed`.
+  1 to `AI_INPUT_MAX` code points), a `hostel` slug that doesn't exist (`unknown_hostel`), the feature's limit (429
+  `ai_quota`, when today's `ok` generations of this feature for the actor have reached it; the message names what ran
+  out, "AI flyers" or "AI share texts"), then the provider: a timeout, a provider error, a refusal, or an answer that
+  fails its schema is 502 `ai_failed`.
 - **What counts.** A generation counts only when the provider answered and the answer passed validation; it is then one
-  of the actor's `limit` for the Canary Islands day (`AI_DAY_ZONE`), both features together. Refused calls never count;
-  failed ones are recorded but don't count. Every attempt that reached the provider is one append-only ledger record
-  (`docs/json-storage.md`, "The AI ledger").
+  of the actor's `limit` of that feature for the Canary Islands day (`AI_DAY_ZONE`), and of no other feature's. Refused
+  calls never count; failed ones are recorded but don't count. Every attempt that reached the provider is one
+  append-only ledger record (`docs/json-storage.md`, "The AI ledger").
 - **`POST api/ai/flyer`** takes `{text, hostel?}`: the staff member's text, and the hostel's slug when they chose one
   (the model then uses it; otherwise it decides from the text). It answers `{brief, assumptions, remaining}`: a brief that
   passes `BriefSchema` with every limit and always carries its share text (`share`: one generation is a whole flyer, so a
   model's answer without it is `ai_failed`), whose `hostel` exists on the site (an unknown slug from the model becomes `null`
   with an assumption of the backend's own, the first, never an error), the assumptions the model made (`[{field, note}]`,
-  `field` a brief key), and the generations left today. The list holds at most `AI_ASSUMPTIONS_MAX`, the backend's note
+  `field` a brief key), and the flyer generations left today. The list holds at most `AI_ASSUMPTIONS_MAX`, the backend's note
   included: on a full list that note takes the place of the model's last one. The client builds the flyer with
   `flyerFromBrief()`; nothing is saved.
 - **`POST api/ai/share`** takes `{hostel, template, data, idea?}`, the flyer as the editor holds it (`data` is
   `FlyerDataSchema`) and the idea it came from when the AI made it, and answers `{share, remaining}`: a caption within
-  `SHARE_MAX`, not saved.
+  `SHARE_MAX`, not saved, and the share texts left today.
 - **The fake provider** (`AI_PROVIDER=fake`; PHP `'provider' => 'fake'`) answers from the bundle's first example and
   never touches the network. The last user turn steers it, for the contract suite: `[[fake:invalid]]` answers something
   that fails the schema, `[[fake:unknown-hostel]]` a brief for a hostel the site doesn't have, `[[fake:timeout]]` and

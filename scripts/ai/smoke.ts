@@ -12,7 +12,7 @@ import { SEED_FILE } from '../../server/paths.js';
 import { applySeedFile } from '../../server/storage/seed.js';
 import { createSqliteRepositories } from '../../server/storage/sqlite/index.js';
 import { systemClock } from '../../server/storage/types.js';
-import { AI_FEATURES, aiFor, type AiFeature } from '../../src/shared/ai.js';
+import { AI_FEATURES, aiFor, aiQuotaVars, type AiFeature } from '../../src/shared/ai.js';
 import { flyerFromBrief } from '../../src/shared/brief.js';
 import { apiError } from '../../src/shared/errors.js';
 import {
@@ -174,10 +174,10 @@ export function siteAi(config: unknown, feature: AiFeature): { limit: number; re
   const on = aiFor(parsed.data, feature);
   if (on === null) {
     throw new Error(
-      `This site does not run "${feature}": its settings name ${parsed.data.features.join(', ')} alone ('features' in config.php's ai block; AI_FEATURES on a Node server).${feature === 'flyer' ? ' Run it with --share for the share text.' : ''}`,
+      `This site does not run "${feature}": its settings name ${parsed.data.features.map((f) => f.name).join(', ')} alone ('features' in config.php's ai block; AI_FEATURES on a Node server).${feature === 'flyer' ? ' Run it with --share for the share text.' : ''}`,
     );
   }
-  if (on.remaining === 0) throw new Error(apiError('ai_quota', { limit: on.limit }).message);
+  if (on.remaining === 0) throw new Error(apiError('ai_quota', aiQuotaVars(feature, on.limit)).message);
   return { limit: on.limit, remaining: on.remaining };
 }
 

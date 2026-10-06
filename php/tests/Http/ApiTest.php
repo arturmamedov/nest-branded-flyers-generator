@@ -305,7 +305,18 @@ final class ApiTest extends TestCase
     public function testWithTheAiOnConfigSaysWhatIsLeftForTheActorAskingTodayAndTheRoutesGenerate(): void
     {
         $this->withAi();
-        self::assertEquals((object) ['enabled' => true, 'limit' => 3, 'remaining' => 3, 'features' => ['flyer', 'share']], Json::decode($this->send('GET', 'api/config')->body)->ai);
+        // Every feature has its own daily limit (the owner's answer, 2026-10-06): each is listed with its own count.
+        $on = function (array $left = []): stdClass {
+            $features = array_map(
+                static fn (string $name): stdClass => (object) ['name' => $name, 'limit' => 3, 'remaining' => $left[$name] ?? 3],
+                $this->shared->ai()['features'],
+            );
+            return (object) ['enabled' => true, 'features' => $features];
+        };
+        $ai = Json::decode($this->send('GET', 'api/config')->body)->ai;
+        self::assertEquals($on(), $ai);
+        self::assertSame(['enabled', 'features'], array_keys((array) $ai));
+        self::assertSame(['name', 'limit', 'remaining'], array_keys((array) $ai->features[0]));
 
         $flyer = $this->send('POST', 'api/ai/flyer', (object) ['text' => 'Yoga mañana a las 9', 'hostel' => 'duque-nest']);
         self::assertSame(200, $flyer->status, $flyer->body);
@@ -317,11 +328,11 @@ final class ApiTest extends TestCase
         $share = $this->send('POST', 'api/ai/share', (object) ['hostel' => null, 'template' => 'activity', 'data' => $this->input()->data]);
         self::assertSame(200, $share->status, $share->body);
         self::assertSame(['share', 'remaining'], array_keys((array) Json::decode($share->body)));
-        self::assertSame(1, Json::decode($share->body)->remaining);
+        self::assertSame(2, Json::decode($share->body)->remaining, 'its own count: the flyer did not spend it');
 
-        self::assertEquals((object) ['enabled' => true, 'limit' => 3, 'remaining' => 1, 'features' => ['flyer', 'share']], Json::decode($this->send('GET', 'api/config')->body)->ai);
+        self::assertEquals($on(['flyer' => 2, 'share' => 2]), Json::decode($this->send('GET', 'api/config')->body)->ai);
         $other = $this->kernel->handle(new Request('GET', '/api/config', [], WriteHeader::headers() + ['x-actor' => 'someone-else'], ''));
-        self::assertEquals((object) ['enabled' => true, 'limit' => 3, 'remaining' => 3, 'features' => ['flyer', 'share']], Json::decode($other->body)->ai, 'the block is per actor');
+        self::assertEquals($on(), Json::decode($other->body)->ai, 'the block is per actor');
         self::assertSame(['anonymous', 'anonymous'], array_column($this->usage->records, 'actorId'));
     }
 

@@ -118,7 +118,6 @@ final class ConfigTest extends TestCase
         self::assertTrue($config->ai->enabled);
         self::assertSame('claude-haiku-4-5', $config->ai->model);
         self::assertSame(['flyer', 'share'], $config->ai->features);
-        self::assertSame(3, $config->ai->dailyLimit);
         self::assertSame(self::everyFeature(3), $config->ai->dailyLimits);
     }
 
@@ -140,7 +139,7 @@ final class ConfigTest extends TestCase
     public function testWithoutAnAiBlockTheAiIsOff(): void
     {
         $ai = Config::fromArray([], self::ROOT, self::shared())->ai;
-        self::assertSame([null, null, null, null, 25_000, false, [], 3], [$ai->provider, $ai->apiKey, $ai->model, $ai->effort, $ai->timeoutMs, $ai->enabled, $ai->features, $ai->dailyLimit]);
+        self::assertSame([null, null, null, null, 25_000, false, []], [$ai->provider, $ai->apiKey, $ai->model, $ai->effort, $ai->timeoutMs, $ai->enabled, $ai->features]);
         self::assertSame(self::everyFeature(3), $ai->dailyLimits);
     }
 
@@ -244,11 +243,12 @@ final class ConfigTest extends TestCase
         }
     }
 
-    // The owner's answer (2026-10-05): the cap is a setting, 3 by default, bounded in the code.
+    // The owner's answers: the limit is a setting, 3 by default, bounded in the code (2026-10-05), and it is every
+    // feature's own number unless the feature has one of its own (2026-10-06).
     #[DataProvider('dailyLimitAccepted')]
-    public function testTheDailyCapIsTheSitesOwnOrTheDefault(mixed $set, int $limit): void
+    public function testTheSitesOwnNumberOrTheDefaultIsEveryFeaturesDailyLimit(mixed $set, int $limit): void
     {
-        self::assertSame($limit, Config::fromArray(['ai' => ['provider' => 'fake', 'dailyLimit' => $set]], self::ROOT, self::shared())->ai->dailyLimit);
+        self::assertSame(self::everyFeature($limit), Config::fromArray(['ai' => ['provider' => 'fake', 'dailyLimit' => $set]], self::ROOT, self::shared())->ai->dailyLimits);
     }
 
     /** @return iterable<string, array{mixed}> */

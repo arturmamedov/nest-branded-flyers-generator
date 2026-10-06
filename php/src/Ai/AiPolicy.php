@@ -6,11 +6,11 @@ namespace NestFlyers\Ai;
 
 /**
  * Which features run, who may use them, and how much a day. Today (ConfigAiPolicy): a feature runs when config.php
- * names a provider and keys it (or names the fake) and names that feature, everyone may use it, and the cap is the
- * site's own (config.php's dailyLimit, the shared default unless set). "The AI is on" is not a second fact here: it
- * is on when some feature runs, so the two cannot disagree. The login brief adds a role here (a guest gets mayUse
- * false, and so ai_forbidden and no AI in the editor) without touching the service or the routes. The twin of
- * server/ai/policy.ts.
+ * names a provider and keys it (or names the fake) and names that feature, everyone may use it, and each feature has
+ * its own daily limit, the site's own (config.php's dailyLimits for that feature, else its dailyLimit, else the shared
+ * default). "The AI is on" is not a second fact here: it is on when some feature runs, so the two cannot disagree.
+ * The login brief adds a role here (a guest gets mayUse false, and so ai_forbidden and no AI in the editor) without
+ * touching the service or the routes. The twin of server/ai/policy.ts.
  */
 interface AiPolicy
 {
@@ -19,5 +19,6 @@ interface AiPolicy
 
     public function mayUse(Actor $actor): bool;
 
-    public function dailyLimit(Actor $actor): int;
+    /** How many generations of this feature the actor may make a day: every feature has its own limit. */
+    public function dailyLimit(Actor $actor, string $feature): int;
 }

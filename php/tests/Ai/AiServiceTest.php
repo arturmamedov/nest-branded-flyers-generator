@@ -95,6 +95,8 @@ final class AiServiceTest extends TestCase
         self::assertSame(self::INPUT_MAX, $this->shared->ai()['inputMax']);
         self::assertSame(self::ASSUMPTIONS_MAX, $this->shared->ai()['assumptionsMax']);
         self::assertSame(self::FEATURES, $this->shared->ai()['features']);
+        // The used-up sentence names what ran out: every feature has a noun for it, written once in src/shared/ai.ts.
+        self::assertSame(self::FEATURES, array_keys($this->shared->ai()['featureNouns']));
     }
 
     public function testOffWithoutAProviderStatusSaysSoAndBothFeaturesAnswerAiOff(): void
@@ -168,7 +170,8 @@ final class AiServiceTest extends TestCase
             $last = $this->usage->records[array_key_last($this->usage->records)];
             self::assertSame([$feature, true], [$last['feature'], $last['ok']]);
         }
-        self::assertSame(['enabled' => true, 'limit' => self::LIMIT, 'remaining' => self::LIMIT - count($named), 'features' => $named], $service->status($this->actor));
+        // Each one spent one of its own: no feature's count moved another's.
+        self::assertSame($this->on(array_fill_keys($named, self::LIMIT - 1), $named), $service->status($this->actor));
     }
 
     public function testAnActorThePolicyExcludesIsRefusedAndShownNothing(): void
@@ -184,7 +187,7 @@ final class AiServiceTest extends TestCase
                 return false;
             }
 
-            public function dailyLimit(Actor $actor): int
+            public function dailyLimit(Actor $actor, string $feature): int
             {
                 return 3;
             }
@@ -213,7 +216,7 @@ final class AiServiceTest extends TestCase
         $result = $service->flyer($this->actor, $this->idea());
         JsonAssert::same((object) ['brief' => $this->example->answer->brief, 'assumptions' => $this->example->answer->assumptions, 'remaining' => self::LIMIT - 1], $result);
         self::assertSame(['brief', 'assumptions', 'remaining'], array_keys($result));
-        self::assertSame(['enabled' => true, 'limit' => self::LIMIT, 'remaining' => self::LIMIT - 1, 'features' => self::FEATURES], $service->status($this->actor));
+        self::assertSame($this->on(['flyer' => self::LIMIT - 1]), $service->status($this->actor));
         self::assertSame([[
             'at' => $this->clock->now(),
             'day' => '2026-09-18',
@@ -281,7 +284,7 @@ final class AiServiceTest extends TestCase
         $this->failsWith(fn () => $service->flyer($this->actor, $this->idea()), 'ai_failed');
         self::assertCount(1, $this->usage->records);
         self::assertSame([false, 'flyer', $raw], [$this->usage->records[0]['ok'], $this->usage->records[0]['feature'], $this->usage->records[0]['output']]);
-        self::assertSame(['enabled' => true, 'limit' => self::LIMIT, 'remaining' => self::LIMIT, 'features' => self::FEATURES], $service->status($this->actor));
+        self::assertSame($this->on(), $service->status($this->actor));
         self::assertStringContainsString('share', $this->log());
     }
 
@@ -291,7 +294,7 @@ final class AiServiceTest extends TestCase
         $this->failsWith(fn () => $service->flyer($this->actor, $this->idea('[[fake:invalid]]')), 'ai_failed');
         self::assertCount(1, $this->usage->records);
         self::assertSame([false, 'flyer', Json::encode(['brief' => 42, 'assumptions' => []])], [$this->usage->records[0]['ok'], $this->usage->records[0]['feature'], $this->usage->records[0]['output']]);
-        self::assertSame(['enabled' => true, 'limit' => self::LIMIT, 'remaining' => self::LIMIT, 'features' => self::FEATURES], $service->status($this->actor));
+        self::assertSame($this->on(), $service->status($this->actor));
         self::assertStringContainsString('the answer failed its schema', $this->log());
     }
 
@@ -306,29 +309,39 @@ final class AiServiceTest extends TestCase
         );
     }
 
-    public function testItStopsAtTheCapAndStartsAgainAtMidnightInTheCanaryIslands(): void
+    // The owner's answer (2026-10-06): every feature its own daily limit. One used up leaves the others alone.
+    public function testEachFeatureStopsAtItsOwnLimitLeavesTheOthersAloneAndStartsAgainAtMidnightInTheCanaryIslands(): void
     {
         $service = $this->service();
         for ($i = 0; $i < self::LIMIT; $i++) {
             $service->flyer($this->actor, $this->idea());
         }
-        $this->failsWith(fn () => $service->flyer($this->actor, $this->idea()), 'ai_quota', ['limit' => self::LIMIT]);
-        $this->failsWith(fn () => $service->share($this->actor, $this->shareBody()), 'ai_quota', ['limit' => self::LIMIT]);
-        self::assertSame(['enabled' => true, 'limit' => self::LIMIT, 'remaining' => 0, 'features' => self::FEATURES], $service->status($this->actor));
+        $this->failsWith(fn () => $service->flyer($this->actor, $this->idea()), 'ai_quota', $this->usedUp('flyer', self::LIMIT));
+        self::assertSame($this->on(['flyer' => 0]), $service->status($this->actor));
+        // The share text has its own count: the flyers did not touch it.
+        self::assertSame(self::LIMIT - 1, $service->share($this->actor, $this->shareBody())['remaining']);
+        self::assertSame($this->on(['flyer' => 0, 'share' => self::LIMIT - 1]), $service->status($this->actor));
+        for ($i = 1; $i < self::LIMIT; $i++) {
+            $service->share($this->actor, $this->shareBody());
+        }
+        $this->failsWith(fn () => $service->share($this->actor, $this->shareBody()), 'ai_quota', $this->usedUp('share', self::LIMIT));
         // 10:00Z on 18 September is 11:00 WEST; thirteen hours on, it is 00:00 on the 19th there.
         $this->clock->tick(13 * 3600 * 1000);
-        self::assertSame(['enabled' => true, 'limit' => self::LIMIT, 'remaining' => self::LIMIT, 'features' => self::FEATURES], $service->status($this->actor));
+        self::assertSame($this->on(), $service->status($this->actor));
         self::assertSame(self::LIMIT - 1, $service->flyer($this->actor, $this->idea())['remaining']);
     }
 
-    // The owner's answer (2026-10-05): the cap is the site's own setting, 3 unless it says otherwise.
-    public function testItStopsAtTheSitesOwnCapAndSaysThatNumber(): void
+    // The owner's answers (2026-10-05, 2026-10-06): the limit is the site's own setting, and a feature may have its own.
+    public function testAFeatureStopsAtTheNumberTheSiteGivesItAndSaysThatNumberAndWhatRanOut(): void
     {
-        $service = $this->service(['policy' => $this->policy(['provider' => 'fake', 'dailyLimit' => 1])]);
-        self::assertSame(['enabled' => true, 'limit' => 1, 'remaining' => 1, 'features' => self::FEATURES], $service->status($this->actor));
+        $own = ['share' => 1];
+        $service = $this->service(['policy' => $this->policy(['provider' => 'fake', 'dailyLimits' => $own])]);
+        self::assertSame($this->on([], null, $own), $service->status($this->actor));
         self::assertSame(0, $service->share($this->actor, $this->shareBody())['remaining']);
-        $this->failsWith(fn () => $service->flyer($this->actor, $this->idea()), 'ai_quota', ['limit' => 1]);
-        self::assertSame(['enabled' => true, 'limit' => 1, 'remaining' => 0, 'features' => self::FEATURES], $service->status($this->actor));
+        $this->failsWith(fn () => $service->share($this->actor, $this->shareBody()), 'ai_quota', $this->usedUp('share', 1));
+        // The flyer keeps the default, and its own count.
+        self::assertSame(self::LIMIT - 1, $service->flyer($this->actor, $this->idea())['remaining']);
+        self::assertSame($this->on(['share' => 0, 'flyer' => self::LIMIT - 1], null, $own), $service->status($this->actor));
     }
 
     public function testItCountsPerActor(): void
@@ -337,7 +350,27 @@ final class AiServiceTest extends TestCase
         for ($i = 0; $i < self::LIMIT; $i++) {
             $service->flyer($this->actor, $this->idea());
         }
-        self::assertSame(['enabled' => true, 'limit' => self::LIMIT, 'remaining' => self::LIMIT, 'features' => self::FEATURES], $service->status(new Actor('someone-else')));
+        self::assertSame($this->on(), $service->status(new Actor('someone-else')));
+    }
+
+    // api/config asks on every page load: every feature's count comes from one read of the ledger.
+    public function testStatusReadsTheLedgerOnceHoweverManyFeaturesRun(): void
+    {
+        $counting = new class () implements AiUsageRepository {
+            public int $reads = 0;
+
+            public function record(array $entry): void
+            {
+            }
+
+            public function countOk(string $actorId, string $day): array
+            {
+                $this->reads++;
+                return [];
+            }
+        };
+        self::assertSame($this->on(), $this->service(['usage' => $counting])->status($this->actor));
+        self::assertSame(1, $counting->reads);
     }
 
     public function testItWritesAShareTextFromTheFlyersFieldsCountsItAndKeepsWhatTheModelWasGiven(): void
@@ -375,7 +408,7 @@ final class AiServiceTest extends TestCase
         self::assertStringContainsString('network: PHP has no curl extension', $this->log());
         self::assertSame(1, substr_count($this->log(), "\n"), 'one line, no trace');
         self::assertStringNotContainsString('sk-live-secret-42', $this->log() . Json::encode($this->usage->records));
-        self::assertSame(self::LIMIT, $service->status($this->actor)['remaining'], 'nothing was counted');
+        self::assertSame($this->on(), $service->status($this->actor), 'nothing was counted');
     }
 
     public function testTheProviderIsNeverCalledUnderTheStoresLock(): void
@@ -412,7 +445,7 @@ final class AiServiceTest extends TestCase
         };
         $service = $this->service(['provider' => $probe, 'hostels' => $repos->hostels, 'usage' => $repos->aiUsage]);
         self::assertSame(self::LIMIT - 1, $service->flyer($this->actor, $this->idea())['remaining']);
-        self::assertSame(self::LIMIT - 2, $service->share($this->actor, $this->shareBody())['remaining']);
+        self::assertSame(self::LIMIT - 1, $service->share($this->actor, $this->shareBody())['remaining']);
         self::assertSame(2, $probe->calls);
         self::assertSame(['flyer' => 1, 'share' => 1], $repos->aiUsage->countOk('anonymous', '2026-09-18'));
     }
@@ -503,6 +536,35 @@ final class AiServiceTest extends TestCase
     private function allBut(string $off): array
     {
         return array_values(array_diff($this->shared->ai()['features'], [$off]));
+    }
+
+    /**
+     * api/config's `ai` block on a site that runs $named (every feature, unless said): each with its limit ($own,
+     * else the default) and what is $left of it today (all of it, unless said).
+     *
+     * @param array<string, int> $left
+     * @param list<string>|null $named
+     * @param array<string, int> $own
+     * @return array{enabled:true, features:list<array{name:string, limit:int, remaining:int}>}
+     */
+    private function on(array $left = [], ?array $named = null, array $own = []): array
+    {
+        $features = [];
+        foreach ($named ?? $this->shared->ai()['features'] as $name) {
+            $limit = $own[$name] ?? self::LIMIT;
+            $features[] = ['name' => $name, 'limit' => $limit, 'remaining' => $left[$name] ?? $limit];
+        }
+        return ['enabled' => true, 'features' => $features];
+    }
+
+    /**
+     * What the ai_quota sentence is filled with for one feature: its limit, and what its generations are called.
+     *
+     * @return array{limit:int, what:string}
+     */
+    private function usedUp(string $feature, int $limit): array
+    {
+        return ['limit' => $limit, 'what' => $this->shared->ai()['featureNouns'][$feature]];
     }
 
     /**

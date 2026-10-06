@@ -51,7 +51,8 @@ return [
 
     // The AI assistant ("Create with AI" and "Write with AI"). Off until a provider,
     // its key and the features are set; without this block it is off too. At most 3 generations
-    // a day unless 'dailyLimit' says otherwise, counted in the Canary Islands. Needs PHP's curl extension.
+    // a day of each feature unless 'dailyLimit' or 'dailyLimits' says otherwise, counted in the
+    // Canary Islands. Needs PHP's curl extension.
     // Before going back to an older release, take out what it does not know, or it
     // refuses config.php (503): 'dailyLimits' for release 2ad58f28364e (2026-10-06) or any
     // before it, 'features' and 'dailyLimit' as well for one from before 2026-10-06, the
@@ -64,9 +65,11 @@ return [
         // The features that run: 'flyer' ("Create with AI") and 'share' ("Write with AI").
         // None until named: [] keeps the AI off even with a key. The share text alone: ['share'].
         'features' => [],
-        // Generations a day for the whole site, both features together; null = 3. A whole number from 1 to 20.
+        // Generations a day of each feature, for the whole site; null = 3. A whole number from 1 to 20.
+        // Every feature has its own count: 3 is 3 flyers and 3 share texts.
         'dailyLimit' => null,
-        // A feature's own number a day, by its name, e.g. ['share' => 10]; null = none. A whole number from 1 to 20 each.
+        // A feature's own number a day, by its name, e.g. ['share' => 10]; null = none. A whole number from 1 to 20
+        // each. A feature it does not name takes 'dailyLimit'.
         'dailyLimits' => null,
         // null = the provider's default model (src/shared/ai.ts).
         'model' => null,

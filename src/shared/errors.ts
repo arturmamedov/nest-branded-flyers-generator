@@ -48,15 +48,17 @@ export const API_ERRORS = {
   },
   unreadable: { status: 415, code: 'unsupported', message: 'That file is not an image we can read. Use a JPG, PNG or WebP.' },
   unsupported_format: { status: 415, code: 'unsupported', message: '{format} files are not supported. Use a JPG, PNG or WebP.' },
-  /* The cap resets at midnight in the Canary Islands (AI_DAY_ZONE), so the message can say when without a variable. */
-  ai_quota: { status: 429, code: 'ai_quota', message: 'Today’s {limit} AI generations are used up. They come back at midnight, Canary Islands time.' },
+  /* Each feature has its own daily limit, so the sentence names what ran out: `{what}` is that feature's noun
+     (aiQuotaVars in ai.ts). The day ends at midnight in the Canary Islands (AI_DAY_ZONE), so the message can say when
+     without a variable. */
+  ai_quota: { status: 429, code: 'ai_quota', message: 'Today’s {limit} {what} are used up. They come back at midnight, Canary Islands time.' },
   server_error: { status: 500, code: 'server_error', message: 'Something went wrong on the server.' },
   storage_too_new: {
     status: 500,
     code: 'server_error',
     message: 'The data folder was written by a newer version of this app. Update the app before using it.',
   },
-  /* A timeout, a provider error, or an answer that failed the schema: nothing is charged against the cap. */
+  /* A timeout, a provider error, or an answer that failed the schema: nothing is charged against the feature's limit. */
   ai_failed: { status: 502, code: 'ai_failed', message: 'The AI didn’t answer properly. Try again in a moment.' },
   not_configured: {
     status: 503,

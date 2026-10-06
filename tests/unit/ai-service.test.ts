@@ -8,7 +8,7 @@ import { AiService, type AiServiceDeps } from '../../server/ai/service.js';
 import { HttpError } from '../../server/errors.js';
 import { SEED_FILE } from '../../server/paths.js';
 import type { AiUsageCounts, AiUsageRepository } from '../../server/storage/types.js';
-import { AI_ASSUMPTIONS_MAX, AI_DAILY_LIMIT, AI_FEATURES, AI_INPUT_MAX, type AiFeature } from '../../src/shared/ai.js';
+import { AI_ASSUMPTIONS_MAX, AI_DAILY_LIMIT, AI_FEATURES, AI_INPUT_MAX, aiQuotaVars, type AiFeature } from '../../src/shared/ai.js';
 import { newFlyerData } from '../../src/shared/defaults.js';
 import { apiError, type ApiErrorKey } from '../../src/shared/errors.js';
 import { AiFlyerResultSchema, type Hostel } from '../../src/shared/schema.js';
@@ -17,8 +17,8 @@ import type { StoredAiUsage } from '../../src/shared/storage.js';
 import { FakeClock } from '../storage/repositories.contract.js';
 
 /* The rules of a generation (docs/api-contract.md, "The AI assistant"): the checks and their order, what counts
-   against the cap and when the cap resets, what the ledger keeps. The provider is the fake, the ledger in memory: the
-   drivers are proved by the storage contract, the HTTP shapes by the contract suite. */
+   against a feature's daily limit and when the day ends, what the ledger keeps. The provider is the fake, the ledger
+   in memory: the drivers are proved by the storage contract, the HTTP shapes by the contract suite. */
 
 class MemoryUsage implements AiUsageRepository {
   records: StoredAiUsage[] = [];
@@ -40,8 +40,17 @@ const hostels: Hostel[] = seed.hostels.map((h, i) => ({ id: i + 1, slug: h.slug,
 const bundle = loadBundle();
 const example = bundle.examples[0];
 const actor = { id: 'anonymous' };
-/** A site that names every feature: what a test is about, it takes away. */
-const settings = { provider: 'fake' as const, apiKey: null, model: 'fake-1', effort: null, timeoutMs: 1000, enabled: true, features: [...AI_FEATURES], dailyLimit: AI_DAILY_LIMIT };
+type PerFeature = Partial<Record<AiFeature, number>>;
+/** A daily limit for every feature: its own where `own` names it, else the shared default. */
+const limits = (own: PerFeature = {}) => Object.fromEntries(AI_FEATURES.map((f) => [f, own[f] ?? AI_DAILY_LIMIT])) as Record<AiFeature, number>;
+/** A site that names every feature, each at the default limit: what a test is about, it takes away. */
+const settings = { provider: 'fake' as const, apiKey: null, model: 'fake-1', effort: null, timeoutMs: 1000, enabled: true, features: [...AI_FEATURES], dailyLimits: limits() };
+/** api/config's `ai` block on a site that runs `named`: each with its limit (`own`, else the default) and what is
+    `left` of it today (all of it, unless said). */
+const on = (left: PerFeature = {}, named: readonly AiFeature[] = AI_FEATURES, own: PerFeature = {}) => ({
+  enabled: true,
+  features: named.map((name) => ({ name, limit: limits(own)[name], remaining: left[name] ?? limits(own)[name] })),
+});
 
 function make(over: Partial<AiServiceDeps> = {}) {
   const clock = new FakeClock();
@@ -128,7 +137,8 @@ describe('the AI service', () => {
         await call[feature](service);
         expect(usage.records.at(-1)).toMatchObject({ feature, ok: true });
       }
-      expect(await service.status(actor)).toEqual({ enabled: true, limit: AI_DAILY_LIMIT, remaining: AI_DAILY_LIMIT - named.length, features: named });
+      // Each one spent one of its own: no feature's count moved another's.
+      expect(await service.status(actor)).toEqual(on(Object.fromEntries(named.map((f) => [f, AI_DAILY_LIMIT - 1])), named));
     });
   });
 
@@ -153,7 +163,7 @@ describe('the AI service', () => {
     const { service, clock, usage } = make();
     const result = await service.flyer(actor, idea());
     expect(result).toEqual({ ...example.answer, remaining: AI_DAILY_LIMIT - 1 });
-    expect(await service.status(actor)).toEqual({ enabled: true, limit: AI_DAILY_LIMIT, remaining: AI_DAILY_LIMIT - 1, features: AI_FEATURES });
+    expect(await service.status(actor)).toEqual(on({ flyer: AI_DAILY_LIMIT - 1 }));
     expect(usage.records).toEqual([
       {
         at: clock.now(),
@@ -212,7 +222,7 @@ describe('the AI service', () => {
     await failsWith(service.flyer(actor, idea()), 'ai_failed');
     expect(usage.records).toHaveLength(1);
     expect(usage.records[0]).toMatchObject({ ok: false, feature: 'flyer', output: JSON.stringify(json) });
-    expect(await service.status(actor)).toEqual({ enabled: true, limit: AI_DAILY_LIMIT, remaining: AI_DAILY_LIMIT, features: AI_FEATURES });
+    expect(await service.status(actor)).toEqual(on());
   });
 
   it('answers ai_failed for an answer that fails the schema, records it, and charges nothing', async () => {
@@ -220,7 +230,7 @@ describe('the AI service', () => {
     await failsWith(service.flyer(actor, idea('[[fake:invalid]]')), 'ai_failed');
     expect(usage.records).toHaveLength(1);
     expect(usage.records[0]).toMatchObject({ ok: false, feature: 'flyer', output: JSON.stringify({ brief: 42, assumptions: [] }) });
-    expect(await service.status(actor)).toEqual({ enabled: true, limit: AI_DAILY_LIMIT, remaining: AI_DAILY_LIMIT, features: AI_FEATURES });
+    expect(await service.status(actor)).toEqual(on());
   });
 
   it('answers ai_failed for a timeout and a refusal, recording what is known', async () => {
@@ -233,31 +243,48 @@ describe('the AI service', () => {
     ]);
   });
 
-  it('stops at the cap, and starts again at midnight in the Canary Islands', async () => {
+  // The owner's answer (2026-10-06): every feature its own daily limit. One used up leaves the others alone.
+  it('stops each feature at its own limit, leaves the others alone, and starts again at midnight in the Canary Islands', async () => {
     const { service, clock } = make();
     for (let i = 0; i < AI_DAILY_LIMIT; i++) await service.flyer(actor, idea());
-    await failsWith(service.flyer(actor, idea()), 'ai_quota', { limit: AI_DAILY_LIMIT });
-    await failsWith(service.share(actor, shareBody()), 'ai_quota', { limit: AI_DAILY_LIMIT });
-    expect(await service.status(actor)).toEqual({ enabled: true, limit: AI_DAILY_LIMIT, remaining: 0, features: AI_FEATURES });
+    await failsWith(service.flyer(actor, idea()), 'ai_quota', aiQuotaVars('flyer', AI_DAILY_LIMIT));
+    expect(await service.status(actor)).toEqual(on({ flyer: 0 }));
+    // The share text has its own count: the flyers did not touch it.
+    expect((await service.share(actor, shareBody())).remaining).toBe(AI_DAILY_LIMIT - 1);
+    expect(await service.status(actor)).toEqual(on({ flyer: 0, share: AI_DAILY_LIMIT - 1 }));
+    for (let i = 1; i < AI_DAILY_LIMIT; i++) await service.share(actor, shareBody());
+    await failsWith(service.share(actor, shareBody()), 'ai_quota', aiQuotaVars('share', AI_DAILY_LIMIT));
     // 10:00Z on 18 September is 11:00 WEST; thirteen hours on, it is 00:00 on the 19th there.
     clock.tick(13 * 3600 * 1000);
-    expect(await service.status(actor)).toEqual({ enabled: true, limit: AI_DAILY_LIMIT, remaining: AI_DAILY_LIMIT, features: AI_FEATURES });
+    expect(await service.status(actor)).toEqual(on());
     expect((await service.flyer(actor, idea())).remaining).toBe(AI_DAILY_LIMIT - 1);
   });
 
-  // The owner's answer (2026-10-05): the cap is the site's own setting, 3 unless it says otherwise.
-  it('stops at the site’s own cap, and says that number', async () => {
-    const { service } = make({ policy: createAiPolicy({ ...settings, dailyLimit: 1 }) });
-    expect(await service.status(actor)).toEqual({ enabled: true, limit: 1, remaining: 1, features: AI_FEATURES });
+  // The owner's answers (2026-10-05, 2026-10-06): the limit is the site's own setting, and a feature may have its own.
+  it('stops a feature at the number the site gives it, and says that number and what ran out', async () => {
+    const own = { share: 1 };
+    const { service } = make({ policy: createAiPolicy({ ...settings, dailyLimits: limits(own) }) });
+    expect(await service.status(actor)).toEqual(on({}, AI_FEATURES, own));
     expect((await service.share(actor, shareBody())).remaining).toBe(0);
-    await failsWith(service.flyer(actor, idea()), 'ai_quota', { limit: 1 });
-    expect(await service.status(actor)).toEqual({ enabled: true, limit: 1, remaining: 0, features: AI_FEATURES });
+    await failsWith(service.share(actor, shareBody()), 'ai_quota', aiQuotaVars('share', 1));
+    // The flyer keeps the default, and its own count.
+    expect((await service.flyer(actor, idea())).remaining).toBe(AI_DAILY_LIMIT - 1);
+    expect(await service.status(actor)).toEqual(on({ share: 0, flyer: AI_DAILY_LIMIT - 1 }, AI_FEATURES, own));
   });
 
   it('counts per actor', async () => {
     const { service } = make();
     for (let i = 0; i < AI_DAILY_LIMIT; i++) await service.flyer(actor, idea());
-    expect(await service.status({ id: 'someone-else' })).toEqual({ enabled: true, limit: AI_DAILY_LIMIT, remaining: AI_DAILY_LIMIT, features: AI_FEATURES });
+    expect(await service.status({ id: 'someone-else' })).toEqual(on());
+  });
+
+  // api/config asks on every page load: every feature's count comes from one read of the ledger.
+  it('reads the ledger once for status, however many features run', async () => {
+    const usage = new MemoryUsage();
+    const counted = vi.spyOn(usage, 'countOk');
+    const { service } = make({ usage });
+    expect(await service.status(actor)).toEqual(on());
+    expect(counted).toHaveBeenCalledTimes(1);
   });
 
   it('writes a share text from the flyer’s fields, counts it, and keeps what the model was given', async () => {
@@ -312,7 +339,7 @@ describe('a ledger that cannot be read', () => {
     const { service } = make({ usage });
     await service.status(actor);
     state.broken = false;
-    expect(await service.status(actor)).toEqual({ enabled: true, limit: AI_DAILY_LIMIT, remaining: AI_DAILY_LIMIT, features: AI_FEATURES });
+    expect(await service.status(actor)).toEqual(on());
     state.broken = true;
     expect(await service.status(actor)).toEqual({ enabled: false });
     expect(logged).toHaveBeenCalledTimes(2);

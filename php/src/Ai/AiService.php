@@ -52,10 +52,10 @@ final class AiService
 
     /**
      * The `ai` block of api/config for this actor: nothing beyond `enabled: false` when they get no AI, or when the
-     * ledger cannot be read (one log line then says why); else their limit, what is left of it today and the features
-     * that run, so the editor shows only those.
+     * ledger cannot be read (one log line then says why); else the features that run, each with its own limit and
+     * what is left of it today, so the editor shows only those. One read of the ledger answers every feature's count.
      *
-     * @return array{enabled:false}|array{enabled:true, limit:int, remaining:int, features:list<string>}
+     * @return array{enabled:false}|array{enabled:true, features:list<array{name:string, limit:int, remaining:int}>}
      */
     public function status(Actor $actor): array
     {
@@ -63,16 +63,21 @@ final class AiService
         if ($this->provider === null || $features === [] || !$this->policy->mayUse($actor)) {
             return ['enabled' => false];
         }
-        $limit = $this->policy->dailyLimit($actor);
         try {
-            $used = $this->used($actor, $this->day->day($this->clock->now()));
+            $used = $this->usage->countOk($actor->id, $this->day->day($this->clock->now()));
         } catch (Throwable $e) {
             // The editor renders nothing without api/config, so the AI's own storage never decides whether the app
             // loads: a ledger that cannot be read hides the AI. The generation routes are not softened.
             error_log("Nest flyers: AI: the ledger cannot be read, so the AI is hidden: {$e->getMessage()}");
             return ['enabled' => false];
         }
-        return ['enabled' => true, 'limit' => $limit, 'remaining' => max(0, $limit - $used), 'features' => $features];
+        return [
+            'enabled' => true,
+            'features' => array_map(function (string $name) use ($actor, $used): array {
+                $limit = $this->policy->dailyLimit($actor, $name);
+                return ['name' => $name, 'limit' => $limit, 'remaining' => max(0, $limit - ($used[$name] ?? 0))];
+            }, $features),
+        ];
     }
 
     /**
@@ -92,7 +97,7 @@ final class AiService
         if ($pinned && !$known($request->hostel)) {
             throw $this->errors->make('unknown_hostel');
         }
-        [$now, $remaining] = $this->quota($actor);
+        [$now, $remaining] = $this->quota($actor, 'flyer');
 
         $prompt = $this->prompts->flyer($hostels, $now, $request);
         $answer = $this->generate('flyer', $actor, $now, $request->text, $prompt, $this->bundle->schemas['flyerAnswer']);
@@ -123,7 +128,7 @@ final class AiService
         if ($request->hostel !== null && !in_array($request->hostel, array_column($hostels, 'slug'), true)) {
             throw $this->errors->make('unknown_hostel');
         }
-        [$now, $remaining] = $this->quota($actor);
+        [$now, $remaining] = $this->quota($actor, 'share');
 
         $prompt = $this->prompts->share($hostels, $now, $request);
         $input = $prompt->messages === [] ? '' : $prompt->messages[array_key_last($prompt->messages)]['content'];
@@ -166,25 +171,20 @@ final class AiService
     }
 
     /**
-     * The cap, counted on the day of this instant; the same instant stamps the ledger.
+     * The feature's own daily limit, counted on the day of this instant; the same instant stamps the ledger. What the
+     * other features used of theirs does not count here, and the refusal names what ran out.
      *
-     * @return array{string, int} the instant, and the generations left before this one
+     * @return array{string, int} the instant, and the generations of this feature left before this one
      */
-    private function quota(Actor $actor): array
+    private function quota(Actor $actor, string $feature): array
     {
         $now = $this->clock->now();
-        $limit = $this->policy->dailyLimit($actor);
-        $used = $this->used($actor, $this->day->day($now));
+        $limit = $this->policy->dailyLimit($actor, $feature);
+        $used = $this->usage->countOk($actor->id, $this->day->day($now))[$feature] ?? 0;
         if ($used >= $limit) {
-            throw $this->errors->make('ai_quota', ['limit' => $limit]);
+            throw $this->errors->make('ai_quota', ['limit' => $limit, 'what' => $this->facts['featureNouns'][$feature]]);
         }
         return [$now, $limit - $used];
-    }
-
-    /** What the actor has used of the day: the ledger counts it feature by feature, and one cap still covers them all. */
-    private function used(Actor $actor, string $day): int
-    {
-        return array_sum($this->usage->countOk($actor->id, $day));
     }
 
     /**

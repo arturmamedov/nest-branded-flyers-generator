@@ -4,7 +4,7 @@ import type { Dialog, Page } from '@playwright/test';
 import { expect, test } from '../browser';
 import { EDITOR_VIEWPORT, apiCall, apiRoute, backToLibrary, saveNew, status } from '../editor';
 import { LEAVE_PROMPT } from '../../src/editor/leaveGuard';
-import { AI_DAILY_LIMIT, AI_FEATURES, type AiFeature } from '../../src/shared/ai';
+import { AI_DAILY_LIMIT, AI_FEATURES, aiFor, aiQuotaVars, type AiFeature } from '../../src/shared/ai';
 import { apiError } from '../../src/shared/errors';
 import { DEFAULT_CANVAS } from '../../src/shared/layout';
 import { AiFlyerResultSchema, AiShareResultSchema, ApiConfigSchema, type AiFlyerAnswer } from '../../src/shared/schema';
@@ -12,9 +12,10 @@ import { WRITE_HEADERS } from '../../src/shared/writeGuard';
 
 /* The AI assistant in the browser (docs/prompts/ai-assistant.md, Phase 4). playwright.config.ts runs this file alone
    against a second server on the fake provider, with its own store and ledger. A day allows AI_DAILY_LIMIT
-   generations, so the file spends exactly that many, on purpose: a Generate and a Try again, then a Write with AI.
-   Every failure comes from the fake's markers, which never count, and the cap is a routed answer. Counts are read from
-   api/config, never assumed, so each test checks what it spent itself. */
+   generations of each feature (the owner's answer, 2026-10-06), and the file spends, on purpose: two of the flyer's (a
+   Generate and a Try again) and one of the share text's (a Write with AI). Every failure comes from the fake's
+   markers, which never count, and a limit reached is a routed answer. Counts are read from api/config, never assumed,
+   so each test checks what it spent itself. */
 
 test.use({ viewport: EDITOR_VIEWPORT });
 
@@ -29,11 +30,12 @@ test.afterEach(async ({ request }) => {
   for (const id of saved.splice(0)) await request.delete(`/api/flyers/${id}`, { headers: WRITE_HEADERS });
 });
 
-/** What is left today, as the server says. */
-async function left(page: Page): Promise<number> {
+/** What is left today of one feature, as the server says. */
+async function left(page: Page, feature: AiFeature): Promise<number> {
   const { ai } = ApiConfigSchema.parse(await (await page.request.get('/api/config')).json());
-  if (!ai.enabled) throw new Error('This file runs against the server with the fake provider (playwright.config.ts, project ai).');
-  return ai.remaining;
+  const its = aiFor(ai, feature);
+  if (!its) throw new Error('This file runs against the server with the fake provider and every feature named (playwright.config.ts, project ai).');
+  return its.remaining;
 }
 
 const entry = (page: Page) => page.locator('nest-nav').getByRole('link', { name: /^Create with AI/ });
@@ -47,12 +49,15 @@ const errorNote = (page: Page) => page.locator('.notes .note-error');
 const preview = (page: Page) => page.locator('.stage-canvas');
 
 /** api/config as the server answers it, but with `remaining` left today: for a test that must not depend on what the
-    tests before it spent (the fake's failures still reach the server, and never count). `features` are the ones the
-    site runs: every one, unless the test is about a site that names fewer. */
-async function withLeft(page: Page, remaining: number, features: readonly AiFeature[] = AI_FEATURES) {
+    tests before it spent (the fake's failures still reach the server, and never count). One number is every feature's;
+    by name, a feature left out has all of its own. `named` are the features the site runs: every one, unless the test
+    is about a site that names fewer. */
+async function withLeft(page: Page, remaining: number | Partial<Record<AiFeature, number>>, named: readonly AiFeature[] = AI_FEATURES) {
+  const of = (name: AiFeature) => (typeof remaining === 'number' ? remaining : (remaining[name] ?? AI_DAILY_LIMIT));
   await page.route(apiRoute('config'), async (route) => {
     const res = await route.fetch();
-    await route.fulfill({ response: res, json: { ...(await res.json()), ai: { enabled: true, limit: AI_DAILY_LIMIT, remaining, features } } });
+    const features = named.map((name) => ({ name, limit: AI_DAILY_LIMIT, remaining: of(name) }));
+    await route.fulfill({ response: res, json: { ...(await res.json()), ai: { enabled: true, features } } });
   });
 }
 
@@ -84,7 +89,7 @@ async function answerConfirm(page: Page, answer: 'accept' | 'dismiss', action: (
 }
 
 test('the library offers "Create with AI" with what is left today, and the page starts empty and focused', async ({ page }) => {
-  const n = await left(page);
+  const n = await left(page, 'flyer');
   await page.goto('/');
   await expect(entry(page)).toBeVisible();
   await expect(entry(page)).toHaveAccessibleName(`Create with AI, ${n} left today`);
@@ -111,7 +116,8 @@ test('the library offers "Create with AI" with what is left today, and the page 
 
 test('an idea becomes a flyer: a waiting state, the preview, what the AI assumed and the share text; Try again costs one; the editor gets an unsaved AI draft', async ({ page }) => {
   test.setTimeout(90_000);
-  const n = await left(page);
+  const n = await left(page, 'flyer');
+  const shareLeft = await left(page, 'share');
   await page.goto('/#/ai');
   await idea(page).fill(example.text);
 
@@ -155,13 +161,16 @@ test('an idea becomes a flyer: a waiting state, the preview, what the AI assumed
   await tryAgain(page).click();
   expect((await again).status()).toBe(200);
   await expect(generate(page)).toContainText(`${n - 2} left today`);
-  expect(await left(page)).toBe(n - 2);
+  expect(await left(page, 'flyer')).toBe(n - 2);
+  expect(await left(page, 'share'), 'two flyers cost the share text nothing: each feature has its own limit').toBe(shareLeft);
 
   // Open in editor: a new, unsaved flyer, marked as the AI's until it is saved; nothing was asked on the way.
   const dialogs = noDialogs(page);
   await openInEditor(page).click();
   await expect(page).toHaveURL(/#\/new$/);
   expect(dialogs(), 'opening asks nothing').toEqual([]);
+  // The editor's button counts the share text's own, which the two flyers above did not move.
+  await expect(writeWithAi(page)).toContainText(`${shareLeft} left today`);
   await expect(page.getByLabel('Line 1')).toHaveValue(brief.text!.headline1!);
   await expect(page.getByLabel('Hostel', { exact: true })).toHaveValue('adeje-nest');
   await expect(page.getByLabel('Caption')).toHaveValue(brief.share!);
@@ -180,18 +189,19 @@ test('an idea becomes a flyer: a waiting state, the preview, what the AI assumed
 });
 
 test('an answer that fails its schema shows the catalogue message and costs nothing', async ({ page }) => {
-  const n = await left(page);
+  const n = await left(page, 'flyer');
   await page.goto('/#/ai');
   await idea(page).fill(`${example.text}\n[[fake:invalid]]`);
   await generate(page).click();
   await expect(errorNote(page)).toHaveText(apiError('ai_failed').message);
   await expect(preview(page)).toHaveCount(0);
   await expect(generate(page)).toContainText(`${n} left today`);
-  expect(await left(page)).toBe(n);
+  expect(await left(page, 'flyer')).toBe(n);
 });
 
 test('Write with AI fills the caption from the fields, asking before it replaces one', async ({ page }) => {
-  const n = await left(page);
+  const n = await left(page, 'share');
+  const flyerLeft = await left(page, 'flyer');
   expect(n, 'this file spends one generation here').toBeGreaterThan(0);
   await page.goto('/#/new');
   await expect(writeWithAi(page)).toContainText(`${n} left today`);
@@ -217,12 +227,24 @@ test('Write with AI fills the caption from the fields, asking before it replaces
   await expect(page.getByLabel('Caption')).toHaveValue(brief.share!);
   await expect(page.locator('.notes .note-ok')).toContainText('AI');
   await expect(writeWithAi(page)).toContainText(`${n - 1} left today`);
+  expect(await left(page, 'flyer'), 'a share text costs the flyer nothing').toBe(flyerLeft);
 });
 
-test('the cap: once the day is used up, the page says when it comes back and that none are left', async ({ page }) => {
-  // Routed both ways, so it holds whatever this file has spent: one left on load, then the server's cap.
-  await withLeft(page, 1);
-  const quota = apiError('ai_quota', { limit: AI_DAILY_LIMIT });
+test('each feature shows its own count: the bar and Generate the flyer’s, Write with AI the share text’s', async ({ page }) => {
+  await withLeft(page, { flyer: 1, share: 2 });
+  await page.goto('/');
+  await expect(entry(page)).toHaveAccessibleName('Create with AI, 1 left today');
+  await entry(page).click();
+  await expect(generate(page)).toContainText('1 left today');
+  await backToLibrary(page).click();
+  await page.getByRole('link', { name: 'New flyer' }).click();
+  await expect(writeWithAi(page)).toContainText('2 left today');
+});
+
+test('a limit reached: the page says when it comes back and that none are left, and the other feature keeps its count', async ({ page }) => {
+  // Routed both ways, so it holds whatever this file has spent: one flyer left on load, then the server's refusal.
+  await withLeft(page, { flyer: 1, share: 2 });
+  const quota = apiError('ai_quota', aiQuotaVars('flyer', AI_DAILY_LIMIT));
   await page.route(apiRoute('ai/flyer'), (route) => route.fulfill({ status: quota.status, json: { error: { code: quota.code, message: quota.message } } }));
   await page.goto('/#/ai');
   await idea(page).fill('Yoga tomorrow at 9');
@@ -232,18 +254,22 @@ test('the cap: once the day is used up, the page says when it comes back and tha
   await expect(generate(page)).toBeDisabled();
   await backToLibrary(page).click();
   await expect(entry(page)).toContainText('0 left');
+  // The flyer's limit is the flyer's alone: the share text still has its two, and its button still works.
+  await page.getByRole('link', { name: 'New flyer' }).click();
+  await expect(writeWithAi(page)).toContainText('2 left today');
+  await expect(writeWithAi(page)).toBeEnabled();
+  await expect(page.locator('.ai-used-up')).toHaveCount(0);
 });
 
-test('with none left the page says so, and when they come back, before anyone presses anything', async ({ page }) => {
+test('with none left the page says so, what ran out and when it comes back, before anyone presses anything', async ({ page }) => {
   // Seen with a real provider (2026-10-05): a day used up left a greyed Generate and not a word about midnight.
-  const usedUp = apiError('ai_quota', { limit: AI_DAILY_LIMIT }).message;
   await withLeft(page, 0);
   await page.goto('/#/ai');
   await expect(generate(page)).toBeDisabled();
-  await expect(page.locator('.ai-used-up')).toHaveText(usedUp);
+  await expect(page.locator('.ai-used-up')).toHaveText(`Today’s ${AI_DAILY_LIMIT} AI flyers are used up. They come back at midnight, Canary Islands time.`);
   await page.goto('/#/new');
   await expect(writeWithAi(page)).toBeDisabled();
-  await expect(page.locator('.ai-used-up')).toHaveText(usedUp);
+  await expect(page.locator('.ai-used-up')).toHaveText(`Today’s ${AI_DAILY_LIMIT} AI share texts are used up. They come back at midnight, Canary Islands time.`);
 });
 
 test('an assumption about a field the editor has no name for shows the field as the AI wrote it, and the page stays up', async ({ page }) => {
@@ -296,6 +322,7 @@ test('with the AI off there is no AI anywhere: no entry, #/ai is the library, no
 // The editor never parses an answer, so a backend older than this client is met as it comes: while a release is being
 // uploaded, its new files answer beside the old ones. That must cost the AI, never the page.
 for (const [which, ai] of [
+  ['before each feature had its own limit (one limit, and the features by name)', { enabled: true, limit: AI_DAILY_LIMIT, remaining: AI_DAILY_LIMIT, features: [...AI_FEATURES] }],
   ['before each feature had its own switch (it lists none)', { enabled: true, limit: AI_DAILY_LIMIT, remaining: AI_DAILY_LIMIT }],
   ['before the AI (no ai block at all)', undefined],
 ] as const) {
