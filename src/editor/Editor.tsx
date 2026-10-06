@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { deriveChip, splitBigSub } from '../shared/chips';
 import { ACCEPTED_PHOTO_TYPES } from '../shared/limits';
 import { lintFlyer } from '../shared/copyRules';
-import { DEFAULT_PHOTO_MODE, followHostel, marksFor, newFlyerData, switchTemplate, weekTitle } from '../shared/defaults';
+import { followHostel, marksFor, newFlyerData, switchTemplate, weekTitle, withPhoto } from '../shared/defaults';
 import { CANVASES, CANVAS_IDS, DEFAULT_CANVAS, bodyOf, isCanvasId, photoFrame, type CanvasId, type PhotoMode } from '../shared/layout';
 import { DEFAULT_CROP, ZOOM_MAX, ZOOM_MIN, clampCrop, wholePhotoZoom, zoomCrop } from '../shared/photo';
 import type { AiFeature, AiFeatureOn } from '../shared/ai';
@@ -225,9 +225,7 @@ export function Editor({
     run('upload', async () => {
       const { blob, name } = await preparePhoto(file, limits);
       const photo = await api.uploadPhoto(blob, name);
-      setDraft((d) =>
-        d ? { ...d, photo, data: { ...d.data, photoCrop: DEFAULT_CROP, photoMode: d.data.photoMode === 'none' ? DEFAULT_PHOTO_MODE : d.data.photoMode } } : d,
-      );
+      setDraft((d) => (d ? { ...d, photo, data: withPhoto(d.data) } : d));
     });
 
   // A week flyer has no photo: a drop gets a reason, never an upload. Nor does a drop while another action is out:

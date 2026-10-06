@@ -3,7 +3,18 @@ import { PNG } from 'pngjs';
 import { describe, expect, it } from 'vitest';
 import { deriveChips, splitBigSub, splitDot } from '../../src/shared/chips.js';
 import { MAX_EXCLAMATIONS, lintFlyer } from '../../src/shared/copyRules.js';
-import { DEFAULT_DOODLES, DEFAULT_TEXT, PROTOTYPE_DOODLES, newFlyerData, resolveDoodles, sameDoodles, switchTemplate, type ArtPlacement } from '../../src/shared/defaults.js';
+import {
+  DEFAULT_DOODLES,
+  DEFAULT_PHOTO_MODE,
+  DEFAULT_TEXT,
+  PROTOTYPE_DOODLES,
+  newFlyerData,
+  resolveDoodles,
+  sameDoodles,
+  switchTemplate,
+  withPhoto,
+  type ArtPlacement,
+} from '../../src/shared/defaults.js';
 import {
   CANVASES,
   CANVAS_IDS,
@@ -23,9 +34,9 @@ import {
   type CanvasId,
   type PhotoMode,
 } from '../../src/shared/layout.js';
-import { clampCrop, coverRect, panCrop, wholePhotoZoom, zoomCrop } from '../../src/shared/photo.js';
+import { DEFAULT_CROP, clampCrop, coverRect, panCrop, wholePhotoZoom, zoomCrop } from '../../src/shared/photo.js';
 import { SAMPLE_FLYERS } from '../../src/shared/samples.js';
-import { FlyerDataSchema } from '../../src/shared/schema.js';
+import { FlyerDataSchema, type Crop } from '../../src/shared/schema.js';
 import { SHARE_MAX } from '../../src/shared/share.js';
 import { WEEK_ROWS_MAX } from '../../src/shared/week.js';
 
@@ -329,6 +340,35 @@ describe('photo crop', () => {
     const d = newFlyerData();
     d.photoCrop = panCrop({ x: 0.5, y: 0.5, zoom: 0.25 }, -10_000, 0, { width: 1066, height: 1600 }, { width: 1080, height: 380 });
     expect(FlyerDataSchema.safeParse(d).success).toBe(true);
+  });
+});
+
+describe('a photo landing on a flyer', () => {
+  /* withPhoto() is what a photo dropped in the editor does to the flyer, and what the AI page does when the picture
+     an idea was read from becomes the flyer's photo (docs/prompts/ai-flyer-from-photo.md, stage 4): one function. */
+  const moved: Crop = { x: 0.2, y: 0.8, zoom: 2 };
+
+  it('on "No photo" it lands in the default mode, "In a frame", with the crop where a new photo starts', () => {
+    const d = { ...newFlyerData(), photoMode: 'none' as const, photoCrop: moved };
+    expect(withPhoto(d)).toEqual({ ...d, photoMode: DEFAULT_PHOTO_MODE, photoCrop: DEFAULT_CROP });
+    expect(DEFAULT_PHOTO_MODE, 'the owner’s choice (2026-09-28)').toBe('band');
+  });
+
+  it('a mode already chosen stays, and the crop starts over: it was the photo’s before', () => {
+    for (const photoMode of ['bleed', 'band'] as const) {
+      const d = { ...newFlyerData(), photoMode, photoCrop: moved };
+      expect(withPhoto(d), photoMode).toEqual({ ...d, photoCrop: DEFAULT_CROP });
+    }
+  });
+
+  it('touches nothing else, and leaves the flyer it was given as it was', () => {
+    const d = { ...newFlyerData(), photoMode: 'none' as const, photoCrop: moved, share: 'Hola' };
+    const before = structuredClone(d);
+    const { photoMode: _, photoCrop: __, ...rest } = withPhoto(d);
+    const { photoMode: ___, photoCrop: ____, ...same } = before;
+    expect(rest).toEqual(same);
+    expect(d).toEqual(before);
+    expect(FlyerDataSchema.safeParse(withPhoto(d)).success).toBe(true);
   });
 });
 

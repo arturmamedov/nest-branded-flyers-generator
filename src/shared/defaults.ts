@@ -105,6 +105,13 @@ export const DEFAULT_TEXT: FlyerText = {
     hence never 'none'. The owner's choice (2026-09-28), superseding handoff §1 item 4 ("full bleed (default)"). */
 export const DEFAULT_PHOTO_MODE: Exclude<PhotoMode, 'none'> = 'band';
 
+/** A flyer once a photo lands on it: on "No photo" it shows in the default mode, a mode already chosen stays, and the
+    crop starts over, since the one stored was another photo's. One function for every way a photo arrives: chosen or
+    dropped in the editor, and the picture an idea was read from, taken along from the AI page. */
+export function withPhoto(d: FlyerData): FlyerData {
+  return { ...d, photoCrop: { ...DEFAULT_CROP }, photoMode: d.photoMode === 'none' ? DEFAULT_PHOTO_MODE : d.photoMode };
+}
+
 /** The week's title lines, prefilled and editable (the owner's call, 2026-09-29; the prototype fixed them).
     They are the headline's fields: a week flyer has no headline of its own. The Spanish line names the
     hostel, or the whole chain on a chain-wide flyer, as the prototype did. */
