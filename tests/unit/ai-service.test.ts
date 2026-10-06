@@ -9,7 +9,7 @@ import { AiService, type AiServiceDeps } from '../../server/ai/service.js';
 import { HttpError } from '../../server/errors.js';
 import type { PreparedPhoto } from '../../server/services/photos.js';
 import { SEED_FILE } from '../../server/paths.js';
-import type { AiUsageCounts, AiUsageRepository } from '../../server/storage/types.js';
+import type { AiUsageDay, AiUsageRepository } from '../../server/storage/types.js';
 import { AI_ASSUMPTIONS_MAX, AI_DAILY_LIMIT, AI_FEATURES, AI_INPUT_MAX, AI_PICTURE_ASK, aiQuotaVars, type AiFeature } from '../../src/shared/ai.js';
 import { newFlyerData } from '../../src/shared/defaults.js';
 import { apiError, type ApiErrorKey } from '../../src/shared/errors.js';
@@ -27,9 +27,13 @@ class MemoryUsage implements AiUsageRepository {
   async record(entry: StoredAiUsage) {
     this.records.push(entry);
   }
-  async countOk(actorId: string, day: string) {
-    const counts: AiUsageCounts = {};
-    for (const r of this.records) if (r.ok && r.actorId === actorId && r.day === day) counts[r.feature] = (counts[r.feature] ?? 0) + 1;
+  async countDay(actorId: string, day: string) {
+    const counts: AiUsageDay = { ok: {}, tried: {} };
+    for (const r of this.records) {
+      if (r.actorId !== actorId || r.day !== day) continue;
+      counts.tried[r.feature] = (counts.tried[r.feature] ?? 0) + 1;
+      if (r.ok) counts.ok[r.feature] = (counts.ok[r.feature] ?? 0) + 1;
+    }
     return counts;
   }
   async all() {
@@ -133,7 +137,7 @@ describe('the AI service', () => {
         },
       };
       const usage = new MemoryUsage();
-      const counted = vi.spyOn(usage, 'countOk');
+      const counted = vi.spyOn(usage, 'countDay');
       const { service } = make({ provider, usage, policy: createAiPolicy({ ...settings, features: named }) });
       await failsWith(call[off](service), 'ai_off');
       await failsWith(call[off](service, {}), 'ai_off');
@@ -222,7 +226,7 @@ describe('the AI service', () => {
     expect(result.assumptions[0].field).toBe('hostel');
     expect(result.assumptions[0].note).toContain('no-such-nest');
     expect(result.assumptions.slice(1)).toEqual(example.answer.assumptions);
-    expect(await usage.countOk('anonymous', '2026-09-18')).toEqual({ flyer: 1 });
+    expect((await usage.countDay('anonymous', '2026-09-18')).ok).toEqual({ flyer: 1 });
   });
 
   it('keeps to the assumptions the contract allows: its own note still comes first, and on a full list the model’s last goes', async () => {
@@ -320,7 +324,7 @@ describe('the AI service', () => {
   // api/config asks on every page load: every feature's count comes from one read of the ledger.
   it('reads the ledger once for status, however many features run', async () => {
     const usage = new MemoryUsage();
-    const counted = vi.spyOn(usage, 'countOk');
+    const counted = vi.spyOn(usage, 'countDay');
     const { service } = make({ usage });
     expect(await service.status(actor)).toEqual(on());
     expect(counted).toHaveBeenCalledTimes(1);
@@ -461,10 +465,10 @@ describe('a ledger that cannot be read', () => {
   const flaky = () => {
     const usage = new MemoryUsage();
     const state = { broken: true };
-    const countOk = usage.countOk.bind(usage);
-    usage.countOk = async (actorId, day) => {
+    const countDay = usage.countDay.bind(usage);
+    usage.countDay = async (actorId, day) => {
       if (state.broken) throw new Error(DAMAGED);
-      return countOk(actorId, day);
+      return countDay(actorId, day);
     };
     return { usage, state };
   };

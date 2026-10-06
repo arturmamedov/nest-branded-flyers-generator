@@ -37,7 +37,7 @@ describe('SQLite: the AI ledger', () => {
     });
     const columns = 'at, day, actor_id, provider, model, input_tokens, output_tokens, ok, input, output';
     db.prepare(`INSERT INTO ai_usage (feature, ${columns}) SELECT 'a-later-feature', ${columns} FROM ai_usage`).run();
-    expect(await ledger.countOk('anonymous', '2026-09-18')).toEqual({ flyer: 1, 'a-later-feature': 1 });
+    expect(await ledger.countDay('anonymous', '2026-09-18')).toEqual({ ok: { flyer: 1, 'a-later-feature': 1 }, tried: { flyer: 1, 'a-later-feature': 1 } });
     db.close();
   });
 });

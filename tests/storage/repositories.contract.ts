@@ -279,20 +279,24 @@ export function describeRepositoryContract(name: string, factory: RepositoryFact
       });
 
       // Every feature has its own daily limit (the owner's answer, 2026-10-06), so the count is per feature. One read
-      // answers them all: api/config asks for every feature's count on every page load.
-      it('counts only the actor’s ok records of the day, feature by feature', async () => {
+      // answers them all: api/config asks for every feature's count on every page load. The same read answers the
+      // tries, failed ones included: a picture read's tries have a bound of their own (the owner's answer, 2026-10-06).
+      it('counts the actor’s records of the day feature by feature: the ok ones, and all that were tried', async () => {
         await repos.aiUsage.record(entry());
         await repos.aiUsage.record(entry({ feature: 'share' }));
         await repos.aiUsage.record(entry({ feature: 'share' }));
         await repos.aiUsage.record(entry({ ok: false }));
         await repos.aiUsage.record(entry({ feature: 'share', ok: false }));
+        await repos.aiUsage.record(entry({ feature: 'photo', ok: false }));
+        await repos.aiUsage.record(entry({ feature: 'photo', ok: false }));
         await repos.aiUsage.record(entry({ actorId: 'someone-else' }));
         await repos.aiUsage.record(entry({ day: '2026-09-19' }));
-        expect(await repos.aiUsage.countOk('anonymous', '2026-09-18')).toEqual({ flyer: 1, share: 2 });
-        expect(await repos.aiUsage.countOk('someone-else', '2026-09-18')).toEqual({ flyer: 1 });
-        expect(await repos.aiUsage.countOk('anonymous', '2026-09-19')).toEqual({ flyer: 1 });
-        // A feature with no ok record that day is absent, never a zero: the caller reads "absent" as none.
-        expect(await repos.aiUsage.countOk('nobody', '2026-09-18')).toEqual({});
+        // A feature whose every try failed is absent from the ok count, never a zero there, and present in the tries.
+        expect(await repos.aiUsage.countDay('anonymous', '2026-09-18')).toEqual({ ok: { flyer: 1, share: 2 }, tried: { flyer: 2, share: 3, photo: 2 } });
+        expect(await repos.aiUsage.countDay('someone-else', '2026-09-18')).toEqual({ ok: { flyer: 1 }, tried: { flyer: 1 } });
+        expect(await repos.aiUsage.countDay('anonymous', '2026-09-19')).toEqual({ ok: { flyer: 1 }, tried: { flyer: 1 } });
+        // A feature with no record that day is absent, never a zero: the caller reads "absent" as none.
+        expect(await repos.aiUsage.countDay('nobody', '2026-09-18')).toEqual({ ok: {}, tried: {} });
       });
 
       // A provider's token count is not ours to trust (12.5 was once written, and no read took the file after it).
@@ -300,7 +304,7 @@ export function describeRepositoryContract(name: string, factory: RepositoryFact
         await repos.aiUsage.record(entry());
         await expect(repos.aiUsage.record(entry({ tokens: { input: 12.5, output: 20 } }))).rejects.toThrow(/tokens\.input/);
         expect(await repos.aiUsage.all()).toHaveLength(1);
-        expect(await repos.aiUsage.countOk('anonymous', '2026-09-18')).toEqual({ flyer: 1 });
+        expect(await repos.aiUsage.countDay('anonymous', '2026-09-18')).toEqual({ ok: { flyer: 1 }, tried: { flyer: 1 } });
       });
     });
 

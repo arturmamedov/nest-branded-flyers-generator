@@ -32,7 +32,7 @@ export interface AiServiceDeps {
   policy: AiPolicy;
   bundle: AiBundle;
   hostels: Pick<HostelRepository, 'list' | 'bySlug'>;
-  usage: Pick<AiUsageRepository, 'record' | 'countOk'>;
+  usage: Pick<AiUsageRepository, 'record' | 'countDay'>;
   clock: Clock;
   /** Where a picture read keeps its picture, before the provider is asked. */
   pictures: Pick<AiPictures, 'keep'>;
@@ -66,7 +66,7 @@ export class AiService {
     if (!this.deps.provider || features.length === 0 || !this.deps.policy.mayUse(actor)) return { enabled: false };
     let used: AiUsageCounts;
     try {
-      used = await this.deps.usage.countOk(actor.id, aiDay(this.deps.clock.now()));
+      used = (await this.deps.usage.countDay(actor.id, aiDay(this.deps.clock.now()))).ok;
     } catch (e) {
       const reason = e instanceof Error ? e.message : String(e);
       if (reason !== this.ledgerDown) console.error(`AI: the ledger cannot be read, so the AI is hidden: ${reason}`);
@@ -156,7 +156,7 @@ export class AiService {
   private async quota(actor: Actor, feature: AiFeature): Promise<{ now: string; remaining: number }> {
     const now = this.deps.clock.now();
     const limit = this.deps.policy.dailyLimit(actor, feature);
-    const used = (await this.deps.usage.countOk(actor.id, aiDay(now)))[feature] ?? 0;
+    const used = (await this.deps.usage.countDay(actor.id, aiDay(now))).ok[feature] ?? 0;
     if (used >= limit) throw new HttpError('ai_quota', aiQuotaVars(feature, limit));
     return { now, remaining: limit - used };
   }

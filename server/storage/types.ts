@@ -66,16 +66,24 @@ export interface FlyerRepository {
   put(f: StoredFlyer): Promise<void>;
 }
 
-/** A day's generations that count, feature by feature. A feature with none is absent: read it as 0. */
+/** A day's generations, feature by feature. A feature with none is absent: read it as 0. */
 export type AiUsageCounts = Partial<Record<AiFeature, number>>;
+
+/** A day in the ledger as the limits read it: the generations that count (`ok`), and every one that reached the
+    provider (`tried`), failed ones included. */
+export interface AiUsageDay {
+  ok: AiUsageCounts;
+  tried: AiUsageCounts;
+}
 
 /** The AI ledger (docs/json-storage.md, "The AI ledger"): append-only, one record per generation attempted. */
 export interface AiUsageRepository {
   /** Appends; nothing is ever edited or removed. */
   record(entry: StoredAiUsage): Promise<void>;
-  /** The actor's generations that count for a day (aiDay in src/shared/ai.ts): the `ok` ones, under each feature's
-      name. One read answers every feature, so api/config reads the ledger once however many features run. */
-  countOk(actorId: string, day: string): Promise<AiUsageCounts>;
+  /** The actor's generations for a day (aiDay in src/shared/ai.ts), under each feature's name: the `ok` ones, which
+      a feature's limit is counted from, and every one tried, which a feature's tries are counted from. One read
+      answers both for every feature, so api/config reads the ledger once however many features run. */
+  countDay(actorId: string, day: string): Promise<AiUsageDay>;
   /** Every record, oldest first (the copy tool, and the eval set to be). */
   all(): Promise<StoredAiUsage[]>;
 }

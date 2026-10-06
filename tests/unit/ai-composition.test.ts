@@ -18,7 +18,7 @@ const { AiService } = await import('../../server/ai/service.js');
 
 const deps = {
   hostels: { list: async () => [], bySlug: async () => null },
-  usage: { record: async () => {}, countOk: async () => ({}) },
+  usage: { record: async () => {}, countDay: async () => ({ ok: {}, tried: {} }) },
   clock: { now: () => '2026-10-05T10:00:00.000Z' },
   pictures: { keep: () => 'ai-pictures/2026-10-05/0123456789abcdef.jpg' },
 };

@@ -27,7 +27,7 @@ export function createProvider(settings: AiSettings, bundle: AiBundle, fetch?: F
 
 export interface AiDeps {
   hostels: Pick<HostelRepository, 'list' | 'bySlug'>;
-  usage: Pick<AiUsageRepository, 'record' | 'countOk'>;
+  usage: Pick<AiUsageRepository, 'record' | 'countDay'>;
   clock: Clock;
   /** Where a picture read keeps its picture (server/ai/pictures.ts). */
   pictures: Pick<AiPictures, 'keep'>;

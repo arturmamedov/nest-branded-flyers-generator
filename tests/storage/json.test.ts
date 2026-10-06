@@ -155,7 +155,7 @@ describe('the JSON store on disk', () => {
     await fill(repos);
     const ledgerFiles = () => tree(dir).filter((f) => f.startsWith(`${STORAGE_FILES.aiUsageDir}/`)).sort();
     // A read never writes: a count on a store without a ledger makes no folder and no file.
-    expect(await repos.aiUsage.countOk('anonymous', '2026-09-18')).toEqual({});
+    expect(await repos.aiUsage.countDay('anonymous', '2026-09-18')).toEqual({ ok: {}, tried: {} });
     expect(ledgerFiles()).toEqual([]);
 
     // The keys deliberately out of order: the file keeps the schema's, whichever driver wrote the record.
@@ -183,7 +183,8 @@ describe('the JSON store on disk', () => {
     for (const record of september) expect(Object.keys(record)).toEqual(Object.keys(AiUsageFileSchema.element.shape));
     expect(Object.keys(september[1].tokens as object)).toEqual(['input', 'output']);
     expect(await repos.aiUsage.all()).toHaveLength(3);
-    expect(await repos.aiUsage.countOk('anonymous', '2026-09-18')).toEqual({ flyer: 1 });
+    // The failed record of that day is a try, and counts for nothing else.
+    expect(await repos.aiUsage.countDay('anonymous', '2026-09-18')).toEqual({ ok: { flyer: 1 }, tried: { flyer: 2 } });
   });
 
   describe('a ledger file no read can take', () => {
@@ -209,7 +210,7 @@ describe('the JSON store on disk', () => {
     it('is named when a record in it fails the schema', async () => {
       const { dir, record } = await withLedger();
       put(dir, month, [{ ...record, tokens: { input: 12.5, output: 20 } }]);
-      await expect(open(dir).repos.aiUsage.countOk('anonymous', '2026-09-18')).rejects.toThrow(/ai-usage\/2026-09\.json is damaged: 0\.tokens\.input/);
+      await expect(open(dir).repos.aiUsage.countDay('anonymous', '2026-09-18')).rejects.toThrow(/ai-usage\/2026-09\.json is damaged: 0\.tokens\.input/);
     });
 
     // A record a later release wrote, met after going back to this one: this driver checks every record, so the month
@@ -217,13 +218,13 @@ describe('the JSON store on disk', () => {
     it('is named when a record in it is of a feature this release does not know', async () => {
       const { dir, record } = await withLedger();
       put(dir, month, [record, { ...record, feature: 'a-later-feature' }]);
-      await expect(open(dir).repos.aiUsage.countOk('anonymous', '2026-09-18')).rejects.toThrow(/ai-usage\/2026-09\.json is damaged: 1\.feature/);
+      await expect(open(dir).repos.aiUsage.countDay('anonymous', '2026-09-18')).rejects.toThrow(/ai-usage\/2026-09\.json is damaged: 1\.feature/);
     });
 
     it('is named when it is not JSON', async () => {
       const { dir } = await withLedger();
       writeFileSync(join(dir, ...month.split('/')), '{ damaged', 'utf8');
-      await expect(open(dir).repos.aiUsage.countOk('anonymous', '2026-09-18')).rejects.toThrow(/2026-09\.json is not valid JSON/);
+      await expect(open(dir).repos.aiUsage.countDay('anonymous', '2026-09-18')).rejects.toThrow(/2026-09\.json is not valid JSON/);
     });
   });
 
