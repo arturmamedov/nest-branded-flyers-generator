@@ -8,7 +8,8 @@ stage that is built. **A stage with no section here is not built.**
 | 1. A limit per feature | Built, 2026-10-06 (below) |
 | 2. The read, on both backends | Built, 2026-10-06 (below, after stage 1). Its checkpoint: Artur's answers are built, the first case is in git, and the real reads are done, and what he chose from them is built (*The checkpoint*, at the end). **The checkpoint is closed** |
 | 3. The page | Built, 2026-10-06 (the last section). Looked at on both backends, reviewed, and tried on a real phone the same evening. **Its checkpoint has all it asked for; what is left is Artur's to decide** |
-| 4. The picture as the flyer's photo | Not started. For a new session, after a follow-up to the page that Artur asked for: `docs/prompts/ai-flyer-from-photo-stage-4.md` |
+| A follow-up to the page: numbered steps, and a link | Built, 2026-10-06 (the section after stage 3), in the session of `docs/prompts/ai-flyer-from-photo-stage-4.md`, before stage 4 |
+| 4. The picture as the flyer's photo | Built, 2026-10-06 (the last section). Looked at on both backends and reviewed. **Its checkpoint has what the brief asks: the screenshots and the gates; what is left is Artur's to decide** |
 
 # Stage 1: a limit per feature
 
@@ -1446,5 +1447,376 @@ The sketch he chose:
  [ ✨ Generate (3 left today) ]
 ```
 
-**Nothing of it is built.** The prompt for that session is `docs/prompts/ai-flyer-from-photo-stage-4.md`: the
-follow-up first, then stage 4.
+**Nothing of it was built in that session.** The prompt for the next one is
+`docs/prompts/ai-flyer-from-photo-stage-4.md`: the follow-up first, then stage 4. Both are built since: the two
+sections below.
+
+# The follow-up to the page: numbered steps, and a link
+
+Branch `feat/ai-feature-switches`, on top of `bab60d0`, on 2026-10-06, in a session started from
+`docs/prompts/ai-flyer-from-photo-stage-4.md`. The same session then built stage 4, the next section: the look, the
+review and the gates are there, for both. Nothing is pushed, and `main` stays at `684189e`.
+
+## What it is
+
+After a read the page showed the From your idea tab, which is where it starts, and it read as the page going back
+(*After the checkpoint*, above). The photo way now shows as three numbered steps, so the words to check are step 2
+of 3. In the failed-read line, "type the event yourself" is a link to the idea box.
+
+It is the client alone: no route, schema or PHP class. A site that does not name `photo`, and From your idea used by
+itself, look and behave as before.
+
+## Artur's answers (2026-10-06, this session)
+
+Asked once, with the plan, each with a sketch.
+
+| Question | Answer | What follows |
+|---|---|---|
+| From when do the steps show? | **"From the first tap on From a photo"**, over "Once a picture is read", which I had recommended | Under the switch, step 1 lit. When a read lands the switch leaves and step 2 lights |
+| What does step 2 say when the read found no event? | **"Write the event"** | Built |
+| Stage 4: is the tick box offered for a picture with no event, once the staff member typed the event? | **"Yes, offer it"** | Stage 4, below |
+| Stage 4: the words while the picture uploads? | **The editor's own "Uploading…"** on the button, with "Adding your picture to the flyer…" in the stage | Stage 4, below |
+
+The three step names and "Change the picture" are his sketch's. His sentence in the failed-read line is unchanged,
+letter for letter: the specs that pin it pass as they were.
+
+## What the top of the form shows
+
+| The page is | Switch | Steps |
+|---|---|---|
+| on From your idea, the chosen picture not read (and any site without `photo`) | as before | none: the page as it was |
+| on From a photo: choosing, a read on its way, a failed read | as before | under it: **1 Picture** · 2 Check the words · 3 Flyer |
+| on the words of a picture that was read | gone | 1 Picture ✓ · **2 Check the words** · 3 Flyer |
+| the same, and the read found no event | gone | 1 Picture ✓ · **2 Write the event** · 3 Flyer |
+| showing the flyer made from this picture | gone | 1 Picture ✓ · 2 Check the words ✓ · **3 Flyer** |
+
+Where the steps stand alone, the picture that was read sits under them, small, with its name and "Change the
+picture", and the hint under the title is not shown, as in his sketch. Where the switch shows, the hint stays.
+
+## What was built
+
+- **The steps** (`src/editor/AiSteps.tsx`): a list of three, the current one marked for a screen reader
+  (`aria-current="step"`). The numbers are drawn in CSS; "✓" is text. No hidden words were added.
+- **"Change the picture"** goes back to choosing: the switch is back on From a photo, step 1 is lit, the picture is
+  still chosen. The words stay in the box, and leaving still asks.
+- **The link.** "type the event yourself" is a button that looks like a link. It opens From your idea with the
+  cursor in the box, and clears the red note. The picture stays chosen.
+- **On a phone** the three names are on one line at 390 px and at 360 px, the width of his Galaxy S23.
+
+**Where it lives:** `AiPage.tsx` keeps the picture a read was of (`read.of`). Whether the picture on the page has
+been read, and which step the page is at, are worked out from that, never stored. `AiPhoto.tsx`'s small picture is
+one component for both places: with Remove in the box it was chosen in, with "Change the picture" under the steps.
+
+## How each piece was proved
+
+| Piece | Commit | Seen red | Then green |
+|---|---|---|---|
+| The steps, and "Change the picture" | `b065919` | 7 browser specs: no steps list, the switch still there, no such button. Four of them are stage 3's, rewritten first where they used the switch after a read | 47 in the AI project |
+| The third step, for the flyer of the picture on the page | `69a1a75` | 3 specs: "Check the words" was still the step. Then, with the simplest rule in place (any flyer lights it), the second failed for its own reason: a typed idea's flyer lit it | 49 |
+| "Write the event" | `97f047d` | 2 specs: "Check the words" where "Write the event" was expected | 50 |
+| The link | `f5bbbc8` | 1 spec: no button in the note | 51 |
+| A phone, at 390 and 360 px | `be3b1b5` | at 360 px "Flyer" wrapped to a second line: the names took 312 px of 320 before the gaps | 53 |
+| The two links' focus | `7cb421f` | (CSS, seen in the first look) | |
+
+**Three specs passed at once.** Each was then seen red with the code broken on purpose, and the code restored:
+
+| Pin | Broken on purpose | What failed |
+|---|---|---|
+| A site without the read has no steps | the steps shown on every site | "expected 0, received 1" |
+| From your idea used by itself has no steps | a picture counted as read once it is chosen | "expected 0, received 1" |
+| The steps never scroll a phone sideways | the row made too wide to fit | "Flyer" 62 % in view |
+
+## Rulings
+
+Each was mine, and is one condition or one line to change.
+
+- **"Change the picture" keeps the words.** A read was spent on them. "From your idea" with the same picture shows
+  them again, with the steps.
+- **A new picture, or Remove, is a picture not read.** From your idea is then the tab it was, with the words still
+  in the box and their line under it.
+- **The third step is for the flyer of the picture on the page.** A flyer made from a typed idea, or from a picture
+  chosen before, leaves a picture read afterwards at its words.
+- **The second step is named after the read of the picture on the page.** Back at the picture it keeps "Write the
+  event"; another picture is one whose words are still to come.
+- **Focus.** After a read it still goes to the line under the box. After "Change the picture" it goes to From a
+  photo in the switch, which says where the page is. After the link it goes into the box: there the keyboard is
+  wanted.
+- **The link clears the red note.** The note has said what it had to, and the picture is still chosen.
+- **With a keyboard,** "Change the picture" shows the app's teal ring. The link is inside a sentence, where a ring
+  lay over the full stop after it: with the focus it turns its colours round instead.
+- **On a narrow phone the steps stand closer together.** They wrap before they would scroll sideways; at 360 px they
+  do neither.
+
+# Stage 4: the picture as the flyer's photo
+
+Built in the same session as the follow-up above, on `feat/ai-feature-switches`, on 2026-10-06. Nothing is pushed,
+and `main` stays at `684189e`. No provider was called, by a test, a script or the look.
+
+## What it is
+
+On the flyer the AI made from a picture, in the bar above the flyer and before "Try again", a tick box: **"Use this
+picture as the flyer's photo"**, unticked. Ticked, "Open in editor" uploads the picture first and the editor opens
+with it "In a frame". Unticked, the flyer opens with no photo and nothing is uploaded, as before.
+
+It is the client alone. The upload is an ordinary one through `POST api/photos`, so `docs/api-contract.md` does not
+change, and neither backend was touched.
+
+## What a flyer remembers of its picture
+
+When Generate or Try again is pressed, the flyer records the picture that is on the page and has been read, or none.
+Later changes to the box do not touch it. The box is offered when all three hold:
+
+- the flyer has a picture: its read found words, or found no event and the staff member typed it (Artur's answer:
+  "Yes, offer it");
+- that picture is still the one on the page, so "this picture" is the one the staff member sees there;
+- the flyer is an Activity one. A This week flyer has no photo, so no box.
+
+A tick is kept by picture. A Try again from the same picture keeps it; another picture starts unticked.
+
+## What was built
+
+- **One function for a photo landing on a flyer,** `withPhoto()` in `src/shared/defaults.ts`: "No photo" becomes "In
+  a frame", a mode already chosen stays, the crop starts over. The editor did that inline for a photo chosen or
+  dropped; it now calls the function, and so does the AI page.
+- **The handoff carries the editor's own draft,** photo included. It used to be the editor's draft "minus the
+  photo", declared a second time, and the editor set `photo: null` on taking it.
+- **The tick box,** as above.
+- **"Open in editor" with the box ticked is an action like the others.**
+  - The picture is the original, prepared with a photo's own limits. The read was sent a copy shrunk to the read's
+    edge.
+  - While it is on its way the button reads "Uploading…", the stage says "Adding your picture to the flyer…", every
+    other control waits, and leaving asks.
+  - If the photo route refuses the picture the page stays, with that route's message alone, the tick still set and
+    the flyer back on the stage.
+  - An answer that lands after the staff member has left hands nothing over.
+- **The docs:** `README.md`, `docs/ai-flyers/README.md` and `docs/deploy.md` (what staff see, and what a site keeps:
+  a picture taken along is a second copy, an ordinary photo in `uploads/`).
+
+**Not built, said plainly:**
+- The AI page's own preview does not show the picture. It shows once the editor opens.
+- The read's copy (30 days in `ai-pictures/`) and the flyer's photo (`uploads/`) are two files, by the brief.
+- A photo uploaded for a flyer nobody saves stays in `uploads/`, as one dropped in the editor does. Deleting those
+  is out of scope, by the brief.
+
+## How each piece was proved
+
+| Piece | Commit | Seen red | Then green |
+|---|---|---|---|
+| `withPhoto()`, and the editor through it | `a9a19c7` | 3 unit tests: `withPhoto is not a function` | 602 unit |
+| The handoff carries the editor's draft | `2e0bab4` | the type check: `'photo' does not exist in type 'AiDraft'`. At run time a draft passes straight through, so the typed red is the honest one | 603 unit |
+| The tick box | `b5fdff6` | 3 browser specs: no such box | 58 in the AI project |
+| Ticked: the upload, the wait, a refusal, a late answer | `92973cd` | 4 specs: no upload was sent; no "Uploading…"; the page had moved to the editor; no waiting line | 62 |
+| The offer on a phone, at 390 and 360 px | `609c265` | a pin (below) | 62 |
+| The docs | `0d61f95` | (documents) | |
+| A picture that lands after the page was left and come back to | `330e666` | 1 spec: "New flyer" opened with "Stretching class" in Line 1 | 63 |
+
+**Six specs passed at once, or were red first at an earlier line than the one they are named for.** Each was seen
+red for its own reason with the code broken on purpose, and the code restored:
+
+| Pin | Broken on purpose | What failed |
+|---|---|---|
+| The editor's "a photo dropped on No photo lands in it" goes through `withPhoto()` | the function left "No photo" as it was | "In a frame" was not lit |
+| No picture is offered for an idea typed in | the chosen picture counted, read or not | "expected 0, received 1" |
+| No picture is offered for a This week flyer | the template not asked | "expected 0, received 1" |
+| The upload uses a photo's own limits | the read's limits used | 2048 × 41 arrived where 3000 × 60 was sent |
+| An answer that lands after the page was left hands nothing over | the check left out | "New flyer" opened as the AI's draft |
+| The offer never scrolls a phone sideways | the offer made too wide | 46 px of sideways scroll |
+
+**What the browser suite spends on the fake's day is unchanged:** all three flyers, two reads of three, one of the
+nine tries. The new specs answer the read and the flyer themselves. Where a picture is uploaded as a photo, the
+upload is a real one, to the suite's own store.
+
+## Rulings
+
+Each was mine, with its cost if wrong.
+
+- **The box sits in the bar above the flyer,** before "Try again": beside the button it changes. If wrong: one
+  block of markup moves.
+- **The offer follows the picture the flyer remembers, not the words in the box.** The box may be emptied or
+  rewritten after Generate; the flyer was still made from that picture.
+- **The box goes when another picture is chosen.** "This picture" would then be the wrong one. Read, and its flyer
+  made, the new picture is offered, unticked.
+- **A tick is kept by picture.** A Try again from the same picture keeps it. If Artur wants every new flyer
+  unticked: one line.
+- **While the picture is on its way the stage shows the waiting line in the flyer's place,** as for a read and a
+  generation. On a phone it is on screen under the bar.
+- **The waiting line carries no ✨.** The sparkle marks what the AI made, and an upload is not its work.
+- **A late answer needs both checks.** The URL says at once that the page was left, where React unmounts a page a
+  few tasks after the move. The page itself says so when the staff member has since come back to Create with AI,
+  which is the same URL and another page.
+- **The handoff carries the editor's own `Draft` type,** exported, where it had declared a second one without the
+  photo. One declaration for one fact.
+
+## The look in a real browser
+
+For the follow-up and stage 4 together. **Not in Artur's own Chrome profile:** a script drove the installed Chrome
+143 through Playwright, with its own profile, at 1440 × 900 with a mouse, and at 390 × 844 and 360 × 780 with a
+finger. Every screen was read in a screenshot.
+
+- **Node** was the built app on a throwaway data folder. **PHP** was a `php -S` stage with the built client. Both
+  ran the fake provider, with `photo` named in the look's own settings: nothing was spent.
+- Both ran with 20 a day of each feature, so that every scene had room. The counts in the screenshots are that
+  site's, not a site's usual 3.
+- `.env`, the Laragon copy and the live site were not touched.
+- **The picture is the one in git,** the Canva page of the first case: stage 4 prints it large on a flyer. No
+  picture from `backups/` is in a screenshot.
+- The script answered a few requests itself, where the fake cannot be steered: a read with no event, a failed read,
+  a This week flyer, a refused upload, and an upload held long enough to be seen. Everything else went through each
+  server.
+- It ran three times: on Node after the follow-up, on both backends before the review, and again after the review's
+  fixes. The screenshots are from the last run.
+
+| What was looked for | Node | PHP |
+|---|---|---|
+| Step 1, under the switch | From a photo on, "1 Picture" lit, the picture chosen, Read the picture under it | the same |
+| The words, at step 2 | no switch; "Picture ✓", "Check the words" lit; the picture small with "Change the picture"; no hint; the focus on the line under the box | the same |
+| "Change the picture" | the switch back on From a photo, with the focus; step 1; the picture still chosen | the same |
+| The flyer, at step 3 | "Picture ✓, Check the words ✓, Flyer" | the same |
+| No event | "Write the event" at step 2, over his line and an empty box | the same |
+| A failed read | his line with its link. After the link: From your idea, the cursor in the box, no note | the same |
+| A site without the read | no switch and no steps, at both sizes | the same |
+| The steps on a phone | one line at 390 and at 360 px; Read, Generate and Open in editor on screen | the same |
+| The offer | unticked, in the bar above the flyer, before Try again | the same |
+| While the picture uploads | "Uploading…", every other control greyed, "Adding your picture to the flyer…" in the stage | the same |
+| Ticked: the editor | "In a frame" lit, the picture in its frame, "AI draft: check every fact before you print.", "Unsaved changes" | the same |
+| The downloaded PNG | the server's export, 1080 × 1440: the picture in its frame | the browser's own export, 1080 × 1440: the same |
+| Unticked: the editor | "No photo" lit | the same |
+| A This week flyer | no offer | the same |
+| A picture with no event, the event typed | offered | the same |
+| The photo route refuses the picture | "That photo is over 2 MB. Use a smaller JPG." alone; the tick still set; the flyer on the stage | the same |
+| A phone's photo: 3600 × 4800, 11.1 MB | the read was sent 567 KB, the upload 1.96 MB; stored at 2430 × 3240 | the site takes 2 MB: the upload was 1.96 MB and was taken; stored at 2430 × 3240 |
+
+**44 of the last run's 57 pairs of screenshots are the same file, byte for byte, on both backends.** The 13 that
+differ do so inside a picture: the small picture as Chrome had scaled it at that moment, the stored photo, which
+each backend's own image processor makes, and the download, which is the server's on Node and the browser's on PHP.
+
+The follow-up:
+
+| | Node | PHP |
+|---|---|---|
+| Step 1, under the switch | ![](ai-flyer-from-photo/followup-node-desktop-step1-chosen.png) | ![](ai-flyer-from-photo/followup-php-desktop-step1-chosen.png) |
+| The words, at step 2 | ![](ai-flyer-from-photo/followup-node-desktop-step2-words.png) | ![](ai-flyer-from-photo/followup-php-desktop-step2-words.png) |
+| After "Change the picture" | ![](ai-flyer-from-photo/followup-node-desktop-changed-back.png) | ![](ai-flyer-from-photo/followup-php-desktop-changed-back.png) |
+| The flyer, at step 3 | ![](ai-flyer-from-photo/followup-node-desktop-step3-flyer.png) | ![](ai-flyer-from-photo/followup-php-desktop-step3-flyer.png) |
+| No event | ![](ai-flyer-from-photo/followup-node-desktop-no-event.png) | ![](ai-flyer-from-photo/followup-php-desktop-no-event.png) |
+| A failed read, with its link | ![](ai-flyer-from-photo/followup-node-desktop-failed-read.png) | ![](ai-flyer-from-photo/followup-php-desktop-failed-read.png) |
+| After the link | ![](ai-flyer-from-photo/followup-node-desktop-after-link.png) | ![](ai-flyer-from-photo/followup-php-desktop-after-link.png) |
+| A site without the read | ![](ai-flyer-from-photo/followup-node-no-photo-desktop-ai.png) | ![](ai-flyer-from-photo/followup-php-no-photo-desktop-ai.png) |
+| On a phone: step 1 | ![](ai-flyer-from-photo/followup-node-phone-step1-chosen.png) | ![](ai-flyer-from-photo/followup-php-phone-step1-chosen.png) |
+| On a phone: the words | ![](ai-flyer-from-photo/followup-node-phone-step2-words.png) | ![](ai-flyer-from-photo/followup-php-phone-step2-words.png) |
+| On a phone: the flyer | ![](ai-flyer-from-photo/followup-node-phone-step3-flyer.png) | ![](ai-flyer-from-photo/followup-php-phone-step3-flyer.png) |
+| At 360 px: the steps at their longest | ![](ai-flyer-from-photo/followup-node-s23-step3-flyer.png) | ![](ai-flyer-from-photo/followup-php-s23-step3-flyer.png) |
+
+The two links with a keyboard's focus on them, after the fix (`7cb421f`):
+
+![](ai-flyer-from-photo/followup-node-desktop-step2-change-keyboard.png)
+
+![](ai-flyer-from-photo/followup-node-desktop-failed-read-link-keyboard.png)
+
+Stage 4:
+
+| | Node | PHP |
+|---|---|---|
+| The offer, unticked | ![](ai-flyer-from-photo/stage4-node-desktop-offer.png) | ![](ai-flyer-from-photo/stage4-php-desktop-offer.png) |
+| Ticked | ![](ai-flyer-from-photo/stage4-node-desktop-offer-ticked.png) | ![](ai-flyer-from-photo/stage4-php-desktop-offer-ticked.png) |
+| While the picture uploads | ![](ai-flyer-from-photo/stage4-node-desktop-uploading.png) | ![](ai-flyer-from-photo/stage4-php-desktop-uploading.png) |
+| The editor, with the picture in its frame | ![](ai-flyer-from-photo/stage4-node-desktop-editor-photo.png) | ![](ai-flyer-from-photo/stage4-php-desktop-editor-photo.png) |
+| The downloaded PNG | ![](ai-flyer-from-photo/stage4-node-download.png) | ![](ai-flyer-from-photo/stage4-php-download.png) |
+| Unticked: the editor with no photo | ![](ai-flyer-from-photo/stage4-node-desktop-editor-no-photo.png) | ![](ai-flyer-from-photo/stage4-php-desktop-editor-no-photo.png) |
+| A This week flyer: no offer | ![](ai-flyer-from-photo/stage4-node-desktop-week-no-offer.png) | ![](ai-flyer-from-photo/stage4-php-desktop-week-no-offer.png) |
+| A picture with no event: offered | ![](ai-flyer-from-photo/stage4-node-desktop-no-event-offer.png) | ![](ai-flyer-from-photo/stage4-php-desktop-no-event-offer.png) |
+| The photo route refuses the picture | ![](ai-flyer-from-photo/stage4-node-desktop-upload-failed.png) | ![](ai-flyer-from-photo/stage4-php-desktop-upload-failed.png) |
+| On a phone: ticked | ![](ai-flyer-from-photo/stage4-node-phone-offer-ticked.png) | ![](ai-flyer-from-photo/stage4-php-phone-offer-ticked.png) |
+| On a phone: while it uploads | ![](ai-flyer-from-photo/stage4-node-phone-uploading.png) | ![](ai-flyer-from-photo/stage4-php-phone-uploading.png) |
+| On a phone: the editor with the picture | ![](ai-flyer-from-photo/stage4-node-phone-editor-photo.png) | ![](ai-flyer-from-photo/stage4-php-phone-editor-photo.png) |
+| At 360 px: the offer | ![](ai-flyer-from-photo/stage4-node-s23-offer-ticked.png) | ![](ai-flyer-from-photo/stage4-php-s23-offer-ticked.png) |
+
+**What the look cannot say,** and a real phone is for:
+- the whole path with a camera's photo: stage 3's phone stopped at the words, so Generate, the tick and "Open in
+  editor" were never pressed on one;
+- what an iPhone hands over;
+- a real provider: the words and the flyer are the fake's, so the picture and the flyer are of two events.
+
+After each run the servers were stopped by their ports and the PHP stages' folders removed. Three `php.exe` were
+left running on this PC, and none is this work's: another project's `php -S` on port 8903 since 30 September, and
+two `php artisan boost:mcp`.
+
+## The review
+
+One fresh-context review of `61cd7ec..0d61f95`, by another agent that was given the code, the brief and Artur's
+answers, and not my conclusions. Its range starts where stage 3's review ended, so that review's own three fix
+commits were in it. It read the code and the tests, walked the page's states by hand, and ran one read-only probe of
+a rule's check. It ran no suite and wrote nothing.
+
+**It found no severe defect,** and no way for a switched-off feature to run, show or spend. It found sound:
+
+- the walk through every state: no path uploads the wrong picture, spends a read or a flyer unasked, or lets an
+  answer change the page after the picture changed;
+- the upload: the original, at a photo's own limits, through `withPhoto()`;
+- a site without `photo`: the page and the handoff as before;
+- the project's own rules, and the three earlier fix commits;
+- that the browser specs for the steps and for stage 4 would fail with their feature broken.
+
+What it found, and what was done, each test first:
+
+| What it found | What was done | Commit |
+|---|---|---|
+| A picture that lands after the staff member left **and came back** to Create with AI still handed its draft over: the next new flyer opened as it | The page that asked must also be the one still on screen. I had found it first, reading the code while the gates ran, and fixed it before the review came back | `330e666` |
+| "Open in editor" on an older flyer left words a read was spent on behind, with no question: a typed idea's flyer on the stage, a picture read after it, and the finish button beside "Check the words". Older than this session | It asks first, in the words every other way out uses, and before a picture is sent. Words read stop being unsaved work of their own once their flyer is made | `c61a641` |
+| "From your idea" in the switch, with the page's picture already read, leads back to the steps: the focus fell to the page | The focus goes to the line under the box, as after the read | `c61a641` |
+| With forced colours (Windows' high contrast) the link showed no focus: it showed it by its colours alone | It keeps an outline the system can paint. Held by a spec with forced colours emulated | `c61a641` |
+| "Uploading…" was spelled in the editor and again in the AI page | One constant, the editor's (`PHOTO_UPLOADING`) | `c61a641` |
+| The handoff's test asserted "in a frame" on a value its own `withPhoto()` call had made | It holds what a pass-through can: the photo travels with the draft. The browser spec proves the rest | `e447fbd` |
+| The check that holds every example to "one range, a hyphen and no spaces" wanted a digit on both sides of the dash: a range of days with a long dash passed it. It is from stage 3's review (`27adc76`) | WHEN holds no long dash and no hyphen beside a space, whatever stands on either side. Red first on a range of days | `e447fbd` |
+| The brief and the README still said stage 4 was not started | Brought up to date with this report | the last docs commit |
+
+**Left as it is, with the reason:**
+- **After a read the first Tab goes to Hostel,** and the box needs Shift+Tab: the focus rests on the line after the
+  box. The review called it a judgement, not a defect. It is stage 3's ruling, and the prompt kept it.
+- **The page's red notes are not announced to a screen reader.** They are no live region, here and in the editor.
+  It is older than this work, and changing it changes every page.
+- **The review ran no browser.** The suites and the looks did.
+
+## The gates
+
+Two sequences on 2026-10-06: on `0d61f95`, before the review, and on `e447fbd`, the last code commit, after it.
+
+| Gate | On `e447fbd` | On `0d61f95` | On `9e5621a` (stage 3) |
+|---|---|---|---|
+| `npm run gen` | every generated file up to date | the same | the same |
+| `npm run typecheck` | 0 errors | 0 | 0 |
+| `npm test` | 32 files, 603 tests passed | 603 | 599 |
+| `npm run test:contract` | 38 files, 378 tests passed (7 files and 235 tests skipped by project) | the same | the same |
+| `npm run test:php` | 893 tests, 10,254 assertions, 38 skipped (PHP 8.3.4) | the same | the same |
+| `npm run test:render` | 182 passed, 1 skipped (the opt-in baseline) | 178 passed | 160 passed |
+| `npm run test:php-smoke` | 2 passed | 2 passed | 2 passed |
+| `baseline.spec.ts` | 32 cases byte-identical against a capture of `bab60d0`, taken before any code changed | 32 | 32 |
+
+- **No test touches a provider, and no provider was called in this session.**
+- The AI project of the browser suite went from 44 specs to 66. The other 116 are as they were.
+- The 38 skipped PHP tests are the same 38. The one skipped browser spec is the opt-in baseline.
+- After `e447fbd` only documents changed.
+
+## What is left
+
+- **Nothing of the checkpoint itself:** the screenshots on both backends and the gates are above.
+- **Nothing is pushed.** `main` is at `684189e`. `.env` was not changed, no release was built, and neither the
+  Laragon copy nor the live site was touched.
+- **A release of this work** needs nothing new on a host: it is the client alone, and comes with the files. Going
+  back to an older release takes nothing out of `config.php`.
+
+**For Artur to decide:**
+
+1. **The whole path on your phone.** Stage 3's phone stopped at the words. This time it would end with the picture
+   as the flyer's photo: Take a photo, Read, Generate, the tick, Open in editor. Over this PC's own hotspot, with
+   the fake, as before.
+2. **The question "Open in editor" now asks** when words read are in the box and the flyer on the stage is an older
+   one. It is the leave question's own ("This flyer has unsaved changes. Leave without saving?"), which fits this
+   case no better than stage 3's fourth item. One sentence of yours would serve both.
+3. **After a failed read and "type the event yourself", the picture is not offered as the flyer's photo.** It was
+   never read, so by the brief it is not the idea's picture. The review asked. Say if a picture that failed to read
+   should be offered too.
+4. **A tick is kept by a Try again from the same picture.** Say if every new flyer should start unticked.
+5. **Where the box sits:** in the bar above the flyer, before "Try again".
+6. **The page's red notes are not announced to a screen reader** (above). It is the same in the editor.
+7. **Older, unchanged:** stage 3's list above, and stage 1's three items.

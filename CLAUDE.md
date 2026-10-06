@@ -182,8 +182,8 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
       `pointer: coarse` in `editor.css`: a laptop's browser ignores `capture`.
     - `AiPage.tsx` holds the chosen picture, so it survives the switch and the read. It shrinks it with the
       editor's `preparePhoto()` at `pictureLimits()` (the site's limits, the read's edge) and calls `api.aiPhoto()`.
-    - The read stops at the words: the page goes back to From your idea with them in the box. Text already there
-      is replaced only on a yes, asked before the read is spent. An empty read leaves the box as it was.
+    - The read stops at the words: the page shows the idea box with them, under the steps (below). Text already
+      there is replaced only on a yes, asked before the read is spent. An empty read leaves the box as it was.
     - After a read the focus goes to the line under the box, which the box is described by. Not to the box: on a
       phone that raises the keyboard over the words.
     - With no flyer left today Read the picture waits, under the flyers' own used-up sentence: every way in ends
@@ -193,13 +193,52 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
     - A picture the route refuses (4xx, or the browser's own HEIC check) shows that message alone. Any other
       failure adds "Your picture is still here: try again, or type the event yourself." (Artur's line), while a
       read is left to try again with; a message that ends with no full stop gets one first.
-    - The leave guard is armed while words a read was spent on are in the box (`wordsRead`, which a later empty
-      read leaves alone) and while a read is on its way, until "Open in editor". A generation on its way is not
-      guarded, as before the stage.
+      - "type the event yourself" is a link to the idea box (his ask, 2026-10-06): a button, `.linkish`. The
+        sentence stays one constant (`PICTURE_KEPT`) and the link is cut out of it, so the pinned text cannot drift.
+    - The leave guard is armed while words a read was spent on are in the box and in no flyer yet (`wordsRead`,
+      which a later empty read leaves alone, and which ends when a flyer is made from them) and while a read is on
+      its way. A generation on its way is not guarded, as before the stage.
+      - "Open in editor" is a way out too: with such words in the box and an older flyer on the stage it asks the
+        same question first (found in review, 2026-10-06). With their own flyer on the stage it asks nothing.
     - Artur's words on this page are pinned as literals in `tests/render/ai.spec.ts`: the two lines under the box
-      ("Read from your picture. …", "The AI found no event in this picture. Write the event here yourself.") and the
-      added line. He asked whether a slow read could be polled and chose "Nothing more now": the page already waits
-      for the server, and the limit is the app's own `AI_TIMEOUT_MS` / `'timeoutMs'`, there for the shared host.
+      ("Read from your picture. …", "The AI found no event in this picture. Write the event here yourself."), the
+      added line, the step names, "Change the picture", "Use this picture as the flyer’s photo", "Uploading…" and
+      "Adding your picture to the flyer…". He asked whether a slow read could be polled and chose "Nothing more
+      now": the page already waits for the server, and the limit is the app's own `AI_TIMEOUT_MS` / `'timeoutMs'`,
+      there for the shared host.
+  - The photo way shows as three numbered steps (2026-10-06, a follow-up to stage 3: Artur's sketch and answers).
+    He saw the page land on the From your idea tab after a read, where it starts, and it read as a step back.
+    - `AiSteps.tsx`: "Picture", "Check the words", "Flyer". A read that found no event names the second "Write
+      the event". A list, the current step marked `aria-current="step"`; the numbers are CSS, "✓" is text.
+    - They show under the switch from the first tap on From a photo, at step 1 (his answer, over my advice). Once
+      the picture on the page is read they stand in the switch's place, with that picture under them and "Change
+      the picture". The hint under the title shows only where the switch does.
+    - Nothing of it is stored: `read` holds the picture it was of, and `pictureRead` (`read.of === picture`) and
+      the step follow from it. Another picture, or Remove, is a picture not read: From your idea is then the tab
+      it was. Step 3 is for the flyer made from the picture on the page (`Result.picture`).
+    - "Change the picture" goes back to choosing and keeps the words in the box.
+    - Where the pressed button leaves with its screen, the focus is moved (one `focus` state): to the line under
+      the box after a read and when the switch leads back to the steps, to From a photo after "Change the
+      picture", into the box after the link.
+    - A site without `photo`, and From your idea by itself, show no steps: the page as it was.
+    - On a phone the three names are on one line at 390 px and at 360 px, his own phone's width (the `max-width:
+      480px` block of `editor.css`).
+  - The picture as the flyer's photo (2026-10-06, stage 4). The client alone: the upload is an ordinary `POST
+    api/photos`, so no route, schema or PHP class changed.
+    - A flyer remembers the picture it was made from, taken when Generate or Try again is pressed: the one on the
+      page, once read (`Result.picture`). A picture with no event counts (his answer: "Yes, offer it").
+    - On the result, in the bar above the flyer: "Use this picture as the flyer's photo", unticked. Offered while
+      that picture is still the one on the page, and on an Activity flyer. A tick is kept by picture (`ticked`).
+    - Ticked, `open()` is an action like the others (`busy: 'open'`): `preparePhoto(original, limits)` with a
+      photo's own limits, never `pictureLimits()`, then `api.uploadPhoto()`. The button reads `PHOTO_UPLOADING`
+      (`photoModes.ts`: the editor's own word, his answer) and the stage "Adding your picture to the flyer…".
+    - A refusal keeps the page, with the photo route's message alone and the tick still set.
+    - An answer that lands after the staff member left hands nothing over. It needs both checks: `onPage('ai')`
+      for the first tasks after a move, and the page's own `here` ref for a page left and come back to.
+    - `withPhoto()` in `src/shared/defaults.ts` is what a photo does to a flyer when it lands: the editor's
+      `onFile` and the AI page both call it. `handoff.ts` carries the editor's own `Draft`, photo included.
+    - Not built: the AI page's preview does not show the picture. The read's copy (`ai-pictures/`, 30 days) and
+      the flyer's photo (`uploads/`) are two files, by the brief.
   - A picture is read into its words (`photo`, 2026-10-06; brief `docs/prompts/ai-flyer-from-photo.md`, stage 2).
     Artur's answers are in the brief and are not to be reopened: two calls (the read stops at the words, the flyer
     is the staff member's second call), the picture sent as a file, a read with no words counts, the picture kept
@@ -430,9 +469,10 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
     backends and a backfill); where a refused `config.php` logs its reason (the host's own PHP log today, not
     `data/php-errors.log`); Node reads a few number spellings PHP refuses; the Node start-up line prints
     `AI_MODEL` as typed.
-- In progress: a flyer from a photo (brief `docs/prompts/ai-flyer-from-photo.md`, four stages, one session each;
-  report `docs/reports/ai-flyer-from-photo.md`, one section per stage built). Designed with Artur on 2026-10-06:
-  his answers are quoted in the brief, and are not to be reopened.
+- Built, and waiting at stage 4's checkpoint for Artur: a flyer from a photo (brief
+  `docs/prompts/ai-flyer-from-photo.md`, four stages; report `docs/reports/ai-flyer-from-photo.md`, one section per
+  stage built, and one for the follow-up to the page). Designed with Artur on 2026-10-06: his answers are quoted in
+  the brief, and are not to be reopened.
   - **Stage 1 is done: a daily limit per feature** (2026-10-06, on `feat/ai-feature-switches` by Artur's choice,
     on top of `684189e`). `main` stays at `684189e` until he says; nothing is pushed.
     - A review found no defect in the counting, the settings or the wording on either backend. What it and the
@@ -507,21 +547,45 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
     - A phone reaches this PC over the PC's own hotspot (`192.168.137.1`), with the server bound to that address
       alone. A hostel's Wi-Fi keeps its devices apart and is no closed network: the app is never served on it.
     - **The checkpoint has all it asked for.**
-  - **Next, in a new session by his word (2026-10-06): a follow-up to the page, then stage 4.** Its prompt is
-    `docs/prompts/ai-flyer-from-photo-stage-4.md`. He chose to stay on this branch, and a commit per piece.
-    - The follow-up is his observation: after a read the page looks like a step back, to the tab it starts on. Of
-      three shapes he chose **"Numbered steps"** (over my advice, "One way forward"): a line "1 Picture ✓ · 2 Check
-      the words · 3 Flyer" takes the switch's place while a picture is being made into a flyer. And in the
-      failed-read line, "type the event yourself" becomes a link that opens the idea box. The report's last section
-      has his words and the sketch he chose. Nothing of it is built.
-    - **For Artur to decide** (the report has each): **reads sent at the same moment pass the tries together**
-      (found by the review: a limit of 1, 20 reads at once, 20 provider calls and 20 pictures kept; holding the
-      bound means recording a try before the provider is asked, on both backends); the words on the page that
-      are mine; that Read the picture waits when no flyer is left today; the leave question's words where there
-      is no flyer yet; whether a generation on its way should be guarded as a read now is; the first example's
-      "Free".
-    - No release was built. A host that names `photo` names it with `flyer`.
-  - **Stage 4 is not started,** and not to be started outside that session: the picture as the flyer's photo.
+  - **The follow-up to the page is built: numbered steps, and a link** (2026-10-06, in the session of
+    `docs/prompts/ai-flyer-from-photo-stage-4.md`, on `feat/ai-feature-switches` by his word, a commit per piece).
+    - It is his observation: after a read the page looked like a step back, to the tab it starts on. Of three
+      shapes he chose **"Numbered steps"** (over my advice, "One way forward"). The architecture section above
+      says how it works.
+    - His answers in that session: the steps show **"From the first tap on From a photo"** (over my advice, "Once
+      a picture is read"), and a read with no event names the second step **"Write the event"**.
+    - In the failed-read line "type the event yourself" is a link to the idea box. His sentence is unchanged.
+  - **Stage 4 is built: the picture as the flyer's photo** (the same session; sixteen commits on top of `bab60d0`
+    for both parts, each as it went green). Nothing is pushed.
+    - It is the client alone, on both backends. With `photo` not named the app is as it was, and the baseline is
+      byte-identical (32 cases, against a capture of `bab60d0`).
+    - His answers: the tick box is offered for a picture with no event too (**"Yes, offer it"**), and while the
+      picture uploads the button reads the editor's own **"Uploading…"**, with "Adding your picture to the
+      flyer…" in the stage.
+    - The look ran on both backends, desktop and phone (390 and 360 px), in the installed Chrome driven by a
+      script, on the fake: nothing was spent. 44 of 57 pairs of screenshots are the same file on both backends. A
+      phone-sized photo (3600 × 4800, 11 MB) went up as 1.96 MB, under PHP's 2 MB.
+    - A fresh-context review of `61cd7ec..0d61f95` found no severe defect, and no way for a switched-off feature
+      to run. What it found is fixed, each test first: among it, "Open in editor" on an older flyer leaving words
+      read behind without a question (older than the session), an upload's answer landing after the page was left
+      and come back to, and a check on the examples' ranges that a range of days passed.
+    - The gates on `e447fbd`: 603 unit, 378 contract, 182 in the browser (66 of them the AI project's), 893 PHP,
+      2 in the PHP smoke test. No provider was called in the session.
+    - **The checkpoint has what the brief asks: the screenshots on both backends and the gates.**
+    - **For Artur to decide** (the report has each):
+      - the whole path on his phone, the picture ending as the flyer's photo: stage 3's phone stopped at the words;
+      - the words of the question "Open in editor" now asks with words read and an older flyer on the stage (the
+        leave question's own, as where there is no flyer yet);
+      - whether a picture that failed to read is offered as the photo once the event is typed;
+      - whether a Try again keeps the tick, and where the box sits;
+      - the red notes a screen reader is not told of, which the editor shares;
+      - and stage 3's list, unchanged: **reads sent at the same moment pass the tries together** (a limit of 1,
+        20 reads at once, 20 provider calls and 20 pictures kept; holding the bound means recording a try before
+        the provider is asked, on both backends); the words on the page that are mine; that Read the picture
+        waits when no flyer is left today; whether a generation on its way should be guarded as a read now is;
+        the first example's "Free".
+    - No release was built. A host needs nothing new for this work: it comes with the files. A host that names
+      `photo` names it with `flyer`.
 - Waiting, don't start unasked: **a second shape for the share text, "one mixed caption"** (Artur, 2026-10-06):
   one caption in English with the key facts repeated in Spanish, where today's has two blocks. He wants a switch
   to turn it on and generate it as another option for the share text. Not designed: where the switch lives (a

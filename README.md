@@ -372,7 +372,8 @@ share text, with OpenAI or Anthropic behind one seam, at most 3 generations a da
 site sets its own. Each feature has its own switch (`docs/reports/ai-feature-switches.md`) and its own
 daily limit (`docs/reports/ai-flyer-from-photo.md`): a site runs the ones it names, and it is off until
 a site has a key and names them. A third feature reads a picture into the words a flyer is made from,
-"From a photo" on the same page (the same report, stages 2 and 3).
+"From a photo" on the same page (the same report, stages 2 to 4): three numbered steps, and the picture offered as
+the flyer's photo.
 
 Next (handoff steps 7 and 9): per-element drag/nudge with snapping and safe-box clamping,
 font-size multipliers, contrast-checked colour swatches, block reorder, Reset to template; the
