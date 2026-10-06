@@ -295,8 +295,11 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
   - **The share text is English first,** then the line `-- 🇪🇸 --` (`SHARE_SPANISH_BREAK` in `share.ts`), then
     Spanish. The English is written for English-speaking guests, not turned word for word. A long caption gets
     "🇪🇸 Español abajo 👇" after its hook. The editor's placeholder shows the same order.
-  - His other changes to those live flyers (a time range in WHEN, the ask's own words) were not asked for as rules
-    and are not in the examples.
+  - **A start and an end print as one range in WHEN,** with a hyphen and no spaces (`17:45-23:00`, as on his Teide
+    flyer): with spaces around the dash it broke over two lines in the chip. The asks' own words on those live
+    flyers were not asked for as rules and are not in the examples.
+  - Checked with five real generations on `gpt-6-luna` (the report has each): every rule held, and a board of
+    four activities came back as a This week flyer, seen once.
 
 ## How to work here
 
@@ -441,13 +444,15 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
         on each provider's middle model by itself (`AI_FEATURE_DEFAULT_MODEL` in `src/shared/ai.ts`; on Anthropic
         `claude-sonnet-5-5`). That default wins over `AI_MODEL` / `'model'`, which is the flyer's and the share
         text's: only `AI_MODELS=photo:…` changes it (my ruling, in the report). 2048 px stays. The reader's
-        prompt gained three rules: a brand printed on a board is left out, each activity of a board goes on one
-        line, and a picture that announces no event answers empty.
+        prompt gained three rules: a brand printed on a board or its frame is left out (a poster keeps what it
+        says of its own event), each activity of a board goes on one line, and a picture that announces no event
+        answers empty.
       - **Eleven check reads on `gpt-6.1-sol` with those rules:** no fact misread on any picture. Known from them:
-        the dense website screenshot took 21.9 s of the 25 s, and the rule about a maker's name also drops a
-        sound system's brand from a techno poster. Only `npm run ai:smoke`, by hand and on his go, called a
-        provider: 51 reads in all, about 27 cents.
+        the dense website screenshot took 12.7 to 21.9 s of the 25 s over three reads. Only `npm run ai:smoke`,
+        by hand and on his go, called a provider: 52 reads and 5 generations in all, about 28 cents.
       - For stage 3's words: an empty answer can now mean "no event", not only "no words".
+      - **The checkpoint is closed.** Stage 3 is for a new session, by his word: its standalone prompt is
+        `docs/prompts/ai-flyer-from-photo-stage-3.md`.
       - One read went through the Laragon copy, on his word: `gpt-6-luna`, 7.4 s with the upload. The copy now
         runs release `8c7a635bd009` (tag `release/8c7a635bd009`, on `a10e92f`), and is left with the share text
         alone, as he said.

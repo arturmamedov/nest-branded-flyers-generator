@@ -6,8 +6,8 @@ stage that is built. **A stage with no section here is not built.**
 | Stage | State |
 |---|---|
 | 1. A limit per feature | Built, 2026-10-06 (below) |
-| 2. The read, on both backends | Built, 2026-10-06 (below, after stage 1). Its checkpoint: Artur's answers are built, the first case is in git, and the real reads are done (*The checkpoint*, at the end). Open: his choice of the photo's model, the 2048 px edge and the reader's words |
-| 3. The page | Not started |
+| 2. The read, on both backends | Built, 2026-10-06 (below, after stage 1). Its checkpoint: Artur's answers are built, the first case is in git, and the real reads are done, and what he chose from them is built (*The checkpoint*, at the end). **The checkpoint is closed** |
+| 3. The page | Not started. For a new session: `docs/prompts/ai-flyer-from-photo-stage-3.md` |
 | 4. The picture as the flyer's photo | Not started |
 
 # Stage 1: a limit per feature
@@ -814,8 +814,9 @@ What was misread, with the seconds of each read:
 
 - **No fact was misread on any of the eleven.** What is left are copying slips: one capital, one corrected
   misspelling, and "Activities" for "ACTIVITIES".
-- **The rule about a maker's name has a side effect:** a sound system's brand on a techno poster is dropped with
-  the beer brand on the board. Artur's to say whether that matters.
+- **The rule about a maker's name had a side effect:** a sound system's brand on a techno poster was dropped with
+  the beer brand on the board. Asked, Artur said "Narrow it to boards": done, and checked with one more read
+  (*Beside the checkpoint*, below).
 - **The seconds are the risk:** 21.9 s on the dense screenshot, of the 25 s the app waits, and 17.7 s the first
   time. A read that runs out of time answers "The AI didn't answer properly", costs nothing against the reads, and
   is one of the day's tries. On a host with a shorter limit than this machine's, that picture would fail.
@@ -909,11 +910,26 @@ words ("Book/Contact us: …", "Reserva y vien con nosotros!"). His to say.
 
 **Said plainly:**
 
-- **No real generation has checked these rules.** A prompt is a rule for a model, and only a real flyer and a real
-  share text show whether the model follows it. That needs Artur's go: it spends.
-- **The first example still prints "Free" for a text that names no price.** Artur answered "Free" for that flyer
-  when asked, so the example's answer carries it, with an assumption that says so. The rule beside it says "never
-  Free" without the word. That tension is older than this change; a real generation will show which one wins.
+- **Checked with five real generations,** on Artur's go ("On OpenAI, plus two boards end to end"), on
+  `gpt-6-luna`, under half a cent in all:
+
+  | From | What came back | Seconds |
+  |---|---|---|
+  | The Canva page's words, a flyer | "Bachata" / "workshop", no full stop; no COST chip; "cost: No price in the text: none printed" | 7.4 |
+  | The same, a share text | English first, the line, Spanish; no price line | 6.4 |
+  | The sunset class's text, a flyer | "Stretch and unwind" / "at sunset"; no COST chip, noted | 7.6 |
+  | The Muay Thai board's words, a flyer | An Activity flyer, "Today · 10:30" (the board's Tuesday 6 was that day); no place and no price, both noted | 12.0 |
+  | The weekly board's words, a flyer | **A This week flyer:** four rows, each with its hostel, "Ashavana Nest" among them; no prices, noted | 15.9 |
+
+  - Every share text came back in two blocks, English first, with no price line.
+  - **The rule beat the example:** the first example still prints "Free" for a text that names no price, because
+    Artur answered "Free" for that flyer when asked. The sunset class's own text came back with no COST chip.
+  - **A board of several activities made a This week flyer.** The brief leaves that path "not designed, not tested
+    and not promised". It is now seen once to work, and no more than that.
+- **Two more answers of his, the same day** (`fd03fdd`): the reader's rule about a maker's name is **narrowed to
+  boards**, and one more read of the techno poster on `gpt-6.1-sol` gave "Funktion-One Soundsystem" back, in
+  12.7 s; and **a time range in WHEN is a rule**, written as on his Teide flyer, "17:45-23:00", with a hyphen and
+  no spaces. The asks' own words on his live flyers stay his.
 - **The editor's placeholder changed** and no test reads it, so it was looked at in the installed Chrome, on the
   built app with a throwaway data folder, at 1440 × 900 and 390 × 844. It reads as meant:
 
@@ -950,11 +966,11 @@ One sequence on 2026-10-06, on the tree of `43aa907`: the checkpoint's last comm
 
 - **Nothing of the checkpoint itself:** Artur chose from the table, and what he chose is built and checked with
   real reads (above).
-- **A real flyer and a real share text with the new copy rules,** on his go: they spend, and no test can stand in
-  for them.
 - **Not tested, and his to ask for:** what the flyer's assistant makes of a misread hostel name; a smaller edge
   than 2048 px; a poster photographed at an angle; a chat screenshot of a message.
-- **His to say:** whether a sound system's brand on a poster should be kept; whether a time range in WHEN and the
-  asks' own words on his live flyers are rules too.
+- **Stage 3, the page,** is for a new session, by his word: its prompt is
+  `docs/prompts/ai-flyer-from-photo-stage-3.md`.
+- **Every real call of the checkpoint:** 52 picture reads and 5 generations, about 28 cents, from the tokens and
+  the providers' prices.
 - **Nothing is pushed.** `.env` was not changed, and the live site was not called. One release was built, for the
   Laragon copy alone.
