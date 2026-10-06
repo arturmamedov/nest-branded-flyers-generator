@@ -9,14 +9,15 @@ use InvalidArgumentException;
 /**
  * config.php's `ai` block, checked and resolved: the PHP side of loadAiSettings in server/config.ts. Off unless a
  * provider is named and, for a real one, keyed; `enabled` switches it off even then; `features` names what runs, and
- * nothing does until it names it; `dailyLimit` is the site's own cap. A missing block means off, never a 503; anything
- * unexpected in a block that is there makes config.php invalid, as AccessRule does, so a typo never silently runs a
- * provider (or silently doesn't). The provider names, default models, time limit, the app's features and the cap's
- * default and bound come from Shared::ai(), written once in src/shared/ai.ts.
+ * nothing does until it names it; `dailyLimit` is the site's own cap, and `dailyLimits` a feature's own number. A
+ * missing block means off, never a 503; anything unexpected in a block that is there makes config.php invalid, as
+ * AccessRule does, so a typo never silently runs a provider (or silently doesn't). The provider names, default models,
+ * time limit, the app's features and the cap's default and bound come from Shared::ai(), written once in
+ * src/shared/ai.ts.
  */
 final class AiConfig
 {
-    private const KEYS = ['provider', 'apiKey', 'features', 'dailyLimit', 'model', 'effort', 'timeoutMs', 'enabled'];
+    private const KEYS = ['provider', 'apiKey', 'features', 'dailyLimit', 'dailyLimits', 'model', 'effort', 'timeoutMs', 'enabled'];
 
     private function __construct(
         /** 'openai' | 'anthropic' | 'fake', or null: no provider, so off */
@@ -40,6 +41,13 @@ final class AiConfig
         /** The generations a day this site allows each actor: the shared default unless the block sets its own, and
             never more than the shared bound. */
         public readonly int $dailyLimit,
+        /**
+         * Each feature's own number a day, for every feature the app has, in its order: the one `dailyLimits` gives
+         * it, else `dailyLimit` (the owner's answer, 2026-10-06).
+         *
+         * @var array<string, int>
+         */
+        public readonly array $dailyLimits,
     ) {
     }
 
@@ -51,7 +59,7 @@ final class AiConfig
     public static function fromArray(mixed $raw, array $facts): self
     {
         if ($raw === null) {
-            return new self(null, null, null, null, $facts['timeoutMs'], false, [], $facts['dailyLimit']);
+            return new self(null, null, null, null, $facts['timeoutMs'], false, [], $facts['dailyLimit'], array_fill_keys($facts['features'], $facts['dailyLimit']));
         }
         if (!is_array($raw) || ($raw !== [] && array_is_list($raw))) {
             throw new InvalidArgumentException('ai must be an array with ' . implode(', ', self::KEYS) . ' (see config.sample.php)');
@@ -93,7 +101,34 @@ final class AiConfig
             $provider !== null && $keyed && $switch,
             self::features($raw, $facts['features']),
             $dailyLimit,
+            self::dailyLimits($raw, $facts['features'], $dailyLimit, $facts['dailyLimitMax']),
         );
+    }
+
+    /**
+     * The `dailyLimits` key: a feature's own number a day, keyed by the feature's name. The twin of AI_DAILY_LIMITS
+     * in .env, which spells the same pairs as `share:10,flyer:5`. A feature it does not name takes $others, the
+     * site's `dailyLimit`.
+     *
+     * @param array<string, mixed> $raw
+     * @param list<string> $all every feature the app has
+     * @return array<string, int> a number for every feature, in the app's own order
+     */
+    private static function dailyLimits(array $raw, array $all, int $others, int $max): array
+    {
+        $own = $raw['dailyLimits'] ?? [];
+        $valid = is_array($own) && ($own === [] || !array_is_list($own));
+        foreach ($valid ? $own : [] as $name => $limit) {
+            $valid = $valid && in_array($name, $all, true) && is_int($limit) && $limit >= 1 && $limit <= $max;
+        }
+        if (!$valid) {
+            throw new InvalidArgumentException('ai.dailyLimits must be null or an array of feature => number: a feature from ' . implode(', ', $all) . ', and a whole number from 1 to ' . $max);
+        }
+        $limits = [];
+        foreach ($all as $feature) {
+            $limits[$feature] = $own[$feature] ?? $others;
+        }
+        return $limits;
     }
 
     /**

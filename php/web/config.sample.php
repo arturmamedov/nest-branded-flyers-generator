@@ -53,8 +53,9 @@ return [
     // its key and the features are set; without this block it is off too. At most 3 generations
     // a day unless 'dailyLimit' says otherwise, counted in the Canary Islands. Needs PHP's curl extension.
     // Before going back to an older release, take out what it does not know, or it
-    // refuses config.php (503): 'features' and 'dailyLimit' for a release from before
-    // 2026-10-06, the whole block for one from before the AI (docs/deploy.md).
+    // refuses config.php (503): 'dailyLimits' for release 2ad58f28364e (2026-10-06) or any
+    // before it, 'features' and 'dailyLimit' as well for one from before 2026-10-06, the
+    // whole block for one from before the AI (docs/deploy.md).
     'ai' => [
         // 'openai' or 'anthropic' ('fake' answers canned examples, for tests).
         'provider' => null,
@@ -65,6 +66,8 @@ return [
         'features' => [],
         // Generations a day for the whole site, both features together; null = 3. A whole number from 1 to 20.
         'dailyLimit' => null,
+        // A feature's own number a day, by its name, e.g. ['share' => 10]; null = none. A whole number from 1 to 20 each.
+        'dailyLimits' => null,
         // null = the provider's default model (src/shared/ai.ts).
         'model' => null,
         // The provider's effort setting ('low', …); null leaves it to the model. Leave it null for Claude Haiku.

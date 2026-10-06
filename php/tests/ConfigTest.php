@@ -104,6 +104,7 @@ final class ConfigTest extends TestCase
                 'apiKey' => 'sk-ant-test',
                 'features' => ['flyer', 'share'],
                 'dailyLimit' => null,
+                'dailyLimits' => null,
                 'model' => null,
                 'effort' => null,
                 'timeoutMs' => null,
@@ -118,6 +119,7 @@ final class ConfigTest extends TestCase
         self::assertSame('claude-haiku-4-5', $config->ai->model);
         self::assertSame(['flyer', 'share'], $config->ai->features);
         self::assertSame(3, $config->ai->dailyLimit);
+        self::assertSame(self::everyFeature(3), $config->ai->dailyLimits);
     }
 
     public function testConfigSamplePhpAsShippedIsValidAndLeavesTheAiOff(): void
@@ -125,11 +127,12 @@ final class ConfigTest extends TestCase
         $root = $this->tempRoot();
         copy(Paths::repo() . '/php/web/config.sample.php', "$root/config.php");
         $raw = require "$root/config.php";
-        self::assertSame(['provider', 'apiKey', 'features', 'dailyLimit', 'model', 'effort', 'timeoutMs', 'enabled'], array_keys($raw['ai'] ?? []), 'the sample shows every key');
+        self::assertSame(['provider', 'apiKey', 'features', 'dailyLimit', 'dailyLimits', 'model', 'effort', 'timeoutMs', 'enabled'], array_keys($raw['ai'] ?? []), 'the sample shows every key');
         self::assertFalse(Config::load($root, self::shared())?->ai->enabled);
         // None until named: a site that copies the sample and adds its key runs nothing until it names a feature itself.
         self::assertSame([], $raw['ai']['features'], 'the sample names no feature');
         self::assertNull($raw['ai']['dailyLimit'], 'the sample sets no cap of its own');
+        self::assertNull($raw['ai']['dailyLimits'], 'the sample gives no feature a number of its own');
     }
 
     // ---- the `ai` block (AiConfig): the PHP side of server/config.ts's loadAiSettings ----
@@ -138,6 +141,7 @@ final class ConfigTest extends TestCase
     {
         $ai = Config::fromArray([], self::ROOT, self::shared())->ai;
         self::assertSame([null, null, null, null, 25_000, false, [], 3], [$ai->provider, $ai->apiKey, $ai->model, $ai->effort, $ai->timeoutMs, $ai->enabled, $ai->features, $ai->dailyLimit]);
+        self::assertSame(self::everyFeature(3), $ai->dailyLimits);
     }
 
     public function testTheFakeProviderNeedsNoKey(): void
@@ -277,6 +281,97 @@ final class ConfigTest extends TestCase
         self::assertContains($facts['dailyLimitMax'] + 1, array_column(self::settingsRows('dailyLimit', 'refused'), 'php'));
     }
 
+    /**
+     * A limit for every feature the app has: its own where $own names it, else $others.
+     *
+     * @param array<string, int> $own
+     * @return array<string, int>
+     */
+    private static function everyFeature(int $others, array $own = []): array
+    {
+        $limits = [];
+        foreach (self::shared()->ai()['features'] as $feature) {
+            $limits[$feature] = $own[$feature] ?? $others;
+        }
+        return $limits;
+    }
+
+    /**
+     * What a row of the per-feature limits sets in the `ai` block: its pairs, and the site's own number when it has one.
+     *
+     * @param array<string, mixed> $row
+     * @return array<string, mixed>
+     */
+    private static function limitsBlock(array $row): array
+    {
+        return ['dailyLimits' => $row['php']] + (array_key_exists('site', $row) ? ['dailyLimit' => $row['site']] : []);
+    }
+
+    /** @return iterable<string, array{array<string, mixed>, array<string, int>, int}> */
+    public static function dailyLimitsAccepted(): iterable
+    {
+        foreach (self::settingsRows('dailyLimits', 'accepted') as $name => $row) {
+            yield $name => [self::limitsBlock($row), $row['limits'], $row['others']];
+        }
+    }
+
+    // The owner's answers (2026-10-06): every feature its own daily limit, 'dailyLimit' each feature's number unless it
+    // has its own, and one key of pairs for those.
+    /**
+     * @param array<string, mixed> $block
+     * @param array<string, int> $limits
+     */
+    #[DataProvider('dailyLimitsAccepted')]
+    public function testEachFeatureTakesItsOwnDailyLimitOrTheSites(array $block, array $limits, int $others): void
+    {
+        self::assertSame(self::everyFeature($others, $limits), Config::fromArray(['ai' => ['provider' => 'fake'] + $block], self::ROOT, self::shared())->ai->dailyLimits);
+    }
+
+    /** @return iterable<string, array{array<string, mixed>}> */
+    public static function dailyLimitsRefused(): iterable
+    {
+        foreach (self::settingsRows('dailyLimits', 'refused') as $name => $row) {
+            yield $name => [self::limitsBlock($row)];
+        }
+    }
+
+    /** @param array<string, mixed> $block */
+    #[DataProvider('dailyLimitsRefused')]
+    public function testDailyLimitsNobodyWroteAreRefusedByTheSettingsNameWhetherOrNotTheAiIsOn(array $block): void
+    {
+        foreach ([$block, ['provider' => 'fake'] + $block] as $ai) {
+            try {
+                Config::fromArray(['ai' => $ai], self::ROOT, self::shared());
+                self::fail('The block was accepted');
+            } catch (InvalidArgumentException $e) {
+                self::assertStringContainsString('ai.dailyLimits', $e->getMessage());
+            }
+        }
+    }
+
+    public function testThePerFeatureVectorsNameRealFeaturesAndTheirDefaultAndTheirMostAreTheSharedFacts(): void
+    {
+        $facts = self::shared()->ai();
+        $accepted = self::settingsRows('dailyLimits', 'accepted');
+        $numbers = [];
+        foreach ($accepted as $name => $row) {
+            foreach ($row['limits'] as $feature => $limit) {
+                self::assertContains($feature, $facts['features'], $name);
+                $numbers[] = $limit;
+            }
+        }
+        self::assertSame($facts['dailyLimit'], $accepted['not set: every feature takes the default']['others']);
+        self::assertSame($facts['dailyLimitMax'], max($numbers));
+    }
+
+    public function testANumberForAFeatureTheSiteDoesNotRunIsKeptAndRunsNothing(): void
+    {
+        [$runs, $other] = self::shared()->ai()['features'];
+        $ai = Config::fromArray(['ai' => ['provider' => 'fake', 'features' => [$runs], 'dailyLimits' => [$other => 9]]], self::ROOT, self::shared())->ai;
+        self::assertSame([$runs], $ai->features);
+        self::assertSame(self::everyFeature(3, [$other => 9]), $ai->dailyLimits);
+    }
+
     public function testARefusedAiBlockNeverQuotesTheKey(): void
     {
         try {
@@ -300,6 +395,16 @@ final class ConfigTest extends TestCase
         } catch (InvalidArgumentException $e) {
             self::assertStringContainsString('ai.dailyLimit', $e->getMessage());
             self::assertStringNotContainsString('sk-secret-123', $e->getMessage());
+        }
+        // Pasted whole, as a pair's name and as a pair's number: none of them comes back.
+        foreach (['sk-secret-123', ['sk-secret-123' => 5], ['share' => 'sk-secret-123']] as $pairs) {
+            try {
+                Config::fromArray(['ai' => ['provider' => 'openai', 'dailyLimits' => $pairs]], self::ROOT, self::shared());
+                self::fail('The block was accepted');
+            } catch (InvalidArgumentException $e) {
+                self::assertStringContainsString('ai.dailyLimits', $e->getMessage());
+                self::assertStringNotContainsString('sk-secret-123', $e->getMessage());
+            }
         }
     }
 
