@@ -1,6 +1,6 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { AI_DAILY_LIMIT, AI_DAILY_LIMIT_MAX, AI_DEFAULT_MODEL, AI_FEATURES, AI_PROVIDERS, AI_TIMEOUT_MS, type AiFeature, type AiProvider } from '../src/shared/ai.js';
+import { AI_DAILY_LIMIT, AI_DAILY_LIMIT_MAX, AI_DEFAULT_MODEL, AI_FEATURE_DEFAULT_MODEL, AI_FEATURES, AI_PROVIDERS, AI_TIMEOUT_MS, type AiFeature, type AiProvider } from '../src/shared/ai.js';
 import { FAKE_MODEL } from './ai/providers/fake.js';
 import { APP_ROOT } from './paths.js';
 
@@ -16,7 +16,8 @@ export interface AiSettings {
   /** The site's model: AI_MODEL, else the provider's default; null without a provider. */
   model: string | null;
   /** The model each feature's calls name, for every feature the app has (the owner's answer, 2026-10-06: a model
-      per feature, so the picture read can run on a stronger one): the model AI_MODELS gives the feature, else
+      per feature, so the picture read can run on a stronger one): the model AI_MODELS gives the feature, else the
+      feature's own default on this provider when it has one (the picture read's: AI_FEATURE_DEFAULT_MODEL), else
       `model`. null without a provider. */
   models: Record<AiFeature, string | null>;
   /** The provider's effort knob (`reasoning.effort` / `output_config.effort`), sent only when set. One per site: a
@@ -82,8 +83,9 @@ function dailyLimits(value: string | undefined, others: number): Record<AiFeatur
 }
 
 /** The AI_MODELS setting: a feature's own model, as `feature:model` pairs separated by commas. A model's id may hold
-    a colon, so a pair splits at its first one. A feature it does not name takes `others`, the site's model. */
-function models(value: string | undefined, others: string | null): Record<AiFeature, string | null> {
+    a colon, so a pair splits at its first one. A feature it does not name takes its default on this provider when it
+    has one of its own (`defaults`: the picture read's), else `others`, the site's model. */
+function models(value: string | undefined, others: string | null, defaults: Partial<Record<AiFeature, string>>): Record<AiFeature, string | null> {
   const own = new Map<string, string>();
   for (const pair of (value ?? '').split(',').map((p) => p.trim()).filter(Boolean)) {
     const colon = pair.indexOf(':');
@@ -95,7 +97,7 @@ function models(value: string | undefined, others: string | null): Record<AiFeat
     own.set(name, model);
   }
   // Without a provider there is no model to ask for, whatever the line names: the pairs are still checked.
-  return Object.fromEntries(AI_FEATURES.map((feature) => [feature, others === null ? null : (own.get(feature) ?? others)])) as Record<AiFeature, string | null>;
+  return Object.fromEntries(AI_FEATURES.map((feature) => [feature, others === null ? null : (own.get(feature) ?? defaults[feature] ?? others)])) as Record<AiFeature, string | null>;
 }
 
 /* A refusal names the setting and never repeats its value, as PHP's AiConfig does: these lines are typed by hand next
@@ -115,7 +117,8 @@ export function loadAiSettings(env: NodeJS.ProcessEnv): AiSettings {
     provider,
     apiKey,
     model,
-    models: models(env.AI_MODELS, model),
+    // The fake has one model, whatever the feature.
+    models: models(env.AI_MODELS, model, provider === null || provider === 'fake' ? {} : AI_FEATURE_DEFAULT_MODEL[provider]),
     effort: env.AI_EFFORT || null,
     timeoutMs,
     enabled: provider !== null && keyed && !OFF.has((env.AI_ENABLED ?? '').trim().toLowerCase()),

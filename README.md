@@ -244,8 +244,8 @@ A new build changes the renderer's build id, so cached exports are re-rendered a
 | `AI_FEATURES` | unset: no feature runs | the features this site runs, separated by commas: `flyer` ("Create with AI"), `share` ("Write with AI"), `photo` (a picture read into words; the server's half, its page is not built yet). `AI_FEATURES=flyer,share` runs the two with a page. A name that is no feature is refused at start-up |
 | `AI_DAILY_LIMIT` | `3` | generations a day of each feature, for the whole site: a whole number from 1 to 20. Every feature has its own count |
 | `AI_DAILY_LIMITS` | unset: every feature takes `AI_DAILY_LIMIT` | a feature's own number a day, as `feature:number` pairs separated by commas (`share:10,flyer:5`), 1 to 20 each. A name that is no feature, or a feature named twice, is refused at start-up |
-| `AI_MODEL` | `gpt-6-luna` (OpenAI), `claude-haiku-4-5` (Anthropic) | every feature's model, unless it has its own |
-| `AI_MODELS` | unset: every feature takes `AI_MODEL` | a feature's own model, as `feature:model` pairs separated by commas (`photo:<model>`). One provider and one key serve them all. The photo's model must read pictures |
+| `AI_MODEL` | `gpt-6-luna` (OpenAI), `claude-haiku-4-5` (Anthropic) | the flyer's and the share text's model |
+| `AI_MODELS` | unset: the picture read runs on `gpt-6.1-sol` (OpenAI) or `claude-sonnet-5-5` (Anthropic), the rest on `AI_MODEL` | a feature's own model, as `feature:model` pairs separated by commas (`photo:<model>`). One provider and one key serve them all. The read has a default of its own because the fast models misread handwriting; `AI_MODEL` does not change it, only its own pair does, and that model must read pictures |
 | `AI_EFFORT` | unset | the provider's effort setting (`low` answers sooner). One for the whole site: leave it unset when any feature runs on a model that refuses it, as `claude-haiku-4-5` does |
 | `AI_TIMEOUT_MS` | `25000` | how long a generation waits for the provider: a positive whole number |
 | `AI_ENABLED` | on, with a provider and its key | `0` switches the whole AI off and keeps the key and the features |

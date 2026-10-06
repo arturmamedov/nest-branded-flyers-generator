@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { loadConfig } from '../../server/config.js';
 import { APP_ROOT } from '../../server/paths.js';
-import { AI_DAILY_LIMIT, AI_DAILY_LIMIT_MAX, AI_DEFAULT_MODEL, AI_FEATURES, AI_TIMEOUT_MS } from '../../src/shared/ai.js';
+import { AI_DAILY_LIMIT, AI_DAILY_LIMIT_MAX, AI_DEFAULT_MODEL, AI_FEATURE_DEFAULT_MODEL, AI_FEATURES, AI_TIMEOUT_MS } from '../../src/shared/ai.js';
 
 /* The AI settings the Node server reads from its environment (.env): which provider, the key, the model, the two
    knobs, the switch, the features that run, and how many a day each may. Off is the default, and the state the app
@@ -23,7 +23,11 @@ const vectors = JSON.parse(readFileSync(join(APP_ROOT, 'tests/fixtures/ai-settin
   features: { accepted: (Row & { runs: string[] })[]; refused: Row[] };
   dailyLimit: { accepted: (Row & { limit: number })[]; refused: Row[] };
   dailyLimits: { accepted: (LimitsRow & { limits: Record<string, number>; others: number })[]; refused: LimitsRow[] };
-  models: { accepted: (ModelsRow & { models: Record<string, string> })[]; refused: ModelsRow[] };
+  models: {
+    defaults: (ModelsRow & { provider: string; runs: Record<string, string> })[];
+    accepted: (ModelsRow & { models: Record<string, string> })[];
+    refused: ModelsRow[];
+  };
 };
 /** A row of the per-feature models: `site` is the site's own model (AI_MODEL), set beside the pairs. */
 type ModelsRow = Row & { site?: string };
@@ -82,8 +86,21 @@ describe('AI settings', () => {
   // rest. AI_MODEL stays every feature's model unless the feature has its own.
   it.each(modelRows(vectors.models.accepted))('AI_MODELS, $name', ({ env, site, models }) => {
     expect(load({ AI_PROVIDER: 'fake', ...env }).models).toEqual(everyFeature(site ?? 'fake-1', models));
-    // With a real provider the rest take its default model.
-    expect(load({ AI_PROVIDER: 'openai', AI_API_KEY: 'k', ...env }).models).toEqual(everyFeature(site ?? AI_DEFAULT_MODEL.openai, models));
+    // With a real provider the rest take its default model, but for a feature with a default of its own there.
+    expect(load({ AI_PROVIDER: 'openai', AI_API_KEY: 'k', ...env }).models).toEqual(everyFeature(site ?? AI_DEFAULT_MODEL.openai, { ...AI_FEATURE_DEFAULT_MODEL.openai, ...models }));
+  });
+
+  // The owner's answers (2026-10-06, after the real reads): the picture read runs on each provider's middle model
+  // by itself. The fast models wrote a wrong time off a handwritten board, three reads of three; a host that names
+  // the read and forgets its model must not get that. The rows are literal model names, held on both backends.
+  it.each(modelRows(vectors.models.defaults))('what each feature runs on, $name', ({ provider, env, runs }) => {
+    expect(load({ AI_PROVIDER: provider, ...(provider === 'fake' ? {} : { AI_API_KEY: 'k' }), ...env }).models).toEqual(runs);
+  });
+
+  it('the default rows say what every feature runs on, and the read’s default is no provider’s own', () => {
+    for (const row of vectors.models.defaults) expect(Object.keys(row.runs), row.name).toEqual([...AI_FEATURES]);
+    expect(AI_FEATURE_DEFAULT_MODEL).toEqual({ openai: { photo: 'gpt-6.1-sol' }, anthropic: { photo: 'claude-sonnet-5-5' } });
+    for (const provider of ['openai', 'anthropic'] as const) expect(AI_FEATURE_DEFAULT_MODEL[provider].photo).not.toBe(AI_DEFAULT_MODEL[provider]);
   });
 
   it.each(modelRows(vectors.models.refused))('refuses AI_MODELS with $name, whether or not the AI is on', ({ env }) => {

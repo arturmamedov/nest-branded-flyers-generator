@@ -418,9 +418,44 @@ final class ConfigTest extends TestCase
     public function testEachFeatureTakesItsOwnModelOrTheSites(array $block, array $models, ?string $site): void
     {
         self::assertSame(self::everyFeaturesModel($site ?? 'fake-1', $models), Config::fromArray(['ai' => ['provider' => 'fake'] + $block], self::ROOT, self::shared())->ai->models);
-        // With a real provider the rest take its default model.
+        // With a real provider the rest take its default model, but for a feature with a default of its own there.
         $openai = Config::fromArray(['ai' => ['provider' => 'openai', 'apiKey' => 'k'] + $block], self::ROOT, self::shared())->ai;
-        self::assertSame(self::everyFeaturesModel($site ?? 'gpt-6-luna', $models), $openai->models);
+        $own = $models + self::shared()->ai()['featureDefaultModel']['openai'];
+        self::assertSame(self::everyFeaturesModel($site ?? 'gpt-6-luna', $own), $openai->models);
+    }
+
+    /** @return iterable<string, array{string, array<string, mixed>, array<string, string>}> */
+    public static function modelDefaults(): iterable
+    {
+        foreach (self::settingsRows('models', 'defaults') as $name => $row) {
+            yield $name => [$row['provider'], self::modelsBlock($row), $row['runs']];
+        }
+    }
+
+    // The owner's answers (2026-10-06, after the real reads): the picture read runs on each provider's middle model by
+    // itself. The fast models wrote a wrong time off a handwritten board, three reads of three; a host that names the
+    // read and forgets its model must not get that. The rows are literal model names, held on both backends.
+    /**
+     * @param array<string, mixed> $block
+     * @param array<string, string> $runs
+     */
+    #[DataProvider('modelDefaults')]
+    public function testWhatEachFeatureRunsOn(string $provider, array $block, array $runs): void
+    {
+        $ai = ['provider' => $provider] + ($provider === 'fake' ? [] : ['apiKey' => 'k']) + $block;
+        self::assertSame($runs, Config::fromArray(['ai' => $ai], self::ROOT, self::shared())->ai->models);
+    }
+
+    public function testTheDefaultRowsSayWhatEveryFeatureRunsOnAndTheReadsDefaultIsNoProvidersOwn(): void
+    {
+        $facts = self::shared()->ai();
+        foreach (self::settingsRows('models', 'defaults') as $name => $row) {
+            self::assertSame($facts['features'], array_keys($row['runs']), $name);
+        }
+        self::assertSame(['openai' => ['photo' => 'gpt-6.1-sol'], 'anthropic' => ['photo' => 'claude-sonnet-5-5']], $facts['featureDefaultModel']);
+        foreach (['openai', 'anthropic'] as $provider) {
+            self::assertNotSame($facts['defaultModel'][$provider], $facts['featureDefaultModel'][$provider]['photo']);
+        }
     }
 
     /** @return iterable<string, array{array<string, mixed>}> */

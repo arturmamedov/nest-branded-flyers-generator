@@ -346,11 +346,18 @@ What to know:
     stop it there. If the host's disk is full, a read stops with an error before the provider is
     asked, and nothing is counted.
 - **The other settings,** all optional:
-  - `model`: the default is the provider's fast one;
-  - `models`: a feature's own model, by its name: `'models' => ['photo' => '<model>']`. A feature
-    it does not name takes `model`. One provider and one key serve them all. The model named for
-    `photo` must be one that reads pictures: one that cannot makes every read fail with "The AI
-    didn't answer properly", and the log says why;
+  - `model`: the flyer's and the share text's model. The default is the provider's fast one;
+  - `models`: a feature's own model, by its name: `'models' => ['photo' => '<model>']`. One provider
+    and one key serve them all.
+    - **The picture read needs nothing set.** It runs on the provider's middle model by itself:
+      `gpt-6.1-sol` on OpenAI, `claude-sonnet-5-5` on Anthropic. The fast models read printed
+      posters well and handwriting badly: in real reads on 2026-10-06 both wrote a wrong time off a
+      chalkboard, every time.
+    - `model` does not change the read's model. Only `'photo'` here does.
+    - A model named for `photo` must be one that reads pictures: one that cannot makes every read
+      fail with "The AI didn't answer properly", and the log says why.
+    - A read on the middle model costs about a cent and takes 9 to 18 seconds on OpenAI, 4 to 12 on
+      Anthropic, measured on this machine and not on the host;
   - `effort`: `'low'` makes OpenAI answer sooner. Leave it out for Claude Haiku, which refuses it.
     There is one `effort` for the whole site: if any feature runs on a model that refuses it, leave
     it out;

@@ -99,10 +99,23 @@ export const AI_PROVIDERS = ['openai', 'anthropic', 'fake'] as const;
 export type AiProvider = (typeof AI_PROVIDERS)[number];
 
 /** The model each provider runs unless AI_MODEL (Node) or `ai.model` (PHP) says otherwise: the fast tier of each,
-    the owner's choice (2026-10-02). Haiku 4.5 takes no effort setting; gpt-6-luna takes `reasoning.effort`. */
+    the owner's choice (2026-10-02). Haiku 4.5 takes no effort setting; gpt-6-luna takes `reasoning.effort`. A
+    feature with a default of its own is below (AI_FEATURE_DEFAULT_MODEL). */
 export const AI_DEFAULT_MODEL: Record<Exclude<AiProvider, 'fake'>, string> = {
   openai: 'gpt-6-luna',
   anthropic: 'claude-haiku-4-5',
+};
+
+/** The model a feature runs on by itself where the provider's fast one will not do: the picture read, on each
+    provider's middle model (the owner's answers, 2026-10-06, after the real reads). The fast models read printed
+    posters well and handwriting badly: both wrote a wrong time off a chalkboard, three reads of three, with no `[?]`,
+    and both middle models read it right every time (docs/reports/ai-flyer-from-photo.md, "The real reads").
+    It wins over the site's own model (AI_MODEL, `model`), which is the flyer's and the share text's: a host that
+    pins that one must not put the read back on a model that misreads a board. Only the feature's own setting changes
+    it (AI_MODELS=photo:<model>, `'models' => ['photo' => …]`). */
+export const AI_FEATURE_DEFAULT_MODEL: Record<Exclude<AiProvider, 'fake'>, Partial<Record<AiFeature, string>>> = {
+  openai: { photo: 'gpt-6.1-sol' },
+  anthropic: { photo: 'claude-sonnet-5-5' },
 };
 
 /** The names the answer formats go by: on the wire (OpenAI's `text.format.name`) and in the fake. `photo` is the
@@ -164,6 +177,7 @@ export const AI_SHARED = {
   maxOutputTokens: AI_MAX_OUTPUT_TOKENS,
   providers: AI_PROVIDERS,
   defaultModel: AI_DEFAULT_MODEL,
+  featureDefaultModel: AI_FEATURE_DEFAULT_MODEL,
   schemaNames: AI_SCHEMA_NAMES,
   pictureMaxEdge: AI_PICTURE_MAX_EDGE,
   pictureDays: AI_PICTURE_DAYS,

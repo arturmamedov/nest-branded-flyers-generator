@@ -29,7 +29,8 @@ final class AiConfig
         /**
          * The model each feature's calls name, for every feature the app has, in its order (the owner's answer,
          * 2026-10-06: a model per feature, so the picture read can run on a stronger one): the model `models` gives
-         * the feature, else `model`. null without a provider.
+         * the feature, else the feature's own default on this provider when it has one (the picture read's:
+         * featureDefaultModel in schema/shared.json), else `model`. null without a provider.
          *
          * @var array<string, ?string>
          */
@@ -62,7 +63,7 @@ final class AiConfig
 
     /**
      * @param mixed $raw the `ai` value config.php returned; null when it has none
-     * @param array{timeoutMs:int, providers:list<string>, defaultModel:array<string, string>, fake:array{model:string}, features:list<string>, dailyLimit:int, dailyLimitMax:int} $facts Shared::ai()
+     * @param array{timeoutMs:int, providers:list<string>, defaultModel:array<string, string>, featureDefaultModel:array<string, array<string, string>>, fake:array{model:string}, features:list<string>, dailyLimit:int, dailyLimitMax:int} $facts Shared::ai()
      * @throws InvalidArgumentException naming the offending key, never quoting a value (the key is one)
      */
     public static function fromArray(mixed $raw, array $facts): self
@@ -107,7 +108,8 @@ final class AiConfig
             $provider,
             $apiKey,
             $model,
-            self::models($raw, $facts['features'], $model),
+            // The fake has one model, whatever the feature.
+            self::models($raw, $facts['features'], $model, $facts['featureDefaultModel'][$provider] ?? []),
             self::text($raw, 'effort'),
             $timeoutMs,
             $provider !== null && $keyed && $switch,
@@ -144,14 +146,15 @@ final class AiConfig
 
     /**
      * The `models` key: a feature's own model, keyed by the feature's name. The twin of AI_MODELS in .env, which
-     * spells the same pairs as `share:model-b,flyer:model-c`. A feature it does not name takes $others, the site's
-     * model.
+     * spells the same pairs as `share:model-b,flyer:model-c`. A feature it does not name takes its default on this
+     * provider when it has one of its own ($defaults: the picture read's), else $others, the site's model.
      *
      * @param array<string, mixed> $raw
      * @param list<string> $all every feature the app has
+     * @param array<string, string> $defaults the features with a default of their own on this provider (Shared::ai())
      * @return array<string, ?string> a model for every feature, in the app's own order
      */
-    private static function models(array $raw, array $all, ?string $others): array
+    private static function models(array $raw, array $all, ?string $others, array $defaults): array
     {
         $own = $raw['models'] ?? [];
         $valid = is_array($own) && ($own === [] || !array_is_list($own));
@@ -164,7 +167,7 @@ final class AiConfig
         $models = [];
         foreach ($all as $feature) {
             // Without a provider there is no model to ask for, whatever the key names: the pairs are still checked.
-            $models[$feature] = $others === null ? null : $own[$feature] ?? $others;
+            $models[$feature] = $others === null ? null : $own[$feature] ?? $defaults[$feature] ?? $others;
         }
         return $models;
     }

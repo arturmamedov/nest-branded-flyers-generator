@@ -105,6 +105,8 @@ describe('the AI bundle (schema/ai.json) and the ai block of shared.json', () =>
       maxOutputTokens: 8000,
       providers: ['openai', 'anthropic', 'fake'],
       defaultModel: { openai: 'gpt-6-luna', anthropic: 'claude-haiku-4-5' },
+      // The owner's answer (2026-10-06, after the real reads): the picture read on each provider's middle model.
+      featureDefaultModel: { openai: { photo: 'gpt-6.1-sol' }, anthropic: { photo: 'claude-sonnet-5-5' } },
       schemaNames: { flyer: 'nest_flyer_brief', share: 'nest_share_text', photo: 'nest_picture_text' },
       pictureMaxEdge: 2048,
       pictureDays: 30,

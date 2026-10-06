@@ -250,10 +250,14 @@ are generated into `schema/ai.json` with the prompts and the few-shot examples b
   `AI_DAILY_LIMIT` (Node) or `'dailyLimit'` (PHP) is the number of every feature, 3 unless set, and `AI_DAILY_LIMITS`
   (pairs, `share:10,flyer:5`) or `'dailyLimits'` (`['share' => 10]`) gives a feature its own. Each is a whole number
   from 1 to `AI_DAILY_LIMIT_MAX`.
-- **A model per feature.** `AI_MODEL` (Node) or `'model'` (PHP) is every feature's model, the provider's default
-  unless set, and `AI_MODELS` (pairs, `photo:<model>`) or `'models'` (`['photo' => '<model>']`) gives a feature its
-  own. One provider and one key serve them all. A model that cannot do what its feature asks (read a picture, say)
-  makes the provider answer an error: that is `ai_failed`, and nothing counts.
+- **A model per feature.** `AI_MODEL` (Node) or `'model'` (PHP) is the flyer's and the share text's model, the
+  provider's default unless set, and `AI_MODELS` (pairs, `photo:<model>`) or `'models'` (`['photo' => '<model>']`)
+  gives a feature its own. One provider and one key serve them all.
+  - The picture read has a default of its own on each provider, its middle model (`AI_FEATURE_DEFAULT_MODEL` in
+    `src/shared/ai.ts`): the fast models misread handwriting. The site's model does not change it; only the read's
+    own setting does.
+  - A model that cannot do what its feature asks (read a picture, say) makes the provider answer an error: that is
+    `ai_failed`, and nothing counts for the feature's limit.
 - **Checks, in order:** the body (`malformed`), the write guard, `ai_off` (the whole AI, or this route's feature),
   `ai_forbidden`, the body's shape (400 `ai_input`, with `fields` as for `invalid`; the idea text is trimmed and holds
   1 to `AI_INPUT_MAX` code points), a `hostel` slug that doesn't exist (`unknown_hostel`), the feature's limit (429

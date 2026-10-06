@@ -74,11 +74,12 @@ return [
         // A feature's own number a day, by its name, e.g. ['share' => 10]; null = none. A whole number from 1 to 20
         // each. A feature it does not name takes 'dailyLimit'.
         'dailyLimits' => null,
-        // null = the provider's default model (src/shared/ai.ts).
+        // The flyer's and the share text's model. null = the provider's default (src/shared/ai.ts).
         'model' => null,
-        // A feature's own model, by its name, e.g. ['photo' => 'gpt-6-luna']; null = none.
-        // A feature it does not name takes 'model'. One provider and one key serve them all.
-        // The photo's model must be one that reads pictures.
+        // A feature's own model, by its name, e.g. ['photo' => 'gpt-6.1-sol']; null = none.
+        // One provider and one key serve them all. The picture read has a default of its own, the
+        // provider's middle model: the fast ones misread handwriting. 'model' does not change it;
+        // only 'photo' here does, and that model must be one that reads pictures.
         'models' => null,
         // The provider's effort setting ('low', …); null leaves it to the model. One for the whole
         // site: leave it null when any feature runs on a model that refuses it, as Claude Haiku does.

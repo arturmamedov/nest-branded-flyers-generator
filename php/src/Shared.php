@@ -98,12 +98,13 @@ final class Shared
      * The AI assistant's facts (src/shared/ai.ts): a feature's daily limit by default and the most a site may set,
      * the longest idea, the most assumptions an answer carries, the features and what each one's generations are
      * called, the features whose tries are bounded and by how many for each generation of their limit, the day's
-     * zone, the provider call's limits, the providers and their default models, the answer formats' names, and the
-     * fake provider's.
+     * zone, the provider call's limits, the providers and their default models, the features with a default model
+     * of their own on a provider, the answer formats' names, and the fake provider's.
      *
      * @return array{dailyLimit:int, dailyLimitMax:int, inputMax:int, assumptionsMax:int, features:list<string>,
      *     featureNouns:array<string, string>, triesPerLimit:array<string, int>, dayZone:string, timeoutMs:int,
      *     maxOutputTokens:int, providers:list<string>, defaultModel:array<string, string>,
+     *     featureDefaultModel:array<string, array<string, string>>,
      *     schemaNames:array{flyer:string, share:string},
      *     fake:array{model:string, unknownHostel:string, markers:array{invalid:string, unknownHostel:string, timeout:string, refused:string}}}
      */
