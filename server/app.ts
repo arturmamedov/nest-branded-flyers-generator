@@ -237,6 +237,8 @@ export function createApp(deps: AppDeps) {
     if (err instanceof multer.MulterError && err.code === 'LIMIT_FILE_SIZE') {
       return send(new HttpError('too_large', { mb: formatMb(MAX_UPLOAD_BYTES) }));
     }
+    // A file under a name the route did not ask for: the picture is not in its field, as PHP answers it.
+    if (err instanceof multer.MulterError && err.code === 'LIMIT_UNEXPECTED_FILE') return send(new HttpError('no_photo_field'));
     // A data folder a newer build wrote: say so, as the PHP backend does, instead of a blank 500.
     if (err instanceof StorageTooNewError) {
       console.error(err);

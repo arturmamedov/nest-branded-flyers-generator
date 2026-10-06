@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import request from 'supertest';
@@ -80,7 +80,8 @@ describe('the kept pictures', () => {
     aDay(root, '2026-10-07');
     const first = createFileAiPictures(root);
     first.sweep('2026-10-07');
-    expect(readFileSync(join(root, STORAGE_FILES.aiPicturesDir, '.swept'), 'utf8')).toBe('2026-10-07');
+    expect(STORAGE_FILES.aiPicturesSwept).toBe('.swept');
+    expect(readFileSync(join(root, STORAGE_FILES.aiPicturesDir, STORAGE_FILES.aiPicturesSwept), 'utf8')).toBe('2026-10-07');
     // Something old turns up later the same day (a backup put back): it waits for tomorrow's sweep.
     aDay(root, '2026-01-01');
     first.sweep('2026-10-07');
@@ -88,6 +89,43 @@ describe('the kept pictures', () => {
     expect(kept(root)).toContain('2026-01-01');
     createFileAiPictures(root).sweep('2026-10-08');
     expect(kept(root)).toEqual(['.swept', '2026-10-07']);
+  });
+
+  // One folder that will not go (a file held open, a permission) used to end the whole clean-up, for good: the
+  // listing is alphabetical, so the stuck one always came first, and the marker was never written.
+  it('a day that cannot be deleted does not stop the rest: the others go, the day is marked swept, and the log names it once', () => {
+    const root = dataDir();
+    for (const day of ['2026-01-01', '2026-01-02', '2026-01-03', '2026-10-07']) aDay(root, day);
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const stuck = (path: string) => {
+      if (path.endsWith('2026-01-01')) throw new Error('EBUSY: resource busy or locked');
+      rmSync(path, { recursive: true, force: true });
+    };
+    const pictures = createFileAiPictures(root, stuck);
+    expect(() => pictures.sweep('2026-10-07')).not.toThrow();
+    expect(kept(root)).toEqual(['.swept', '2026-01-01', '2026-10-07']);
+    expect(logged).toHaveBeenCalledTimes(1);
+    expect(String(logged.mock.calls[0][0])).toContain('2026-01-01');
+    // Marked: the next try is tomorrow's, not the next page load's.
+    pictures.sweep('2026-10-07');
+    createFileAiPictures(root, stuck).sweep('2026-10-07');
+    expect(logged).toHaveBeenCalledTimes(1);
+  });
+
+  it('a link where a day’s folder belongs is not followed: what it points at is left alone', () => {
+    const root = dataDir();
+    const library = join(root, 'flyers');
+    mkdirSync(library);
+    writeFileSync(join(library, '1.json'), '{}');
+    mkdirSync(join(root, STORAGE_FILES.aiPicturesDir));
+    // A junction needs no privilege on Windows; elsewhere this is a plain symbolic link.
+    symlinkSync(library, join(root, STORAGE_FILES.aiPicturesDir, '2026-01-01'), 'junction');
+    aDay(root, '2026-01-02');
+    symlinkSync(library, join(root, STORAGE_FILES.aiPicturesDir, '2026-01-02', 'inside'), 'junction');
+
+    createFileAiPictures(root).sweep('2026-10-07');
+    expect(readdirSync(library)).toEqual(['1.json']);
+    expect(kept(root)).not.toContain('2026-01-02');
   });
 
   it('a site that never read a picture gets no folder from a sweep', () => {

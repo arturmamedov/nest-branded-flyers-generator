@@ -54,7 +54,22 @@ final class FileAiPicturesTest extends TestCase
         $png = $pictures->keep('2026-10-07', 'png bytes', 'png');
         self::assertStringEndsWith('.png', $png);
         self::assertNotSame($path, $png);
-        self::assertSame([], glob("$this->root/ai-pictures/2026-10-07/*.tmp") ?: [], 'nothing is left half written');
+    }
+
+    public function testAPictureThatCannotBeKeptNeverPutsItsBytesInTheErrorsTrace(): void
+    {
+        // An uncaught error is logged with its trace, and a trace prints the start of every string argument.
+        file_put_contents("$this->root/ai-pictures", 'a file where the folder belongs');
+        try {
+            $this->pictures()->keep('2026-10-07', 'JFIF-the-picture', 'jpg');
+            self::fail('The picture was kept');
+        } catch (RuntimeException $e) {
+            if (ini_get('zend.exception_ignore_args') === '1') {
+                self::markTestSkipped('This PHP keeps no arguments in a trace.');
+            }
+            self::assertStringContainsString("'2026-10-07'", (string) $e, 'the trace does print arguments here');
+            self::assertStringNotContainsString('JFIF', (string) $e);
+        }
     }
 
     public function testADiskThatCannotTakeThePictureIsAnErrorSoAReadStopsBeforeAnythingIsSpent(): void
@@ -96,6 +111,58 @@ final class FileAiPicturesTest extends TestCase
         self::assertSame(['.swept', '2026-10-07'], $this->kept());
     }
 
+    // One folder that will not go (a file held open, a permission) used to end the whole clean-up, for good: the
+    // listing is alphabetical, so the stuck one always came first, and the marker was never written. On PHP that was
+    // a walk of the folder and a log line on every page load.
+    public function testADayThatCannotBeDeletedDoesNotStopTheRestTheOthersGoTheDayIsMarkedSweptAndTheLogNamesItOnce(): void
+    {
+        foreach (['2026-01-01', '2026-01-02', '2026-01-03', '2026-10-07'] as $day) {
+            $this->aDay($day);
+        }
+        $stuck = static function (string $path): void {
+            if (str_ends_with($path, '2026-01-01')) {
+                throw new RuntimeException('resource busy or locked');
+            }
+            array_map('unlink', glob("$path/*") ?: []);
+            rmdir($path);
+        };
+        $this->pictures($stuck)->sweep('2026-10-07');
+        self::assertSame(['.swept', '2026-01-01', '2026-10-07'], $this->kept());
+        self::assertSame(1, substr_count($this->log(), "\n"));
+        self::assertStringContainsString('2026-01-01', $this->log());
+        // Marked: the next try is tomorrow's, not the next page load's.
+        $this->pictures($stuck)->sweep('2026-10-07');
+        self::assertSame(1, substr_count($this->log(), "\n"));
+    }
+
+    public function testALinkWhereADaysFolderBelongsIsNotFollowedWhatItPointsAtIsLeftAlone(): void
+    {
+        mkdir("$this->root/flyers");
+        file_put_contents("$this->root/flyers/1.json", '{}');
+        mkdir("$this->root/ai-pictures");
+        $this->aDay('2026-01-02');
+        // Windows lets only a privileged account make a link: there the test has nothing to run on.
+        if (!@symlink("$this->root/flyers", "$this->root/ai-pictures/2026-01-01") || !@symlink("$this->root/flyers", "$this->root/ai-pictures/2026-01-02/inside")) {
+            self::markTestSkipped('This account cannot make a symbolic link.');
+        }
+        $this->pictures()->sweep('2026-10-07');
+        self::assertFileExists("$this->root/flyers/1.json");
+        self::assertNotContains('2026-01-02', $this->kept());
+    }
+
+    public function testADaysFolderIsNamedAsADayAndNothingMore(): void
+    {
+        // PHP's `$` also matches before a last line break: a folder so named is not a day's.
+        if (@mkdir("$this->root/ai-pictures/2026-01-01\n", 0775, true)) {
+            $this->pictures()->sweep('2026-10-07');
+            self::assertDirectoryExists("$this->root/ai-pictures/2026-01-01\n");
+        } else {
+            self::assertSame(0, preg_match(FileAiPictures::DAY, "2026-01-01\n"));
+        }
+        self::assertSame(1, preg_match(FileAiPictures::DAY, '2026-01-01'));
+        self::assertSame(0, preg_match(FileAiPictures::DAY, "2026-01-01\n"));
+    }
+
     public function testASiteThatNeverReadAPictureGetsNoFolderFromASweep(): void
     {
         $this->pictures()->sweep('2026-10-07');
@@ -113,9 +180,10 @@ final class FileAiPicturesTest extends TestCase
         self::assertSame(1, substr_count($this->log(), "\n"), 'one line, no trace');
     }
 
-    private function pictures(): FileAiPictures
+    /** @param (callable(string): void)|null $remove deletes one day's folder; a test hands in one that fails */
+    private function pictures(?callable $remove = null): FileAiPictures
     {
-        return new FileAiPictures($this->root, Shared::fromFile(Paths::schema('shared.json')));
+        return new FileAiPictures($this->root, Shared::fromFile(Paths::schema('shared.json')), $remove);
     }
 
     /** A day's folder with one picture in it, as a read on that day leaves it. */

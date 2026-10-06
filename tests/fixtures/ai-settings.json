@@ -97,6 +97,8 @@
       { "name": "a model with no name", "env": ":model-b" },
       { "name": "a space inside the model", "env": "share:model b", "php": { "share": "model b" } },
       { "name": "a line break after the model", "php": { "share": "model-b\n" } },
+      { "name": "a no-break space inside the model, which no editor shows", "env": "share:model\u00a0b", "php": { "share": "model\u00a0b" } },
+      { "name": "a no-break space after the model in config.php, which trims nothing", "php": { "share": "model-b\u00a0" } },
       { "name": "a number for the model", "php": { "share": 5 } },
       { "name": "a list, not pairs", "php": ["share"] },
       { "name": "a list of models", "php": ["model-b", "model-c"] },

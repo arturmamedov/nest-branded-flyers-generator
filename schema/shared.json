@@ -186,6 +186,7 @@
       "flyerDir": "flyers",
       "aiUsageDir": "ai-usage",
       "aiPicturesDir": "ai-pictures",
+      "aiPicturesSwept": ".swept",
       "lock": ".lock"
     }
   },

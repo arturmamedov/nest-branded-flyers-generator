@@ -28,6 +28,8 @@ export const STORAGE_FILES = {
   /** The pictures the AI read, kept for AI_PICTURE_DAYS: `ai-pictures/<Canary day>/<16 hex>.jpg|png`. In the data
       folder with every driver, and no part of the library: a backup and a copy leave it out. */
   aiPicturesDir: 'ai-pictures',
+  /** In that folder: the day it was last cleaned up, so no process (every PHP request is one) cleans it twice a day. */
+  aiPicturesSwept: '.swept',
   lock: '.lock',
 } as const;
 

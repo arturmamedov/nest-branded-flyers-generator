@@ -83,6 +83,11 @@ final class PhotoIntakeTest extends TestCase
         $this->assertRefused(fn () => $intake->prepare($this->upload("\0\0\0\x18ftypheic" . str_repeat("\0", 64)), 2048, 88), 'heic');
         $this->assertRefused(fn () => $intake->prepare($this->upload(Images::gif(Images::solid(8, 8))), 2048, 88), 'unsupported_format', ['format' => 'GIF']);
         $this->assertRefused(fn () => $intake->prepare($this->upload('not an image'), 2048, 88), 'unreadable');
+        // The order, with two faults at once: its size before what it is, and what it is before what it would cost.
+        $this->assertRefused(fn () => $intake->prepare($this->upload(str_repeat('not an image ', 200_000)), 2048, 88), 'too_large', $mb);
+        $tight = $this->intake(static fn (): int => 1024);
+        $this->assertRefused(fn () => $tight->prepare($this->upload("\0\0\0\x18ftypheic" . str_repeat("\0", 64)), 2048, 88), 'heic');
+        $this->assertRefused(fn () => $tight->prepare($this->upload('not an image'), 2048, 88), 'unreadable');
     }
 
     public function testAPictureThisHostCannotAffordToDecodeIsTooManyPixels(): void

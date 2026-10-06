@@ -36,7 +36,7 @@ final class ImagickImageProcessor implements ImageProcessor
         return $out['width'] * $out['height'] * ($info->hasAlpha ? 4 : 1);
     }
 
-    public function process(string $bytes, ImageInfo $info, int $maxEdge, int $jpegQuality): ?StoredImage
+    public function process(#[\SensitiveParameter] string $bytes, ImageInfo $info, int $maxEdge, int $jpegQuality): ?StoredImage
     {
         if ($bytes === '') {
             return null;

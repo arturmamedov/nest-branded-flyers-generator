@@ -19,11 +19,12 @@ interface AiPictures
      * Keeps a prepared picture under its day and answers where, relative to the data folder
      * ("ai-pictures/2026-10-07/<16 hex>.jpg").
      *
+     * @param string $bytes the picture: never in a trace, so never in a log line
      * @param string $extension 'jpg' | 'png'
      * @throws RuntimeException when the disk cannot take it: the read then stops before the provider is asked, so
      *         nothing is spent on a picture nobody could look at afterwards
      */
-    public function keep(string $day, string $bytes, string $extension): string;
+    public function keep(string $day, #[\SensitiveParameter] string $bytes, string $extension): string;
 
     /**
      * Deletes every day's pictures kept longer than the shared number of days, counted back from $today. It does so

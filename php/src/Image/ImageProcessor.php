@@ -17,7 +17,7 @@ interface ImageProcessor
     public function name(): string;
 
     /** Returns null when the bytes can't be decoded (the caller answers 415 unreadable). */
-    public function process(string $bytes, ImageInfo $info, int $maxEdge, int $jpegQuality): ?StoredImage;
+    public function process(#[\SensitiveParameter] string $bytes, ImageInfo $info, int $maxEdge, int $jpegQuality): ?StoredImage;
 
     /**
      * An upper estimate of the PHP memory (what memory_limit counts) that

@@ -20,8 +20,8 @@ export interface AiPictures {
   sweep(today: string): void;
 }
 
-/** The kept pictures in memory, for a run that must leave nothing behind: the tests, and the smoke script, which
-    reads what was kept to save the picture as it was sent. Nothing ages in a run that short, so its sweep does nothing. */
+/** The kept pictures in memory, for a run that must leave nothing behind: the tests, and the smoke script's direct
+    read, whose ledger is in memory too. Nothing ages in a run that short, so its sweep does nothing. */
 export function createMemoryAiPictures(): AiPictures & { kept: Map<string, Buffer> } {
   const kept = new Map<string, Buffer>();
   return {
@@ -35,8 +35,6 @@ export function createMemoryAiPictures(): AiPictures & { kept: Map<string, Buffe
   };
 }
 
-/** What the folder remembers the last sweep's day in, so a new process (every PHP request is one) does not sweep again. */
-const SWEPT = '.swept';
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
 
 /** The day `days` before this one, both `YYYY-MM-DD`: plain calendar arithmetic, no zone in it. */
@@ -45,7 +43,11 @@ function daysBefore(day: string, days: number): string {
   return new Date(Date.UTC(y, m - 1, d - days)).toISOString().slice(0, 10);
 }
 
-export function createFileAiPictures(dataRoot: string): AiPictures {
+/** Deletes a day's folder and what it holds. A link is unlinked, never followed. */
+const removeFolder = (path: string) => rmSync(path, { recursive: true, force: true });
+
+/** `remove` deletes one day's folder; the tests hand in one that fails. */
+export function createFileAiPictures(dataRoot: string, remove: (path: string) => void = removeFolder): AiPictures {
   const dir = join(dataRoot, STORAGE_FILES.aiPicturesDir);
   let swept: string | null = null;
   let failed: string | null = null;
@@ -63,14 +65,22 @@ export function createFileAiPictures(dataRoot: string): AiPictures {
       try {
         // No folder: this site never read a picture, and a sweep must not be what makes one.
         if (existsSync(dir)) {
-          const marker = join(dir, SWEPT);
+          const marker = join(dir, STORAGE_FILES.aiPicturesSwept);
           if (!existsSync(marker) || readFileSync(marker, 'utf8') !== today) {
             const oldest = daysBefore(today, AI_PICTURE_DAYS);
-            // Only a day's folder is ever deleted: whatever else someone put here is theirs.
+            const stuck: string[] = [];
+            // Only a day's folder is ever deleted: whatever else someone put here is theirs, and a link is no folder.
             for (const entry of readdirSync(dir, { withFileTypes: true })) {
-              if (entry.isDirectory() && DAY.test(entry.name) && entry.name < oldest) rmSync(join(dir, entry.name), { recursive: true, force: true });
+              if (!entry.isDirectory() || !DAY.test(entry.name) || entry.name >= oldest) continue;
+              // One day that will not go must not keep the others, or the marker: the next try is tomorrow's.
+              try {
+                remove(join(dir, entry.name));
+              } catch (e) {
+                stuck.push(`${entry.name} (${e instanceof Error ? e.message : String(e)})`);
+              }
             }
             writeFileSync(marker, today);
+            if (stuck.length > 0) console.error(`AI: the kept pictures in ${STORAGE_FILES.aiPicturesDir}/ could not all be cleaned up: ${stuck.join('; ')}`);
           }
         }
         swept = today;

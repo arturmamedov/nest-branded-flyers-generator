@@ -179,6 +179,16 @@ describe('POST api/ai/photo', () => {
     expect(await repos.aiUsage.all()).toHaveLength(1);
   });
 
+  // multer refuses a file under a name it was not told of with an error of its own: that was a 500 here, where PHP
+  // answers no_photo_field. The photo route had it too: both read their upload through one intake.
+  it('a picture sent under another field’s name is no_photo_field, on the read and on the photo route alike', async () => {
+    const { app, repos, pictures } = await site(['photo']);
+    await refused(request(app).post('/api/ai/photo').set(WRITE_HEADERS).attach('other', PICTURE, 'picture.jpg'), 'no_photo_field');
+    await refused(request(app).post('/api/photos').set(WRITE_HEADERS).attach('other', PICTURE, 'picture.jpg'), 'no_photo_field');
+    expect(pictures.kept.size).toBe(0);
+    expect(await repos.aiUsage.all()).toEqual([]);
+  });
+
   it('a tiny picture is never enlarged, so its width reaches the fake: no words is an empty text that counts', async () => {
     const { app } = await site(['photo']);
     const tiny = await sharp({ create: { width: AI_FAKE.pictureWidths.noWords, height: 8, channels: 3, background: '#fff' } }).png().toBuffer();

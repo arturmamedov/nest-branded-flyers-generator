@@ -82,7 +82,7 @@ final class GdImageProcessor implements ImageProcessor
         return $height * (intdiv(4 * $width + 4095, 4096) * 4096 + 8);
     }
 
-    public function process(string $bytes, ImageInfo $info, int $maxEdge, int $jpegQuality): ?StoredImage
+    public function process(#[\SensitiveParameter] string $bytes, ImageInfo $info, int $maxEdge, int $jpegQuality): ?StoredImage
     {
         if ($bytes === '') {
             return null; // imagecreatefromstring throws a ValueError on '' rather than returning false

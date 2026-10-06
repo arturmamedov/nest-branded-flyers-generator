@@ -83,7 +83,7 @@ final class AiConfig
         }
         $apiKey = self::text($raw, 'apiKey');
         // 'apiKey' => "sk-…\n" ends in a real line break: curl then sends a broken header, with nothing naming the cause.
-        if ($apiKey !== null && preg_match('/[\s\x00-\x1f\x7f]/', $apiKey) === 1) {
+        if ($apiKey !== null && self::hasSpace($apiKey)) {
             throw new InvalidArgumentException('ai.apiKey must not hold spaces or line breaks');
         }
         $model = self::text($raw, 'model');
@@ -156,7 +156,7 @@ final class AiConfig
         $own = $raw['models'] ?? [];
         $valid = is_array($own) && ($own === [] || !array_is_list($own));
         foreach ($valid ? $own : [] as $name => $model) {
-            $valid = $valid && in_array($name, $all, true) && is_string($model) && $model !== '' && preg_match('/[\s\x00-\x1f\x7f]/', $model) !== 1;
+            $valid = $valid && in_array($name, $all, true) && is_string($model) && $model !== '' && !self::hasSpace($model);
         }
         if (!$valid) {
             throw new InvalidArgumentException('ai.models must be null or an array of feature => model: a feature from ' . implode(', ', $all) . ", and a model's name with no spaces");
@@ -188,6 +188,16 @@ final class AiConfig
             throw new InvalidArgumentException('ai.features must be null or a list of: ' . implode(', ', $all));
         }
         return array_values(array_filter($all, static fn (string $feature): bool => in_array($feature, $named, true)));
+    }
+
+    /**
+     * Whether a value holds a space, a line break or a control character, as JavaScript's `\s` reads them: the
+     * no-break space and its kin included, which no editor shows and Node's loader refuses too. A value that is not
+     * UTF-8 cannot be told, so it is refused with them.
+     */
+    private static function hasSpace(string $value): bool
+    {
+        return preg_match('/[\s\x{00A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}\x{FEFF}\x00-\x1f\x7f]/u', $value) !== 0;
     }
 
     /**

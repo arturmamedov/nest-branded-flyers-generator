@@ -518,7 +518,8 @@ final class ConfigTest extends TestCase
     {
         // 'apiKey' => "sk-…\n" (double quotes) is a key with a real line break at its end: curl then sent a broken
         // header, and nothing named the cause. The twin of loadAiSettings' check in server/config.ts.
-        foreach (["sk-secret-123\n", "sk-secret-123\r\n", 'sk-secret 123', "\tsk-secret-123"] as $bad) {
+        // The last is a no-break space, which no editor shows: Node's \s takes it for a space, and so must this.
+        foreach (["sk-secret-123\n", "sk-secret-123\r\n", 'sk-secret 123', "\tsk-secret-123", "sk-secret\u{00A0}123"] as $bad) {
             try {
                 Config::fromArray(['ai' => ['provider' => 'openai', 'apiKey' => $bad]], self::ROOT, self::shared());
                 self::fail('The block was accepted: ' . json_encode($bad));

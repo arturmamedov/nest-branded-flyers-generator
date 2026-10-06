@@ -28,10 +28,10 @@ final class Api
      *        still serves everything else
      * @param Closure(): ?AiService $ai built on the first AI request or api/config; null when config.php leaves the AI off
      * @param ActorResolver $actors who is asking (one anonymous actor until there is a login)
-     * @param Closure(Request): StoredImage $readPicture the upload of a picture read, checked as api/photos checks its
-     *        own and prepared at the read's edge (PhotoIntake); built on the first read, as the photo service is
      * @param Closure(): void $sweepPictures deletes the AI's kept pictures that are past their days (AiPictures::sweep
      *        for today's Canary day); api/config calls it
+     * @param Closure(Request): StoredImage $readPicture the upload of a picture read, checked as api/photos checks its
+     *        own and prepared at the read's edge (PhotoIntake); built on the first read, as the photo service is
      */
     public function __construct(
         private readonly HostelRepository $hostels,

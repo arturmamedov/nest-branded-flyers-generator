@@ -1,4 +1,4 @@
-import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import sharp from 'sharp';
@@ -15,6 +15,7 @@ import {
   refusal,
   runDirect,
   runDirectPhoto,
+  savePicture,
   shareRequest,
   siteAi,
   siteHint,
@@ -443,6 +444,17 @@ describe('--photo: a picture read', () => {
     } finally {
       errors.mockRestore();
     }
+  });
+
+  it('saves the picture under a name that says what it is: a JPEG is never written as .png', async () => {
+    const outcome = await runDirectPhoto(fake, { label: 'a poster', bytes: await sharp({ create: { width: 30, height: 20, channels: 3, background: '#fff' } }).png().toBuffer(), expected: null }, bundle);
+    // An opaque PNG goes out as a JPEG: the file a case commits must be named for what it holds.
+    expect(outcome.sent?.ext).toBe('jpg');
+    expect(said(() => savePicture(join(scratch, 'sent.png'), outcome.sent!))).toMatch(/sent\.png.*\.jpg/);
+    expect(existsSync(join(scratch, 'sent.png'))).toBe(false);
+    savePicture(join(scratch, 'sent.jpg'), outcome.sent!);
+    expect(readFileSync(join(scratch, 'sent.jpg')).equals(outcome.sent!.bytes)).toBe(true);
+    savePicture(join(scratch, 'SENT.JPEG'), outcome.sent!);
   });
 
   it('refuses a file that is no picture in the photo route’s own words, before anything is asked', async () => {

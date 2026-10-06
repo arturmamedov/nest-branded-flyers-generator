@@ -444,6 +444,14 @@ export async function runDirectPhoto(settings: AiSettings, picture: SmokePicture
   }
 }
 
+/** Writes the picture as it was sent, under a name that says what it is: a case commits this file, and an opaque
+    PNG goes out as a JPEG. */
+export function savePicture(file: string, sent: PreparedPhoto): void {
+  const fits = sent.ext === 'png' ? /\.png$/i : /\.jpe?g$/i;
+  if (!fits.test(file)) throw new Error(`${file} would not say what it holds: the picture was sent as ${sent.mediaType}, so name it .${sent.ext}.`);
+  writeFileSync(file, sent.bytes);
+}
+
 /** A read's words as a person compares them: the ones expected first, when the picture is a case, then the ones read. */
 function describeWords(text: string, picture: SmokePicture): string {
   return [...(picture.expected === null ? [] : ['Expected:', picture.expected, '']), 'Read:', text === '' ? '(no words: the model found none about an event)' : text].join('\n');
@@ -542,7 +550,7 @@ async function main(argv: string[]): Promise<number> {
     const outcome = await runDirectPhoto(settings, picture, bundle);
     say(`\n${closingPhoto(outcome, picture)}`);
     if (args.save !== null && outcome.sent !== null) {
-      writeFileSync(args.save, outcome.sent.bytes);
+      savePicture(args.save, outcome.sent);
       say(`The picture as it was sent is in ${args.save}.`);
     }
     return outcome.error === null ? 0 : 1;

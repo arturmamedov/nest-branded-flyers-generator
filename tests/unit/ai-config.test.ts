@@ -208,7 +208,8 @@ describe('AI settings', () => {
   // `AI_API_KEY="sk-…\n"` in .env is a key with a real line break at its end: every call then failed as "fetch
   // failed", and nothing named the cause.
   it('refuses a key that holds a line break or a space, by the setting’s name and never its value', () => {
-    for (const bad of ['sk-live-secret-42\n', 'sk-live-secret-42\r\n', 'sk-live secret-42', '\tsk-live-secret-42']) {
+    // The last is a no-break space, which no editor shows.
+    for (const bad of ['sk-live-secret-42\n', 'sk-live-secret-42\r\n', 'sk-live secret-42', '\tsk-live-secret-42', 'sk-live\u00a0secret-42']) {
       let said = 'nothing: it was accepted';
       try {
         load({ AI_PROVIDER: 'openai', AI_API_KEY: bad });

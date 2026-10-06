@@ -191,6 +191,8 @@ live in `src/shared/schema.ts`. How a backend applies them:
 `POST api/photos` takes multipart form data with the file in the field `photo`. `POST api/ai/photo` takes its picture
 the same way and makes the same checks, with the same messages: each backend has one intake for both.
 
+- A request with no file in the field `photo`, or with its file under another field's name, is 400
+  `no_photo_field`.
 - The type is sniffed from the bytes, never taken from the name or the header.
   - HEIC/HEIF (ISO-BMFF `ftyp` at byte 4, with one of the brands listed in `schema/shared.json` at byte 8) gives
     `heic`.
@@ -308,7 +310,7 @@ The backends may differ here, and the suite doesn't pin them:
 - a JSON body over 1 MB;
 - a body that is a bare JSON primitive (`"x"`, `42`, `null`), an empty body, or one not sent as `application/json` (Node
   answers `malformed`, `invalid` on every required field, and `invalid` at `_` respectively);
-- a file sent under a field other than `photo`;
+- two files in one upload;
 - a truncated or corrupt image that passes sniffing;
 - lone UTF-16 surrogates in strings;
 - odd id spellings such as `1e2` or `0x10`;

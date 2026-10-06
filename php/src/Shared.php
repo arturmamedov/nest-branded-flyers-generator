@@ -88,7 +88,7 @@ final class Shared
         return '~' . $this->data['storage']['photoPath'] . '~';
     }
 
-    /** @return array{meta:string, hostels:string, doodles:string, photos:string, flyerIndex:string, flyerDir:string, aiUsageDir:string, aiPicturesDir:string, lock:string} */
+    /** @return array{meta:string, hostels:string, doodles:string, photos:string, flyerIndex:string, flyerDir:string, aiUsageDir:string, aiPicturesDir:string, aiPicturesSwept:string, lock:string} */
     public function storageFiles(): array
     {
         return $this->data['storage']['files'];

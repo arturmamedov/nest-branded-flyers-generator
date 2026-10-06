@@ -18,7 +18,7 @@ final class MemoryAiPictures implements AiPictures
     {
     }
 
-    public function keep(string $day, string $bytes, string $extension): string
+    public function keep(string $day, #[\SensitiveParameter] string $bytes, string $extension): string
     {
         if ($this->full) {
             throw new RuntimeException('No space left on device');

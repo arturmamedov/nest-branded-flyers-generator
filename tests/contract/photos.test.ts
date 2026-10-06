@@ -37,6 +37,11 @@ async function marker(width: number, height: number) {
 }
 
 describe('photos', () => {
+  it('refuses a file sent under another field’s name as no_photo_field', async () => {
+    const small = await sharp({ create: { width: 8, height: 8, channels: 3, background: '#123456' } }).jpeg().toBuffer();
+    await fails(upload(small, 'photo.jpg', 'picture'), 'no_photo_field');
+  });
+
   it('downscales to a 3240 long edge and stores a JPEG without metadata', async () => {
     const big = await sharp({ create: { width: 4000, height: 2000, channels: 3, background: '#88aacc' } })
       .withMetadata({ exif: { IFD0: { Copyright: 'someone' } } })

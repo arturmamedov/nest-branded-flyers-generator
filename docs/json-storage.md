@@ -115,7 +115,8 @@ on Node and on PHP.
   Canary Islands day.
 - **The app deletes them itself,** inside `GET api/config`, which every visit asks: at most once a day (`.swept`
   holds the day), whether or not the AI is on, and it is the one read that deletes. Only folders named as a day are
-  ever deleted. A clean-up that fails is logged and costs nothing else.
+  ever deleted, and a link is never followed. A day that cannot be deleted is named in the log and tried again the
+  next day; the others still go. A clean-up that fails costs nothing else.
 - **Not part of the library.** `npm run deploy:backup` leaves the folder out and `npm run copy` never carries it. The
   ledger's records travel, and then name pictures the copy does not have, as they do for any picture past its days.
 - **A release from before the picture read** ignores the folder, and so never cleans it.

@@ -134,6 +134,7 @@ describe.skipIf(!FAKE)('AI on, with the fake provider (one day, in order)', () =
   it('the picture read needs the write header, and refuses what is not a picture as the photo route does, spending nothing', async () => {
     await fails(uploadTo('api/ai/photo', await picture(), 'picture.jpg', 'photo', {}), 'forbidden');
     await fails(send('POST', 'api/ai/photo', { picture: 'not how a picture is sent' }), 'no_photo_field');
+    await fails(uploadTo('api/ai/photo', await picture(), 'picture.jpg', 'picture'), 'no_photo_field');
     await fails(read(Buffer.concat([Buffer.from([0, 0, 0, 24]), Buffer.from('ftypheic'), Buffer.alloc(64)]), 'iphone.heic'), 'heic');
     await fails(read(await sharp({ create: { width: 8, height: 8, channels: 3, background: '#fff' } }).gif().toBuffer(), 'anim.gif'), 'unsupported_format', { format: 'GIF' });
     await fails(read(Buffer.from('not an image'), 'notes.jpg'), 'unreadable');
