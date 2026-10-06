@@ -541,9 +541,9 @@ A later session on 2026-10-06, on `feat/ai-feature-switches`, on top of `747e4c8
 "Stay on this branch", for the checkpoint and for stage 3. Asked how to commit, he chose "Each piece as it goes
 green". Nothing is pushed, and `main` stays at `684189e`.
 
-**Where it stands:** Artur's answers are built, the first case is in git, and the gates are green. **The real
-reads have not been run.** They wait for his go, his pictures and his yes to the stronger model of each provider.
-No provider was called, by a test, a script or by hand.
+**Where it stands:** Artur's answers are built, the first case is in git, and the gates are green. **The first
+case is read for real, on four models; the other four pictures wait for Artur to give them.** No test and no
+script but `npm run ai:smoke`, by hand and on his go, called a provider.
 
 ### Artur's answers (2026-10-06)
 
@@ -631,7 +631,37 @@ It stays a PNG for the read, as the brief says. A very large one could pass Anth
 `preparePhoto()` already sends a PNG with no real transparency as a JPEG whenever it re-encodes one. It takes a
 picture that is truly see-through, photographic, and about 7.5 MB after shrinking.
 
-### The real reads: prepared, not run
+### The real reads: the first case is read, four pictures to come
+
+Artur's go, 2026-10-06: **"Go: the first case now"**, on **"The middle one of each"** as the stronger model. The
+other four pictures (a handwritten board, a poster, a chat screenshot, a photo with no words) run when he gives
+them.
+
+**The Canva page** (`2026-10-05-la-isleta-nest-bachata-workshop`), sent as 899 × 1599, a JPEG of 150 KB. Each read
+is `npm run ai:smoke -- --photo <the case's .json>` with the feature, the provider and the model in the command's
+own environment; the ledger is in memory.
+
+| Model | Seconds | Tokens in / out | What was misread, against the picture |
+|---|---|---|---|
+| `gpt-6-luna` | 5.7 | 2,158 / 301 | Nothing. It wrote "La Isleta Nest" where the picture prints "La isleta Nest": a capital corrected |
+| `gpt-6.1-sol` | 8.5 | 2,158 / 203 | Nothing. The same corrected capital |
+| `claude-haiku-4-5` | 3.4 | 2,139 / 69 | "la isleta Nest": the capital L read as a small one |
+| `claude-sonnet-5-5` | 8.4 | 2,644 / 626 | Nothing: "La isleta Nest", letter for letter |
+
+- **Every model read every fact:** Today, the bachata workshop, 20:00, the hostel and the rooftop, the two palest
+  words included. Each wrote the hostel's name from the logo on a line of its own, "LA ISLETA Nest".
+- **Every model left out what surrounds the flyer:** the browser's tabs and bookmarks, Canva's own bar and page
+  controls, "ONE PASS · MORE HOSTELS", the next page and the taskbar.
+- **The case's typed words differ from its own picture in two places,** seen by enlarging the picture: it prints
+  "BACHATA" and "WORKSHOP" on two lines, and "La isleta Nest" with a small "i". `source` has one line and a
+  capital. All four models wrote the two lines, as the reader's rule asks ("a line for each line of the picture").
+  Whether `source` is made exact is Artur's.
+- **The cost of these four reads:** about 2 cents in all, from the tokens and the providers' prices: a fast model
+  under half a cent, a middle one about one cent. Less than the estimate given before them.
+- The stronger Claude model thought before answering (626 tokens out for 15 words) and still answered in 8.4 s of
+  the 25 s.
+
+**What was prepared before the first read:**
 
 - **`.env`** names `AI_PROVIDER`, `AI_API_KEY`, `AI_FEATURES`, `AI_DAILY_LIMITS` and the parked
   `ANTHROPIC_API_KEY`: read by name alone, no value printed. It sets no effort, no model and no time limit, so a
@@ -668,7 +698,8 @@ One sequence on 2026-10-06, on the tree of `43aa907`: the checkpoint's last comm
 
 ### What is left of the checkpoint
 
-- **The real reads,** on Artur's go: his five pictures, both providers, the default model and a stronger one. He
-  gets the table and chooses the photo's model, whether 2048 px stays, and the reader's prompt's words.
+- **The real reads of the other four pictures,** when Artur gives them: both providers, the default model and the
+  middle one. He then gets the whole table and chooses the photo's model, whether 2048 px stays, and the reader's
+  prompt's words.
 - **One read through the Laragon copy,** on his word, and how to leave the copy afterwards.
 - **Nothing is pushed.** No release was built, `.env` was not changed, and the live site was not called.

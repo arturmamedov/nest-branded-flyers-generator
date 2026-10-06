@@ -413,10 +413,13 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
       - The first case is in git as the read sends it: a JPEG of 154 KB from the server's own intake. The test
         holds a case to the read's format. Artur's 1.4 MB PNG is in `backups/image-examples-originals/`, which git
         ignores.
-      - **The real reads are still not run.** They wait for Artur's go, his pictures (the Canva page, a
-        handwritten board, a poster, a chat screenshot, a photo with no words) and his yes to the stronger model
-        of each provider. He then chooses the photo's model, whether 2048 px stays, and the prompt's words. One
-        read through the Laragon copy follows, on his word. No provider was called.
+      - **The first case is read for real** (2026-10-06, on his go: `gpt-6-luna`, `gpt-6.1-sol`,
+        `claude-haiku-4-5`, `claude-sonnet-5-5`; every fact read by all four, 3.4 to 8.5 s; the report has the
+        rows). The stronger model of each provider is its middle one, his choice.
+      - **The other four pictures wait for him to give them:** a handwritten board, a poster, a chat screenshot,
+        a photo with no words. He then chooses the photo's model, whether 2048 px stays, and the prompt's words.
+        One read through the Laragon copy follows, on his word. Only `npm run ai:smoke`, by hand and on his go,
+        called a provider.
     - No release was built. A host needs the release first, then `'models'` and `'photo'`; both come out before
       going back (`docs/deploy.md`, "Rolling back").
   - **Stages 3 and 4 are not started,** and not to be started unasked: the page, and the picture as the flyer's
