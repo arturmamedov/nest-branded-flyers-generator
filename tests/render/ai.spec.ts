@@ -803,6 +803,50 @@ test.describe('From a photo', () => {
     await expect(idea(page)).toHaveValue('Bachata workshop');
   });
 
+  test('words read and not yet made into a flyer are unsaved work, so leaving asks; a picture not read and a read with no event ask nothing', async ({ page }) => {
+    // Routed, so nothing is spent: the read answers what the test says next.
+    await withLeft(page, { photo: 3 });
+    let text = '';
+    await page.route(apiRoute('ai/photo'), (route) => route.fulfill({ json: { text, remaining: 2 } }));
+    const library = page.getByRole('heading', { name: 'Flyer library' });
+    const dialogs = noDialogs(page);
+
+    // A picture chosen and not read: nothing was spent, nothing is lost.
+    await page.goto('/#/ai');
+    await fromPhoto(page).click();
+    await chooseInput(page).setInputFiles(await picture('poster.png'));
+    await backToLibrary(page).click();
+    await expect(library).toBeVisible();
+
+    // A read that found no event left nothing in the box.
+    await entry(page).click();
+    await fromPhoto(page).click();
+    await chooseInput(page).setInputFiles(await picture('wall.png'));
+    await readPicture(page).click();
+    await expect(readNote(page)).toContainText('no event');
+    await backToLibrary(page).click();
+    await expect(library).toBeVisible();
+    expect(dialogs(), 'neither asked').toEqual([]);
+
+    // Words read: a read was spent on them.
+    text = 'Bachata workshop\nToday 20:00';
+    await entry(page).click();
+    await fromPhoto(page).click();
+    await chooseInput(page).setInputFiles(await picture('poster.png'));
+    await readPicture(page).click();
+    await expect(idea(page)).toHaveValue(text);
+    expect(await answerConfirm(page, 'dismiss', () => backToLibrary(page).click())).toBe(LEAVE_PROMPT);
+    await expect(page).toHaveURL(/#\/ai$/);
+    await expect(idea(page), 'a no keeps the page and its words').toHaveValue(text);
+
+    // Once the box is emptied there is nothing of the read left to lose.
+    await idea(page).fill('');
+    const quiet = noDialogs(page);
+    await backToLibrary(page).click();
+    await expect(library).toBeVisible();
+    expect(quiet()).toEqual([]);
+  });
+
   test('with a mouse there is no Take a photo: a laptop has Choose a picture, drop and paste', async ({ page }) => {
     await page.goto('/#/ai');
     await fromPhoto(page).click();

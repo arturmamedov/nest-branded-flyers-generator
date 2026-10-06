@@ -92,8 +92,11 @@ export function AiPage({
   const [opening, setOpening] = useState(false);
   const { onFit, cutOff } = useFitReports();
 
-  // A flyer made and not yet opened is unsaved work, and a generation spent: leaving asks, as the editor does.
-  useLeaveGuard(result !== null && !opening);
+  // A flyer made and not yet opened is unsaved work, and a generation spent: leaving asks, as the editor does. So are
+  // the words read from a picture while they are in the box: a read was spent on them. A picture chosen and not read
+  // cost nothing, and asks nothing.
+  const wordsRead = read === 'words' && idea.trim() !== '';
+  useLeaveGuard((result !== null || wordsRead) && !opening);
   // "Open in editor" moves once the guard has let go (its layout effect runs first), so the move asks nothing.
   useEffect(() => {
     if (opening) go('#/new');
