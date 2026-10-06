@@ -257,9 +257,18 @@ its key and names the features.** A feature that is off shows nothing, and with 
 looks and works as it did before.
 
 **A third feature, `photo`, reads a picture into words,** so that a flyer can start from a photo of
-a poster, a board or a screen. Its page comes with a later release: on this one the server can do
-the read, and naming `photo` shows nothing new in the app. Leave it out of `'features'` until
-that release is up. What it keeps on the host is under *What it keeps*, below.
+a poster, a board or a screen. Staff find it on "Create with AI" as a second way in, **From a
+photo**: they choose a picture (on a phone they can take one), press "Read the picture", check the
+words in "Your idea", and ask for the flyer as from any text. A flyer from a picture is one picture
+read and one flyer, each from its own daily count. What it keeps on the host is under *What it
+keeps*, below.
+
+- **Name `photo` together with `flyer`:** `'features' => ['flyer', 'share', 'photo']`. The read is
+  on the flyer's page. Named without `'flyer'` it shows nowhere, though the server would still read
+  a picture sent to it.
+- **Its page came after its server half.** A release that knows the read and has no page shows
+  nothing new for `photo`; one from before the read refuses it (*Rolling back*, below). The
+  preflight page shows which release is up.
 
 **To turn it on:**
 
@@ -283,7 +292,8 @@ that release is up. What it keeps on the host is under *What it keeps*, below.
 
 4. **Reload the app.** With `['share']`, a flyer's editor shows "✨ Write with AI (3 left today)" in
    its *Share text* section, and the library's bar shows nothing new. With both features, the bar
-   also shows "✨ Create with AI · 3 left".
+   also shows "✨ Create with AI · 3 left". With `photo` as well, that page has two ways in, "From
+   your idea" and "From a photo", and the second shows "✨ Read the picture (3 left today)".
 
 **The staff trial: the share text alone on the host, both features on the developer's machine.**
 
@@ -370,7 +380,12 @@ What to know:
     `'effort' => 'low'` is the first thing to try;
   - Anthropic takes about 20 seconds the first time after a release that changed the shape of the
     answer, then 4 to 5. If staff see "The AI didn't answer properly" once and it works on the
-    next try, that is why.
+    next try, that is why;
+  - a picture read is the slow one: 5 to 22 seconds on OpenAI in the real reads of 2026-10-06, the
+    longest on a screenshot dense with small print. The page waits for as long as the app does,
+    and says so meanwhile. A read that runs out of time is free, though it is one of the day's
+    tries: the page keeps the picture and says "try again, or type the event yourself". If reads
+    fail often, `timeoutMs` can go up, but never above the host's own limit (next point).
 - **The host's own time limit** for a PHP request is not known on IONOS until the first call there.
   If the app shows the host's error page instead of its own message, the host cut the request
   off: `timeoutMs` must then go *down*, below the host's limit, so the app can answer for itself.
@@ -388,6 +403,7 @@ them back later.
 
 | Going back to a release built | Take out |
 |---|---|
+| with the picture read and without its page, "From a photo" | nothing: `'photo'` stays valid there. The page's second way in is gone until the newer release is back, and the server still reads a picture sent to it |
 | without the picture read (every release up to 2026-10-06, `2ad58f28364e` included) | `models`, from the `ai` block, and `'photo'` from its `features` |
 | on 2026-10-06 (`2ad58f28364e`) | `dailyLimits` as well |
 | before 2026-10-06 | `dailyLimits`, `features` and `dailyLimit`, from the `ai` block |
@@ -481,6 +497,8 @@ the site's `data/ai-usage/` file, which no address serves.
 | 503 right after adding or changing the `ai` block | the release is older than the key (`features` and `dailyLimit` need the release of 2026-10-06 (`2ad58f28364e`), `dailyLimits` the one after it: upload it first), or a typo in the block: a setting the sample does not have, a feature that is not `flyer` or `share`, a `dailyLimit` that is not a whole number from 1 to 20, a `dailyLimits` that is not written `['share' => 10]` with such a number, or a value of the wrong kind. The reason names the setting, never its value. **It is in the host's own PHP error log** (the hosting panel's logs), not in `data/php-errors.log`: PHP's log moves into the data folder only once `config.php` has been read. "`ai.apiKey` must not hold spaces or line breaks" means the key was pasted with one: write it between single quotes, with nothing after its last character |
 | nothing of the AI shows | the AI is off: `config.php` has no `ai` block, the block has no `provider`, no `apiKey` or no `features`, or it says `'enabled' => false`. A provider and its key alone run nothing: name the features. `GET api/config` shows `"ai": {"enabled": false}` |
 | "✨ Write with AI" in the editor, but no "✨ Create with AI" on the bar | by design where `features` names `share` alone. `GET api/config` then lists one feature: `"features": [{"name": "share", "limit": 3, "remaining": 3}]` |
+| "Create with AI" has no "From a photo" | `features` does not name `photo`, or the release is from before its page (the preflight page shows the release). `GET api/config` lists `photo` where the server runs it. Named without `flyer`, the read has no page at all |
+| "Read the picture" shows fewer left than the day's limit, with no read made | failed reads: each is free and is one of the day's tries, three for each read of the limit. When the tries run low the button shows what is left of them. They come back at midnight, Canary Islands time, with the reads |
 | "The AI didn't answer properly", every time | the provider refused or did not answer; nothing was counted. `data/php-errors.log` has the reason, on a line starting `Nest flyers: AI`: a wrong key (401), a timeout, an answer the app would not take, or "PHP has no curl extension" (the preflight page's *PHP extensions* line says so too: enable curl for this PHP version in the hosting panel) |
 | the browser asks for the password twice, or signs in and the app then says "Sign in" | the `.htaccess` login and `config.php`'s `basicAuth` differ: make them the same user and password |
 | signed in, but every save or load fails with "Sign in" | the host drops the Authorization header on its way to PHP: the preflight page's *Login* line says so. Ask the host (CGIPassAuth), or use `allowIps` in `config.php` |

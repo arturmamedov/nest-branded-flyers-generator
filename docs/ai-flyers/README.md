@@ -37,9 +37,10 @@ The pieces, each defined once:
 
 ## From a picture
 
-Since 2026-10-06 the server can read a picture into the words it shows (`POST api/ai/photo`, the `photo` feature;
-its page is not built yet). The read stops at the words: a staff member checks them in "Your idea" and then asks for
-the flyer, as with any text. So a flyer from a picture is two calls, and everything above applies to the second.
+Since 2026-10-06 the app can read a picture into the words it shows (`POST api/ai/photo`, the `photo` feature). Its
+page is "From a photo" on Create with AI: a staff member chooses or takes a picture and presses "Read the picture".
+The read stops at the words: they check them in "Your idea" and then ask for the flyer, as with any text. So a flyer
+from a picture is two calls, and everything above applies to the second.
 
 `image-examples/` is the read's eval set. It is no part of the few-shot: a picture is never a turn of the prompt.
 

@@ -148,7 +148,7 @@ full WHEN line) — download the stress-test flyer and look.
 | `docs/deploy.md` | the shared-hosting deploy, step by step, for the owner |
 | `src/shared/ai.ts`, `ai/prompts/`, `schema/ai.json` | the AI assistant's shared facts (each feature's daily limit, the day it counts in, the default models), its rules, and the generated bundle both backends send a provider |
 | `server/ai/`, `php/src/Ai/` | the AI assistant on each backend: the provider seam (OpenAI, Anthropic, and a fake for the tests), the prompt, the service with its checks, the actor and the policy |
-| `src/editor/AiPage.tsx`, `src/editor/handoff.ts` | "Create with AI" (`#/ai`), and the flyer it hands to the editor, unsaved |
+| `src/editor/AiPage.tsx`, `src/editor/AiPhoto.tsx`, `src/editor/handoff.ts` | "Create with AI" (`#/ai`), its second way in, "From a photo", and the flyer it hands to the editor, unsaved |
 | `scripts/ai/smoke.ts`, `scripts/site.ts` | one real generation by hand, and the one way the scripts call a site's API |
 | `docs/ai-flyers/` | flyers from staff text: the examples (the model's few-shot and eval set), and how a site's ledger feeds them |
 | `assets/art/` | the built-in hand-drawn art (served at `/assets/art/…`) |
@@ -184,9 +184,11 @@ Unsaved work asks before it is left (`src/editor/leaveGuard.ts`, `tests/render/e
 - A photo dropped beside the preview is refused instead of opening in the tab.
 
 **The AI assistant is off until it has a key and its features are named.**
-- It has two features. `flyer` is "✨ Create with AI" (`#/ai`): a staff member's own text becomes a new, unsaved
+- It has three features. `flyer` is "✨ Create with AI" (`#/ai`): a staff member's own text becomes a new, unsaved
   flyer, with what it assumed and the flyer's share text. `share` is "✨ Write with AI", in the editor: a
-  flyer's share text.
+  flyer's share text. `photo` is "From a photo", a second way into Create with AI: a picture chosen, dropped,
+  pasted or taken with a phone's camera is read into the words for "Your idea", and the flyer is made from
+  there. It shows only where `flyer` runs too.
 - Which provider runs, and which features, is configuration, never code: `AI_PROVIDER`, `AI_API_KEY` and
   `AI_FEATURES` in `.env` (below), or the `ai` block of `config.php` on the PHP host (`docs/deploy.md`, *The AI
   assistant*). A site runs the features it names, and none until it names them: a key alone runs nothing. A
@@ -241,7 +243,7 @@ A new build changes the renderer's build id, so cached exports are re-rendered a
 | `PHP_BIN` | `php` | only for the PHP tests: which interpreter to run (8.1+) |
 | `AI_PROVIDER` | unset: the AI is off | `openai`, `anthropic`, or `fake` (canned answers from the examples, for the tests and a demo; it needs no key) |
 | `AI_API_KEY` | unset | the provider's key. Server-side only: it never reaches `api/config`, a log line, the ledger or git |
-| `AI_FEATURES` | unset: no feature runs | the features this site runs, separated by commas: `flyer` ("Create with AI"), `share` ("Write with AI"), `photo` (a picture read into words; the server's half, its page is not built yet). `AI_FEATURES=flyer,share` runs the two with a page. A name that is no feature is refused at start-up |
+| `AI_FEATURES` | unset: no feature runs | the features this site runs, separated by commas: `flyer` ("Create with AI"), `share` ("Write with AI"), `photo` ("From a photo" on Create with AI: a picture read into the words for "Your idea"). Name `photo` with `flyer`: the read is on the flyer's page, and shows nowhere without it. `AI_FEATURES=flyer,share` runs the two without the picture read. A name that is no feature is refused at start-up |
 | `AI_DAILY_LIMIT` | `3` | generations a day of each feature, for the whole site: a whole number from 1 to 20. Every feature has its own count |
 | `AI_DAILY_LIMITS` | unset: every feature takes `AI_DAILY_LIMIT` | a feature's own number a day, as `feature:number` pairs separated by commas (`share:10,flyer:5`), 1 to 20 each. A name that is no feature, or a feature named twice, is refused at start-up |
 | `AI_MODEL` | `gpt-6-luna` (OpenAI), `claude-haiku-4-5` (Anthropic) | the flyer's and the share text's model |
@@ -365,7 +367,8 @@ backends. "Create with AI" writes a flyer from a staff member's text, and "Write
 share text, with OpenAI or Anthropic behind one seam, at most 3 generations a day of each unless a
 site sets its own. Each feature has its own switch (`docs/reports/ai-feature-switches.md`) and its own
 daily limit (`docs/reports/ai-flyer-from-photo.md`): a site runs the ones it names, and it is off until
-a site has a key and names them.
+a site has a key and names them. A third feature reads a picture into the words a flyer is made from,
+"From a photo" on the same page (the same report, stages 2 and 3).
 
 Next (handoff steps 7 and 9): per-element drag/nudge with snapping and safe-box clamping,
 font-size multipliers, contrast-checked colour swatches, block reorder, Reset to template; the

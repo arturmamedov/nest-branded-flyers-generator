@@ -280,6 +280,8 @@ are generated into `schema/ai.json` with the prompts and the few-shot examples b
   - With none left the route answers the same 429 `ai_quota`, with the same sentence and the reads' `limit` in it,
     before the picture is kept: a refused read keeps nothing, asks no provider and is not recorded.
   - It is no setting: a site's own limit for the read moves its tries with it.
+  - A failed read's answer is an error and carries no count. A client that shows what is left asks `api/config`
+    again after one, as the editor does: the tries may have brought `remaining` down.
   - The flyer and the share text have no such bound: their failed generations never count, however many.
 - **`POST api/ai/flyer`** takes `{text, hostel?}`: the staff member's text, and the hostel's slug when they chose one
   (the model then uses it; otherwise it decides from the text). It answers `{brief, assumptions, remaining}`: a brief that

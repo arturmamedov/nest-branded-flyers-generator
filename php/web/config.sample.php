@@ -64,7 +64,8 @@ return [
         // The provider's API key. It stays on the server: never shown, logged or sent anywhere else.
         'apiKey' => null,
         // The features that run: 'flyer' ("Create with AI"), 'share' ("Write with AI") and
-        // 'photo' (a picture read into words: the server's half, its page is not built yet).
+        // 'photo' ("From a photo" on Create with AI: a picture read into the words for "Your idea").
+        // Name 'photo' with 'flyer': the read is on the flyer's page, and shows nowhere without it.
         // None until named: [] keeps the AI off even with a key. The share text alone: ['share'].
         // A read keeps its picture thirty days in data/ai-pictures/ (docs/deploy.md).
         'features' => [],
