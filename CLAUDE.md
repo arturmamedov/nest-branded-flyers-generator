@@ -506,7 +506,14 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
       The two pictures are in `backups/phone-test-2026-10-06/`, outside git.
     - A phone reaches this PC over the PC's own hotspot (`192.168.137.1`), with the server bound to that address
       alone. A hostel's Wi-Fi keeps its devices apart and is no closed network: the app is never served on it.
-    - **The checkpoint has all it asked for.** Stage 4 waits for his word.
+    - **The checkpoint has all it asked for.**
+  - **Next, in a new session by his word (2026-10-06): a follow-up to the page, then stage 4.** Its prompt is
+    `docs/prompts/ai-flyer-from-photo-stage-4.md`. He chose to stay on this branch, and a commit per piece.
+    - The follow-up is his observation: after a read the page looks like a step back, to the tab it starts on. Of
+      three shapes he chose **"Numbered steps"** (over my advice, "One way forward"): a line "1 Picture ✓ · 2 Check
+      the words · 3 Flyer" takes the switch's place while a picture is being made into a flyer. And in the
+      failed-read line, "type the event yourself" becomes a link that opens the idea box. The report's last section
+      has his words and the sketch he chose. Nothing of it is built.
     - **For Artur to decide** (the report has each): **reads sent at the same moment pass the tries together**
       (found by the review: a limit of 1, 20 reads at once, 20 provider calls and 20 pictures kept; holding the
       bound means recording a try before the provider is asked, on both backends); the words on the page that
@@ -514,8 +521,7 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
       is no flyer yet; whether a generation on its way should be guarded as a read now is; the first example's
       "Free".
     - No release was built. A host that names `photo` names it with `flyer`.
-  - **Stage 4 is not started,** and not to be started unasked: the picture as the flyer's photo. Ask Artur which
-    branch first.
+  - **Stage 4 is not started,** and not to be started outside that session: the picture as the flyer's photo.
 - Waiting, don't start unasked: **a second shape for the share text, "one mixed caption"** (Artur, 2026-10-06):
   one caption in English with the key facts repeated in Spanish, where today's has two blocks. He wants a switch
   to turn it on and generate it as another option for the share text. Not designed: where the switch lives (a

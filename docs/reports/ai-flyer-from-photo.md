@@ -8,7 +8,7 @@ stage that is built. **A stage with no section here is not built.**
 | 1. A limit per feature | Built, 2026-10-06 (below) |
 | 2. The read, on both backends | Built, 2026-10-06 (below, after stage 1). Its checkpoint: Artur's answers are built, the first case is in git, and the real reads are done, and what he chose from them is built (*The checkpoint*, at the end). **The checkpoint is closed** |
 | 3. The page | Built, 2026-10-06 (the last section). Looked at on both backends, reviewed, and tried on a real phone the same evening. **Its checkpoint has all it asked for; what is left is Artur's to decide** |
-| 4. The picture as the flyer's photo | Not started |
+| 4. The picture as the flyer's photo | Not started. For a new session, after a follow-up to the page that Artur asked for: `docs/prompts/ai-flyer-from-photo-stage-4.md` |
 
 # Stage 1: a limit per feature
 
@@ -1399,3 +1399,52 @@ One sequence on 2026-10-06, on the tree of `9e5621a`: the stage's last code comm
 - After a look, check for `php -S` processes left on the look's ports.
 - A phone reaches this PC over the PC's own hotspot (`192.168.137.1`), never over a hostel's Wi-Fi, which keeps
   its devices apart and is no closed network. The phone must be kept from switching Wi-Fi by itself meanwhile.
+
+## After the checkpoint: Artur's observation, and what comes next
+
+On the evening of 2026-10-06, with the phone done, Artur said to go forward, "maybe better in a new standalone
+session", and added an observation from using the page.
+
+**What he saw.** After a read the page shows the From your idea tab with the words in the box. That tab is where
+the page starts, so it can look as if something went wrong and the page went back. It is the next step before the
+finish. His words: "maybe we can hide the buttons so user doesn't think that something is wrong and he is come
+back, but that he is going forward and this is the next step before finish."
+
+**Three shapes were put to him,** each as a sketch:
+- one way forward: the switch and the picture's buttons go, and the small picture stays with "Use another
+  picture". I recommended this one;
+- stay on From a photo: the switch stays lit there, and the idea box appears under the picture;
+- numbered steps: a line of three steps takes the switch's place.
+
+| Question | Answer |
+|---|---|
+| Which shape after a read? | **"Numbered steps"**: a line "1 Picture ✓ · 2 Check the words · 3 Flyer" takes the switch's place while a picture is being made into a flyer, with the small picture and "Change the picture" under it |
+| The failed-read line | "if it's easy", a link on "type the event yourself", or after it, that opens the idea box. It is easy: those words become the link, and his sentence stays as he wrote it |
+| Where does this go? | **"Same session, before stage 4"** |
+| Which branch? | **"Stay on feat/ai-feature-switches"** |
+| How to commit? | **"Each piece as it goes green"** |
+
+The sketch he chose:
+
+```
+ ✨ CREATE WITH AI
+
+ ① Picture ✓ ─ ② Check the words ─ ③ Flyer
+
+ ┌─────┐  karaoke-board.jpg
+ └─────┘  Change the picture
+
+ Your idea
+ ┌────────────────────────────────┐
+ │ Karaoke night 06/10 (today)    │
+ └────────────────────────────────┘
+ Check every word, and add what
+ is missing (the price?). …
+
+ Hostel  [ Let the AI decide  ▾ ]
+
+ [ ✨ Generate (3 left today) ]
+```
+
+**Nothing of it is built.** The prompt for that session is `docs/prompts/ai-flyer-from-photo-stage-4.md`: the
+follow-up first, then stage 4.

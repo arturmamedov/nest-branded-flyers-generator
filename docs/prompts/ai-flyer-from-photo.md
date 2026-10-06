@@ -442,5 +442,7 @@ with a script that prints nothing of the file, and leave it as Artur says.
   - Stage 2 (2026-10-06): asked, he chose "Stay on feat/ai-feature-switches" again. It is built there, on top of
     `650d3a9`. Ask again before stage 3.
   - Stage 2's checkpoint and stage 3 (2026-10-06, a later session): asked for both at once, he chose "Stay on this
-    branch". Stage 4 is not asked yet.
+    branch".
+  - Stage 4, and the follow-up to the page that goes before it in the same session (2026-10-06, after stage 3's
+    phone): asked, he chose "Stay on feat/ai-feature-switches".
 - Another session may be writing in this folder: stage files by path, no checkouts of other branches, no stashes.
