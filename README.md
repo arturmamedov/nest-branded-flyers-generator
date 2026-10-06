@@ -194,7 +194,9 @@ Unsaved work asks before it is left (`src/editor/leaveGuard.ts`, `tests/render/e
 - Every feature has its own daily limit: at most 3 generations a day of each, counted on the Canary Islands day.
   A flyer never uses up a share text. A site may set its own number for every feature, up to 20
   (`AI_DAILY_LIMIT`), and one feature's own (`AI_DAILY_LIMITS=share:10`); the default and the bound are in
-  `src/shared/ai.ts`. There is no login, so today each limit is site-wide.
+  `src/shared/ai.ts`. There is no login, so today each limit is site-wide. A generation that fails is free. The
+  picture read's failed ones are bounded all the same, since each keeps its picture: three tries for each read of
+  its limit (`AI_TRIES_PER_LIMIT`), which is no setting.
 - Every test runs on the fake provider or with the AI off, so a key in `.env` never reaches a test.
   `npm run dev` does use it.
 - The brief is `docs/prompts/ai-assistant.md`, the report `docs/reports/ai-assistant.md`.

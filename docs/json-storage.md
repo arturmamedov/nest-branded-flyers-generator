@@ -83,8 +83,9 @@ moves between machines. The API hands the same string out as the photo's `url`.
 `ai-usage/YYYY-MM.json` holds one record per generation the AI assistant attempted, appended and never edited
 (`$defs.aiUsage`): when, the Canary Islands day it counts for, the actor, the feature, the provider and model, the
 tokens, whether the answer passed validation, the text the model was given and its raw answer. Each feature's daily
-limit is counted from a day's `ok` records of that feature for the actor, every feature's count from one read of the
-month's file; the rest is the eval and few-shot set to be. The folder and a month's file
+limit is counted from a day's `ok` records of that feature for the actor, and a picture read's tries from all of that
+day's records of the feature, failed ones included (`AI_TRIES_PER_LIMIT`): every feature's counts come from one read
+of the month's file. The rest is the eval and few-shot set to be. The folder and a month's file
 appear on the first append, so a read never writes, and a release from before the ledger ignores them: the records
 carry no id, so `meta.json`'s counters are untouched, and no migration id is needed. The copy tool carries the ledger
 with the library.
@@ -113,6 +114,8 @@ on Node and on PHP.
 
 - **Thirty days** (`AI_PICTURE_DAYS`): a day's folder goes once that day is more than thirty days before today's
   Canary Islands day.
+- **So many a day at most:** the reads' tries, three for each read of the site's limit (9 at the default). A read
+  past them is refused before its picture is kept, so a day's folder cannot grow past that for one actor.
 - **The app deletes them itself,** inside `GET api/config`, which every visit asks: at most once a day (`.swept`
   holds the day), whether or not the AI is on, and it is the one read that deletes. Only folders named as a day are
   ever deleted, and a link is never followed. A day that cannot be deleted is named in the log and tried again the

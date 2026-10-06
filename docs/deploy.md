@@ -308,6 +308,9 @@ What to know:
   With nothing set, the whole site gets 3 flyers and 3 share texts a day, counted on the Canary
   Islands day.
   - A generation counts only when it gave a flyer or a caption: a failed one is free.
+  - A picture read that fails is free too, but only so many times: three tries for each read of its
+    limit, so 9 a day at 3. Past them the button says the day's reads are used up, as it does when
+    the reads themselves are. There is nothing to set: the tries follow the read's limit.
   - A flyer never uses up a share text, or the other way round. When one feature's are used up, its
     button says what ran out and when it comes back, and the other still works.
   - `'dailyLimit' => 5` in the block changes the number for every feature, without a release.
@@ -320,6 +323,9 @@ What to know:
   generations before the staff do. That is the whole exposure: the cost cannot pass the day's
   limits, one per feature. At 3 a day each that is a few cents at most, which Artur accepted on
   2026-10-02; higher limits raise it in step. The lock (steps 3–4) closes it.
+  - A generation that fails does not count, so it is outside those limits. A picture read's failed
+    tries are bounded, because each one keeps a picture on the disk. A flyer's and a share text's
+    are not: each failed one still asks the provider.
 - **What it keeps.** `data/ai-usage/2026-10.json`, one file a month: each text a staff member sent,
   what the model wrote back, and the tokens. It is part of the library and of its backups, and it
   never holds the key. `docs/ai-flyers/README.md` says how these records become the model's next
@@ -335,8 +341,10 @@ What to know:
   - **Deleting the folder by hand is safe,** at any time: the app makes it again on the next read.
     The ledger then names pictures that are gone, which harms nothing.
   - **It is not part of the library:** leave it out of backups (*Backups*, above).
-  - **Disk:** about 45 MB at 3 reads a day, and about 300 MB at 20. If the host's disk is full, a
-    read stops with an error before the provider is asked, and nothing is counted.
+  - **Disk:** about 45 MB at 3 reads a day, and about 300 MB at 20. A failed read keeps its picture
+    too, so at the very most it is three times that, with every try of every day used: the tries
+    stop it there. If the host's disk is full, a read stops with an error before the provider is
+    asked, and nothing is counted.
 - **The other settings,** all optional:
   - `model`: the default is the provider's fast one;
   - `models`: a feature's own model, by its name: `'models' => ['photo' => '<model>']`. A feature
