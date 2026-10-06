@@ -47,6 +47,18 @@ describe('aiFor: the AI as far as one feature goes, from api/config’s answer',
   it('is nothing with the AI off', () => {
     for (const feature of AI_FEATURES) expect(aiFor({ enabled: false }, feature), feature).toBeNull();
   });
+
+  // The editor never parses an answer (zod stays out of its bundle), so a backend older than this client is met
+  // here: while a release is being uploaded, its new files answer beside the old ones. It must cost the AI, never the page.
+  it('is nothing, and no crash, for a backend older than this client', () => {
+    const older = [
+      { enabled: true, limit: 3, remaining: 3 }, // from before each feature had its own switch: no list
+      undefined, // from before the AI: no `ai` block at all
+      null,
+      { enabled: true, limit: 3, remaining: 3, features: 'share' },
+    ];
+    for (const ai of older) for (const feature of AI_FEATURES) expect(aiFor(ai as unknown as AiConfig, feature), JSON.stringify(ai)).toBeNull();
+  });
 });
 
 describe('the AI constants', () => {

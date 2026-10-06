@@ -293,9 +293,31 @@ test('with the AI off there is no AI anywhere: no entry, #/ai is the library, no
   await expect(writeWithAi(page)).toHaveCount(0);
 });
 
+// The editor never parses an answer, so a backend older than this client is met as it comes: while a release is being
+// uploaded, its new files answer beside the old ones. That must cost the AI, never the page.
+for (const [which, ai] of [
+  ['before each feature had its own switch (it lists none)', { enabled: true, limit: AI_DAILY_LIMIT, remaining: AI_DAILY_LIMIT }],
+  ['before the AI (no ai block at all)', undefined],
+] as const) {
+  test(`a backend from ${which} shows no AI, and the app still loads`, async ({ page }) => {
+    await page.route(apiRoute('config'), async (route) => {
+      const res = await route.fetch();
+      const { ai: _its, ...rest } = await res.json();
+      await route.fulfill({ response: res, json: ai === undefined ? rest : { ...rest, ai } });
+    });
+    await page.goto('/');
+    await expect(page.getByRole('heading', { name: 'Flyer library' })).toBeVisible();
+    await expect(entry(page)).toHaveCount(0);
+
+    await page.goto('/#/new');
+    await expect(page.getByLabel('Caption')).toBeVisible();
+    await expect(writeWithAi(page)).toHaveCount(0);
+  });
+}
+
 // A site names the features it runs (AI_FEATURES in .env, 'features' in config.php): the trial on the live site is the
 // share text alone. Routed, so nothing is spent.
-test('on a site that runs the share text alone: no "Create with AI" anywhere, #/ai is the library, and "Write with AI" counts down', async ({ page }) => {
+test('on a site that runs the share text alone: no "Create with AI" anywhere, #/ai is the library, and "Write with AI" shows what is left', async ({ page }) => {
   await withLeft(page, 2, ['share']);
   await page.goto('/');
   await expect(page.getByRole('link', { name: 'New flyer' })).toBeVisible();

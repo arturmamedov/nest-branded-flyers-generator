@@ -27,7 +27,8 @@ export function App() {
       ([h, config]) => {
         setHostels(h);
         setBackend({ exporter: createExporter(config), limits: config.limits });
-        setAi(config.ai);
+        // A backend from before the AI answers no `ai` block: off, as aiFor() reads every answer it does not know.
+        setAi(config.ai ?? { enabled: false });
       },
       (e) => setError(String(e.message || e)),
     );

@@ -32,9 +32,13 @@ export type AiFeature = (typeof AI_FEATURES)[number];
 export type AiOn = Extract<AiConfig, { enabled: true }>;
 
 /** The AI as far as one feature goes, from api/config's answer: the caller's limit and what is left when the site
-    runs that feature for them, else null. The editor shows a feature only through this. */
+    runs that feature for them, else null. The editor shows a feature only through this.
+    The editor never parses an answer (zod stays out of its bundle), so a backend older than this client is met
+    here, as it is while a release is being uploaded: one from before the switches lists no features, one from
+    before the AI has no `ai` block at all. Either way nothing of the AI shows, and the page still loads. */
 export function aiFor(ai: AiConfig, feature: AiFeature): AiOn | null {
-  return ai.enabled && ai.features.includes(feature) ? ai : null;
+  const answer = ai as Partial<AiOn> | null | undefined;
+  return answer?.enabled === true && Array.isArray(answer.features) && answer.features.includes(feature) ? (answer as AiOn) : null;
 }
 
 /** The day a generation counts for is the Canary Islands day: WET in winter, WEST in summer. */
