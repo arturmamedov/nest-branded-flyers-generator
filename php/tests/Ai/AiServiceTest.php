@@ -195,6 +195,11 @@ final class AiServiceTest extends TestCase
             {
                 return 3;
             }
+
+            public function dailyTries(Actor $actor, string $feature): ?int
+            {
+                return null;
+            }
         };
         $service = $this->service(['policy' => $guests]);
         self::assertSame(['enabled' => false], $service->status($this->actor));
@@ -658,7 +663,91 @@ final class AiServiceTest extends TestCase
         self::assertSame(1, substr_count($this->log(), "\n"), 'one line');
     }
 
+    // ---- a feature's tries a day ----
+
+    /** @return iterable<string, array{array<string, mixed>}> the days of tests/fixtures/ai-tries.json, which says how a day reads */
+    public static function triesDays(): iterable
+    {
+        $vectors = json_decode((string) file_get_contents(Paths::fixture('ai-tries.json')), true, flags: JSON_THROW_ON_ERROR);
+        foreach ($vectors['days'] as $day) {
+            yield $day['name'] => [$day];
+        }
+    }
+
+    public function testTheTriesAreBoundedForThePictureReadAloneThreeForEachReadOfItsLimit(): void
+    {
+        self::assertSame(['photo' => 3], $this->shared->ai()['triesPerLimit']);
+        $policy = $this->policy(['provider' => 'fake', 'dailyLimits' => ['photo' => 2]]);
+        $tries = [];
+        foreach (self::FEATURES as $feature) {
+            $tries[$feature] = $policy->dailyTries($this->actor, $feature);
+        }
+        self::assertSame(['flyer' => null, 'share' => null, 'photo' => 6], $tries);
+    }
+
+    /**
+     * A feature's tries a day (the owner's answers, 2026-10-06). A failed read is free and keeps its picture, so on a
+     * site with no lock nothing bounded them: the picture read alone gets a number of tries, failed ones included.
+     * What is left of the reads is the smaller of reads left and tries left, and at none the answer is the used-up
+     * sentence. The twin of the same table's replay in tests/unit/ai-service.test.ts.
+     *
+     * @param array{limits: array<string, int>, ledger: list<array{times:int, feature:string, ok:bool, actorId?:string, day?:string}>,
+     *     steps: list<array{feature:string, works:bool, answer:string, left:int}>, kept:int, recorded:int} $day
+     */
+    #[DataProvider('triesDays')]
+    public function testAFeaturesTriesADay(array $day): void
+    {
+        $service = $this->service(['policy' => $this->policy(['provider' => 'fake', 'dailyLimits' => $day['limits']])]);
+        foreach ($day['ledger'] as $held) {
+            for ($i = 0; $i < $held['times']; $i++) {
+                $this->usage->records[] = [
+                    'at' => $this->clock->now(),
+                    'day' => $held['day'] ?? '2026-09-18',
+                    'actorId' => $held['actorId'] ?? $this->actor->id,
+                    'feature' => $held['feature'],
+                    'provider' => 'fake',
+                    'model' => 'fake-1',
+                    'tokens' => null,
+                    'ok' => $held['ok'],
+                    'input' => "held before the day's steps",
+                    'output' => null,
+                ];
+            }
+        }
+        $before = count($this->usage->records);
+        $left = [];
+        foreach ($day['steps'] as $i => $step) {
+            $n = $i + 1;
+            $call = fn (): array => $this->step($service, $step['feature'], $step['works']);
+            if ($step['answer'] === 'ok') {
+                self::assertSame($step['left'], $call()['remaining'], "step $n");
+            } else {
+                $limit = $day['limits'][$step['feature']] ?? self::LIMIT;
+                $this->failsWith($call, $step['answer'], $step['answer'] === 'ai_quota' ? $this->usedUp($step['feature'], $limit) : []);
+            }
+            // Every other feature's count stands where it last stood.
+            $left[$step['feature']] = $step['left'];
+            self::assertSame($this->on($left, self::FEATURES, $day['limits']), $service->status($this->actor), "after step $n");
+        }
+        self::assertCount($day['kept'], $this->pictures->kept);
+        self::assertSame($day['recorded'], count($this->usage->records) - $before);
+    }
+
     // ---- helpers ----
+
+    /**
+     * One call of a feature, which the fake answers or fails.
+     *
+     * @return array<string, mixed>
+     */
+    private function step(AiService $service, string $feature, bool $works): array
+    {
+        return match ($feature) {
+            'flyer' => $service->flyer($this->actor, $this->idea($works ? '' : '[[fake:invalid]]')),
+            'share' => $service->share($this->actor, $this->shareBody($works ? [] : ['idea' => '[[fake:invalid]]'])),
+            'photo' => $service->photo($this->actor, $works ? self::picture() : self::picture($this->widths()['invalid'])),
+        };
+    }
 
     /**
      * The service on the fake provider, the memory ledger and the seed's hostels, unless $with says otherwise
@@ -727,7 +816,8 @@ final class AiServiceTest extends TestCase
      */
     private function policy(array $ai): AiPolicy
     {
-        return new ConfigAiPolicy(AiConfig::fromArray($ai + ['features' => $this->shared->ai()['features']], $this->shared->ai()));
+        $facts = $this->shared->ai();
+        return new ConfigAiPolicy(AiConfig::fromArray($ai + ['features' => $facts['features']], $facts), $facts['triesPerLimit']);
     }
 
     /** @return list<string> every feature the app has but this one */

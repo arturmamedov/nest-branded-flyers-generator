@@ -1,0 +1,86 @@
+{
+  "about": "A feature's tries a day (AI_TRIES_PER_LIMIT in src/shared/ai.ts; the owner's answers, 2026-10-06: the picture read alone, three times its limit, and the used-up sentence when they run out). Replayed by tests/unit/ai-service.test.ts and php/tests/Ai/AiServiceTest.php on the fake provider with the ledger and the kept pictures in memory, so both services are held to one table. A day is one actor's Canary day, 2026-09-18. `limits` is each feature's own daily limit where the day sets one; every other feature has the default. `ledger` is what the ledger already holds when the day's steps begin: `times` records of that feature, each `ok` or not, for another actor or another day when it says so. A step is one call of `feature`, which the fake answers (`works`) or fails. `answer` is what the service answers: ok, or the error's key. `left` is what api/config then says is left of that feature today; every other feature's count must stand where it last stood. On an ok step the route's own `remaining` is that number too, and on ai_quota the sentence names the feature's limit. `kept` is the pictures the day's steps kept, `recorded` the ledger records they added.",
+  "days": [
+    {
+      "name": "failed reads are free until the tries run out, then what is left is the smaller of the two",
+      "limits": { "photo": 2 },
+      "ledger": [],
+      "steps": [
+        { "feature": "photo", "works": false, "answer": "ai_failed", "left": 2 },
+        { "feature": "photo", "works": false, "answer": "ai_failed", "left": 2 },
+        { "feature": "photo", "works": false, "answer": "ai_failed", "left": 2 },
+        { "feature": "photo", "works": false, "answer": "ai_failed", "left": 2 },
+        { "feature": "photo", "works": false, "answer": "ai_failed", "left": 1 },
+        { "feature": "photo", "works": true, "answer": "ok", "left": 0 },
+        { "feature": "photo", "works": true, "answer": "ai_quota", "left": 0 }
+      ],
+      "kept": 6,
+      "recorded": 6
+    },
+    {
+      "name": "the tries run out before any read worked: the used-up sentence, and the refused read keeps and records nothing",
+      "limits": { "photo": 1 },
+      "ledger": [],
+      "steps": [
+        { "feature": "photo", "works": false, "answer": "ai_failed", "left": 1 },
+        { "feature": "photo", "works": false, "answer": "ai_failed", "left": 1 },
+        { "feature": "photo", "works": false, "answer": "ai_failed", "left": 0 },
+        { "feature": "photo", "works": true, "answer": "ai_quota", "left": 0 },
+        { "feature": "flyer", "works": true, "answer": "ok", "left": 2 }
+      ],
+      "kept": 3,
+      "recorded": 4
+    },
+    {
+      "name": "an ordinary day at the default limit is as it was: three failed reads, then the three reads",
+      "limits": {},
+      "ledger": [],
+      "steps": [
+        { "feature": "photo", "works": false, "answer": "ai_failed", "left": 3 },
+        { "feature": "photo", "works": false, "answer": "ai_failed", "left": 3 },
+        { "feature": "photo", "works": false, "answer": "ai_failed", "left": 3 },
+        { "feature": "photo", "works": true, "answer": "ok", "left": 2 },
+        { "feature": "photo", "works": true, "answer": "ok", "left": 1 },
+        { "feature": "photo", "works": true, "answer": "ok", "left": 0 },
+        { "feature": "photo", "works": true, "answer": "ai_quota", "left": 0 }
+      ],
+      "kept": 6,
+      "recorded": 6
+    },
+    {
+      "name": "a failed flyer and a failed share text never count, however many: their tries have no bound",
+      "limits": { "flyer": 1, "share": 1 },
+      "ledger": [],
+      "steps": [
+        { "feature": "flyer", "works": false, "answer": "ai_failed", "left": 1 },
+        { "feature": "flyer", "works": false, "answer": "ai_failed", "left": 1 },
+        { "feature": "flyer", "works": false, "answer": "ai_failed", "left": 1 },
+        { "feature": "flyer", "works": false, "answer": "ai_failed", "left": 1 },
+        { "feature": "flyer", "works": true, "answer": "ok", "left": 0 },
+        { "feature": "share", "works": false, "answer": "ai_failed", "left": 1 },
+        { "feature": "share", "works": false, "answer": "ai_failed", "left": 1 },
+        { "feature": "share", "works": false, "answer": "ai_failed", "left": 1 },
+        { "feature": "share", "works": false, "answer": "ai_failed", "left": 1 },
+        { "feature": "share", "works": true, "answer": "ok", "left": 0 }
+      ],
+      "kept": 0,
+      "recorded": 10
+    },
+    {
+      "name": "another actor's tries, another day's, another feature's and a later release's record move nothing",
+      "limits": { "photo": 1 },
+      "ledger": [
+        { "times": 9, "feature": "photo", "ok": false, "actorId": "someone-else" },
+        { "times": 9, "feature": "photo", "ok": false, "day": "2026-09-17" },
+        { "times": 9, "feature": "flyer", "ok": false },
+        { "times": 9, "feature": "a-later-feature", "ok": false }
+      ],
+      "steps": [
+        { "feature": "photo", "works": false, "answer": "ai_failed", "left": 1 },
+        { "feature": "photo", "works": true, "answer": "ok", "left": 0 }
+      ],
+      "kept": 2,
+      "recorded": 2
+    }
+  ]
+}

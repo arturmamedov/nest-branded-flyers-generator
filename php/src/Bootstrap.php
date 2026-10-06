@@ -216,7 +216,7 @@ final class Bootstrap
         }
         return new AiService(
             $provider,
-            new ConfigAiPolicy($config->ai),
+            new ConfigAiPolicy($config->ai, $shared->ai()['triesPerLimit']),
             $bundle,
             $repos->hostels,
             $repos->aiUsage,

@@ -14,7 +14,7 @@ import {
 } from '../../src/shared/schema.js';
 import { HttpError } from '../errors.js';
 import type { PreparedPhoto } from '../services/photos.js';
-import type { AiUsageCounts, AiUsageRepository, Clock, HostelRepository } from '../storage/types.js';
+import type { AiUsageDay, AiUsageRepository, Clock, HostelRepository } from '../storage/types.js';
 import type { Actor } from './actor.js';
 import type { AiPolicy } from './policy.js';
 import type { AiPictures } from './pictures.js';
@@ -64,9 +64,9 @@ export class AiService {
   async status(actor: Actor): Promise<AiConfig> {
     const features = this.running();
     if (!this.deps.provider || features.length === 0 || !this.deps.policy.mayUse(actor)) return { enabled: false };
-    let used: AiUsageCounts;
+    let used: AiUsageDay;
     try {
-      used = (await this.deps.usage.countDay(actor.id, aiDay(this.deps.clock.now()))).ok;
+      used = await this.deps.usage.countDay(actor.id, aiDay(this.deps.clock.now()));
     } catch (e) {
       const reason = e instanceof Error ? e.message : String(e);
       if (reason !== this.ledgerDown) console.error(`AI: the ledger cannot be read, so the AI is hidden: ${reason}`);
@@ -76,10 +76,7 @@ export class AiService {
     this.ledgerDown = null;
     return {
       enabled: true,
-      features: features.map((name) => {
-        const limit = this.deps.policy.dailyLimit(actor, name);
-        return { name, limit, remaining: Math.max(0, limit - (used[name] ?? 0)) };
-      }),
+      features: features.map((name) => ({ name, limit: this.deps.policy.dailyLimit(actor, name), remaining: this.left(actor, name, used) })),
     };
   }
 
@@ -125,7 +122,9 @@ export class AiService {
       there, and the flyer is a second call they make (the owner's answers, 2026-10-06). The route has made the photo's
       own checks and prepared the picture (server/services/photos.ts). The picture is kept before the provider is
       asked, so a failed read keeps it and a disk that cannot take it stops the read with nothing spent. A read the
-      provider answered counts, its words or none: an empty text is a picture with no words. */
+      provider answered counts, its words or none: an empty text is a picture with no words. A read that failed is
+      free, and is one of the day's tries all the same (AI_TRIES_PER_LIMIT): once those are gone the read is refused
+      before its picture is kept. */
   async photo(actor: Actor, picture: PreparedPhoto): Promise<AiPhotoResult> {
     this.admit(actor, 'photo');
     const { now, remaining } = await this.quota(actor, 'photo');
@@ -151,14 +150,23 @@ export class AiService {
     if (!this.deps.policy.mayUse(actor)) throw new HttpError('ai_forbidden');
   }
 
-  /** The feature's own daily limit, counted on the day of this instant; the same instant stamps the ledger. What the
-      other features used of theirs does not count here, and the refusal names what ran out. */
+  /** What is left today of a feature for the actor: of its limit, which the generations that counted use up, and of
+      its tries where the policy bounds them, which every generation that reached the provider uses up, a failed one
+      too. The smaller of the two, never below zero: api/config's count and each route's refusal are both this. */
+  private left(actor: Actor, feature: AiFeature, used: AiUsageDay): number {
+    const ofLimit = this.deps.policy.dailyLimit(actor, feature) - (used.ok[feature] ?? 0);
+    const tries = this.deps.policy.dailyTries(actor, feature);
+    return Math.max(0, tries === null ? ofLimit : Math.min(ofLimit, tries - (used.tried[feature] ?? 0)));
+  }
+
+  /** What is left of the feature, counted on the day of this instant; the same instant stamps the ledger. What the
+      other features used of theirs does not count here. With nothing left, of the limit or of the tries, the refusal
+      is the one sentence, and names what ran out by the feature's limit (the owner's answer, 2026-10-06). */
   private async quota(actor: Actor, feature: AiFeature): Promise<{ now: string; remaining: number }> {
     const now = this.deps.clock.now();
-    const limit = this.deps.policy.dailyLimit(actor, feature);
-    const used = (await this.deps.usage.countDay(actor.id, aiDay(now))).ok[feature] ?? 0;
-    if (used >= limit) throw new HttpError('ai_quota', aiQuotaVars(feature, limit));
-    return { now, remaining: limit - used };
+    const remaining = this.left(actor, feature, await this.deps.usage.countDay(actor.id, aiDay(now)));
+    if (remaining === 0) throw new HttpError('ai_quota', aiQuotaVars(feature, this.deps.policy.dailyLimit(actor, feature)));
+    return { now, remaining };
   }
 
   /**

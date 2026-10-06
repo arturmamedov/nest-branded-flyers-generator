@@ -128,6 +128,8 @@ path, is 404 `no_such_endpoint`.
   and each once (`AI_FEATURES` in `src/shared/ai.ts`).
   - Each is `{ name, limit, remaining }`: the actor's daily limit for that feature, and how many of its generations
     are left today. Every feature has its own limit, and a generation counts against its own alone.
+  - For the picture read, `remaining` is the smaller of the reads left and the tries left ("A read's tries", below),
+    so it can be less than `limit` before any read has counted.
   - The editor shows a feature only when it is listed. An answer in another shape shows no AI: a backend from
     before each feature had its own limit answers one `limit` and one `remaining`, with the features by name.
   - Never the provider, the model or the key.
@@ -255,14 +257,26 @@ are generated into `schema/ai.json` with the prompts and the few-shot examples b
 - **Checks, in order:** the body (`malformed`), the write guard, `ai_off` (the whole AI, or this route's feature),
   `ai_forbidden`, the body's shape (400 `ai_input`, with `fields` as for `invalid`; the idea text is trimmed and holds
   1 to `AI_INPUT_MAX` code points), a `hostel` slug that doesn't exist (`unknown_hostel`), the feature's limit (429
-  `ai_quota`, when today's `ok` generations of this feature for the actor have reached it; the message names what ran
-  out: "AI flyers", "AI share texts" or "picture reads"), then the provider: a timeout, a provider error, a refusal,
-  or an answer that fails its schema is 502 `ai_failed`. `POST api/ai/photo` has no JSON body: where the other two
-  check the body's shape and the hostel, it makes `POST api/photos`' own checks, in that route's order.
+  `ai_quota`, when today's `ok` generations of this feature for the actor have reached it, or a read's tries have
+  reached theirs; the message names what ran out: "AI flyers", "AI share texts" or "picture reads"), then the
+  provider: a timeout, a provider error, a refusal, or an answer that fails its schema is 502 `ai_failed`.
+  `POST api/ai/photo` has no JSON body: where the other two check the body's shape and the hostel, it makes
+  `POST api/photos`' own checks, in that route's order.
 - **What counts.** A generation counts only when the provider answered and the answer passed validation; it is then one
   of the actor's `limit` of that feature for the Canary Islands day (`AI_DAY_ZONE`), and of no other feature's. Refused
   calls never count; failed ones are recorded but don't count. Every attempt that reached the provider is one
   append-only ledger record (`docs/json-storage.md`, "The AI ledger").
+- **A read's tries.** A failed generation is free, and a failed picture read keeps its picture too. So the picture
+  read alone also has a daily number of tries: `AI_TRIES_PER_LIMIT` (3) for each read of its limit, so 9 at the
+  default limit and 60 at the highest.
+  - A try is every read that reached the provider, a failed one included: the actor's ledger records of that feature
+    for the day.
+  - What is left of the reads is the smaller of the reads left and the tries left. That number is `remaining`, in
+    `api/config` and in the route's answer.
+  - With none left the route answers the same 429 `ai_quota`, with the same sentence and the reads' `limit` in it,
+    before the picture is kept: a refused read keeps nothing, asks no provider and is not recorded.
+  - It is no setting: a site's own limit for the read moves its tries with it.
+  - The flyer and the share text have no such bound: their failed generations never count, however many.
 - **`POST api/ai/flyer`** takes `{text, hostel?}`: the staff member's text, and the hostel's slug when they chose one
   (the model then uses it; otherwise it decides from the text). It answers `{brief, assumptions, remaining}`: a brief that
   passes `BriefSchema` with every limit and always carries its share text (`share`: one generation is a whole flyer, so a

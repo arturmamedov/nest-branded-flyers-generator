@@ -205,6 +205,9 @@
       "share": "AI share texts",
       "photo": "picture reads"
     },
+    "triesPerLimit": {
+      "photo": 3
+    },
     "dayZone": "Atlantic/Canary",
     "timeoutMs": 25000,
     "maxOutputTokens": 8000,

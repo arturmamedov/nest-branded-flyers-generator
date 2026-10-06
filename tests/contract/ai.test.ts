@@ -143,6 +143,9 @@ describe.skipIf(!FAKE)('AI on, with the fake provider (one day, in order)', () =
     expect(keptPictures()).toEqual([]);
   });
 
+  // A failed read is free, and is one of the reads' tries (AI_TRIES_PER_LIMIT: nine a day at this limit). This day
+  // makes six, three failed here and the three reads below, so the tries never show in it: the days where they bind
+  // are tests/fixtures/ai-tries.json, replayed in process by both backends' service tests.
   it('answers ai_failed when the read’s answer fails the schema, times out or is refused: nothing is charged, and each picture is kept', async () => {
     for (const steer of ['invalid', 'timeout', 'refused'] as const) await fails(read(await picture(AI_FAKE.pictureWidths[steer], 8)), 'ai_failed');
     expect(await status()).toEqual(on(USED_UP));

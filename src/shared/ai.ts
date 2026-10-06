@@ -37,6 +37,13 @@ export const AI_FEATURE_NOUNS: Record<AiFeature, string> = { flyer: 'AI flyers',
 /** What the ai_quota sentence is filled with for one feature: its limit, and what its generations are called. */
 export const aiQuotaVars = (feature: AiFeature, limit: number) => ({ limit, what: AI_FEATURE_NOUNS[feature] });
 
+/** The tries a day a feature gets for each generation of its limit, failed ones included (the owner's answers,
+    2026-10-06: the picture read alone, three times its limit). A failed generation is free, and a failed read keeps
+    its picture too: on a site with no lock, nothing bounded what a stranger's failed reads cost the provider or the
+    disk. A try is every generation that reached the provider. A feature not named here has no such bound: its failed
+    generations stay free, however many. It is no setting: a site's own limit for the feature moves its tries with it. */
+export const AI_TRIES_PER_LIMIT: Partial<Record<AiFeature, number>> = { photo: 3 };
+
 /** api/config's `ai` block when the AI is on for the caller: the features that run, each with its own count. */
 export type AiOn = Extract<AiConfig, { enabled: true }>;
 /** One feature as api/config lists it: its name, the caller's daily limit for it, and what is left of that today. */
@@ -151,6 +158,7 @@ export const AI_SHARED = {
   assumptionsMax: AI_ASSUMPTIONS_MAX,
   features: AI_FEATURES,
   featureNouns: AI_FEATURE_NOUNS,
+  triesPerLimit: AI_TRIES_PER_LIMIT,
   dayZone: AI_DAY_ZONE,
   timeoutMs: AI_TIMEOUT_MS,
   maxOutputTokens: AI_MAX_OUTPUT_TOKENS,

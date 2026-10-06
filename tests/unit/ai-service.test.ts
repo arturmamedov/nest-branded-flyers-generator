@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { join } from 'node:path';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { loadBundle } from '../../server/ai/bundle.js';
 import { createAiPolicy, type AiPolicy } from '../../server/ai/policy.js';
 import { LlmFailure, type LlmCall, type LlmProvider } from '../../server/ai/provider.js';
@@ -8,9 +9,9 @@ import { FAKE_PICTURE_WIDTHS, FAKE_UNKNOWN_HOSTEL, FakeProvider } from '../../se
 import { AiService, type AiServiceDeps } from '../../server/ai/service.js';
 import { HttpError } from '../../server/errors.js';
 import type { PreparedPhoto } from '../../server/services/photos.js';
-import { SEED_FILE } from '../../server/paths.js';
+import { APP_ROOT, SEED_FILE } from '../../server/paths.js';
 import type { AiUsageDay, AiUsageRepository } from '../../server/storage/types.js';
-import { AI_ASSUMPTIONS_MAX, AI_DAILY_LIMIT, AI_FEATURES, AI_INPUT_MAX, AI_PICTURE_ASK, aiQuotaVars, type AiFeature } from '../../src/shared/ai.js';
+import { AI_ASSUMPTIONS_MAX, AI_DAILY_LIMIT, AI_FEATURES, AI_INPUT_MAX, AI_PICTURE_ASK, AI_TRIES_PER_LIMIT, aiDay, aiQuotaVars, type AiFeature } from '../../src/shared/ai.js';
 import { newFlyerData } from '../../src/shared/defaults.js';
 import { apiError, type ApiErrorKey } from '../../src/shared/errors.js';
 import { AiFlyerResultSchema, AiPhotoResultSchema, type Hostel } from '../../src/shared/schema.js';
@@ -158,7 +159,7 @@ describe('the AI service', () => {
   });
 
   it('refuses an actor the policy excludes, and shows them nothing', async () => {
-    const guests: AiPolicy = { runs: () => true, mayUse: () => false, dailyLimit: () => AI_DAILY_LIMIT };
+    const guests: AiPolicy = { runs: () => true, mayUse: () => false, dailyLimit: () => AI_DAILY_LIMIT, dailyTries: () => null };
     const { service } = make({ policy: guests });
     expect(await service.status(actor)).toEqual({ enabled: false });
     await failsWith(service.flyer(actor, idea()), 'ai_forbidden');
@@ -454,6 +455,68 @@ describe('the AI service reads a picture', () => {
     } finally {
       logged.mockRestore();
     }
+  });
+});
+
+/* A feature's tries a day (the owner's answers, 2026-10-06). A failed read is free and keeps its picture, so on a site
+   with no lock nothing bounded them: the picture read alone gets a number of tries, failed ones included, three for
+   each read of its limit. What is left of the reads is the smaller of reads left and tries left, and at none the
+   answer is the used-up sentence. One table holds both backends to it (tests/fixtures/ai-tries.json, which says how
+   a day reads; php/tests/Ai/AiServiceTest.php replays it too). */
+interface TriesDay {
+  name: string;
+  limits: PerFeature;
+  ledger: { times: number; feature: string; ok: boolean; actorId?: string; day?: string }[];
+  steps: { feature: AiFeature; works: boolean; answer: 'ok' | 'ai_failed' | 'ai_quota'; left: number }[];
+  kept: number;
+  recorded: number;
+}
+const tries = JSON.parse(readFileSync(join(APP_ROOT, 'tests/fixtures/ai-tries.json'), 'utf8')) as { days: TriesDay[] };
+
+describe('a feature’s tries a day', () => {
+  /** One call of a feature, which the fake answers or fails. */
+  const step: Record<AiFeature, (service: AiService, works: boolean) => Promise<{ remaining: number }>> = {
+    flyer: (service, works) => service.flyer(actor, idea(works ? '' : '[[fake:invalid]]')),
+    share: (service, works) => service.share(actor, works ? shareBody() : { ...shareBody(), idea: '[[fake:invalid]]' }),
+    photo: (service, works) => service.photo(actor, picture(works ? undefined : FAKE_PICTURE_WIDTHS.invalid)),
+  };
+
+  // Each failed step is one line of the service's log: the run stays quiet.
+  beforeEach(() => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('are bounded for the picture read alone: three tries for each read of its limit', () => {
+    expect(AI_TRIES_PER_LIMIT).toEqual({ photo: 3 });
+    const policy = createAiPolicy({ ...settings, dailyLimits: limits({ photo: 2 }) });
+    expect(AI_FEATURES.map((feature) => [feature, policy.dailyTries(actor, feature)])).toEqual([
+      ['flyer', null],
+      ['share', null],
+      ['photo', 6],
+    ]);
+  });
+
+  it.each(tries.days)('$name', async (day) => {
+    const { service, clock, usage, pictures } = make({ policy: createAiPolicy({ ...settings, dailyLimits: limits(day.limits) }) });
+    for (const held of day.ledger) {
+      const record = { at: clock.now(), day: held.day ?? aiDay(clock.now()), actorId: held.actorId ?? actor.id, feature: held.feature as AiFeature, provider: 'fake', model: 'fake-1', tokens: null, ok: held.ok, input: 'held before the day’s steps', output: null };
+      for (let i = 0; i < held.times; i++) usage.records.push(record);
+    }
+    const before = usage.records.length;
+    const left: PerFeature = {};
+    for (const [i, s] of day.steps.entries()) {
+      const call = step[s.feature](service, s.works);
+      if (s.answer === 'ok') expect((await call).remaining, `step ${i + 1}`).toBe(s.left);
+      else await failsWith(call, s.answer, s.answer === 'ai_quota' ? aiQuotaVars(s.feature, limits(day.limits)[s.feature]) : undefined);
+      // Every other feature's count stands where it last stood.
+      left[s.feature] = s.left;
+      expect(await service.status(actor), `after step ${i + 1}`).toEqual(on(left, AI_FEATURES, day.limits));
+    }
+    expect(pictures.kept.size).toBe(day.kept);
+    expect(usage.records.length - before).toBe(day.recorded);
   });
 });
 

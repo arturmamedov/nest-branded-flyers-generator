@@ -98,6 +98,8 @@ describe('the AI bundle (schema/ai.json) and the ai block of shared.json', () =>
       assumptionsMax: 12,
       features: ['flyer', 'share', 'photo'],
       featureNouns: { flyer: 'AI flyers', share: 'AI share texts', photo: 'picture reads' },
+      // The owner's answer (2026-10-06): the picture read alone, three tries for each read of its limit.
+      triesPerLimit: { photo: 3 },
       dayZone: 'Atlantic/Canary',
       timeoutMs: 25000,
       maxOutputTokens: 8000,

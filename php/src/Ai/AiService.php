@@ -70,7 +70,7 @@ final class AiService
             return ['enabled' => false];
         }
         try {
-            $used = $this->usage->countDay($actor->id, $this->day->day($this->clock->now()))['ok'];
+            $used = $this->usage->countDay($actor->id, $this->day->day($this->clock->now()));
         } catch (Throwable $e) {
             // The editor renders nothing without api/config, so the AI's own storage never decides whether the app
             // loads: a ledger that cannot be read hides the AI. The generation routes are not softened.
@@ -79,10 +79,11 @@ final class AiService
         }
         return [
             'enabled' => true,
-            'features' => array_map(function (string $name) use ($actor, $used): array {
-                $limit = $this->policy->dailyLimit($actor, $name);
-                return ['name' => $name, 'limit' => $limit, 'remaining' => max(0, $limit - ($used[$name] ?? 0))];
-            }, $features),
+            'features' => array_map(fn (string $name): array => [
+                'name' => $name,
+                'limit' => $this->policy->dailyLimit($actor, $name),
+                'remaining' => $this->left($actor, $name, $used),
+            ], $features),
         ];
     }
 
@@ -180,20 +181,34 @@ final class AiService
     }
 
     /**
-     * The feature's own daily limit, counted on the day of this instant; the same instant stamps the ledger. What the
-     * other features used of theirs does not count here, and the refusal names what ran out.
+     * What is left today of a feature for the actor: of its limit, which the generations that counted use up, and of
+     * its tries where the policy bounds them, which every generation that reached the provider uses up, a failed one
+     * too. The smaller of the two, never below zero: api/config's count and each route's refusal are both this.
+     *
+     * @param array{ok:array<string, int>, tried:array<string, int>} $used the actor's day in the ledger
+     */
+    private function left(Actor $actor, string $feature, array $used): int
+    {
+        $ofLimit = $this->policy->dailyLimit($actor, $feature) - ($used['ok'][$feature] ?? 0);
+        $tries = $this->policy->dailyTries($actor, $feature);
+        return max(0, $tries === null ? $ofLimit : min($ofLimit, $tries - ($used['tried'][$feature] ?? 0)));
+    }
+
+    /**
+     * What is left of the feature, counted on the day of this instant; the same instant stamps the ledger. What the
+     * other features used of theirs does not count here. With nothing left, of the limit or of the tries, the refusal
+     * is the one sentence, and names what ran out by the feature's limit (the owner's answer, 2026-10-06).
      *
      * @return array{string, int} the instant, and the generations of this feature left before this one
      */
     private function quota(Actor $actor, string $feature): array
     {
         $now = $this->clock->now();
-        $limit = $this->policy->dailyLimit($actor, $feature);
-        $used = $this->usage->countDay($actor->id, $this->day->day($now))['ok'][$feature] ?? 0;
-        if ($used >= $limit) {
-            throw $this->errors->make('ai_quota', ['limit' => $limit, 'what' => $this->facts['featureNouns'][$feature]]);
+        $remaining = $this->left($actor, $feature, $this->usage->countDay($actor->id, $this->day->day($now)));
+        if ($remaining === 0) {
+            throw $this->errors->make('ai_quota', ['limit' => $this->policy->dailyLimit($actor, $feature), 'what' => $this->facts['featureNouns'][$feature]]);
         }
-        return [$now, $limit - $used];
+        return [$now, $remaining];
     }
 
     /**
@@ -201,7 +216,9 @@ final class AiService
      * there, and the flyer is a second call they make (the owner's answers, 2026-10-06). The route has made the photo's
      * own checks and prepared the picture (Photos\PhotoIntake). The picture is kept before the provider is asked, so a
      * failed read keeps it and a disk that cannot take it stops the read with nothing spent. A read the provider
-     * answered counts, its words or none: an empty text is a picture with no words.
+     * answered counts, its words or none: an empty text is a picture with no words. A read that failed is free, and
+     * is one of the day's tries all the same (triesPerLimit): once those are gone the read is refused before its
+     * picture is kept.
      *
      * @return array{text:string, remaining:int}
      * @throws HttpError ai_off, ai_forbidden, ai_quota, ai_failed

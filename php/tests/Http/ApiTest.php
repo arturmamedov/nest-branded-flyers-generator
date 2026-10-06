@@ -429,7 +429,7 @@ final class ApiTest extends TestCase
         $config = AiConfig::fromArray(['provider' => 'fake', 'features' => $this->shared->ai()['features']], $this->shared->ai());
         $service = new AiService(
             new FakeProvider($bundle->examples, $this->shared->ai()),
-            new ConfigAiPolicy($config),
+            new ConfigAiPolicy($config, $this->shared->ai()['triesPerLimit']),
             $bundle,
             $this->hostels,
             $this->usage,
