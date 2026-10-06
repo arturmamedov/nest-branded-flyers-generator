@@ -1050,6 +1050,16 @@ nest-nav > nav a.ai-entry .ai-count {
     display: none;
   }
 
+  /* The three steps at their longest, two of them done, on one line of a phone 360 px wide: closer together. */
+  .ai-steps,
+  .ai-steps li {
+    gap: 4px;
+  }
+
+  .ai-steps li + li::before {
+    width: 8px;
+  }
+
   /* A phone's card: a smaller picture, so the title keeps most of the line. */
   .card-thumb {
     --thumb-w: 96;

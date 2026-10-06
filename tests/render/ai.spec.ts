@@ -1162,6 +1162,53 @@ test.describe('From a photo', () => {
       await expect(readPicture(page)).toBeEnabled();
     });
 
+    // 390 px is the brief's phone; 360 × 780 is the owner's own, a Galaxy S23.
+    for (const viewport of [
+      { width: 390, height: 844 },
+      { width: 360, height: 780 },
+    ]) {
+      test(`the steps fit a phone ${viewport.width} px wide: three names on one line under the switch and then in its place, the next button in view, and no sideways scroll`, async ({ page }) => {
+        // Routed, so nothing is spent.
+        await page.setViewportSize(viewport);
+        await withLeft(page, { photo: 2, flyer: 2 });
+        await page.route(apiRoute('ai/photo'), (route) => route.fulfill({ json: { text: 'Karaoke night 06/10 (today)\nFree event, Medano Nest hostel', remaining: 1 } }));
+        await page.route(apiRoute('ai/flyer'), (route) => route.fulfill({ json: { ...example.answer, remaining: 1 } }));
+        const sideways = () => page.evaluate(() => Math.max(...[document.documentElement, document.querySelector('.panel')!].map((el) => el.scrollWidth - el.clientWidth)));
+        const whole = { ratio: 1 };
+        /** The steps as they lie: every name whole on screen, and all three on one line. */
+        const onOneLine = async () => {
+          for (const name of await stepNames(page).all()) await expect(name).toBeInViewport(whole);
+          const tops = await steps(page).locator('li').evaluateAll((items) => items.map((li) => Math.round(li.getBoundingClientRect().top)));
+          const [needs, has] = await steps(page).evaluate((list) => [[...list.children].reduce((sum, li) => sum + li.getBoundingClientRect().width, 0), list.clientWidth].map(Math.round));
+          expect(new Set(tops).size, `one line (tops ${tops.join(', ')}; the names take ${needs} px of ${has}, before the gaps)`).toBe(1);
+          expect(await sideways()).toBeLessThanOrEqual(0);
+        };
+
+        // The first step, under the switch: with a photo as a phone takes it, Read is still on screen.
+        await page.goto('/#/ai');
+        await fromPhoto(page).click();
+        await expect(currentStep(page)).toHaveText('Picture');
+        await onOneLine();
+        await chooseInput(page).setInputFiles(await picture('IMG_2041.png', 600, 800));
+        await expect(readPicture(page), 'the next step, without scrolling').toBeInViewport(whole);
+
+        // The second, in the switch's place: the picture, its way back, and Generate on screen.
+        await readPicture(page).click();
+        await expect(currentStep(page)).toHaveText('Check the words');
+        await onOneLine();
+        await expect(chosen(page).locator('img')).toBeInViewport(whole);
+        await expect(changePicture(page)).toBeInViewport(whole);
+        await expect(generate(page), 'the next step, without scrolling').toBeInViewport(whole);
+
+        // The third, at its longest: two steps done.
+        await generate(page).click();
+        await expect(preview(page)).toContainText(brief.text!.headline1!);
+        await expect(stepNames(page)).toHaveText(['Picture ✓', 'Check the words ✓', 'Flyer']);
+        await onOneLine();
+        await expect(openInEditor(page), 'the finish').toBeInViewport(whole);
+      });
+    }
+
     test('the photo way fits a phone: the switch, both buttons and Read in view with a picture chosen, the waiting line in view, and no sideways scroll', async ({ page }) => {
       // Routed and held, so nothing is spent and the waiting state can be seen.
       await withLeft(page, { photo: 2 });
