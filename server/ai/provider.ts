@@ -4,10 +4,22 @@ import { AI_SCHEMA_NAMES, type AiProvider } from '../../src/shared/ai.js';
    Three implementations behind it (providers/): OpenAI and Anthropic over HTTPS, and the fake the tests run on.
    Which one runs is configuration (server/config.ts, AI_PROVIDER), never code. PHP's Ai\LlmProvider is the twin. */
 
+/** A piece of a turn that is more than text. A picture travels as base64 with its type; its size in pixels goes
+    with it for the ledger and the fake, and no adapter sends it. */
+export type LlmPart =
+  | { type: 'text'; text: string }
+  | { type: 'image'; mediaType: string; data: string; width: number; height: number };
+
+/** A turn: text, or parts when it carries a picture (the picture first, as both providers read best). A text turn
+    goes out as the string it is. The one message type: prompt.ts builds these, the adapters send them. */
 export interface LlmMessage {
   role: 'user' | 'assistant';
-  content: string;
+  content: string | LlmPart[];
 }
+
+/** The text of a turn: the string, or its text parts joined. What the fake reads its markers from. */
+export const textOf = (content: LlmMessage['content']): string =>
+  typeof content === 'string' ? content : content.flatMap((part) => (part.type === 'text' ? [part.text] : [])).join('\n');
 
 /** What a generation sends: the prompt (prompt.ts), the JSON Schema the answer must fit, and the two limits. */
 export interface LlmCall {

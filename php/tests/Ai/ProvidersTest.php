@@ -51,7 +51,7 @@ final class ProvidersTest extends TestCase
         $v = self::fixture($adapter);
         $good = self::good($v);
         $http = self::stub($good->status, self::textOf($good));
-        self::make($adapter, $request->config, $http)->complete(self::call($v));
+        self::make($adapter, $request->config, $http)->complete(self::call($v, $request->call ?? 'call'));
         self::assertCount(1, $http->seen);
         self::assertSame($request->url, $http->seen[0]['url']);
         JsonAssert::same($request->headers, $http->seen[0]['headers']);
@@ -117,10 +117,15 @@ final class ProvidersTest extends TestCase
         return $adapter === 'openai' ? new OpenAiProvider($settings, $http) : new AnthropicProvider($settings, $http);
     }
 
-    private static function call(stdClass $v): LlmCall
+    /** The fixture's `call`, or the one a request entry names (`picture`: a turn that carries a picture). */
+    private static function call(stdClass $v, string $which = 'call'): LlmCall
     {
-        $c = $v->call;
-        $messages = array_map(static fn (stdClass $m): array => ['role' => $m->role, 'content' => $m->content], $c->messages);
+        $c = $v->$which;
+        $parts = static fn (array $content): array => array_map(static fn (stdClass $part): array => (array) $part, $content);
+        $messages = array_map(
+            static fn (stdClass $m): array => ['role' => $m->role, 'content' => is_array($m->content) ? $parts($m->content) : $m->content],
+            $c->messages,
+        );
         return new LlmCall($c->system, $messages, $c->schema, $c->schemaName, $c->maxOutputTokens, $c->timeoutMs);
     }
 

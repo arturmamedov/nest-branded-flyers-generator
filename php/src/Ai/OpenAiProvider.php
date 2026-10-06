@@ -39,7 +39,10 @@ final class OpenAiProvider implements LlmProvider
         $body = [
             'model' => $this->config->model,
             'instructions' => $call->system,
-            'input' => array_map(static fn (array $m): array => ['role' => $m['role'], 'content' => $m['content']], $call->messages),
+            'input' => array_map(
+                static fn (array $m): array => ['role' => $m['role'], 'content' => is_string($m['content']) ? $m['content'] : array_map(self::sent(...), $m['content'])],
+                $call->messages,
+            ),
             'text' => ['format' => ['type' => 'json_schema', 'name' => $call->schemaName, 'schema' => ProviderSchema::toOpenAi($call->schema), 'strict' => true]],
             'max_output_tokens' => $call->maxOutputTokens,
             'store' => false,
@@ -79,6 +82,20 @@ final class OpenAiProvider implements LlmProvider
             ProviderAnswer::usage($data->usage->input_tokens ?? null, $data->usage->output_tokens ?? null),
             is_string($data->model ?? null) ? $data->model : $this->config->model,
         );
+    }
+
+    /**
+     * A part of a user turn (docs read 2026-10-06): a picture is an `input_image` whose `image_url` is a data URL, at
+     * `high` detail so small print is read; text is an `input_text`.
+     *
+     * @param array<string, mixed> $part
+     * @return array<string, string>
+     */
+    private static function sent(array $part): array
+    {
+        return $part['type'] === 'image'
+            ? ['type' => 'input_image', 'image_url' => "data:{$part['mediaType']};base64,{$part['data']}", 'detail' => 'high']
+            : ['type' => 'input_text', 'text' => $part['text']];
     }
 
     /**

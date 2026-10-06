@@ -1,11 +1,32 @@
 {
-  "_note": "The OpenAI adapter (server/ai/providers/openai.ts; PHP Ai\\OpenAiProvider): the Responses API request built for one call, and what each recorded answer becomes. Both backends must send these bytes and read these answers alike. The key is 'test-key'; no failure may carry it.",
+  "_note": "The OpenAI adapter (server/ai/providers/openai.ts; PHP Ai\\OpenAiProvider): the Responses API request built for a call (`call`, text turns; `picture`, a turn that carries a picture: a request entry names it with 'call'), and what each recorded answer becomes. Both backends must send these bytes and read these answers alike. The key is 'test-key'; no failure may carry it.",
   "call": {
     "system": "SYSTEM",
     "messages": [
       { "role": "user", "content": "Example text" },
       { "role": "assistant", "content": "{\"a\":1}" },
       { "role": "user", "content": "The real text" }
+    ],
+    "schema": {
+      "type": "object",
+      "properties": { "a": { "type": "integer" }, "b": { "type": "string", "maxLength": 5 } },
+      "required": ["a"],
+      "additionalProperties": false
+    },
+    "schemaName": "nest_test",
+    "maxOutputTokens": 8000,
+    "timeoutMs": 25000
+  },
+  "picture": {
+    "system": "SYSTEM",
+    "messages": [
+      {
+        "role": "user",
+        "content": [
+          { "type": "image", "mediaType": "image/png", "data": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC", "width": 1, "height": 1 },
+          { "type": "text", "text": "Write out the words." }
+        ]
+      }
     ],
     "schema": {
       "type": "object",
@@ -77,6 +98,41 @@
         "max_output_tokens": 8000,
         "store": false,
         "reasoning": { "effort": "low" }
+      }
+    },
+    {
+      "name": "a turn with a picture: an input_image part as a data URL at high detail, then the text",
+      "call": "picture",
+      "config": { "apiKey": "test-key", "model": "gpt-6-luna", "effort": null },
+      "url": "https://api.openai.com/v1/responses",
+      "headers": { "Authorization": "Bearer test-key", "Content-Type": "application/json" },
+      "body": {
+        "model": "gpt-6-luna",
+        "instructions": "SYSTEM",
+        "input": [
+          {
+            "role": "user",
+            "content": [
+              { "type": "input_image", "image_url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC", "detail": "high" },
+              { "type": "input_text", "text": "Write out the words." }
+            ]
+          }
+        ],
+        "text": {
+          "format": {
+            "type": "json_schema",
+            "name": "nest_test",
+            "schema": {
+              "type": "object",
+              "properties": { "a": { "type": "integer" }, "b": { "anyOf": [{ "type": "string", "maxLength": 5 }, { "type": "null" }] } },
+              "required": ["a", "b"],
+              "additionalProperties": false
+            },
+            "strict": true
+          }
+        },
+        "max_output_tokens": 8000,
+        "store": false
       }
     }
   ],

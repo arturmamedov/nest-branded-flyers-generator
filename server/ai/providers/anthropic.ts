@@ -1,5 +1,5 @@
 import { fetchJson, type FetchJson } from '../http.js';
-import { LlmFailure, type LlmCall, type LlmProvider, type LlmResult, type ProviderConfig } from '../provider.js';
+import { LlmFailure, type LlmCall, type LlmPart, type LlmProvider, type LlmResult, type ProviderConfig } from '../provider.js';
 import { toAnthropicSchema } from '../providerSchema.js';
 import { answerBody, answerJson, modelOf, redact, usageOf } from './common.js';
 
@@ -21,6 +21,13 @@ interface AnthropicResponse {
   usage?: { input_tokens?: number; output_tokens?: number } | null;
 }
 
+/** A part of a turn (docs read 2026-10-06): a picture is an `image` block with a `base64` source; text is a `text`
+    block. */
+const block = (p: LlmPart) =>
+  p.type === 'image'
+    ? { type: 'image', source: { type: 'base64', media_type: p.mediaType, data: p.data } }
+    : { type: 'text', text: p.text };
+
 export class AnthropicProvider implements LlmProvider {
   readonly name = 'anthropic' as const;
   readonly model: string;
@@ -39,7 +46,7 @@ export class AnthropicProvider implements LlmProvider {
       model: this.model,
       max_tokens: call.maxOutputTokens,
       system: call.system,
-      messages: call.messages.map((m) => ({ role: m.role, content: m.content })),
+      messages: call.messages.map((m) => ({ role: m.role, content: typeof m.content === 'string' ? m.content : m.content.map(block) })),
       output_config: outputConfig,
     };
 

@@ -131,7 +131,7 @@ final class AiService
         [$now, $remaining] = $this->quota($actor, 'share');
 
         $prompt = $this->prompts->share($hostels, $now, $request);
-        $input = $prompt->messages === [] ? '' : $prompt->messages[array_key_last($prompt->messages)]['content'];
+        $input = $prompt->messages === [] ? '' : LlmCall::textOf($prompt->messages[array_key_last($prompt->messages)]['content']);
         $answer = $this->generate('share', $actor, $now, $input, $prompt, $this->bundle->schemas['shareAnswer']);
         return ['share' => $answer->share, 'remaining' => $remaining - 1];
     }

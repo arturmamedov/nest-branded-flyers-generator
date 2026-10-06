@@ -15,7 +15,7 @@ import type { AiUsageCounts, AiUsageRepository, Clock, HostelRepository } from '
 import type { Actor } from './actor.js';
 import type { AiPolicy } from './policy.js';
 import { buildFlyerCall, buildShareCall, type Prompt } from './prompt.js';
-import { LlmFailure, SCHEMA_NAMES, type LlmProvider, type LlmResult } from './provider.js';
+import { LlmFailure, SCHEMA_NAMES, textOf, type LlmProvider, type LlmResult } from './provider.js';
 
 /* A generation, end to end (docs/api-contract.md, "The AI assistant"): the checks in their order, the prompt, the
    provider, the answer held to its schema, the ledger record, what is left. It owns no HTTP (the routes pass the
@@ -108,7 +108,7 @@ export class AiService {
     const { now, remaining } = await this.quota(actor, 'share');
 
     const prompt = buildShareCall(this.deps.bundle, hostels, now, request);
-    const input = prompt.messages.at(-1)?.content ?? '';
+    const input = textOf(prompt.messages.at(-1)?.content ?? '');
     const answer = await this.generate('share', actor, now, input, prompt, SCHEMA_NAMES.share, this.deps.bundle.schemas.shareAnswer, AiShareAnswerSchema);
     return { share: answer.share, remaining: remaining - 1 };
   }

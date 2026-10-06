@@ -1,5 +1,6 @@
 import { aiDateLine } from '../../src/shared/ai.js';
 import type { AiAssumption, Brief, FlyerData, FlyerText, Template, WeekRow } from '../../src/shared/schema.js';
+import type { LlmMessage } from './provider.js';
 
 /* What a provider is sent, built from the generated bundle (schema/ai.json: the prompts and the few-shot examples),
    the site's hostels and the day. The same bytes on both backends: PHP's Ai\PromptBuilder is the twin, and
@@ -23,14 +24,9 @@ export interface PromptHostel {
   island: string;
 }
 
-export interface PromptMessage {
-  role: 'user' | 'assistant';
-  content: string;
-}
-
 export interface Prompt {
   system: string;
-  messages: PromptMessage[];
+  messages: LlmMessage[];
 }
 
 /** The flyer as copy alone, whichever side it comes from: a brief, or the data the editor holds. */
@@ -52,8 +48,8 @@ export type ShareInput = {
 };
 
 const FENCE = '"""';
-const user = (content: string): PromptMessage => ({ role: 'user', content });
-const assistant = (content: string): PromptMessage => ({ role: 'assistant', content });
+const user = (content: LlmMessage['content']): LlmMessage => ({ role: 'user', content });
+const assistant = (content: string): LlmMessage => ({ role: 'assistant', content });
 
 /** The text between its fences. A run of three or more quotes inside it is cut to two, so the text can never close
     the fence itself and have what follows read as outside the data. The ledger keeps the text as it was typed. */

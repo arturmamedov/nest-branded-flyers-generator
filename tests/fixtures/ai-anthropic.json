@@ -1,11 +1,32 @@
 {
-  "_note": "The Anthropic adapter (server/ai/providers/anthropic.ts; PHP Ai\\AnthropicProvider): the Messages API request built for one call, and what each recorded answer becomes. Both backends must send these bytes and read these answers alike. The key is 'test-key'; no failure may carry it.",
+  "_note": "The Anthropic adapter (server/ai/providers/anthropic.ts; PHP Ai\\AnthropicProvider): the Messages API request built for a call (`call`, text turns; `picture`, a turn that carries a picture: a request entry names it with 'call'), and what each recorded answer becomes. Both backends must send these bytes and read these answers alike. The key is 'test-key'; no failure may carry it.",
   "call": {
     "system": "SYSTEM",
     "messages": [
       { "role": "user", "content": "Example text" },
       { "role": "assistant", "content": "{\"a\":1}" },
       { "role": "user", "content": "The real text" }
+    ],
+    "schema": {
+      "type": "object",
+      "properties": { "a": { "type": "integer" }, "b": { "type": "string", "maxLength": 5 } },
+      "required": ["a"],
+      "additionalProperties": false
+    },
+    "schemaName": "nest_test",
+    "maxOutputTokens": 8000,
+    "timeoutMs": 25000
+  },
+  "picture": {
+    "system": "SYSTEM",
+    "messages": [
+      {
+        "role": "user",
+        "content": [
+          { "type": "image", "mediaType": "image/png", "data": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC", "width": 1, "height": 1 },
+          { "type": "text", "text": "Write out the words." }
+        ]
+      }
     ],
     "schema": {
       "type": "object",
@@ -70,6 +91,38 @@
             }
           },
           "effort": "low"
+        }
+      }
+    },
+    {
+      "name": "a turn with a picture: an image block with a base64 source, then the text block",
+      "call": "picture",
+      "config": { "apiKey": "test-key", "model": "claude-haiku-4-5", "effort": null },
+      "url": "https://api.anthropic.com/v1/messages",
+      "headers": { "x-api-key": "test-key", "anthropic-version": "2023-06-01", "Content-Type": "application/json" },
+      "body": {
+        "model": "claude-haiku-4-5",
+        "max_tokens": 8000,
+        "system": "SYSTEM",
+        "messages": [
+          {
+            "role": "user",
+            "content": [
+              { "type": "image", "source": { "type": "base64", "media_type": "image/png", "data": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC" } },
+              { "type": "text", "text": "Write out the words." }
+            ]
+          }
+        ],
+        "output_config": {
+          "format": {
+            "type": "json_schema",
+            "schema": {
+              "type": "object",
+              "properties": { "a": { "type": "integer" }, "b": { "type": "string", "description": "At most 5 characters." } },
+              "required": ["a"],
+              "additionalProperties": false
+            }
+          }
         }
       }
     }

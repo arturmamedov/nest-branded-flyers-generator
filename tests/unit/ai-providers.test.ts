@@ -18,7 +18,9 @@ type Config = { apiKey: string; model: string; effort: string | null };
 type Answer = { name: string; status: number; body?: unknown; text?: string; result?: unknown; failure?: string };
 type Vectors = {
   call: LlmCall;
-  requests: { name: string; config: Config; url: string; headers: Record<string, string>; body: unknown }[];
+  /** A call whose turn carries a picture; a request entry replays it by naming it. */
+  picture: LlmCall;
+  requests: { name: string; call?: 'picture'; config: Config; url: string; headers: Record<string, string>; body: unknown }[];
   answers: Answer[];
 };
 const fixture = (name: string): Vectors => JSON.parse(readFileSync(join(import.meta.dirname, '../fixtures', name), 'utf8')) as Vectors;
@@ -49,7 +51,7 @@ for (const adapter of adapters) {
     for (const r of v.requests) {
       it(`sends ${r.name}`, async () => {
         const { fetch, seen } = stub({ status: good.status, text: textOf(good) });
-        await adapter.make(r.config, fetch).complete(v.call);
+        await adapter.make(r.config, fetch).complete(v[r.call ?? 'call']);
         expect(seen).toHaveLength(1);
         expect(seen[0].url).toBe(r.url);
         expect(seen[0].init.headers).toEqual(r.headers);

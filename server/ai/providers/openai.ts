@@ -1,5 +1,5 @@
 import { fetchJson, type FetchJson } from '../http.js';
-import { LlmFailure, type LlmCall, type LlmProvider, type LlmResult, type ProviderConfig } from '../provider.js';
+import { LlmFailure, type LlmCall, type LlmPart, type LlmProvider, type LlmResult, type ProviderConfig } from '../provider.js';
 import { dropNulls, toOpenAiSchema } from '../providerSchema.js';
 import { answerBody, answerJson, modelOf, redact, usageOf } from './common.js';
 
@@ -26,6 +26,13 @@ interface OpenAiResponse {
   usage?: { input_tokens?: number; output_tokens?: number } | null;
 }
 
+/** A part of a user turn (docs read 2026-10-06): a picture is an `input_image` whose `image_url` is a data URL, at
+    `high` detail so small print is read; text is an `input_text`. */
+const part = (p: LlmPart) =>
+  p.type === 'image'
+    ? { type: 'input_image', image_url: `data:${p.mediaType};base64,${p.data}`, detail: 'high' }
+    : { type: 'input_text', text: p.text };
+
 export class OpenAiProvider implements LlmProvider {
   readonly name = 'openai' as const;
   readonly model: string;
@@ -41,7 +48,7 @@ export class OpenAiProvider implements LlmProvider {
     const body: Record<string, unknown> = {
       model: this.model,
       instructions: call.system,
-      input: call.messages.map((m) => ({ role: m.role, content: m.content })),
+      input: call.messages.map((m) => ({ role: m.role, content: typeof m.content === 'string' ? m.content : m.content.map(part) })),
       text: { format: { type: 'json_schema', name: call.schemaName, schema: toOpenAiSchema(call.schema), strict: true } },
       max_output_tokens: call.maxOutputTokens,
       store: false,

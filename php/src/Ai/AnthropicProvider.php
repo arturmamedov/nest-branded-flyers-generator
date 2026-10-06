@@ -45,7 +45,10 @@ final class AnthropicProvider implements LlmProvider
             'model' => $this->config->model,
             'max_tokens' => $call->maxOutputTokens,
             'system' => $call->system,
-            'messages' => array_map(static fn (array $m): array => ['role' => $m['role'], 'content' => $m['content']], $call->messages),
+            'messages' => array_map(
+                static fn (array $m): array => ['role' => $m['role'], 'content' => is_string($m['content']) ? $m['content'] : array_map(self::block(...), $m['content'])],
+                $call->messages,
+            ),
             'output_config' => $outputConfig,
         ];
 
@@ -76,6 +79,20 @@ final class AnthropicProvider implements LlmProvider
             ProviderAnswer::usage($data->usage->input_tokens ?? null, $data->usage->output_tokens ?? null),
             is_string($data->model ?? null) ? $data->model : $this->config->model,
         );
+    }
+
+    /**
+     * A part of a turn (docs read 2026-10-06): a picture is an `image` block with a `base64` source; text is a `text`
+     * block.
+     *
+     * @param array<string, mixed> $part
+     * @return array<string, mixed>
+     */
+    private static function block(array $part): array
+    {
+        return $part['type'] === 'image'
+            ? ['type' => 'image', 'source' => ['type' => 'base64', 'media_type' => $part['mediaType'], 'data' => $part['data']]]
+            : ['type' => 'text', 'text' => $part['text']];
     }
 
     /** The first `text` block's text; a thinking block before it is skipped. */
