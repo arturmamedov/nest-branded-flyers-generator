@@ -45,6 +45,18 @@ describe('the AI bundle (schema/ai.json) and the ai block of shared.json', () =>
     expect(bundle.prompts.photo).toMatch(/\n## Limits\n[^\n]+\n- text: at most 4000 characters\n$/);
   });
 
+  // The owner's answers (2026-10-06), from eleven pictures read for real (docs/reports/ai-flyer-from-photo.md, "The
+  // real reads"): the fast models kept a beer brand printed on a chalkboard, the two rules about lines pulled them
+  // two ways on a list of activities, and every model wrote out a sign that announces no event.
+  it('the reader’s rules say what the real reads asked for', () => {
+    const rules = bundle.prompts.photo as string;
+    expect(rules).toContain("a sponsor's or a maker's name printed on a board or a poster");
+    expect(rules).toContain('each activity on one line of its own with its day, its time and its place');
+    expect(rules).toContain('A picture that announces no event: answer with an empty text');
+    // The guard against emptying a real poster: one that names an activity and gives no date is still an event.
+    expect(rules).toContain('A poster that names one activity is an event even when it gives no day, time or place');
+  });
+
   it('the picture read answers its words alone, strictly: { text }', () => {
     expect(bundle.schemas.photoAnswer).toEqual({ type: 'object', properties: { text: { type: 'string', maxLength: 4000 } }, required: ['text'], additionalProperties: false });
   });
