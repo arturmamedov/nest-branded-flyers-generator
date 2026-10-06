@@ -5,6 +5,10 @@ A standalone brief for the build sessions. Read `CLAUDE.md` and `README.md` firs
 four stages. Run one stage per session: start in plan mode, build it, and stop at its checkpoint for Artur's
 go-ahead. Suggested: Opus 5.5 at high effort.
 
+**Where it stands:** `docs/reports/ai-flyer-from-photo.md` has one section per stage that is built, and the next
+stage is the first one without a section. Stage 1 was built on 2026-10-06. "What the code holds today" below was
+read before it: its first block, the cap, describes what stage 1 replaced.
+
 ## Why
 
 Staff make a flyer today by typing an idea into "Create with AI". Artur wants the same from a picture: a staff
@@ -75,7 +79,8 @@ on every implementation, one source per fact with generated copies, no speculati
 
 ## What the code holds today (read at `684189e`)
 
-**The cap is one number and one count.**
+**The cap is one number and one count.** (So it was before stage 1. The report's stage 1 section says what the
+code holds now: a limit and a count per feature.)
 - `AI_DAILY_LIMIT` (3) and `AI_DAILY_LIMIT_MAX` (20) are in `src/shared/ai.ts`. A site sets its own through
   `AI_DAILY_LIMIT` (`loadAiSettings`, `server/config.ts`) or `'dailyLimit'` (`php/src/Ai/AiConfig.php`).
 - The policy answers `runs(feature)`, `mayUse(actor)` and `dailyLimit(actor)` (`server/ai/policy.ts`,

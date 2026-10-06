@@ -142,14 +142,18 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
       loaders resolve a number for every feature.
     - `api/config` lists each running feature as `{ name, limit, remaining }`, and each route's `remaining` is its
       own feature's. `ai_quota` names what ran out, from `AI_FEATURE_NOUNS` (`aiQuotaVars()` fills the sentence).
-    - The client keeps a count per feature (`App.tsx`): a limit reached empties that feature's alone. An answer
-      in an older shape shows no AI, as any answer `aiFor()` does not know.
+    - The client keeps a count per feature: a limit reached empties that feature's alone. `aiFor()` shows a
+      feature and `aiWithRemaining()` moves its count, both in `src/shared/ai.ts` and the only readers of the
+      answer. They read it loosely: an entry they cannot read stays as it came and never costs the page, and an
+      answer in an older shape shows no AI.
   - The ledger (`aiUsage` in each storage driver; `ai-usage/YYYY-MM.json` in the JSON store) keeps one append-only
     record per generation attempted. A feature's limit is counted from the Canary Islands day's `ok` records of
     that feature for the actor: today one anonymous actor, so site-wide. `countOk(actorId, day)` answers every
     feature's count from one read, because `api/config` asks on every page load. A ledger that cannot be read
     hides the AI (`status()` answers `enabled: false` and logs why) and never takes `api/config` down: the editor
     renders nothing without that answer. Node's drivers check a record before writing it (`checkedAiUsage`).
+    A record of a feature a release does not know (a later release's, met after going back) counts under its own
+    name on PHP and in SQLite, so it moves no count the release shows; Node's JSON driver refuses the month.
   - The client: `src/editor/AiPage.tsx` (`#/ai`, a focus page like the editor), `handoff.ts` (the unsaved flyer
     handed to the editor in memory), `panel.tsx` and `share.tsx` (what both focus pages share), and "Write with AI"
     in `Editor.tsx`. `fields.ts` holds what the panel calls each field: the editor's labels come from it, and
@@ -157,8 +161,9 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
     so a key no field has is shown as written).
   - No test touches a provider. The render suite has two projects: `render` (every spec but `ai.spec.ts`, the AI
     off whatever `.env` holds) and `ai` (`ai.spec.ts` on a second server with the fake, port 8798, every feature
-    named and the limit pinned, spending two of the flyer's three and one of the share text's; a test that needs
-    another count, or a site that runs one feature, routes `api/config`). The contract suite's `node-ai` and `php-ai` run the AI routes on the fake
+    named and each feature's limit pinned in `playwright.config.ts`, since that server reads `.env` too; it spends
+    two of the flyer's three and one of the share text's, and a test that needs another count, or a site that runs
+    one feature, routes `api/config`). The contract suite's `node-ai` and `php-ai` run the AI routes on the fake
     with every feature named, both on the JSON driver, so `ai.test.ts` can damage the ledger's file.
   - `npm run ai:smoke` (`scripts/ai/smoke.ts`) is the one thing that calls a real provider, by hand.
     `scripts/site.ts` is how a script calls a site's API (`flyers:post` too): it never follows a redirect.
@@ -338,6 +343,25 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
     backends and a backfill); where a refused `config.php` logs its reason (the host's own PHP log today, not
     `data/php-errors.log`); Node reads a few number spellings PHP refuses; the Node start-up line prints
     `AI_MODEL` as typed.
+- In progress: a flyer from a photo (brief `docs/prompts/ai-flyer-from-photo.md`, four stages, one session each;
+  report `docs/reports/ai-flyer-from-photo.md`, one section per stage built). Designed with Artur on 2026-10-06:
+  his answers are quoted in the brief, and are not to be reopened.
+  - **Stage 1 is done: a daily limit per feature** (2026-10-06, on `feat/ai-feature-switches` by Artur's choice,
+    on top of `684189e`). `main` stays at `684189e` until he says; nothing is pushed.
+    - A review found no defect in the counting, the settings or the wording on either backend. What it and the
+      look found is fixed, each test first: a `null` entry in `api/config`'s list that took the page down
+      (`aiWithRemaining()`), the browser suite's unpinned limit, "Try again (uses one of 0 left)".
+    - The look ran in Playwright's Chrome on both backends, with the fake: nothing was spent, and no provider
+      was called in the stage. The Laragon copy, `.env` and the live site were not touched.
+    - No release was built. A host needs the release first and `'dailyLimits'` second.
+    - For Artur to decide (the report has each): the sentence at a limit of 1 ("Today’s 1 AI share texts are used
+      up"); a feature with nothing for its number is refused (`['share' => null]`); the words "Try again (none
+      left today)".
+  - **Stages 2 to 4 are not started,** and not to be started unasked: the read on both backends, the page, the
+    picture as the flyer's photo. They are for a new session, on `feat/ai-flyer-from-photo`, cut from stage 1's
+    last commit. Ask Artur which branch before cutting it.
+  - `docs/ai-flyers/image-examples/` is untracked: the first case's picture shows Artur's browser tabs, and goes
+    into git in stage 2, after he has looked at it.
 - Waiting, don't start unasked: step 7 (drag/nudge everything on the canvas, sizes, colours, order, reset),
   step 9 (doodle picker + icon uploads). With two canvases and two templates: step 7's stored `overrides`
   (dx/dy) are shared by every canvas, so it must decide how they apply per canvas; step 9, when it stores
