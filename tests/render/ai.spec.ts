@@ -1,8 +1,9 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Dialog, Page } from '@playwright/test';
+import sharp from 'sharp';
 import { expect, test } from '../browser';
-import { EDITOR_VIEWPORT, apiCall, apiRoute, backToLibrary, saveNew, status } from '../editor';
+import { EDITOR_VIEWPORT, apiCall, apiRoute, backToLibrary, dropFile, paste, saveNew, status, type FilePayload } from '../editor';
 import { LEAVE_PROMPT } from '../../src/editor/leaveGuard';
 import { AI_DAILY_LIMIT, AI_FEATURES, aiFor, aiQuotaVars, type AiFeature } from '../../src/shared/ai';
 import { apiError } from '../../src/shared/errors';
@@ -447,6 +448,27 @@ const ways = (page: Page) => page.getByRole('group', { name: 'Start from' });
 const fromIdea = (page: Page) => ways(page).getByRole('button', { name: 'From your idea', exact: true });
 const fromPhoto = (page: Page) => ways(page).getByRole('button', { name: 'From a photo', exact: true });
 const readPicture = (page: Page) => page.getByRole('button', { name: /^✨ Read the picture/ });
+/** The box a picture is chosen in, and dropped on. */
+const picker = (page: Page) => page.locator('.ai-picker');
+/** The input behind "Choose a picture" (the one behind "Take a photo" asks for the camera). */
+const chooseInput = (page: Page) => picker(page).locator('input[type=file]:not([capture])');
+/** The chosen picture, small, with its name. */
+const chosen = (page: Page) => page.locator('.ai-picture');
+
+/** A small picture, made here. Its width steers the fake (AI_FAKE.pictureWidths); 64 is no steer. */
+async function picture(name: string, width = 64): Promise<FilePayload> {
+  const buffer = await sharp({ create: { width, height: 8, channels: 3, background: '#0d6f82' } }).png().toBuffer();
+  return { name, mimeType: 'image/png', buffer };
+}
+
+/** Every read a test's page sent, to say that nothing was. */
+function readsSent(page: Page): string[] {
+  const sent: string[] = [];
+  page.on('request', (r) => {
+    if (r.method() === 'POST' && apiRoute('ai/photo')(new URL(r.url()))) sent.push(r.url());
+  });
+  return sent;
+}
 
 test.describe('From a photo', () => {
   test('where the read runs the page has two ways in: From your idea is on, and From a photo shows the reads’ own count', async ({ page }) => {
@@ -499,5 +521,56 @@ test.describe('From a photo', () => {
     await expect(generate(page)).toContainText('2 left today');
     await expect(ways(page)).toHaveCount(0);
     await expect(readPicture(page)).toHaveCount(0);
+  });
+
+  test('a picture is chosen with the button, dropped on the box or pasted: it shows small with its name, and nothing is sent until Read', async ({ page }) => {
+    const sent = readsSent(page);
+    await page.goto('/#/ai');
+    await fromPhoto(page).click();
+    await expect(chosen(page)).toHaveCount(0);
+
+    // Chosen with the button.
+    await chooseInput(page).setInputFiles(await picture('poster.png'));
+    await expect(chosen(page)).toContainText('poster.png');
+    const shown = await chosen(page).locator('img').evaluate((img: HTMLImageElement) => img.decode().then(() => img.naturalWidth));
+    expect(shown, 'the picture itself, drawn').toBe(64);
+    await expect(readPicture(page)).toBeEnabled();
+    await chosen(page).getByRole('button', { name: 'Remove', exact: true }).click();
+    await expect(chosen(page)).toHaveCount(0);
+    await expect(readPicture(page)).toBeDisabled();
+
+    // Dropped on the box.
+    await dropFile(page, picker(page), await picture('board.png'));
+    await expect(chosen(page)).toContainText('board.png');
+
+    // Pasted, as a screenshot is: it takes the place of the one before.
+    await paste(page, await picture('image.png'));
+    await expect(chosen(page)).toContainText('image.png');
+    await expect(chosen(page)).not.toContainText('board.png');
+    // Text on the clipboard is no picture.
+    await paste(page, 'Yoga tomorrow at 9');
+    await expect(chosen(page)).toContainText('image.png');
+
+    // The picture is the page's: a look at the other way keeps it.
+    await fromIdea(page).click();
+    await fromPhoto(page).click();
+    await expect(chosen(page)).toContainText('image.png');
+    await expect(readPicture(page)).toBeEnabled();
+    expect(sent, 'choosing spends nothing').toEqual([]);
+  });
+
+  test('a picture dropped beside the box, or pasted on From your idea, is not chosen', async ({ page }) => {
+    await page.goto('/#/ai');
+    // The page is up and the idea box has the focus, as when a staff member pastes into it.
+    await idea(page).click();
+    await paste(page, await picture('pasted.png'));
+    await fromPhoto(page).click();
+    await expect(readPicture(page)).toBeVisible();
+    await expect(chosen(page)).toHaveCount(0);
+    // The stage is no place for a picture: the page refuses the drop, so the browser never opens the file in the tab.
+    await dropFile(page, page.locator('.stage'), await picture('stray.png'));
+    await expect(chosen(page)).toHaveCount(0);
+    await expect(page).toHaveURL(/#\/ai$/);
+    await expect(readPicture(page)).toBeDisabled();
   });
 });

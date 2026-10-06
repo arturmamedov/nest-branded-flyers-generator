@@ -55,6 +55,8 @@ export function AiPage({
 }) {
   const [chosenWay, setWay] = useState<Way>('idea');
   const way: Way = photo ? chosenWay : 'idea';
+  // The picture to read. It is kept here, so it is still chosen after a look at the other way.
+  const [picture, setPicture] = useState<File | null>(null);
   const [idea, setIdea] = useState('');
   const [hostel, setHostel] = useState('');
   const [busy, setBusy] = useState(false);
@@ -116,7 +118,7 @@ export function AiPage({
             </div>
           )}
           {way === 'photo' && photo ? (
-            <AiPhoto ai={photo} />
+            <AiPhoto ai={photo} picture={picture} onPick={setPicture} />
           ) : (
             <>
               <Field label="Your idea">

@@ -113,9 +113,9 @@ export async function filterLibrary(page: Page, filter: 'Hostel' | 'Template', o
   await expect(page.getByText('Loading…', { exact: true })).toHaveCount(0);
 }
 
-/** Drops a file on the preview the way the OS does: a drop event carrying a DataTransfer with the file in it. */
-export async function dropFile(page: Page, target: Locator, file: FilePayload) {
-  const dataTransfer = await page.evaluateHandle(
+/** A DataTransfer in the page with the file in it: what a drop or a paste carries. */
+const transferOf = (page: Page, file: FilePayload) =>
+  page.evaluateHandle(
     ({ name, mimeType, base64 }) => {
       const dt = new DataTransfer();
       dt.items.add(new File([Uint8Array.from(atob(base64), (c) => c.charCodeAt(0))], name, { type: mimeType }));
@@ -123,6 +123,24 @@ export async function dropFile(page: Page, target: Locator, file: FilePayload) {
     },
     { name: file.name, mimeType: file.mimeType, base64: file.buffer.toString('base64') },
   );
+
+/** Drops a file on the preview the way the OS does: a drop event carrying a DataTransfer with the file in it. */
+export async function dropFile(page: Page, target: Locator, file: FilePayload) {
+  const dataTransfer = await transferOf(page, file);
   await target.dispatchEvent('dragover', { dataTransfer });
   await target.dispatchEvent('drop', { dataTransfer });
+}
+
+/** Pastes into the page the way Ctrl+V does: a paste event on what has the focus, carrying a file (a screenshot off
+    the clipboard) or plain text. */
+export async function paste(page: Page, what: FilePayload | string) {
+  const clipboardData =
+    typeof what === 'string'
+      ? await page.evaluateHandle((text) => {
+          const dt = new DataTransfer();
+          dt.setData('text/plain', text);
+          return dt;
+        }, what)
+      : await transferOf(page, what);
+  await page.evaluate((dt) => (document.activeElement ?? document.body).dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true })), clipboardData);
 }

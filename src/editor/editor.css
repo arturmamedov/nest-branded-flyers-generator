@@ -663,6 +663,47 @@ nest-nav > nav a.ai-entry .ai-count {
   opacity: 0.6;
 }
 
+/* From a photo (AiPhoto.tsx): the box a picture is chosen in and dropped on, and the chosen one, small. */
+.ai-picker {
+  margin-bottom: 12px;
+  padding: 12px;
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.ai-picker-over {
+  border-color: var(--teal);
+  background: var(--ok-bg);
+}
+
+.ai-picker .photo-row {
+  flex-wrap: wrap;
+  margin: 0 0 8px;
+}
+
+.ai-picture {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+  font-size: 13px;
+}
+
+.ai-picture img {
+  flex: 0 0 auto;
+  max-width: 96px;
+  max-height: 96px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+
+.ai-picture-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
 .ai-used-up {
   margin-top: 8px;
 }
