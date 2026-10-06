@@ -24,7 +24,8 @@ import { CutOffNote, Preview, useFitReports } from './Preview';
 import { ShareCopy, ShareFab } from './share';
 import { TEMPLATE_LABEL } from './templates';
 
-interface Draft {
+/** A flyer as the editor holds it. The AI page hands one over whole (handoff.ts). */
+export interface Draft {
   title: string;
   hostel: string | null;
   data: FlyerData;
@@ -99,10 +100,10 @@ export function Editor({
   /** Tells the app what is left today of a feature after an AI answer. */
   onRemaining: (feature: AiFeature, remaining: number) => void;
 }) {
-  // A new flyer the AI page made (handoff.ts): taken once, it starts the draft, unsaved, so the leave guard is armed at
-  // once and the first save makes its URL as for any new flyer.
+  // A new flyer the AI page made (handoff.ts): taken once, it starts the draft as it was offered, unsaved, so the leave
+  // guard is armed at once and the first save makes its URL as for any new flyer.
   const [handoff] = useState(() => (id == null ? takeDraft() : null));
-  const [draft, setDraft] = useState<Draft | null>(id == null ? (handoff ? { ...handoff.draft, photo: null } : blankDraft()) : null);
+  const [draft, setDraft] = useState<Draft | null>(id == null ? (handoff?.draft ?? blankDraft()) : null);
   const [savedJson, setSavedJson] = useState<string>(() => (id == null ? JSON.stringify(toInput(blankDraft(), hostels)) : 'loading'));
   const [flyerId, setFlyerId] = useState<number | null>(id);
   const [loadError, setLoadError] = useState<string | null>(null);

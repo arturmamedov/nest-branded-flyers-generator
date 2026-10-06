@@ -251,7 +251,7 @@ export function AiPage({
 
   function open() {
     if (!result || !flyer) return;
-    offerDraft({ title: result.brief.title?.trim() ?? '', hostel: flyer.hostel, data: flyer.data }, result.idea);
+    offerDraft({ title: result.brief.title?.trim() ?? '', hostel: flyer.hostel, data: flyer.data, photo: null }, result.idea);
     setOpening(true);
   }
 
