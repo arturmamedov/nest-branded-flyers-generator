@@ -20,8 +20,9 @@ const deps = {
   hostels: { list: async () => [], bySlug: async () => null },
   usage: { record: async () => {}, countOk: async () => ({}) },
   clock: { now: () => '2026-10-05T10:00:00.000Z' },
+  pictures: { keep: () => 'ai-pictures/2026-10-05/0123456789abcdef.jpg' },
 };
-const bundle = { prompts: { flyer: '', share: '' }, examples: [], schemas: {} } as unknown as AiBundle;
+const bundle = { prompts: { flyer: '', share: '', photo: '' }, examples: [], schemas: {} } as unknown as AiBundle;
 
 describe('the AI’s composition', () => {
   // In braces: a function handed back from beforeEach is run as its cleanup, and mockClear() hands back the mock.

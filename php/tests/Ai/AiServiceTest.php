@@ -8,6 +8,7 @@ use LogicException;
 use NestFlyers\Ai\Actor;
 use NestFlyers\Ai\AiBundle;
 use NestFlyers\Ai\AiConfig;
+use NestFlyers\Ai\AiPictures;
 use NestFlyers\Ai\AiPolicy;
 use NestFlyers\Ai\AiService;
 use NestFlyers\Ai\ConfigAiPolicy;
@@ -27,11 +28,13 @@ use NestFlyers\Domain\HostelRepository;
 use NestFlyers\Domain\Lock;
 use NestFlyers\Http\ErrorCatalog;
 use NestFlyers\Http\HttpError;
+use NestFlyers\Image\StoredImage;
 use NestFlyers\Json;
 use NestFlyers\Shared;
 use NestFlyers\Storage\Json\JsonRepositories;
 use NestFlyers\Tests\Support\FakeClock;
 use NestFlyers\Tests\Support\JsonAssert;
+use NestFlyers\Tests\Support\MemoryAiPictures;
 use NestFlyers\Tests\Support\MemoryAiUsage;
 use NestFlyers\Tests\Support\Paths;
 use NestFlyers\Tests\Support\TempDir;
@@ -54,7 +57,9 @@ final class AiServiceTest extends TestCase
     private const LIMIT = 3;
     private const INPUT_MAX = 4000;
     private const ASSUMPTIONS_MAX = 12;
-    private const FEATURES = ['flyer', 'share'];
+    private const FEATURES = ['flyer', 'share', 'photo'];
+    /** A prepared picture's bytes: the service never decodes them, and neither the ledger nor the log may hold them. */
+    private const BYTES = 'the prepared picture: not what a ledger or a log should ever hold';
 
     private Shared $shared;
     private ErrorCatalog $errors;
@@ -63,6 +68,7 @@ final class AiServiceTest extends TestCase
     private Actor $actor;
     private FakeClock $clock;
     private MemoryAiUsage $usage;
+    private MemoryAiPictures $pictures;
     private string $logDir;
     private string|false $previousLog;
     private ?string $storeDir = null;
@@ -76,6 +82,7 @@ final class AiServiceTest extends TestCase
         $this->actor = new Actor('anonymous');
         $this->clock = new FakeClock();
         $this->usage = new MemoryAiUsage();
+        $this->pictures = new MemoryAiPictures();
         // What the service logs lands here, so a test can read it (and the run stays quiet).
         $this->logDir = TempDir::create('ai-log');
         $this->previousLog = ini_get('error_log');
@@ -158,7 +165,7 @@ final class AiServiceTest extends TestCase
     }
 
     #[DataProvider('features')]
-    public function testTheFeaturesTheSiteNamesRunCountAndAreRecordedUnderTheirOwnName(string $off): void
+    public function testTheFeaturesTheSiteNamesRunEachCountsAgainstItsOwnLimitLeavesTheOthersAloneAndIsRecordedUnderItsOwnName(string $off): void
     {
         $named = $this->allBut($off);
         $service = $this->service(['policy' => $this->policy(['provider' => 'fake', 'features' => $named])]);
@@ -167,8 +174,7 @@ final class AiServiceTest extends TestCase
             $last = $this->usage->records[array_key_last($this->usage->records)];
             self::assertSame([$feature, true], [$last['feature'], $last['ok']]);
         }
-        // Each one spent one of its own. With two features one runs here: that no count moves another's is held where
-        // both run (testEachFeatureStopsAtItsOwnLimit…, below).
+        // Each one spent one of its own, and none of another's.
         self::assertSame($this->on(array_fill_keys($named, self::LIMIT - 1), $named), $service->status($this->actor));
     }
 
@@ -420,6 +426,153 @@ final class AiServiceTest extends TestCase
         self::assertSame(2, substr_count($this->log(), "\n"), 'each failure is one log line');
     }
 
+    // A picture → its words (the owner's answers, 2026-10-06: "Two calls: read, then write", "Stop at the words"). The
+    // route has prepared the picture; the service counts, keeps it, asks the model and records.
+
+    public function testAReadAnswersTheWordsAndWhatIsLeftKeepsThePictureAndRecordsOneLineThatNamesIt(): void
+    {
+        $service = $this->service();
+        $result = $service->photo($this->actor, self::picture());
+        self::assertSame(['text' => $this->example->text, 'remaining' => self::LIMIT - 1], $result);
+        // Only the reads' count moved.
+        self::assertSame($this->on(['photo' => self::LIMIT - 1]), $service->status($this->actor));
+
+        $path = array_key_first($this->pictures->kept);
+        self::assertMatchesRegularExpression('~^ai-pictures/2026-09-18/[0-9a-f]{16}\.jpg$~', (string) $path);
+        self::assertSame(self::BYTES, $this->pictures->kept[$path]);
+        self::assertSame([[
+            'at' => $this->clock->now(),
+            'day' => '2026-09-18',
+            'actorId' => 'anonymous',
+            'feature' => 'photo',
+            'provider' => 'fake',
+            'model' => 'fake-1',
+            'tokens' => ['input' => 10, 'output' => 20],
+            'ok' => true,
+            'input' => "$path image/jpeg 640x480 " . strlen(self::BYTES) . ' bytes',
+            'output' => Json::encode(['text' => $this->example->text]),
+        ]], $this->usage->records);
+    }
+
+    public function testAReadSendsTheModelTheReadersRulesAndOneTurnThePictureAsItWasPreparedThenTheLineThatAsks(): void
+    {
+        $recorder = new class () implements LlmProvider {
+            /** @var list<LlmCall> */
+            public array $calls = [];
+
+            public function name(): string
+            {
+                return 'fake';
+            }
+
+            public function complete(LlmCall $call): LlmResult
+            {
+                $this->calls[] = $call;
+                return new LlmResult((object) ['text' => 'Yoga'], '{"text":"Yoga"}', null, 'stub-1');
+            }
+        };
+        $service = $this->service(['provider' => $recorder, 'models' => self::models(['photo' => 'a-stronger-model'])]);
+        $service->photo($this->actor, self::picture(extension: 'png'));
+        self::assertCount(1, $recorder->calls);
+        $call = $recorder->calls[0];
+        self::assertSame(['a-stronger-model', $this->bundle->prompts['photo'], 'nest_picture_text'], [$call->model, $call->system, $call->schemaName]);
+        self::assertSame($this->bundle->schemas['photoAnswer'], $call->schema);
+        self::assertSame([[
+            'role' => 'user',
+            'content' => [
+                ['type' => 'image', 'mediaType' => 'image/png', 'data' => base64_encode(self::BYTES), 'width' => 640, 'height' => 480],
+                ['type' => 'text', 'text' => $this->shared->ai()['pictureAsk']],
+            ],
+        ]], $call->messages);
+    }
+
+    // The owner's answer: "It says so, no flyer; it counts". The provider was paid.
+    public function testAPictureWithNoWordsAnswersAnEmptyTextAndCounts(): void
+    {
+        $service = $this->service();
+        self::assertSame(['text' => '', 'remaining' => self::LIMIT - 1], $service->photo($this->actor, self::picture($this->widths()['noWords'])));
+        self::assertSame(['photo', true, '{"text":""}'], [$this->usage->records[0]['feature'], $this->usage->records[0]['ok'], $this->usage->records[0]['output']]);
+    }
+
+    public function testTheWordsAreAnsweredTrimmedAReadOfSpacesAloneIsAPictureWithNoWords(): void
+    {
+        self::assertSame('Yoga at 9', $this->service(['provider' => $this->answering('{"text":"  Yoga at 9\n\n"}')])->photo($this->actor, self::picture())['text']);
+        self::assertSame('', $this->service(['provider' => $this->answering('{"text":" \n "}')])->photo($this->actor, self::picture())['text']);
+    }
+
+    public function testWordsLongerThanTheIdeaBoxTakesAreAiFailedAndChargeNothing(): void
+    {
+        $service = $this->service(['provider' => $this->answering(Json::encode(['text' => str_repeat('x', self::INPUT_MAX + 1)]))]);
+        $this->failsWith(fn () => $service->photo($this->actor, self::picture()), 'ai_failed');
+        self::assertSame([['photo', false]], array_map(static fn (array $r): array => [$r['feature'], $r['ok']], $this->usage->records));
+        self::assertSame($this->on(), $service->status($this->actor));
+    }
+
+    public function testAReadThatFailsIsAiFailedRecordedNotCountedAndItsPictureIsKept(): void
+    {
+        $service = $this->service();
+        foreach (['invalid', 'timeout', 'refused'] as $steer) {
+            $this->failsWith(fn () => $service->photo($this->actor, self::picture($this->widths()[$steer])), 'ai_failed');
+        }
+        self::assertSame(
+            [['photo', false, '{"text":42}'], ['photo', false, null], ['photo', false, null]],
+            array_map(static fn (array $r): array => [$r['feature'], $r['ok'], $r['output']], $this->usage->records),
+        );
+        // A failed read keeps its picture: those are the ones worth looking at.
+        self::assertCount(3, $this->pictures->kept);
+        foreach (array_keys($this->pictures->kept) as $i => $path) {
+            self::assertStringStartsWith("$path ", $this->usage->records[$i]['input']);
+        }
+        self::assertSame($this->on(), $service->status($this->actor));
+    }
+
+    public function testTheReadsStopAtTheirOwnLimitByItsNameKeepNothingMoreAndLeaveTheFlyersAlone(): void
+    {
+        $own = ['photo' => 1];
+        $service = $this->service(['policy' => $this->policy(['provider' => 'fake', 'dailyLimits' => $own])]);
+        self::assertSame(0, $service->photo($this->actor, self::picture())['remaining']);
+        $this->failsWith(fn () => $service->photo($this->actor, self::picture()), 'ai_quota', $this->usedUp('photo', 1));
+        self::assertCount(1, $this->pictures->kept);
+        self::assertSame(self::LIMIT - 1, $service->flyer($this->actor, $this->idea())['remaining']);
+        self::assertSame($this->on(['photo' => 0, 'flyer' => self::LIMIT - 1], self::FEATURES, $own), $service->status($this->actor));
+    }
+
+    public function testADiskThatCannotKeepThePictureStopsTheReadBeforeTheProviderIsAskedNothingIsSpentOrRecorded(): void
+    {
+        $neverAsked = new class () implements LlmProvider {
+            public function name(): string
+            {
+                return 'fake';
+            }
+
+            public function complete(LlmCall $call): LlmResult
+            {
+                throw new LogicException('the provider was asked');
+            }
+        };
+        $service = $this->service(['provider' => $neverAsked, 'pictures' => new MemoryAiPictures(full: true)]);
+        try {
+            $service->photo($this->actor, self::picture());
+            self::fail('The read went on');
+        } catch (RuntimeException $e) {
+            self::assertStringContainsString('No space left', $e->getMessage());
+        }
+        self::assertSame([], $this->usage->records);
+    }
+
+    public function testThePicturesBytesNeverReachTheLedgerOrTheLog(): void
+    {
+        $service = $this->service();
+        $service->photo($this->actor, self::picture());
+        foreach (['invalid', 'timeout'] as $steer) {
+            $this->failsWith(fn () => $service->photo($this->actor, self::picture($this->widths()[$steer])), 'ai_failed');
+        }
+        $said = Json::encode($this->usage->records) . $this->log();
+        self::assertSame(2, substr_count($this->log(), "\n"));
+        self::assertStringNotContainsString(base64_encode(self::BYTES), $said);
+        self::assertStringNotContainsString(self::BYTES, $said);
+    }
+
     public function testTheKeyAProviderEchoesNeverReachesTheLogOrTheLedger(): void
     {
         $echo = new class () implements HttpClient {
@@ -511,7 +664,7 @@ final class AiServiceTest extends TestCase
      * The service on the fake provider, the memory ledger and the seed's hostels, unless $with says otherwise
      * (`'provider' => null` is AI off).
      *
-     * @param array{provider?: ?LlmProvider, policy?: AiPolicy, hostels?: HostelRepository, usage?: AiUsageRepository, models?: array<string, string>} $with
+     * @param array{provider?: ?LlmProvider, policy?: AiPolicy, hostels?: HostelRepository, usage?: AiUsageRepository, models?: array<string, string>, pictures?: AiPictures} $with
      */
     private function service(array $with = []): AiService
     {
@@ -522,6 +675,7 @@ final class AiServiceTest extends TestCase
             $with['hostels'] ?? self::memoryHostels(),
             $with['usage'] ?? $this->usage,
             $this->clock,
+            $with['pictures'] ?? $this->pictures,
             1000,
             $with['models'] ?? self::models(),
             $this->shared,
@@ -621,7 +775,21 @@ final class AiServiceTest extends TestCase
         return match ($feature) {
             'flyer' => $service->flyer($this->actor, $body ?? $this->idea()),
             'share' => $service->share($this->actor, $body ?? $this->shareBody()),
+            // A read has no body to be wrong: the route makes the photo's checks before the service is asked.
+            'photo' => $service->photo($this->actor, self::picture()),
         };
+    }
+
+    /** A picture as the route hands it over: prepared (Photos\PhotoIntake). Its width steers the fake. */
+    private static function picture(int $width = 640, string $extension = 'jpg'): StoredImage
+    {
+        return new StoredImage(self::BYTES, $extension, $width, 480);
+    }
+
+    /** @return array{invalid:int, timeout:int, refused:int, noWords:int} the widths that steer the fake on a read */
+    private function widths(): array
+    {
+        return $this->shared->ai()['fake']['pictureWidths'];
     }
 
     private function idea(string $marker = '', ?string $hostel = null): stdClass

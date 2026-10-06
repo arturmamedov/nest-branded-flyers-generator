@@ -3,18 +3,22 @@ import { AI_ASSUMPTIONS_MAX, AI_FEATURES, AI_INPUT_MAX, AI_MAX_OUTPUT_TOKENS, ai
 import {
   AiFlyerAnswerSchema,
   AiFlyerRequestSchema,
+  AiPhotoAnswerSchema,
   AiShareAnswerSchema,
   AiShareRequestSchema,
   type AiBundle,
   type AiConfig,
   type AiFlyerResult,
+  type AiPhotoResult,
   type AiShareResult,
 } from '../../src/shared/schema.js';
 import { HttpError } from '../errors.js';
+import type { PreparedPhoto } from '../services/photos.js';
 import type { AiUsageCounts, AiUsageRepository, Clock, HostelRepository } from '../storage/types.js';
 import type { Actor } from './actor.js';
 import type { AiPolicy } from './policy.js';
-import { buildFlyerCall, buildShareCall, type Prompt } from './prompt.js';
+import type { AiPictures } from './pictures.js';
+import { buildFlyerCall, buildPhotoCall, buildShareCall, type Prompt } from './prompt.js';
 import { LlmFailure, SCHEMA_NAMES, textOf, type LlmProvider, type LlmResult } from './provider.js';
 
 /* A generation, end to end (docs/api-contract.md, "The AI assistant"): the checks in their order, the prompt, the
@@ -30,6 +34,8 @@ export interface AiServiceDeps {
   hostels: Pick<HostelRepository, 'list' | 'bySlug'>;
   usage: Pick<AiUsageRepository, 'record' | 'countOk'>;
   clock: Clock;
+  /** Where a picture read keeps its picture, before the provider is asked. */
+  pictures: Pick<AiPictures, 'keep'>;
   timeoutMs: number;
   /** The model each feature's calls name (AiSettings.models). */
   models: Record<AiFeature, string>;
@@ -115,14 +121,32 @@ export class AiService {
     return { share: answer.share, remaining: remaining - 1 };
   }
 
+  /** A picture → the words it shows about an event, for the staff member to check in "Your idea": the read stops
+      there, and the flyer is a second call they make (the owner's answers, 2026-10-06). The route has made the photo's
+      own checks and prepared the picture (server/services/photos.ts). The picture is kept before the provider is
+      asked, so a failed read keeps it and a disk that cannot take it stops the read with nothing spent. A read the
+      provider answered counts, its words or none: an empty text is a picture with no words. */
+  async photo(actor: Actor, picture: PreparedPhoto): Promise<AiPhotoResult> {
+    this.admit(actor, 'photo');
+    const { now, remaining } = await this.quota(actor, 'photo');
+    const kept = this.deps.pictures.keep(aiDay(now), picture);
+    // The ledger names the kept picture, and never holds it.
+    const input = `${kept} ${picture.mediaType} ${picture.width}x${picture.height} ${picture.bytes.length} bytes`;
+    const part = { type: 'image' as const, mediaType: picture.mediaType, data: picture.bytes.toString('base64'), width: picture.width, height: picture.height };
+    const prompt = buildPhotoCall(this.deps.bundle, part);
+    const answer = await this.generate('photo', actor, now, input, prompt, SCHEMA_NAMES.photo, this.deps.bundle.schemas.photoAnswer, AiPhotoAnswerSchema);
+    return { text: answer.text.trim(), remaining: remaining - 1 };
+  }
+
   /** The features that run on this site, in the app's own order: none means the AI is off. */
   private running(): AiFeature[] {
     return AI_FEATURES.filter((feature) => this.deps.policy.runs(feature));
   }
 
   /** Off before anything else, then the policy: the order the contract names. A feature the site does not run is
-      off as the whole AI is, so nothing of the request is read, counted or recorded. */
-  private admit(actor: Actor, feature: AiFeature): void {
+      off as the whole AI is, so nothing of the request is read, counted or recorded. Every feature's method starts
+      here; the picture read's route also asks first, in front of its upload. */
+  admit(actor: Actor, feature: AiFeature): void {
     if (!this.deps.provider || !this.deps.policy.runs(feature)) throw new HttpError('ai_off');
     if (!this.deps.policy.mayUse(actor)) throw new HttpError('ai_forbidden');
   }

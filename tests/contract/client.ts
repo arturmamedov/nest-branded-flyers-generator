@@ -121,8 +121,11 @@ export function flyers() {
   };
 }
 
-export async function upload(bytes: Uint8Array | Buffer, name = 'photo.jpg', field = 'photo'): Promise<Response> {
+/** A file as multipart form data, the way both routes that take a picture are sent one. */
+export async function uploadTo(path: string, bytes: Uint8Array | Buffer, name = 'photo.jpg', field = 'photo', headers?: Record<string, string>): Promise<Response> {
   const form = new FormData();
   form.append(field, new Blob([new Uint8Array(bytes)]), name);
-  return send('POST', 'api/photos', form);
+  return send('POST', path, form, headers);
 }
+
+export const upload = (bytes: Uint8Array | Buffer, name = 'photo.jpg', field = 'photo'): Promise<Response> => uploadTo('api/photos', bytes, name, field);

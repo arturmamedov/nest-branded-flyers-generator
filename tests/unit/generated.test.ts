@@ -96,8 +96,8 @@ describe('the AI bundle (schema/ai.json) and the ai block of shared.json', () =>
       dailyLimitMax: 20,
       inputMax: 4000,
       assumptionsMax: 12,
-      features: ['flyer', 'share'],
-      featureNouns: { flyer: 'AI flyers', share: 'AI share texts' },
+      features: ['flyer', 'share', 'photo'],
+      featureNouns: { flyer: 'AI flyers', share: 'AI share texts', photo: 'picture reads' },
       dayZone: 'Atlantic/Canary',
       timeoutMs: 25000,
       maxOutputTokens: 8000,
@@ -120,5 +120,6 @@ describe('the AI bundle (schema/ai.json) and the ai block of shared.json', () =>
     const def = JSON.parse(outputs['schema/storage.schema.json']).$defs.aiUsage;
     expect(def.type).toBe('array');
     expect(Object.keys(def.items.properties)).toEqual(['at', 'day', 'actorId', 'feature', 'provider', 'model', 'tokens', 'ok', 'input', 'output']);
+    expect(def.items.properties.feature.enum).toEqual(['flyer', 'share', 'photo']);
   });
 });

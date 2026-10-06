@@ -166,6 +166,7 @@ final class BootstrapTest extends TestCase
     {
         $app = Bootstrap::fromAppRoot($this->appRoot, $this->config() + ['ai' => $this->fakeAi(self::allBut($off))], new FakeClock());
         $route = "/api/ai/$off";
+        self::assertSame($this->message('ai_off'), $this->assertError($app->handle($this->good($off)), 404, 'not_found')->message);
         self::assertSame($this->message('ai_off'), $this->assertError($app->handle(self::request('POST', $route, $this->aiBody($off))), 404, 'not_found')->message);
         // Off comes before the body's shape, as it does with the whole AI off: a body that says nothing is ai_off too.
         self::assertSame($this->message('ai_off'), $this->assertError($app->handle(self::request('POST', $route, new stdClass())), 404, 'not_found')->message);
@@ -175,15 +176,14 @@ final class BootstrapTest extends TestCase
         self::assertEquals(self::on(self::allBut($off)), $this->ok($app->handle(self::request('GET', '/api/config')))->ai);
     }
 
-    // With two features, a site that leaves one out runs one. That a count leaves the others alone is held where both
-    // run: the site with its own numbers, below.
     #[DataProvider('features')]
-    public function testASiteRunsTheFeaturesItNamesEachSpendsOneOfItsOwnAndIsRecordedUnderItsName(string $off): void
+    public function testASiteRunsTheFeaturesItNamesEachSpendsOneOfItsOwnLeavesTheOthersAloneAndIsRecordedUnderItsName(string $off): void
     {
+        $this->needsGd();
         $named = self::allBut($off);
         $app = Bootstrap::fromAppRoot($this->appRoot, $this->config() + ['ai' => $this->fakeAi($named)], new FakeClock());
         foreach ($named as $feature) {
-            $result = $this->ok($app->handle(self::request('POST', "/api/ai/$feature", $this->aiBody($feature))));
+            $result = $this->ok($app->handle($this->good($feature)));
             self::assertSame(2, $result->remaining);
         }
         $ledger = Json::decode((string) file_get_contents("$this->dataDir/ai-usage/2026-09.json"));
@@ -283,6 +283,61 @@ final class BootstrapTest extends TestCase
         self::assertSame(200, $app->handle(self::request('GET', '/api/hostels'))->status);
         self::assertSame(['ai-pictures/.swept', "ai-pictures/$read/0123456789abcdef.jpg"], $kept());
         self::assertSame('', $this->log(), 'nothing was logged');
+    }
+
+    // POST api/ai/photo through the whole backend (docs/api-contract.md): the one AI route that takes a file. The twin
+    // of the "POST api/ai/photo" block in tests/unit/ai-app.test.ts.
+
+    public function testAPictureReadAnswersItsWordsKeepsThePictureAsItWasPreparedAndNamesItInTheLedger(): void
+    {
+        $this->needsGd();
+        $app = Bootstrap::fromAppRoot($this->appRoot, $this->config() + ['ai' => $this->fakeAi(['photo'])], new FakeClock());
+        $example = Json::decode((string) file_get_contents(Paths::schema('ai.json')))->examples[0];
+        $result = $this->ok($app->handle($this->good('photo')));
+        self::assertEquals((object) ['text' => $example->text, 'remaining' => 2], $result);
+
+        $kept = array_values(preg_grep('~^ai-pictures/2026-09-18/[0-9a-f]{16}\.jpg$~', TempDir::files($this->dataDir)) ?: []);
+        self::assertCount(1, $kept, implode(', ', TempDir::files($this->dataDir)));
+        $bytes = (string) file_get_contents("$this->dataDir/$kept[0]");
+        self::assertSame([64, 48, IMAGETYPE_JPEG], array_slice((array) getimagesizefromstring($bytes), 0, 3));
+        $ledger = Json::decode((string) file_get_contents("$this->dataDir/ai-usage/2026-09.json"));
+        self::assertSame(['photo', true, "$kept[0] image/jpeg 64x48 " . strlen($bytes) . ' bytes'], [$ledger[0]->feature, $ledger[0]->ok, $ledger[0]->input]);
+        // Nothing was uploaded: the read never writes where photos are served from.
+        self::assertDirectoryDoesNotExist("$this->appRoot/uploads");
+        self::assertSame('', $this->log(), 'nothing was logged');
+    }
+
+    public function testThePictureReadsSwitchIsAskedBeforeAnyOfThePhotosChecks(): void
+    {
+        $app = Bootstrap::fromAppRoot($this->appRoot, $this->config() + ['ai' => $this->fakeAi(['flyer'])], new FakeClock());
+        // Were the file looked at first, these would be unreadable and no_photo_field.
+        self::assertSame($this->message('ai_off'), $this->assertError($app->handle($this->picture('not an image')), 404, 'not_found')->message);
+        self::assertSame($this->message('ai_off'), $this->assertError($app->handle($this->picture(null)), 404, 'not_found')->message);
+        // And the write guard is in front of both.
+        $this->assertError($app->handle($this->picture('not an image', [])), 403, 'forbidden');
+    }
+
+    public function testThePictureReadMakesThePhotoRoutesChecksBeforeTheLimitAndTheProviderARefusedPictureSpendsAndKeepsNothing(): void
+    {
+        $this->needsGd();
+        $app = Bootstrap::fromAppRoot($this->appRoot, $this->config() + ['ai' => $this->fakeAi(['photo']) + ['dailyLimits' => ['photo' => 1]]], new FakeClock());
+        self::assertSame($this->message('no_photo_field'), $this->assertError($app->handle(self::request('POST', '/api/ai/photo', $this->aiBody('photo'))), 400, 'invalid')->message);
+        self::assertSame($this->message('unreadable'), $this->assertError($app->handle($this->picture('not an image')), 415, 'unsupported')->message);
+        self::assertDirectoryDoesNotExist("$this->dataDir/ai-pictures");
+        self::assertSame(0, $this->ok($app->handle($this->good('photo')))->remaining);
+        // The limit is reached: a picture that would be refused is still refused for what it is, as the order says.
+        self::assertSame($this->message('unreadable'), $this->assertError($app->handle($this->picture('not an image')), 415, 'unsupported')->message);
+        $this->assertError($app->handle($this->good('photo')), 429, 'ai_quota');
+        self::assertCount(1, preg_grep('~^ai-pictures/2026-09-18/~', TempDir::files($this->dataDir)) ?: []);
+        self::assertCount(1, Json::decode((string) file_get_contents("$this->dataDir/ai-usage/2026-09.json")));
+    }
+
+    public function testATinyPictureIsNeverEnlargedSoItsWidthReachesTheFakeNoWordsIsAnEmptyTextThatCounts(): void
+    {
+        $this->needsGd();
+        $app = Bootstrap::fromAppRoot($this->appRoot, $this->config() + ['ai' => $this->fakeAi(['photo'])], new FakeClock());
+        $width = Shared::fromFile(Paths::schema('shared.json'))->ai()['fake']['pictureWidths']['noWords'];
+        self::assertEquals((object) ['text' => '', 'remaining' => 2], $this->ok($app->handle($this->picture(self::png($width, 8)))));
     }
 
     public function testHostelsAndDoodlesAreSeededFromTheSeedFile(): void
@@ -462,13 +517,60 @@ final class BootstrapTest extends TestCase
         return (object) ['enabled' => true, 'features' => $features];
     }
 
-    /** A good body for a feature's route, which is api/ai/<the feature's name>. */
+    /** A good JSON body for a feature's route, which is api/ai/<the feature's name>. The read takes a picture, not
+     *  JSON: its row is what a caller who thought otherwise would send. */
     private function aiBody(string $feature): stdClass
     {
         return match ($feature) {
             'flyer' => (object) ['text' => 'Yoga mañana a las 9 en la terraza'],
             'share' => (object) ['hostel' => null, 'template' => 'activity', 'data' => $this->input()->data],
+            'photo' => (object) ['picture' => 'not how a picture is sent'],
         };
+    }
+
+    /** A good request to a feature's route. */
+    private function good(string $feature): Request
+    {
+        return $feature === 'photo' ? $this->picture(self::jpeg(64, 48)) : self::request('POST', "/api/ai/$feature", $this->aiBody($feature));
+    }
+
+    /**
+     * POST api/ai/photo with these bytes in the field "photo", as PHP would hand the upload over; null sends the form
+     * with no file in it.
+     *
+     * @param array<string, string>|null $headers
+     */
+    private function picture(?string $bytes, ?array $headers = null): Request
+    {
+        $files = [];
+        if ($bytes !== null) {
+            $tmp = "$this->logDir/picture-" . bin2hex(random_bytes(4));
+            file_put_contents($tmp, $bytes);
+            $files = ['photo' => ['name' => 'picture', 'type' => 'application/octet-stream', 'tmp_name' => $tmp, 'error' => UPLOAD_ERR_OK, 'size' => strlen($bytes)]];
+        }
+        $headers ??= WriteHeader::headers();
+        return new Request('POST', '/api/ai/photo', [], $headers + ['content-type' => 'multipart/form-data; boundary=x', 'content-length' => '500'], '', $files, ['REMOTE_ADDR' => self::LOOPBACK, 'CONTENT_LENGTH' => '500']);
+    }
+
+    private function needsGd(): void
+    {
+        if (!extension_loaded('gd')) {
+            self::markTestSkipped('GD is not loaded');
+        }
+    }
+
+    private static function jpeg(int $width, int $height): string
+    {
+        ob_start();
+        imagejpeg(imagecreatetruecolor($width, $height));
+        return (string) ob_get_clean();
+    }
+
+    private static function png(int $width, int $height): string
+    {
+        ob_start();
+        imagepng(imagecreatetruecolor($width, $height));
+        return (string) ob_get_clean();
     }
 
     /** The catalogue's message for an error: ai_off and an unknown path share their status and code. */

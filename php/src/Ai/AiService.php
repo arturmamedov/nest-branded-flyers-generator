@@ -9,8 +9,10 @@ use NestFlyers\Domain\Clock;
 use NestFlyers\Domain\HostelRepository;
 use NestFlyers\Http\ErrorCatalog;
 use NestFlyers\Http\HttpError;
+use NestFlyers\Image\StoredImage;
 use NestFlyers\Shared;
 use NestFlyers\Validation\InvalidData;
+use NestFlyers\Validation\JsTrim;
 use NestFlyers\Validation\SchemaValidator;
 use stdClass;
 use Throwable;
@@ -40,6 +42,8 @@ final class AiService
         private readonly HostelRepository $hostels,
         private readonly AiUsageRepository $usage,
         private readonly Clock $clock,
+        /** Where a picture read keeps its picture, before the provider is asked. */
+        private readonly AiPictures $pictures,
         private readonly int $timeoutMs,
         /** @var array<string, string> the model each feature's calls name (AiConfig::$models) */
         private readonly array $models,
@@ -150,9 +154,12 @@ final class AiService
 
     /**
      * Off before anything else, then the policy: the order the contract names. A feature the site does not run is off
-     * as the whole AI is, so nothing of the request is read, counted or recorded.
+     * as the whole AI is, so nothing of the request is read, counted or recorded. Every feature's method starts here;
+     * the picture read's route also asks first, in front of its upload's checks.
+     *
+     * @throws HttpError ai_off, ai_forbidden
      */
-    private function admit(Actor $actor, string $feature): void
+    public function admit(Actor $actor, string $feature): void
     {
         if ($this->provider === null || !$this->policy->runs($feature)) {
             throw $this->errors->make('ai_off');
@@ -187,6 +194,29 @@ final class AiService
             throw $this->errors->make('ai_quota', ['limit' => $limit, 'what' => $this->facts['featureNouns'][$feature]]);
         }
         return [$now, $limit - $used];
+    }
+
+    /**
+     * A picture → the words it shows about an event, for the staff member to check in "Your idea": the read stops
+     * there, and the flyer is a second call they make (the owner's answers, 2026-10-06). The route has made the photo's
+     * own checks and prepared the picture (Photos\PhotoIntake). The picture is kept before the provider is asked, so a
+     * failed read keeps it and a disk that cannot take it stops the read with nothing spent. A read the provider
+     * answered counts, its words or none: an empty text is a picture with no words.
+     *
+     * @return array{text:string, remaining:int}
+     * @throws HttpError ai_off, ai_forbidden, ai_quota, ai_failed
+     */
+    public function photo(Actor $actor, StoredImage $picture): array
+    {
+        $this->admit($actor, 'photo');
+        [$now, $remaining] = $this->quota($actor, 'photo');
+        $kept = $this->pictures->keep($this->day->day($now), $picture->bytes, $picture->extension);
+        $mediaType = $picture->extension === 'png' ? 'image/png' : 'image/jpeg';
+        // The ledger names the kept picture, and never holds it.
+        $input = "$kept $mediaType {$picture->width}x{$picture->height} " . strlen($picture->bytes) . ' bytes';
+        $part = ['type' => 'image', 'mediaType' => $mediaType, 'data' => base64_encode($picture->bytes), 'width' => $picture->width, 'height' => $picture->height];
+        $answer = $this->generate('photo', $actor, $now, $input, $this->prompts->photo($part), $this->bundle->schemas['photoAnswer']);
+        return ['text' => JsTrim::trim($answer->text), 'remaining' => $remaining - 1];
     }
 
     /**

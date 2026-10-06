@@ -28,6 +28,8 @@ final class Api
      *        still serves everything else
      * @param Closure(): ?AiService $ai built on the first AI request or api/config; null when config.php leaves the AI off
      * @param ActorResolver $actors who is asking (one anonymous actor until there is a login)
+     * @param Closure(Request): StoredImage $readPicture the upload of a picture read, checked as api/photos checks its
+     *        own and prepared at the read's edge (PhotoIntake); built on the first read, as the photo service is
      * @param Closure(): void $sweepPictures deletes the AI's kept pictures that are past their days (AiPictures::sweep
      *        for today's Canary day); api/config calls it
      */
@@ -43,6 +45,7 @@ final class Api
         private readonly Closure $ai,
         private readonly ActorResolver $actors,
         private readonly Closure $sweepPictures,
+        private readonly Closure $readPicture,
     ) {
     }
 
@@ -63,6 +66,20 @@ final class Api
             => Response::json($this->aiService()->flyer($this->actors->resolve($request), $body)));
         $router->add('POST', '/api/ai/share', fn (Request $request, array $params, mixed $body): Response
             => Response::json($this->aiService()->share($this->actors->resolve($request), $body)));
+        $router->add('POST', '/api/ai/photo', $this->readPhoto(...));
+    }
+
+    /**
+     * A picture → its words. The feature's switch is asked before anything of the upload is looked at, so a site that
+     * does not run the read says nothing about the file. Then the photo's own checks, as on api/photos, and the
+     * picture prepared at the read's edge; nothing is written to uploads/.
+     */
+    private function readPhoto(Request $request): Response
+    {
+        $ai = $this->aiService();
+        $actor = $this->actors->resolve($request);
+        $ai->admit($actor, 'photo');
+        return Response::json($ai->photo($actor, ($this->readPicture)($request)));
     }
 
     /** What this backend can do, and the AI for the actor asking: nothing beyond `enabled: false` when off. */

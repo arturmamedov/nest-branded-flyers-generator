@@ -140,7 +140,8 @@ describe('AI settings', () => {
     for (const row of accepted) for (const feature of Object.keys(row.limits)) expect(AI_FEATURES, row.name).toContain(feature);
     expect(accepted.find((r) => r.env === null && r.site === undefined)?.others).toBe(AI_DAILY_LIMIT);
     expect(Math.max(...accepted.flatMap((r) => Object.values(r.limits)))).toBe(AI_DAILY_LIMIT_MAX);
-    expect(refused.map((r) => r.env)).toContain(`${AI_FEATURES.at(-1)}:${AI_DAILY_LIMIT_MAX + 1}`);
+    // One past the most, for some feature: the rows name the features they were written with, so a new one edits none.
+    expect(refused.some((r) => AI_FEATURES.some((feature) => r.env === `${feature}:${AI_DAILY_LIMIT_MAX + 1}`))).toBe(true);
   });
 
   it('a number for a feature the site does not run is kept, and runs nothing', () => {

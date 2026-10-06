@@ -117,8 +117,9 @@ describe.each([
     const clock = new FakeClock();
     const repos = createSqliteRepositories({ file: ':memory:' });
     try {
-      const ai = createAiService(loadAiSettings(env), { hostels: repos.hostels, usage: repos.aiUsage, clock });
-      const app = createApp({ repos, storage: 'sqlite', uploadsDir: join(root, 'uploads'), buildId: 'test', ai, clock, aiPictures: createFileAiPictures(root) });
+      const pictures = createFileAiPictures(root);
+      const ai = createAiService(loadAiSettings(env), { hostels: repos.hostels, usage: repos.aiUsage, clock, pictures });
+      const app = createApp({ repos, storage: 'sqlite', uploadsDir: join(root, 'uploads'), buildId: 'test', ai, clock, aiPictures: pictures });
       const read = aiDay(clock.now());
       aDay(root, read);
 

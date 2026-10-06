@@ -196,11 +196,13 @@
     "assumptionsMax": 12,
     "features": [
       "flyer",
-      "share"
+      "share",
+      "photo"
     ],
     "featureNouns": {
       "flyer": "AI flyers",
-      "share": "AI share texts"
+      "share": "AI share texts",
+      "photo": "picture reads"
     },
     "dayZone": "Atlantic/Canary",
     "timeoutMs": 25000,

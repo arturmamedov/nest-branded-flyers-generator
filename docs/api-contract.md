@@ -15,7 +15,8 @@ PHP validates requests against the generated `schema/flyer.schema.json`, and the
   and `uploads/…` for photos. The app may live at a domain root or in a subfolder, so the frontend resolves every path
   against `document.baseURI` (`src/flyer/urls.ts`). URLs in responses have no leading slash.
 - **JSON in, JSON out.** Responses are `application/json`, except the 204 and the export download. Request bodies up
-  to 1 MB, sent as `Content-Type: application/json`.
+  to 1 MB, sent as `Content-Type: application/json`. The two routes that take a picture, `POST api/photos` and
+  `POST api/ai/photo`, take multipart form data instead.
 - **Timestamps** use `toISOString()` form: UTC, milliseconds, `Z` (`2026-09-18T12:31:27.522Z`).
 - **Ids** are positive integers. Nothing is ever hard-deleted, so ids are never reused.
 - **Order of checks** for every `api/` request:
@@ -105,6 +106,7 @@ errors. The catalogue is `src/shared/errors.ts`, which PHP reads from `schema/sh
 | `POST api/render/:id` `{format, canvas}` | 200, the image | `malformed`, `forbidden`, `no_such_flyer` (bad id), `bad_format`, `bad_canvas`, `no_such_flyer` |
 | `POST api/ai/flyer` `{text, hostel?}` | 200 `{brief, assumptions, remaining}` | `malformed`, `forbidden`, `ai_off`, `ai_forbidden`, `ai_input`, `unknown_hostel`, `ai_quota`, `ai_failed` |
 | `POST api/ai/share` `{hostel, template, data, idea?}` | 200 `{share, remaining}` | `malformed`, `forbidden`, `ai_off`, `ai_forbidden`, `ai_input`, `unknown_hostel`, `ai_quota`, `ai_failed` |
+| `POST api/ai/photo` (multipart, field `photo`) | 200 `{text, remaining}` | `forbidden`, `ai_off`, `ai_forbidden`, `no_photo_field`, `too_large`, `too_many_pixels`, `heic`, `unsupported_format`, `unreadable`, `ai_quota`, `ai_failed` |
 
 Each row lists its errors in the order they are checked. Anything else under `api/`, including a wrong method on a known
 path, is 404 `no_such_endpoint`.
@@ -122,8 +124,8 @@ path, is 404 `no_such_endpoint`.
 - The editor picks its exporter from `exporters`: server if it is listed, else client.
 - `limits` drives photo preparation in the browser.
 - `ai` is what the AI assistant is for the caller (the actor, see below): nothing beyond `enabled: false` when it is
-  off, else `features`: the features that run for them, one or more of `flyer` and `share`, in that order and each
-  once (`AI_FEATURES` in `src/shared/ai.ts`).
+  off, else `features`: the features that run for them, one or more of `flyer`, `share` and `photo`, in that order
+  and each once (`AI_FEATURES` in `src/shared/ai.ts`).
   - Each is `{ name, limit, remaining }`: the actor's daily limit for that feature, and how many of its generations
     are left today. Every feature has its own limit, and a generation counts against its own alone.
   - The editor shows a feature only when it is listed. An answer in another shape shows no AI: a backend from
@@ -186,7 +188,8 @@ live in `src/shared/schema.ts`. How a backend applies them:
 
 ### Photos
 
-`POST api/photos` takes multipart form data with the file in the field `photo`.
+`POST api/photos` takes multipart form data with the file in the field `photo`. `POST api/ai/photo` takes its picture
+the same way and makes the same checks, with the same messages: each backend has one intake for both.
 
 - The type is sniffed from the bytes, never taken from the name or the header.
   - HEIC/HEIF (ISO-BMFF `ftyp` at byte 4, with one of the brands listed in `schema/shared.json` at byte 8) gives
@@ -223,19 +226,19 @@ live in `src/shared/schema.ts`. How a backend applies them:
   story, `-whatsapp` for WhatsApp) come from `src/shared/filename.ts`, which the client exporter uses too.
   `X-Render-Cache: hit|miss` is also set; each canvas and format is cached apart, and saving the flyer empties them all.
 
-### The AI assistant: `POST api/ai/flyer` and `POST api/ai/share`
+### The AI assistant: `POST api/ai/flyer`, `POST api/ai/share` and `POST api/ai/photo`
 
-Both are writes: they need the write header and pass the access rule. The shapes are `AiFlyerRequestSchema` /
-`AiFlyerResultSchema` and `AiShareRequestSchema` / `AiShareResultSchema` in `src/shared/schema.ts`; the model's own
-answers (`AiFlyerAnswerSchema`, `AiShareAnswerSchema`) are generated into `schema/ai.json` with the prompts and the
-few-shot examples both backends read.
+All three are writes: they need the write header and pass the access rule. The shapes are `AiFlyerRequestSchema` /
+`AiFlyerResultSchema`, `AiShareRequestSchema` / `AiShareResultSchema` and `AiPhotoResultSchema` in
+`src/shared/schema.ts`; the model's own answers (`AiFlyerAnswerSchema`, `AiShareAnswerSchema`, `AiPhotoAnswerSchema`)
+are generated into `schema/ai.json` with the prompts and the few-shot examples both backends read.
 
 - **Off.** With no provider configured (Node: `AI_PROVIDER`; PHP: the `ai` block of `config.php`), with no key,
-  switched off, or with no feature named, both routes answer 404 `ai_off` whatever the body, and `api/config` says
+  switched off, or with no feature named, every route answers 404 `ai_off` whatever the body, and `api/config` says
   `ai: { enabled: false }`.
 - **A feature at a time.** A site names the features it runs (Node: `AI_FEATURES`, their names separated by commas;
-  PHP: `'features'` in the `ai` block, a list). `flyer` is `POST api/ai/flyer`, `share` is `POST api/ai/share`. None
-  runs until it is named: a provider and its key alone run nothing. The route of a feature the site does not run
+  PHP: `'features'` in the `ai` block, a list). `flyer` is `POST api/ai/flyer`, `share` is `POST api/ai/share`,
+  `photo` is `POST api/ai/photo`. None runs until it is named: a provider and its key alone run nothing. The route of a feature the site does not run
   answers `ai_off` exactly as it does with the whole AI off, and `api/config` lists the ones that run.
 - **The actor.** Every request has one: today the single anonymous actor (a login will replace the resolver and give the
   policy a role; a guest then gets 403 `ai_forbidden`). Every count is per actor id, so today it is site-wide.
@@ -243,12 +246,17 @@ few-shot examples both backends read.
   `AI_DAILY_LIMIT` (Node) or `'dailyLimit'` (PHP) is the number of every feature, 3 unless set, and `AI_DAILY_LIMITS`
   (pairs, `share:10,flyer:5`) or `'dailyLimits'` (`['share' => 10]`) gives a feature its own. Each is a whole number
   from 1 to `AI_DAILY_LIMIT_MAX`.
+- **A model per feature.** `AI_MODEL` (Node) or `'model'` (PHP) is every feature's model, the provider's default
+  unless set, and `AI_MODELS` (pairs, `photo:<model>`) or `'models'` (`['photo' => '<model>']`) gives a feature its
+  own. One provider and one key serve them all. A model that cannot do what its feature asks (read a picture, say)
+  makes the provider answer an error: that is `ai_failed`, and nothing counts.
 - **Checks, in order:** the body (`malformed`), the write guard, `ai_off` (the whole AI, or this route's feature),
   `ai_forbidden`, the body's shape (400 `ai_input`, with `fields` as for `invalid`; the idea text is trimmed and holds
   1 to `AI_INPUT_MAX` code points), a `hostel` slug that doesn't exist (`unknown_hostel`), the feature's limit (429
   `ai_quota`, when today's `ok` generations of this feature for the actor have reached it; the message names what ran
-  out, "AI flyers" or "AI share texts"), then the provider: a timeout, a provider error, a refusal, or an answer that
-  fails its schema is 502 `ai_failed`.
+  out: "AI flyers", "AI share texts" or "picture reads"), then the provider: a timeout, a provider error, a refusal,
+  or an answer that fails its schema is 502 `ai_failed`. `POST api/ai/photo` has no JSON body: where the other two
+  check the body's shape and the hostel, it makes `POST api/photos`' own checks, in that route's order.
 - **What counts.** A generation counts only when the provider answered and the answer passed validation; it is then one
   of the actor's `limit` of that feature for the Canary Islands day (`AI_DAY_ZONE`), and of no other feature's. Refused
   calls never count; failed ones are recorded but don't count. Every attempt that reached the provider is one
@@ -264,10 +272,29 @@ few-shot examples both backends read.
 - **`POST api/ai/share`** takes `{hostel, template, data, idea?}`, the flyer as the editor holds it (`data` is
   `FlyerDataSchema`) and the idea it came from when the AI made it, and answers `{share, remaining}`: a caption within
   `SHARE_MAX`, not saved, and the share texts left today.
+- **`POST api/ai/photo`** takes a picture, as multipart form data in the field `photo`, and answers
+  `{text, remaining}`: the words the picture shows about an event, for the staff member to check in "Your idea", and
+  the picture reads left today. Nothing is uploaded to `uploads/`, and no flyer is made: the words go to
+  `POST api/ai/flyer` when the staff member asks, as any idea does, so a flyer from a picture is one read and one
+  flyer generation, each from its own count.
+  - `text` is trimmed and holds 0 to `AI_INPUT_MAX` code points, so it always fits the idea box. `[?]` stands where
+    the model could not read a word. An empty `text` means the picture has no words about an event: that read
+    counts too, since the provider answered.
+  - **What the model gets:** the picture prepared as a stored photo is (upright, metadata stripped, PNG with an alpha
+    channel, else JPEG), its long edge at most `AI_PICTURE_MAX_EDGE` (2048 px), with the reader's prompt
+    (`ai/prompts/photo.md`) and one fixed line. No hostels, no date, no examples.
+  - **What the site keeps:** that prepared picture, in `ai-pictures/<Canary day>/<16 hex>.jpg|png` of its data
+    folder, never served, for `AI_PICTURE_DAYS` (30) days. It is written before the provider is called, so a failed
+    read keeps its picture, and a disk that cannot take it stops the read (500) before anything is spent. The
+    ledger's record names it: `input` is one line, `<path> <type> <width>x<height> <bytes> bytes`. `GET api/config`
+    deletes the pictures past their days, at most once a day, whether or not the AI is on.
 - **The fake provider** (`AI_PROVIDER=fake`; PHP `'provider' => 'fake'`) answers from the bundle's first example and
   never touches the network. The last user turn steers it, for the contract suite: `[[fake:invalid]]` answers something
   that fails the schema, `[[fake:unknown-hostel]]` a brief for a hostel the site doesn't have, `[[fake:timeout]]` and
-  `[[fake:refused]]` the two failures.
+  `[[fake:refused]]` the two failures. A picture read answers that example's text, so reading a picture and then
+  generating gives that example's flyer; it has no typed text to carry a marker, so the picture's width steers it
+  (`AI_FAKE.pictureWidths`): 11 px an answer that fails the schema, 12 a timeout, 13 a refusal, 14 a picture with no
+  words.
 
 ## Static files
 

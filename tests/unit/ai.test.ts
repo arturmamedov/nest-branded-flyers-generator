@@ -142,19 +142,22 @@ describe('the AI constants', () => {
     expect(AI_SHARED).toMatchObject({ dailyLimit: AI_DAILY_LIMIT, dailyLimitMax: AI_DAILY_LIMIT_MAX });
     expect(AI_DAY_ZONE).toBe('Atlantic/Canary');
     expect(AI_INPUT_MAX).toBe(4000);
-    expect(AI_FEATURES).toEqual(['flyer', 'share']);
+    expect(AI_FEATURES).toEqual(['flyer', 'share', 'photo']);
     expect(AI_PROVIDERS).toEqual(['openai', 'anthropic', 'fake']);
     expect(AI_DEFAULT_MODEL).toEqual({ openai: 'gpt-6-luna', anthropic: 'claude-haiku-4-5' });
   });
 
   // The owner's wording (2026-10-06): the used-up sentence names what ran out, since each feature has its own limit.
   it('name what each feature’s generations are called, once, and the used-up sentence says it', () => {
-    expect(AI_FEATURE_NOUNS).toEqual({ flyer: 'AI flyers', share: 'AI share texts' });
+    expect(AI_FEATURE_NOUNS).toEqual({ flyer: 'AI flyers', share: 'AI share texts', photo: 'picture reads' });
     expect(Object.keys(AI_FEATURE_NOUNS)).toEqual([...AI_FEATURES]);
     expect(AI_SHARED.featureNouns).toBe(AI_FEATURE_NOUNS);
     expect(aiQuotaVars('share', 10)).toEqual({ limit: 10, what: 'AI share texts' });
     expect(apiError('ai_quota', aiQuotaVars('flyer', 3)).message).toBe('Today’s 3 AI flyers are used up. They come back at midnight, Canary Islands time.');
     expect(apiError('ai_quota', aiQuotaVars('share', 10)).message).toBe('Today’s 10 AI share texts are used up. They come back at midnight, Canary Islands time.');
+    expect(apiError('ai_quota', aiQuotaVars('photo', 3)).message).toBe('Today’s 3 picture reads are used up. They come back at midnight, Canary Islands time.');
+    // Every feature has the name its answer's format goes by: the fake reads the feature off it.
+    expect(Object.keys(AI_SCHEMA_NAMES)).toEqual([...AI_FEATURES]);
   });
 
   it('name the answer formats and the fake provider once, for both backends (schema/shared.json)', () => {

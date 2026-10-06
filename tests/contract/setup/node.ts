@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { TestProject } from 'vitest/node';
 import { createAiService } from '../../../server/ai/composition.js';
+import { createFileAiPictures } from '../../../server/ai/pictures.js';
 import { createApp } from '../../../server/app.js';
 import { createRepositories } from '../../../server/composition.js';
 import { loadConfig, type StorageDriver } from '../../../server/config.js';
@@ -39,8 +40,10 @@ export default async function setup(project: TestProject) {
   // The fake provider is wired the way the real ones are, through the same settings and composition, with every
   // feature named: a provider alone runs nothing. One feature off is proved in process (tests/unit/ai-app.test.ts).
   const env = { AI_PROVIDER: settings.ai, AI_FEATURES: AI_FEATURES.join(',') } as NodeJS.ProcessEnv;
-  const ai = settings.ai ? createAiService(loadConfig(env).ai, { hostels: repos.hostels, usage: repos.aiUsage, clock: systemClock }) : undefined;
-  const server = createServer(createApp({ repos, storage, uploadsDir: data.uploads, buildId: 'contract', ai }));
+  // The pictures a read keeps go to the data folder, as server/index.ts wires them: the suite looks for them there.
+  const aiPictures = createFileAiPictures(data.root);
+  const ai = settings.ai ? createAiService(loadConfig(env).ai, { hostels: repos.hostels, usage: repos.aiUsage, clock: systemClock, pictures: aiPictures }) : undefined;
+  const server = createServer(createApp({ repos, storage, uploadsDir: data.uploads, buildId: 'contract', ai, aiPictures }));
   await new Promise<void>((done) => server.listen(0, '127.0.0.1', done));
   project.provide('baseUrl', `http://127.0.0.1:${(server.address() as AddressInfo).port}/`);
   if (settings.ai) {

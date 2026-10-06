@@ -7,6 +7,7 @@ namespace NestFlyers;
 use Closure;
 use NestFlyers\Ai\AiBundle;
 use NestFlyers\Ai\AiDay;
+use NestFlyers\Ai\AiPictures;
 use NestFlyers\Ai\AiService;
 use NestFlyers\Ai\AnonymousActors;
 use NestFlyers\Ai\ConfigAiPolicy;
@@ -29,6 +30,7 @@ use NestFlyers\Http\WriteGuard;
 use NestFlyers\Image\ImageProcessor;
 use NestFlyers\Image\ImageProcessorFactory;
 use NestFlyers\Image\ImageSniffer;
+use NestFlyers\Image\StoredImage;
 use NestFlyers\Photos\PhotoIntake;
 use NestFlyers\Photos\PhotoService;
 use NestFlyers\Photos\UploadLimits;
@@ -167,7 +169,7 @@ final class Bootstrap
         // not the AI is on: a site that switched it off still has its last thirty days of them.
         $pictures = new FileAiPictures($config->dataDir, $shared);
         $day = new AiDay($shared->ai()['dayZone']);
-        $ai = self::once(fn (): ?AiService => $this->aiService($config, $shared, $errors, $repos, $clock, $normalizer));
+        $ai = self::once(fn (): ?AiService => $this->aiService($config, $shared, $errors, $repos, $clock, $normalizer, $pictures));
 
         $router = new Router();
         (new Api(
@@ -187,6 +189,7 @@ final class Bootstrap
             $ai,
             new AnonymousActors(),
             static fn () => $pictures->sweep($day->day($clock->now())),
+            static fn (Request $request): StoredImage => $intake()->prepare($request, $shared->ai()['pictureMaxEdge'], $shared->photoJpegQuality()),
         ))->register($router);
 
         return static function () use ($seeder, $router): Router {
@@ -200,7 +203,7 @@ final class Bootstrap
      * switched off, or no feature named): the bundle is not even read then. The twin of createAiService in
      * server/ai/composition.ts.
      */
-    private function aiService(Config $config, Shared $shared, ErrorCatalog $errors, Repositories $repos, Clock $clock, SchemaNormalizer $normalizer): ?AiService
+    private function aiService(Config $config, Shared $shared, ErrorCatalog $errors, Repositories $repos, Clock $clock, SchemaNormalizer $normalizer, AiPictures $pictures): ?AiService
     {
         if (!$config->ai->enabled || $config->ai->features === []) {
             return null;
@@ -218,6 +221,7 @@ final class Bootstrap
             $repos->hostels,
             $repos->aiUsage,
             $clock,
+            $pictures,
             $config->ai->timeoutMs,
             // With a provider every feature has a model (AiConfig).
             array_map(static fn (?string $model): string => (string) $model, $config->ai->models),

@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { ANONYMOUS } from '../../server/ai/actor.js';
 import { loadBundle } from '../../server/ai/bundle.js';
 import { createAiService } from '../../server/ai/composition.js';
+import { createMemoryAiPictures } from '../../server/ai/pictures.js';
 import { redact } from '../../server/ai/providers/common.js';
 import { loadConfig, type AiSettings } from '../../server/config.js';
 import { HttpError } from '../../server/errors.js';
@@ -132,7 +133,7 @@ export function refusal(settings: AiSettings, feature: AiFeature): string | null
   if (settings.apiKey === null) return `AI_PROVIDER is ${settings.provider}, but AI_API_KEY is not set in .env.`;
   if (!settings.enabled) return 'AI_ENABLED switches the AI off: take that line out of .env, or set it to 1.';
   if (!settings.features.includes(feature)) {
-    return `AI_FEATURES in .env does not name "${feature}", so this machine does not run it: AI_FEATURES=${AI_FEATURES.join(',')} runs both.`;
+    return `AI_FEATURES in .env does not name "${feature}", so this machine does not run it: AI_FEATURES=${AI_FEATURES.join(',')} runs every feature.`;
   }
   return null;
 }
@@ -308,7 +309,7 @@ export async function runDirect(settings: AiSettings, example: SmokeExample, sha
   const repos = createSqliteRepositories({ file: ':memory:' });
   try {
     await applySeedFile(repos, SEED_FILE);
-    const service = createAiService(settings, { hostels: repos.hostels, usage: repos.aiUsage, clock: systemClock, bundle: { ...bundle, examples: fewShot } });
+    const service = createAiService(settings, { hostels: repos.hostels, usage: repos.aiUsage, clock: systemClock, pictures: createMemoryAiPictures(), bundle: { ...bundle, examples: fewShot } });
     if (!service) throw new Error('These settings run no provider: the direct mode needs AI_PROVIDER and its key.');
     const hostels = await repos.hostels.list();
     const started = performance.now();

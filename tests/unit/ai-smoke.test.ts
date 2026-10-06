@@ -93,7 +93,7 @@ describe('refusal: the direct mode is for a real provider with its key', () => {
 
   it('lets a keyed provider that runs the feature through', () => {
     for (const feature of AI_FEATURES) {
-      expect(refusal(loadAiSettings({ AI_PROVIDER: 'anthropic', AI_API_KEY: KEY, AI_FEATURES: 'flyer,share' }), feature)).toBeNull();
+      expect(refusal(loadAiSettings({ AI_PROVIDER: 'anthropic', AI_API_KEY: KEY, AI_FEATURES: AI_FEATURES.join(',') }), feature)).toBeNull();
       expect(refusal(loadAiSettings({ AI_PROVIDER: 'openai', AI_API_KEY: KEY, AI_FEATURES: feature }), feature)).toBeNull();
     }
   });

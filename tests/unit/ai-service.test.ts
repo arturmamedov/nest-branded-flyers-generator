@@ -2,18 +2,20 @@ import { readFileSync } from 'node:fs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { loadBundle } from '../../server/ai/bundle.js';
 import { createAiPolicy, type AiPolicy } from '../../server/ai/policy.js';
-import { LlmFailure, type LlmProvider } from '../../server/ai/provider.js';
-import { FAKE_UNKNOWN_HOSTEL, FakeProvider } from '../../server/ai/providers/fake.js';
+import { LlmFailure, type LlmCall, type LlmProvider } from '../../server/ai/provider.js';
+import { createMemoryAiPictures } from '../../server/ai/pictures.js';
+import { FAKE_PICTURE_WIDTHS, FAKE_UNKNOWN_HOSTEL, FakeProvider } from '../../server/ai/providers/fake.js';
 import { AiService, type AiServiceDeps } from '../../server/ai/service.js';
 import { HttpError } from '../../server/errors.js';
+import type { PreparedPhoto } from '../../server/services/photos.js';
 import { SEED_FILE } from '../../server/paths.js';
 import type { AiUsageCounts, AiUsageRepository } from '../../server/storage/types.js';
-import { AI_ASSUMPTIONS_MAX, AI_DAILY_LIMIT, AI_FEATURES, AI_INPUT_MAX, aiQuotaVars, type AiFeature } from '../../src/shared/ai.js';
+import { AI_ASSUMPTIONS_MAX, AI_DAILY_LIMIT, AI_FEATURES, AI_INPUT_MAX, AI_PICTURE_ASK, aiQuotaVars, type AiFeature } from '../../src/shared/ai.js';
 import { newFlyerData } from '../../src/shared/defaults.js';
 import { apiError, type ApiErrorKey } from '../../src/shared/errors.js';
-import { AiFlyerResultSchema, type Hostel } from '../../src/shared/schema.js';
+import { AiFlyerResultSchema, AiPhotoResultSchema, type Hostel } from '../../src/shared/schema.js';
 import { SeedFileSchema } from '../../src/shared/seed.js';
-import type { StoredAiUsage } from '../../src/shared/storage.js';
+import { AI_PICTURE_PATH, type StoredAiUsage } from '../../src/shared/storage.js';
 import { FakeClock } from '../storage/repositories.contract.js';
 
 /* The rules of a generation (docs/api-contract.md, "The AI assistant"): the checks and their order, what counts
@@ -57,6 +59,7 @@ const on = (left: PerFeature = {}, named: readonly AiFeature[] = AI_FEATURES, ow
 function make(over: Partial<AiServiceDeps> = {}) {
   const clock = new FakeClock();
   const usage = new MemoryUsage();
+  const pictures = createMemoryAiPictures();
   const service = new AiService({
     provider: new FakeProvider(bundle),
     policy: createAiPolicy(settings),
@@ -66,9 +69,10 @@ function make(over: Partial<AiServiceDeps> = {}) {
     clock,
     timeoutMs: settings.timeoutMs,
     models: settings.models,
+    pictures,
     ...over,
   });
-  return { service, clock, usage };
+  return { service, clock, usage, pictures };
 }
 
 async function failsWith(p: Promise<unknown>, key: ApiErrorKey, vars?: Record<string, string | number>) {
@@ -87,6 +91,10 @@ const answering = (json: unknown): LlmProvider => ({
   complete: async () => ({ json, raw: JSON.stringify(json), usage: { input: 10, output: 20 }, model: 'stub-1' }),
 });
 const shareBody = () => ({ hostel: null, template: 'activity' as const, data: newFlyerData(), idea: 'Pool party' });
+/** A picture as the route hands it over: prepared (server/services/photos.ts). The service never decodes it, so its
+    bytes are whatever; the fake is steered by its width (AI_FAKE.pictureWidths). */
+const BYTES = Buffer.from('the prepared picture: not what a ledger or a log should ever hold');
+const picture = (width = 640): PreparedPhoto => ({ bytes: BYTES, ext: 'jpg', mediaType: 'image/jpeg', width, height: 480 });
 
 describe('the AI service', () => {
   it('is off without a provider: status says so and both features answer ai_off', async () => {
@@ -111,6 +119,8 @@ describe('the AI service', () => {
     const call: Record<AiFeature, (service: AiService, body?: unknown) => Promise<unknown>> = {
       flyer: (service, body = idea()) => service.flyer(actor, body),
       share: (service, body = shareBody()) => service.share(actor, body),
+      // A read has no body to be wrong: the route makes the photo's checks before the service is asked.
+      photo: (service) => service.photo(actor, picture()),
     };
 
     it('that feature answers ai_off before its body is read: the provider is never asked, nothing is counted or recorded', async () => {
@@ -132,14 +142,13 @@ describe('the AI service', () => {
       expect(usage.records).toEqual([]);
     });
 
-    it('the others run, count, and are recorded under their own name', async () => {
+    it('the others run, each counts against its own limit and leaves the others alone, and is recorded under its own name', async () => {
       const { service, usage } = make({ policy: createAiPolicy({ ...settings, features: named }) });
       for (const feature of named) {
         await call[feature](service);
         expect(usage.records.at(-1)).toMatchObject({ feature, ok: true });
       }
-      // Each one spent one of its own. With two features one runs here: that no count moves another's is held where
-      // both run ("stops each feature at its own limit…", below).
+      // Each one spent one of its own, and none of another's.
       expect(await service.status(actor)).toEqual(on(Object.fromEntries(named.map((f) => [f, AI_DAILY_LIMIT - 1])), named));
     });
   });
@@ -324,6 +333,123 @@ describe('the AI service', () => {
     expect(usage.records[0]).toMatchObject({ feature: 'share', ok: true });
     expect(usage.records[0].input).toContain("The flyer's fields:");
     expect(usage.records[0].input).toContain('Pool party');
+  });
+});
+
+/* A picture → its words (the owner's answers, 2026-10-06: "Two calls: read, then write", "Stop at the words"). The
+   route has prepared the picture; the service counts, keeps it, asks the model and records. */
+describe('the AI service reads a picture', () => {
+  it('answers the words and what is left of the day’s reads, keeps the picture, and records one line that names it', async () => {
+    const { service, clock, usage, pictures } = make();
+    const result = await service.photo(actor, picture());
+    expect(result).toEqual({ text: example.text, remaining: AI_DAILY_LIMIT - 1 });
+    expect(AiPhotoResultSchema.safeParse(result).success).toBe(true);
+    // Only the reads' count moved.
+    expect(await service.status(actor)).toEqual(on({ photo: AI_DAILY_LIMIT - 1 }));
+
+    const [path] = [...pictures.kept.keys()];
+    expect(path).toMatch(AI_PICTURE_PATH);
+    expect(path).toContain('/2026-09-18/');
+    expect(pictures.kept.get(path)).toEqual(BYTES);
+    expect(usage.records).toEqual([
+      {
+        at: clock.now(),
+        day: '2026-09-18',
+        actorId: 'anonymous',
+        feature: 'photo',
+        provider: 'fake',
+        model: 'fake-1',
+        tokens: { input: 10, output: 20 },
+        ok: true,
+        input: `${path} image/jpeg 640x480 ${BYTES.length} bytes`,
+        output: JSON.stringify({ text: example.text }),
+      },
+    ]);
+  });
+
+  it('sends the model the reader’s rules and one turn: the picture as it was prepared, then the line that asks', async () => {
+    const calls: LlmCall[] = [];
+    const provider: LlmProvider = {
+      name: 'fake',
+      complete: async (call) => {
+        calls.push(call);
+        return { json: { text: 'Yoga' }, raw: '{"text":"Yoga"}', usage: null, model: 'stub-1' };
+      },
+    };
+    const { service } = make({ provider, models: models({ photo: 'a-stronger-model' }) });
+    await service.photo(actor, picture());
+    expect(calls).toHaveLength(1);
+    expect(calls[0]).toMatchObject({ model: 'a-stronger-model', system: bundle.prompts.photo, schemaName: 'nest_picture_text', schema: bundle.schemas.photoAnswer });
+    expect(calls[0].messages).toEqual([
+      { role: 'user', content: [{ type: 'image', mediaType: 'image/jpeg', data: BYTES.toString('base64'), width: 640, height: 480 }, { type: 'text', text: AI_PICTURE_ASK }] },
+    ]);
+  });
+
+  // The owner's answer: "It says so, no flyer; it counts". The provider was paid.
+  it('a picture with no words answers an empty text, and counts', async () => {
+    const { service, usage } = make();
+    expect(await service.photo(actor, picture(FAKE_PICTURE_WIDTHS.noWords))).toEqual({ text: '', remaining: AI_DAILY_LIMIT - 1 });
+    expect(usage.records[0]).toMatchObject({ feature: 'photo', ok: true, output: '{"text":""}' });
+  });
+
+  it('answers the words trimmed: a read of spaces alone is a picture with no words', async () => {
+    expect(await make({ provider: answering({ text: '  Yoga at 9\n\n' }) }).service.photo(actor, picture())).toMatchObject({ text: 'Yoga at 9' });
+    expect(await make({ provider: answering({ text: ' \n ' }) }).service.photo(actor, picture())).toMatchObject({ text: '' });
+  });
+
+  it('answers ai_failed for words longer than the idea box takes, and charges nothing', async () => {
+    const { service, usage } = make({ provider: answering({ text: 'x'.repeat(AI_INPUT_MAX + 1) }) });
+    await failsWith(service.photo(actor, picture()), 'ai_failed');
+    expect(usage.records.map((r) => [r.feature, r.ok])).toEqual([['photo', false]]);
+    expect(await service.status(actor)).toEqual(on());
+  });
+
+  it('answers ai_failed for an answer that fails the schema, a timeout and a refusal: recorded, not counted, and the picture is kept', async () => {
+    const { service, usage, pictures } = make();
+    for (const width of [FAKE_PICTURE_WIDTHS.invalid, FAKE_PICTURE_WIDTHS.timeout, FAKE_PICTURE_WIDTHS.refused]) await failsWith(service.photo(actor, picture(width)), 'ai_failed');
+    expect(usage.records.map((r) => [r.feature, r.ok, r.output])).toEqual([
+      ['photo', false, '{"text":42}'],
+      ['photo', false, null],
+      ['photo', false, null],
+    ]);
+    // A failed read keeps its picture: those are the ones worth looking at.
+    expect(pictures.kept.size).toBe(3);
+    for (const [i, path] of [...pictures.kept.keys()].entries()) expect(usage.records[i].input.startsWith(`${path} `)).toBe(true);
+    expect(await service.status(actor)).toEqual(on());
+  });
+
+  it('stops at the reads’ own limit, by its name, keeping nothing more, and leaves the flyers alone', async () => {
+    const { service, pictures } = make({ policy: createAiPolicy({ ...settings, dailyLimits: limits({ photo: 1 }) }) });
+    expect((await service.photo(actor, picture())).remaining).toBe(0);
+    await failsWith(service.photo(actor, picture()), 'ai_quota', aiQuotaVars('photo', 1));
+    expect(pictures.kept.size).toBe(1);
+    expect((await service.flyer(actor, idea())).remaining).toBe(AI_DAILY_LIMIT - 1);
+    expect(await service.status(actor)).toEqual(on({ photo: 0, flyer: AI_DAILY_LIMIT - 1 }, AI_FEATURES, { photo: 1 }));
+  });
+
+  it('a disk that cannot keep the picture stops the read before the provider is asked: nothing is spent or recorded', async () => {
+    const asked = vi.fn();
+    const provider: LlmProvider = { name: 'fake', complete: async () => (asked(), { json: { text: 'x' }, raw: '', usage: null, model: 'm' }) };
+    const full = { keep: () => { throw new Error('ENOSPC: no space left on device'); } };
+    const { service, usage } = make({ provider, pictures: full });
+    await expect(service.photo(actor, picture())).rejects.toThrow('ENOSPC');
+    expect(asked).not.toHaveBeenCalled();
+    expect(usage.records).toEqual([]);
+  });
+
+  it('never puts the picture’s bytes in the ledger or the log', async () => {
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      const { service, usage } = make();
+      await service.photo(actor, picture());
+      for (const width of [FAKE_PICTURE_WIDTHS.invalid, FAKE_PICTURE_WIDTHS.timeout]) await failsWith(service.photo(actor, picture(width)), 'ai_failed');
+      const said = JSON.stringify(usage.records) + JSON.stringify(logged.mock.calls);
+      expect(logged).toHaveBeenCalledTimes(2);
+      expect(said).not.toContain(BYTES.toString('base64'));
+      expect(said).not.toContain(BYTES.toString('utf8'));
+    } finally {
+      logged.mockRestore();
+    }
   });
 });
 

@@ -638,7 +638,8 @@
             "type": "string",
             "enum": [
               "flyer",
-              "share"
+              "share",
+              "photo"
             ]
           },
           "provider": {

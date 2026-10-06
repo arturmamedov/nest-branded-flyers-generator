@@ -20,6 +20,21 @@ export interface AiPictures {
   sweep(today: string): void;
 }
 
+/** The kept pictures in memory, for a run that must leave nothing behind: the tests, and the smoke script, which
+    reads what was kept to save the picture as it was sent. Nothing ages in a run that short, so its sweep does nothing. */
+export function createMemoryAiPictures(): AiPictures & { kept: Map<string, Buffer> } {
+  const kept = new Map<string, Buffer>();
+  return {
+    kept,
+    keep(day, picture) {
+      const path = `${STORAGE_FILES.aiPicturesDir}/${day}/${randomBytes(8).toString('hex')}.${picture.ext}`;
+      kept.set(path, picture.bytes);
+      return path;
+    },
+    sweep() {},
+  };
+}
+
 /** What the folder remembers the last sweep's day in, so a new process (every PHP request is one) does not sweep again. */
 const SWEPT = '.swept';
 const DAY = /^\d{4}-\d{2}-\d{2}$/;

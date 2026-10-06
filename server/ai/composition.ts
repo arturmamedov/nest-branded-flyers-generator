@@ -4,6 +4,7 @@ import type { AiSettings } from '../config.js';
 import type { AiUsageRepository, Clock, HostelRepository } from '../storage/types.js';
 import { loadBundle } from './bundle.js';
 import type { FetchJson } from './http.js';
+import type { AiPictures } from './pictures.js';
 import { createAiPolicy } from './policy.js';
 import type { LlmProvider } from './provider.js';
 import { AnthropicProvider } from './providers/anthropic.js';
@@ -28,6 +29,8 @@ export interface AiDeps {
   hostels: Pick<HostelRepository, 'list' | 'bySlug'>;
   usage: Pick<AiUsageRepository, 'record' | 'countOk'>;
   clock: Clock;
+  /** Where a picture read keeps its picture (server/ai/pictures.ts). */
+  pictures: Pick<AiPictures, 'keep'>;
   /** Loaded from schema/ai.json unless given (the tests hand in a stub). */
   bundle?: AiBundle;
 }
@@ -45,6 +48,7 @@ export function createAiService(settings: AiSettings, deps: AiDeps): AiService |
     hostels: deps.hostels,
     usage: deps.usage,
     clock: deps.clock,
+    pictures: deps.pictures,
     timeoutMs: settings.timeoutMs,
     // With a provider every feature has a model (loadAiSettings).
     models: settings.models as Record<AiFeature, string>,

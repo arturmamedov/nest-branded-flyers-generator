@@ -24,14 +24,15 @@ export const AI_INPUT_MAX = 4000;
 export const AI_ASSUMPTIONS_MAX = 12;
 
 /** Every feature the app has: `flyer` is "Create with AI" (an idea → a flyer), `share` is "Write with AI" (a flyer →
-    its share text). A site runs the ones its own setting names, none until then: that setting has this constant's
-    name on Node (AI_FEATURES in .env) and is `features` in config.php's `ai` block. */
-export const AI_FEATURES = ['flyer', 'share'] as const;
+    its share text), `photo` reads a picture into the words for "Your idea" (the owner's answers, 2026-10-06: a read
+    stops at the words, and the flyer is a second call). A site runs the ones its own setting names, none until then:
+    that setting has this constant's name on Node (AI_FEATURES in .env) and is `features` in config.php's `ai` block. */
+export const AI_FEATURES = ['flyer', 'share', 'photo'] as const;
 export type AiFeature = (typeof AI_FEATURES)[number];
 
 /** What a feature's generations are called where their number is said in words: the used-up sentence (ai_quota), and
     the smoke script's lines. Each feature has its own daily limit, so the sentence names what ran out. */
-export const AI_FEATURE_NOUNS: Record<AiFeature, string> = { flyer: 'AI flyers', share: 'AI share texts' };
+export const AI_FEATURE_NOUNS: Record<AiFeature, string> = { flyer: 'AI flyers', share: 'AI share texts', photo: 'picture reads' };
 
 /** What the ai_quota sentence is filled with for one feature: its limit, and what its generations are called. */
 export const aiQuotaVars = (feature: AiFeature, limit: number) => ({ limit, what: AI_FEATURE_NOUNS[feature] });

@@ -13,7 +13,8 @@ const config = loadConfig();
 const data = dataPaths(config.dataDir);
 const repos = createRepositories(config, data, systemClock);
 const renderer = createRenderer({ origin: config.renderOrigin, cacheDir: data.renders, timeoutMs: config.renderTimeoutMs });
-const ai = createAiService(config.ai, { hostels: repos.hostels, usage: repos.aiUsage, clock: systemClock });
+const aiPictures = createFileAiPictures(data.root);
+const ai = createAiService(config.ai, { hostels: repos.hostels, usage: repos.aiUsage, clock: systemClock, pictures: aiPictures });
 
 const httpServer = createServer();
 
@@ -27,7 +28,7 @@ if (!config.isProd) {
   });
 }
 
-const app = createApp({ repos, storage: config.storage, uploadsDir: data.uploads, renderer, vite, buildId: computeBuildId(config.isProd), ai, aiPictures: createFileAiPictures(data.root) });
+const app = createApp({ repos, storage: config.storage, uploadsDir: data.uploads, renderer, vite, buildId: computeBuildId(config.isProd), ai, aiPictures });
 httpServer.on('request', app);
 
 httpServer.listen(config.port, config.host, () => {

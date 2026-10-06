@@ -37,6 +37,7 @@ use NestFlyers\Json;
 use NestFlyers\Photos\UploadLimits;
 use NestFlyers\Shared;
 use NestFlyers\Tests\Support\FakeClock;
+use NestFlyers\Tests\Support\MemoryAiPictures;
 use NestFlyers\Tests\Support\MemoryAiUsage;
 use NestFlyers\Tests\Support\Paths;
 use NestFlyers\Tests\Support\TempDir;
@@ -416,6 +417,7 @@ final class ApiTest extends TestCase
             $this->actors,
             static function (): void {
             },
+            static fn () => throw new LogicException('the photo intake was built'),
         );
     }
 
@@ -432,6 +434,7 @@ final class ApiTest extends TestCase
             $this->hostels,
             $this->usage,
             new FakeClock(),
+            new MemoryAiPictures(),
             $config->timeoutMs,
             $config->models,
             $this->shared,
