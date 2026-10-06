@@ -2,6 +2,7 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { AI_INPUT_MAX, type AiFeature, type AiFeatureOn } from '../shared/ai';
 import { flyerFromBrief } from '../shared/brief';
 import { lintFlyer } from '../shared/copyRules';
+import { withPhoto } from '../shared/defaults';
 import { DEFAULT_CANVAS } from '../shared/layout';
 import type { AiAssumption, Brief, Hostel } from '../shared/schema';
 import { AiPhoto, AiPicture } from './AiPhoto';
@@ -13,7 +14,7 @@ import { briefFieldLabel, FIELD } from './fields';
 import { AiUsedUp, BackToLibrary, Field, HostelOptions, Section } from './panel';
 import { pictureLimits, preparePhoto, type PhotoLimits } from './photoPrep';
 import { CutOffNote, Preview, useFitReports } from './Preview';
-import { go } from './route';
+import { go, onPage } from './route';
 import { ShareCopy } from './share';
 
 /* "Create with AI" (#/ai, docs/prompts/ai-assistant.md): a staff member's idea in, a flyer out, ending at "Open in
@@ -74,6 +75,15 @@ const asSentence = (message: string) => (/[.!?…]\s*$/.test(message) ? message 
     words, and his answer: "Offered, off by default"). */
 const USE_PICTURE = 'Use this picture as the flyer’s photo';
 
+/** What the stage says while an action is out. The first two are the AI's work and carry its ✨; the last is the
+    picture taken along as the flyer's photo, on its way up (the owner's answer, 2026-10-06, with the editor's own
+    "Uploading…" on the button). */
+const WAITING = {
+  flyer: '✨ The AI is writing your flyer… it can take half a minute.',
+  photo: '✨ The AI is reading your picture… it can take half a minute.',
+  open: 'Adding your picture to the flyer…',
+} as const;
+
 /** One action at a time, as in the editor: a picture dropped or pasted while one is out. */
 const STILL_WORKING = 'Still working on the last action — try the picture again in a moment.';
 
@@ -131,8 +141,8 @@ export function AiPage({
   const ideaBox = useRef<HTMLTextAreaElement>(null);
   const readNoteId = useId();
   const [hostel, setHostel] = useState('');
-  // One action at a time: the flyer's generation, or a picture's read.
-  const [busy, setBusy] = useState<null | 'flyer' | 'photo'>(null);
+  // One action at a time: the flyer's generation, a picture's read, or the picture on its way to the editor.
+  const [busy, setBusy] = useState<null | keyof typeof WAITING>(null);
   const [error, setError] = useState<string | null>(null);
   // The red note is a read's that failed for no fault of its picture, which is still worth another try.
   const [pictureKept, setPictureKept] = useState(false);
@@ -261,10 +271,32 @@ export function AiPage({
     setFocus({ on: 'idea' });
   }
 
-  function open() {
+  // "Open in editor". With the picture taken along it is an action like the others: the picture is uploaded first, as a
+  // flyer's photo is from the editor. It is the original, at a photo's own limits: the read was sent a copy shrunk to
+  // the read's edge. If the upload fails the page stays, with the photo route's own message and the tick still set.
+  async function open() {
     if (!result || !flyer) return;
-    offerDraft({ title: result.brief.title?.trim() ?? '', hostel: flyer.hostel, data: flyer.data, photo: null }, result.idea);
-    setOpening(true);
+    const draft = { title: result.brief.title?.trim() ?? '', hostel: flyer.hostel, data: flyer.data };
+    const taking = usePicture ? offered : null;
+    if (!taking) {
+      offerDraft({ ...draft, photo: null }, result.idea);
+      return setOpening(true);
+    }
+    setBusy('open');
+    say(null);
+    try {
+      const { blob, name } = await preparePhoto(taking, limits);
+      const photo = await api.uploadPhoto(blob, name);
+      // The staff member may have left meanwhile, on a yes to the leave question. An answer that lands then hands
+      // nothing over: the next new flyer would open as this draft.
+      if (!onPage('ai')) return;
+      offerDraft({ ...draft, data: withPhoto(draft.data), photo }, result.idea);
+      setOpening(true);
+    } catch (e) {
+      say(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(null);
+    }
   }
 
   return (
@@ -385,7 +417,7 @@ export function AiPage({
               Try again ({left === 0 ? 'none left today' : left === 1 ? 'uses the last one' : `uses one of ${left} left`})
             </button>
             <button type="button" className="btn btn-accent" disabled={!!busy} onClick={open}>
-              Open in editor
+              {busy === 'open' ? 'Uploading…' : 'Open in editor'}
             </button>
           </div>
         )}
@@ -413,7 +445,7 @@ export function AiPage({
         {busy ? (
           <div className="stage">
             <p className="ai-waiting" role="status">
-              {busy === 'photo' ? '✨ The AI is reading your picture… it can take half a minute.' : '✨ The AI is writing your flyer… it can take half a minute.'}
+              {WAITING[busy]}
             </p>
           </div>
         ) : flyer ? (

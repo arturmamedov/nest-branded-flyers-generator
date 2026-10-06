@@ -9,7 +9,7 @@ import { PHOTO_MODE_LABEL } from '../../src/editor/photoModes';
 import { AI_DAILY_LIMIT, AI_FAKE, AI_FEATURES, AI_PICTURE_MAX_EDGE, aiFor, aiQuotaVars, type AiFeature } from '../../src/shared/ai';
 import { apiError } from '../../src/shared/errors';
 import { DEFAULT_CANVAS, type PhotoMode } from '../../src/shared/layout';
-import { AiFlyerResultSchema, AiPhotoResultSchema, AiShareResultSchema, ApiConfigSchema, type AiFlyerAnswer } from '../../src/shared/schema';
+import { AiFlyerResultSchema, AiPhotoResultSchema, AiShareResultSchema, ApiConfigSchema, PhotoInfoSchema, type AiFlyerAnswer } from '../../src/shared/schema';
 import { WRITE_HEADERS } from '../../src/shared/writeGuard';
 
 /* The AI assistant in the browser (docs/prompts/ai-assistant.md, Phase 4). playwright.config.ts runs this file alone
@@ -1242,6 +1242,98 @@ test.describe('From a photo', () => {
     await tryAgain(page).click();
     await expect(currentStep(page)).toHaveText('Flyer');
     await expect(usePicture(page)).not.toBeChecked();
+  });
+
+  test('ticked, Open in editor uploads the picture as it was chosen, at a flyer photo’s own size, and the editor opens with it in a frame; saved, the flyer has its photo', async ({ page }) => {
+    // The read is sent a copy shrunk to the read's edge (above). The flyer's photo is made from the original: wider
+    // than that edge and under a flyer photo's (MAX_PHOTO_EDGE), only the photo's own limits leave it as wide as it is.
+    const dialogs = noDialogs(page);
+    await flyerFromPicture(page, await picture('banner.png', 3000, 60));
+    await usePicture(page).check();
+    const [uploaded] = await Promise.all([page.waitForResponse(apiCall('POST', 'photos')), openInEditor(page).click()]);
+    expect(uploaded.status(), await uploaded.text()).toBe(201);
+    const photo = PhotoInfoSchema.parse(await uploaded.json());
+    expect([photo.width, photo.height], 'the original, not the copy the read was sent').toEqual([3000, 60]);
+
+    await expect(page).toHaveURL(/#\/new$/);
+    expect(dialogs(), 'opening asks nothing').toEqual([]);
+    await expect(page.getByLabel('Line 1')).toHaveValue(brief.text!.headline1!);
+    await expect(photoMode(page, 'band'), 'in a frame, as a photo dropped on "No photo" lands').toHaveClass('on');
+    const inFlyer = preview(page).locator('[data-group="photo"] img');
+    await expect(inFlyer).toBeVisible();
+    expect(await inFlyer.getAttribute('src'), 'the uploaded picture is the flyer’s photo').toContain(photo.url);
+    await expect(page.locator('.note-warn', { hasText: 'AI draft: check every fact before you print' })).toBeVisible();
+    await expect(status(page)).toHaveText('Unsaved changes');
+
+    const saved = await saveNew(page, keep);
+    expect(saved.flyer.photoId).toBe(photo.id);
+    expect(saved.flyer.data.photoMode).toBe('band');
+  });
+
+  test('while the picture uploads the page waits as for any action: the button says Uploading…, the stage says what is happening, nothing else can be pressed, and leaving asks', async ({ page }) => {
+    await flyerFromPicture(page, await picture('poster.png'));
+    await usePicture(page).check();
+    const release = await hold(page, apiRoute('photos'), 'POST');
+    await openInEditor(page).click();
+    await expect(page.getByRole('button', { name: 'Uploading…', exact: true }), 'the editor’s own word for a photo on its way (the owner’s answer, 2026-10-06)').toBeDisabled();
+    await expect(page.locator('.ai-waiting')).toHaveText('Adding your picture to the flyer…');
+    await expect(tryAgain(page)).toBeDisabled();
+    await expect(generate(page)).toBeDisabled();
+    await expect(usePicture(page)).toBeDisabled();
+    await expect(usePicture(page)).toBeChecked();
+    await expect(changePicture(page)).toBeDisabled();
+    // The flyer is unsaved work, now with its picture on the way: leaving asks, and a no keeps the page for the answer.
+    expect(await answerConfirm(page, 'dismiss', () => backToLibrary(page).click())).toBe(LEAVE_PROMPT);
+    await expect(page).toHaveURL(/#\/ai$/);
+    release();
+    await expect(page).toHaveURL(/#\/new$/);
+    await expect(photoMode(page, 'band')).toHaveClass('on');
+    await expect(preview(page).locator('[data-group="photo"] img')).toBeVisible();
+  });
+
+  test('a picture that lands after the staff member has left opens nothing: the library stays, and a new flyer starts blank', async ({ page }) => {
+    await flyerFromPicture(page, await picture('poster.png'));
+    await usePicture(page).check();
+    const release = await hold(page, apiRoute('photos'), 'POST');
+    await openInEditor(page).click();
+    await expect(page.locator('.ai-waiting')).toBeVisible();
+    expect(await answerConfirm(page, 'accept', () => backToLibrary(page).click())).toBe(LEAVE_PROMPT);
+    const library = page.getByRole('heading', { name: 'Flyer library' });
+    await expect(library).toBeVisible();
+
+    const landed = page.waitForResponse(apiCall('POST', 'photos'));
+    release();
+    const res = await landed;
+    expect(res.status()).toBe(201);
+    // The answer is in the page: what it would do, it does before two frames are drawn.
+    await res.finished();
+    await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))));
+    await expect(page).toHaveURL(/#\/$/);
+    await expect(library).toBeVisible();
+    // Nothing was handed over: the next new flyer is nobody's draft.
+    await page.getByRole('link', { name: 'New flyer' }).click();
+    await expect(page.getByLabel('Line 1')).toHaveValue('');
+    await expect(page.locator('.note-warn', { hasText: 'AI draft' })).toHaveCount(0);
+  });
+
+  test('a picture the photo route refuses keeps the page: its own message alone, the tick still set, the flyer still there; pressed again, it opens', async ({ page }) => {
+    await flyerFromPicture(page, await picture('poster.png'));
+    await usePicture(page).check();
+    const tooLarge = apiError('too_large', { mb: 2 });
+    let refuse = true;
+    await page.route(apiRoute('photos'), (route) => (refuse ? route.fulfill({ status: tooLarge.status, json: { error: { code: tooLarge.code, message: tooLarge.message } } }) : route.continue()));
+    await openInEditor(page).click();
+    await expect(errorNote(page), 'the photo route’s own message, and nothing more').toHaveText(tooLarge.message);
+    await expect(page).toHaveURL(/#\/ai$/);
+    await expect(preview(page).locator('[data-flyer]'), 'nothing is lost: the flyer is back on the stage').toBeVisible();
+    await expect(usePicture(page), 'the tick is still set').toBeChecked();
+    await expect(openInEditor(page)).toBeEnabled();
+    await expect(currentStep(page)).toHaveText('Flyer');
+
+    refuse = false;
+    await openInEditor(page).click();
+    await expect(page).toHaveURL(/#\/new$/);
+    await expect(photoMode(page, 'band')).toHaveClass('on');
   });
 
   test('with a mouse there is no Take a photo: a laptop has Choose a picture, drop and paste', async ({ page }) => {
