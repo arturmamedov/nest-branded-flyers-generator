@@ -9,7 +9,7 @@ import { TEMPLATE_LABEL } from '../../src/editor/templates';
 import { DEFAULT_PHOTO_MODE } from '../../src/shared/defaults';
 import { apiError } from '../../src/shared/errors';
 import { flyerFilename } from '../../src/shared/filename';
-import { CANVASES, CANVAS_IDS } from '../../src/shared/layout';
+import { CANVASES, CANVAS_IDS, DEFAULT_CANVAS } from '../../src/shared/layout';
 import { MAX_PHOTO_EDGE } from '../../src/shared/limits';
 import {
   ApiConfigSchema,
@@ -277,6 +277,16 @@ test('the editor on the PHP backend: create, photos, crop, reopen, library, down
     const mine = card(page, title);
     await expect(mine).toBeVisible();
     await expect(mine.locator('.card-meta')).toContainText(hostel.name);
+
+    // The card's picture is the flyer itself, drawn in the browser from what this backend answers for the flyer:
+    // its copy, on the canvas a viewer who never chose sees, with its photo (tests/render/library.spec.ts has the rest).
+    const picture = mine.locator('.card-thumb.card-thumb-ready [data-flyer]');
+    await mine.scrollIntoViewIfNeeded();
+    await expect(picture).toBeVisible();
+    await expect(picture).toHaveAttribute('data-canvas', DEFAULT_CANVAS);
+    await expect(picture).toContainText(COPY.headline1);
+    const photos = await picture.locator('img').evaluateAll((imgs) => imgs.map((img) => img as HTMLImageElement).filter((img) => img.src.includes('/uploads/')).map((img) => img.naturalWidth > 0));
+    expect(photos, 'its photo, loaded').toEqual([true]);
 
     await filterLibrary(page, 'Hostel', { value: hostel.slug }, `?hostel=${encodeURIComponent(hostel.slug)}`);
     await expect(mine).toBeVisible();
