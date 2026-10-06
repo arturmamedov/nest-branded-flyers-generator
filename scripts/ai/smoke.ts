@@ -12,7 +12,7 @@ import { SEED_FILE } from '../../server/paths.js';
 import { applySeedFile } from '../../server/storage/seed.js';
 import { createSqliteRepositories } from '../../server/storage/sqlite/index.js';
 import { systemClock } from '../../server/storage/types.js';
-import { AI_FEATURES, aiFor, aiQuotaVars, type AiFeature } from '../../src/shared/ai.js';
+import { AI_FEATURE_NOUNS, AI_FEATURES, aiFor, aiQuotaVars, type AiFeature } from '../../src/shared/ai.js';
 import { flyerFromBrief } from '../../src/shared/brief.js';
 import { apiError } from '../../src/shared/errors.js';
 import {
@@ -144,10 +144,11 @@ function releaseOf(server: { release?: { id?: unknown; builtAt?: unknown } } | u
   return typeof release?.id === 'string' ? ` (${release.id}${built})` : '';
 }
 
-/** What a site's api/config says there is to spend on this feature: the limit and what is left of it today. It
-    throws, with what to do, when there is nothing: a release from before the AI or from before its features had
-    their own switches, the AI off, the feature off, or the day used up. `ai_off` and an unknown route answer alike
-    (404 not_found), so this is asked before the generation, not learnt from its refusal. */
+/** What a site's api/config says there is to spend on this feature: its own limit and what is left of it today. It
+    throws, with what to do, when there is nothing: a release from before the AI, from before its features had their
+    own switches or from before each had its own limit, the AI off, the feature off, or the feature's day used up.
+    `ai_off` and an unknown route answer alike (404 not_found), so this is asked before the generation, not learnt
+    from its refusal. */
 export function siteAi(config: unknown, feature: AiFeature): { limit: number; remaining: number } {
   if (typeof config !== 'object' || config === null || Array.isArray(config)) {
     throw new Error('This is not the flyer app: api/config did not answer with its settings.');
@@ -162,6 +163,14 @@ export function siteAi(config: unknown, feature: AiFeature): { limit: number; re
   if (typeof ai === 'object' && ai !== null && (ai as { enabled?: unknown }).enabled === true && !('features' in ai)) {
     throw new Error(
       `This site runs a release from before each AI feature had its own switch${releaseOf(server)}: upload the current release first (npm run build:php, docs/deploy.md), then name the features in its settings ('features' in config.php's ai block; AI_FEATURES on a Node server).`,
+    );
+  }
+  // Such a release has one limit for every feature and lists its features by name: what it says is left is not this
+  // feature's own, so the run stops here too.
+  const listed = typeof ai === 'object' && ai !== null ? (ai as { features?: unknown }).features : undefined;
+  if (Array.isArray(listed) && listed.some((feature) => typeof feature === 'string')) {
+    throw new Error(
+      `This site runs a release from before each AI feature had its own daily limit${releaseOf(server)}: upload the current release first (npm run build:php, docs/deploy.md). Its settings need no change: 'dailyLimit' in config.php's ai block (AI_DAILY_LIMIT on a Node server) then counts for each feature.`,
     );
   }
   const parsed = AiConfigSchema.safeParse(ai);
@@ -180,6 +189,13 @@ export function siteAi(config: unknown, feature: AiFeature): { limit: number; re
   if (on.remaining === 0) throw new Error(apiError('ai_quota', aiQuotaVars(feature, on.limit)).message);
   return { limit: on.limit, remaining: on.remaining };
 }
+
+/** What a run through a site says before it spends anything: one of the feature's own, by what it is called. */
+export const siteSpends = (feature: AiFeature, limit: number, remaining: number) =>
+  `This spends one of this site's ${limit} ${AI_FEATURE_NOUNS[feature]} for today (${remaining} left).`;
+
+/** What is left of the feature on the site once the run is over. */
+export const siteLeft = (feature: AiFeature, remaining: number) => `${remaining} ${AI_FEATURE_NOUNS[feature]} left today on this site.`;
 
 /** The codes Node gives a certificate it has no reason to trust (a development server's own, as Laragon's is). */
 const UNTRUSTED = new Set(['DEPTH_ZERO_SELF_SIGNED_CERT', 'SELF_SIGNED_CERT_IN_CHAIN', 'UNABLE_TO_VERIFY_LEAF_SIGNATURE', 'UNABLE_TO_GET_ISSUER_CERT_LOCALLY']);
@@ -204,7 +220,7 @@ export function siteHint(error: unknown): string | null {
     if (error.movedTo !== null) return `Run it again with --to ${error.movedTo}`;
     if (error.status === 401) return 'The site wants its staff login: set FLYERS_BASE_URL to this address in .env, with FLYERS_BASIC_USER and FLYERS_BASIC_PASSWORD.';
     if (error.code === 'not_configured') {
-      return "The site refuses its config.php: an ai block on a release from before the AI, a key in the block that the site's own release does not know ('features' on one from before the switches), or a value it will not take. The site's own log names it.";
+      return "The site refuses its config.php: an ai block on a release from before the AI, a key in the block that the site's own release does not know ('features' on one from before the switches, 'dailyLimits' on one from before each feature had its own limit), or a value it will not take. The site's own log names it.";
     }
     if (error.code === 'ai_failed') {
       return "Nothing was counted. The reason is in the site's own log (PHP: data/php-errors.log or the host's error log; Node: its console), and the attempt is in its ledger.";
@@ -324,8 +340,9 @@ async function runSite(to: string, share: boolean, example: SmokeExample, bundle
   console.log(`Through ${target.baseUrl}${target.basicAuth ? `, signed in as "${target.basicAuth.user}"` : ''}.`);
   console.log(`Example: ${example.label}, ${share ? 'the share text of its flyer' : 'a flyer from its text'}.`);
   const config = await call('GET', 'api/config', z.unknown());
-  const { limit, remaining } = siteAi(config, featureOf(share));
-  console.log(`This spends one of this site's ${limit} generations today (${remaining} left).`);
+  const feature = featureOf(share);
+  const { limit, remaining } = siteAi(config, feature);
+  console.log(siteSpends(feature, limit, remaining));
   if (fewShotFor(bundle, example).length < bundle.examples.length) {
     console.log("The text is one of the release's own few-shot examples, so the answer proves the route, the key and the host's time limit, not the model's judgment.");
   }
@@ -335,7 +352,7 @@ async function runSite(to: string, share: boolean, example: SmokeExample, bundle
     : await call('POST', 'api/ai/flyer', AiFlyerResultSchema, { text: example.text });
   const ms = Math.round(performance.now() - started);
   console.log(describeAnswer(result));
-  console.log(`\nAnswered in ${seconds(ms)}; ${result.remaining} left today on this site.`);
+  console.log(`\nAnswered in ${seconds(ms)}; ${siteLeft(feature, result.remaining)}`);
   const ledger = (config as { storage?: unknown }).storage === 'sqlite' ? 'the ai_usage table of its database' : 'data/ai-usage/YYYY-MM.json';
   console.log(`The tokens and the model are in the site's ledger (${ledger}): no route answers them.`);
 }

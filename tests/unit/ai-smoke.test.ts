@@ -2,7 +2,7 @@ import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'n
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, describe, expect, it, vi } from 'vitest';
-import { closing, opening, parseSmokeArgs, readExample, refusal, runDirect, shareRequest, siteAi, siteHint, USAGE, whatFailed } from '../../scripts/ai/smoke.js';
+import { closing, opening, parseSmokeArgs, readExample, refusal, runDirect, shareRequest, siteAi, siteHint, siteLeft, siteSpends, USAGE, whatFailed } from '../../scripts/ai/smoke.js';
 import { siteAt, SiteError } from '../../scripts/site.js';
 import { loadBundle } from '../../server/ai/bundle.js';
 import { loadAiSettings } from '../../server/config.js';
@@ -210,6 +210,24 @@ describe('siteAi: what a site’s api/config says there is to spend', () => {
     expect(before).toContain('npm run build:php');
   });
 
+  // Such a release answers one limit for every feature and lists the features by name: this checkout's contract
+  // gives each feature its own, so a run would misread what there is to spend.
+  it('names a release from before each feature had its own daily limit, so nothing is sent to it', () => {
+    const ai = { enabled: true, limit: 3, remaining: 3, features: ['share'] };
+    const before = said(() => siteAi({ backend: 'php', ai, server: { release: { id: '2ad58f28364e', builtAt: '2026-10-06T01:25:07.000Z' } } }, 'share'));
+    expect(before).toContain('2ad58f28364e');
+    expect(before).toContain('2026-10-06');
+    expect(before).toContain('its own daily limit');
+    expect(before).toContain('npm run build:php');
+    expect(before).not.toContain('not what the contract says');
+  });
+
+  it('says what a run through a site will spend, and what it left: the feature’s own, by what it is called', () => {
+    expect(siteSpends('share', 10, 4)).toBe("This spends one of this site's 10 AI share texts for today (4 left).");
+    expect(siteSpends('flyer', 3, 1)).toBe("This spends one of this site's 3 AI flyers for today (1 left).");
+    expect(siteLeft('share', 3)).toBe('3 AI share texts left today on this site.');
+  });
+
   it('stops when the AI is off there, or the feature’s day is used up, in the catalogue’s words', () => {
     expect(said(() => siteAi({ ai: { enabled: false } }, 'flyer'))).toContain('off');
     const features = [flyer, { ...share, remaining: 0 }];
@@ -235,6 +253,13 @@ describe('what to do about a call that failed', () => {
   it('a certificate Node does not trust: the setting that names it', () => {
     expect(siteHint(fetchFailed('DEPTH_ZERO_SELF_SIGNED_CERT'))).toContain('NODE_EXTRA_CA_CERTS');
     expect(siteHint(fetchFailed('ECONNREFUSED'))).toBeNull();
+  });
+
+  // A release refuses a config.php key that came after it (503): the hint names the keys an older release meets.
+  it('a site that refuses its config.php: the keys an older release does not know', () => {
+    const hint = siteHint(new SiteError('This app is not set up yet', 503, 'not_configured'));
+    expect(hint).toContain("'features'");
+    expect(hint).toContain("'dailyLimits'");
   });
 
   it('a site that wants its login: where the login goes', () => {
