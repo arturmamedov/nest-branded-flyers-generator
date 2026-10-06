@@ -97,8 +97,18 @@ export const AI_DEFAULT_MODEL: Record<Exclude<AiProvider, 'fake'>, string> = {
   anthropic: 'claude-haiku-4-5',
 };
 
-/** The names the two features' answer formats go by: on the wire (OpenAI's `text.format.name`) and in the fake. */
-export const AI_SCHEMA_NAMES = { flyer: 'nest_flyer_brief', share: 'nest_share_text' } as const;
+/** The names the answer formats go by: on the wire (OpenAI's `text.format.name`) and in the fake. `photo` is the
+    picture read's: the words a picture shows, for "Your idea". */
+export const AI_SCHEMA_NAMES = { flyer: 'nest_flyer_brief', share: 'nest_share_text', photo: 'nest_picture_text' } as const;
+
+/** The longest edge of the picture a read sends the model, in pixels: enough for small print on a poster, and well
+    under the flyer photo's own (MAX_PHOTO_EDGE). The server prepares it; the browser shrinks to it first, as a
+    courtesy. Whether it stays is the owner's to say once real reads are measured. */
+export const AI_PICTURE_MAX_EDGE = 2048;
+
+/** The one line a picture read's turn says after its picture. The rules are the reader's prompt
+    (ai/prompts/photo.md); nothing else is added at request time. */
+export const AI_PICTURE_ASK = 'Write out the words of the event in this picture.';
 
 /** The fake provider both backends ship for the tests and a demo (docs/api-contract.md, "The AI assistant"): its model
     name, the slug it makes up, and the markers in the last user turn that steer it. */
@@ -129,6 +139,8 @@ export const AI_SHARED = {
   providers: AI_PROVIDERS,
   defaultModel: AI_DEFAULT_MODEL,
   schemaNames: AI_SCHEMA_NAMES,
+  pictureMaxEdge: AI_PICTURE_MAX_EDGE,
+  pictureAsk: AI_PICTURE_ASK,
   fake: AI_FAKE,
 } as const;
 

@@ -1,6 +1,6 @@
-import { aiDateLine } from '../../src/shared/ai.js';
+import { AI_PICTURE_ASK, aiDateLine } from '../../src/shared/ai.js';
 import type { AiAssumption, Brief, FlyerData, FlyerText, Template, WeekRow } from '../../src/shared/schema.js';
-import type { LlmMessage } from './provider.js';
+import type { LlmMessage, LlmPart } from './provider.js';
 
 /* What a provider is sent, built from the generated bundle (schema/ai.json: the prompts and the few-shot examples),
    the site's hostels and the day. The same bytes on both backends: PHP's Ai\PromptBuilder is the twin, and
@@ -14,7 +14,7 @@ export interface PromptExample {
 
 /** What the prompt builder needs of schema/ai.json (its schemas are the providers' business). */
 export interface PromptBundle {
-  prompts: { flyer: string; share: string };
+  prompts: { flyer: string; share: string; photo: string };
   examples: PromptExample[];
 }
 
@@ -74,6 +74,13 @@ export function buildFlyerCall(bundle: PromptBundle, hostels: PromptHostel[], no
   const messages = bundle.examples.flatMap((e) => [user(staffText(e.text)), assistant(JSON.stringify(e.answer))]);
   messages.push(user(staffText(request.text)));
   return { system, messages };
+}
+
+/** A picture → its words: the reader's rules alone, then one turn, the picture first and the one line that asks for
+    its words. Nothing is added at request time (no hostels, no day) and there are no examples: the bundle never holds
+    a picture. What the picture says reaches the flyer's prompt later, between the fences every staff text gets. */
+export function buildPhotoCall(bundle: PromptBundle, picture: Extract<LlmPart, { type: 'image' }>): Prompt {
+  return { system: bundle.prompts.photo, messages: [user([picture, { type: 'text', text: AI_PICTURE_ASK }])] };
 }
 
 /** A flyer → its share text: the rules and the day; then each example's fields and text as a turn pair, and the

@@ -34,11 +34,19 @@ describe('generated files', () => {
 describe('the AI bundle (schema/ai.json) and the ai block of shared.json', () => {
   const bundle = JSON.parse(outputs['schema/ai.json']);
 
-  it('carries both prompts, with the limits the schema sets rendered into them', () => {
+  it('carries every prompt, with the limits the schema sets rendered into them', () => {
+    expect(Object.keys(bundle.prompts)).toEqual(['flyer', 'share', 'photo']);
     expect(bundle.prompts.flyer).toContain('assumptions');
     expect(bundle.prompts.flyer).toContain('headline1');
     expect(bundle.prompts.flyer).toMatch(/eyebrow[^\n]*18/);
     expect(bundle.prompts.share).toContain('---');
+    // The reader's prompt: its rule for a word it cannot read, and the idea box's limit, which the words must fit.
+    expect(bundle.prompts.photo).toContain('[?]');
+    expect(bundle.prompts.photo).toMatch(/\n## Limits\n[^\n]+\n- text: at most 4000 characters\n$/);
+  });
+
+  it('the picture read answers its words alone, strictly: { text }', () => {
+    expect(bundle.schemas.photoAnswer).toEqual({ type: 'object', properties: { text: { type: 'string', maxLength: 4000 } }, required: ['text'], additionalProperties: false });
   });
 
   it('turns every example file into a few-shot pair: the text, the brief and the assumptions', () => {
@@ -52,7 +60,7 @@ describe('the AI bundle (schema/ai.json) and the ai block of shared.json', () =>
   });
 
   it('inlines the answer and request schemas: no $ref, no $schema, every object closed', () => {
-    expect(Object.keys(bundle.schemas)).toEqual(['flyerAnswer', 'shareAnswer', 'flyerRequest', 'shareRequest']);
+    expect(Object.keys(bundle.schemas)).toEqual(['flyerAnswer', 'shareAnswer', 'photoAnswer', 'flyerRequest', 'shareRequest']);
     const text = JSON.stringify(bundle.schemas);
     expect(text).not.toContain('$ref');
     expect(text).not.toContain('$schema');
@@ -95,7 +103,9 @@ describe('the AI bundle (schema/ai.json) and the ai block of shared.json', () =>
       maxOutputTokens: 8000,
       providers: ['openai', 'anthropic', 'fake'],
       defaultModel: { openai: 'gpt-6-luna', anthropic: 'claude-haiku-4-5' },
-      schemaNames: { flyer: 'nest_flyer_brief', share: 'nest_share_text' },
+      schemaNames: { flyer: 'nest_flyer_brief', share: 'nest_share_text', photo: 'nest_picture_text' },
+      pictureMaxEdge: 2048,
+      pictureAsk: 'Write out the words of the event in this picture.',
       fake: {
         model: 'fake-1',
         unknownHostel: 'no-such-nest',

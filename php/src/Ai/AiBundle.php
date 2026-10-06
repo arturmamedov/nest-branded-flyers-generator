@@ -19,12 +19,13 @@ use stdClass;
  */
 final class AiBundle
 {
-    private const SCHEMAS = ['flyerAnswer', 'shareAnswer', 'flyerRequest', 'shareRequest'];
+    private const PROMPTS = ['flyer', 'share', 'photo'];
+    private const SCHEMAS = ['flyerAnswer', 'shareAnswer', 'photoAnswer', 'flyerRequest', 'shareRequest'];
 
     /**
-     * @param array{flyer:string, share:string} $prompts
+     * @param array{flyer:string, share:string, photo:string} $prompts
      * @param list<stdClass> $examples {text, answer}, each answer as AiFlyerAnswerSchema.parse() leaves it
-     * @param array{flyerAnswer:stdClass, shareAnswer:stdClass, flyerRequest:stdClass, shareRequest:stdClass} $schemas
+     * @param array{flyerAnswer:stdClass, shareAnswer:stdClass, photoAnswer:stdClass, flyerRequest:stdClass, shareRequest:stdClass} $schemas
      */
     private function __construct(
         public readonly array $prompts,
@@ -47,9 +48,13 @@ final class AiBundle
         }
         $damaged = static fn (string $what): RuntimeException => new RuntimeException("$path is damaged: $what; run npm run gen and upload the release whole.");
 
-        $prompts = $bundle->prompts ?? null;
-        if (!$prompts instanceof stdClass || !self::text($prompts->flyer ?? null) || !self::text($prompts->share ?? null)) {
-            throw $damaged('prompts.flyer and prompts.share must be non-empty strings');
+        $prompts = [];
+        foreach (self::PROMPTS as $name) {
+            $prompt = $bundle->prompts->{$name} ?? null;
+            if (!is_string($prompt) || $prompt === '') {
+                throw $damaged("prompts.$name must be a non-empty string");
+            }
+            $prompts[$name] = $prompt;
         }
         $schemas = [];
         foreach (self::SCHEMAS as $name) {
@@ -74,11 +79,6 @@ final class AiBundle
             }
             $examples[] = (object) ['text' => $example->text, 'answer' => $answer];
         }
-        return new self(['flyer' => $prompts->flyer, 'share' => $prompts->share], $examples, $schemas);
-    }
-
-    private static function text(mixed $value): bool
-    {
-        return is_string($value) && $value !== '';
+        return new self($prompts, $examples, $schemas);
     }
 }

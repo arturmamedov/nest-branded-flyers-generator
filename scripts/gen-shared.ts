@@ -17,6 +17,7 @@ import {
   AiExampleSchema,
   AiFlyerAnswerSchema,
   AiFlyerRequestSchema,
+  AiPhotoAnswerSchema,
   AiShareAnswerSchema,
   AiShareRequestSchema,
   FlyerInputSchema,
@@ -48,7 +49,7 @@ const TABLE_START = '<!-- gen:errors:start -->';
 const TABLE_END = '<!-- gen:errors:end -->';
 
 /** The AI assistant's sources: the rules, and the staff texts with the briefs written from them (the few-shot). */
-export const PROMPT_FILES = { flyer: 'ai/prompts/flyer.md', share: 'ai/prompts/share.md' } as const;
+export const PROMPT_FILES = { flyer: 'ai/prompts/flyer.md', share: 'ai/prompts/share.md', photo: 'ai/prompts/photo.md' } as const;
 export const EXAMPLES_DIR = 'docs/ai-flyers/examples';
 
 const json = (value: unknown) => JSON.stringify(value, null, 2) + '\n';
@@ -174,11 +175,13 @@ export function generate(read: (rel: string) => string = (rel) => readFileSync(j
       prompts: {
         flyer: prompt(read(PROMPT_FILES.flyer), def(AiFlyerAnswerSchema, 'input')),
         share: prompt(read(PROMPT_FILES.share), def(AiShareAnswerSchema, 'input')),
+        photo: prompt(read(PROMPT_FILES.photo), def(AiPhotoAnswerSchema, 'input')),
       },
       examples: examples(read),
       schemas: {
         flyerAnswer: def(AiFlyerAnswerSchema, 'input'),
         shareAnswer: def(AiShareAnswerSchema, 'input'),
+        photoAnswer: def(AiPhotoAnswerSchema, 'input'),
         flyerRequest: def(AiFlyerRequestSchema, 'input'),
         shareRequest: def(AiShareRequestSchema, 'input'),
       },

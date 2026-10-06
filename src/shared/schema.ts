@@ -178,6 +178,15 @@ export type AiShareAnswer = z.infer<typeof AiShareAnswerSchema>;
 export const AiShareResultSchema = AiShareAnswerSchema.extend({ remaining: z.number().int().nonnegative() });
 export type AiShareResult = z.infer<typeof AiShareResultSchema>;
 
+/** What the model answers a picture read with: the words the picture shows about the event, as written. They go
+    into "Your idea", so they are never longer than it takes; an empty text means the picture has none. */
+export const AiPhotoAnswerSchema = z.strictObject({ text: z.string().max(AI_INPUT_MAX) });
+export type AiPhotoAnswer = z.infer<typeof AiPhotoAnswerSchema>;
+
+/** What `POST api/ai/photo` answers: the words, and what is left of the day's reads. */
+export const AiPhotoResultSchema = AiPhotoAnswerSchema.extend({ remaining: z.number().int().nonnegative() });
+export type AiPhotoResult = z.infer<typeof AiPhotoResultSchema>;
+
 /** One feature in the `ai` block of GET api/config: the actor's daily limit for it, and what is left of that today. */
 export const AiFeatureStatusSchema = z.strictObject({
   name: z.enum(AI_FEATURES),
@@ -202,11 +211,12 @@ export type AiConfig = z.infer<typeof AiConfigSchema>;
     the few-shot examples, and the schemas the providers are held to. Checked on load, so a stale bundle fails at
     start-up, not on a staff member's request. */
 export const AiBundleSchema = z.strictObject({
-  prompts: z.strictObject({ flyer: z.string().min(1), share: z.string().min(1) }),
+  prompts: z.strictObject({ flyer: z.string().min(1), share: z.string().min(1), photo: z.string().min(1) }),
   examples: z.array(z.strictObject({ text: z.string(), answer: AiFlyerAnswerSchema })),
   schemas: z.strictObject({
     flyerAnswer: z.record(z.string(), z.unknown()),
     shareAnswer: z.record(z.string(), z.unknown()),
+    photoAnswer: z.record(z.string(), z.unknown()),
     flyerRequest: z.record(z.string(), z.unknown()),
     shareRequest: z.record(z.string(), z.unknown()),
   }),

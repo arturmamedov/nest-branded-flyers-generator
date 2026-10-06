@@ -49,7 +49,7 @@ final class AiService
     ) {
         $this->facts = $shared->ai();
         $this->day = new AiDay($this->facts['dayZone']);
-        $this->prompts = new PromptBuilder($bundle->prompts, $bundle->examples, $this->day);
+        $this->prompts = new PromptBuilder($bundle->prompts, $bundle->examples, $this->day, $this->facts['pictureAsk']);
     }
 
     /**

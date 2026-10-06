@@ -36,7 +36,8 @@ final class AiBundleTest extends TestCase
         self::assertCount(count($file->examples), $bundle->examples);
         // Byte for byte, key order included: the few-shot answers go to the provider as JSON.stringify writes them.
         self::assertSame(Json::encode($file->examples), Json::encode($bundle->examples));
-        self::assertSame(['flyerAnswer', 'shareAnswer', 'flyerRequest', 'shareRequest'], array_keys($bundle->schemas));
+        self::assertSame(['flyerAnswer', 'shareAnswer', 'photoAnswer', 'flyerRequest', 'shareRequest'], array_keys($bundle->schemas));
+        self::assertSame(['flyer', 'share', 'photo'], array_keys($bundle->prompts));
     }
 
     public function testEverySchemaTakesAValidValueThroughThePhpValidator(): void
@@ -47,6 +48,7 @@ final class AiBundleTest extends TestCase
         $values = [
             'flyerAnswer' => $bundle->examples[0]->answer,
             'shareAnswer' => (object) ['share' => 'Yoga mañana'],
+            'photoAnswer' => (object) ['text' => "Today\nBACHATA WORKSHOP"],
             'flyerRequest' => (object) ['text' => '  Yoga at 9  ', 'hostel' => 'duque-nest'],
             'shareRequest' => (object) ['hostel' => null, 'template' => $sample->template, 'data' => $sample->data, 'idea' => 'Yoga'],
         ];
@@ -60,8 +62,9 @@ final class AiBundleTest extends TestCase
     {
         yield 'not JSON' => ['{', 'ai.json'];
         yield 'no prompts' => ['{"examples": [], "schemas": {}}', 'prompts'];
-        yield 'an empty prompt' => ['{"prompts": {"flyer": "", "share": "S"}, "examples": [], "schemas": {}}', 'prompts'];
-        yield 'a schema missing' => ['{"prompts": {"flyer": "F", "share": "S"}, "examples": [], "schemas": {"flyerAnswer": {}}}', 'schemas'];
+        yield 'an empty prompt' => ['{"prompts": {"flyer": "", "share": "S", "photo": "P"}, "examples": [], "schemas": {}}', 'prompts'];
+        yield "no reader's prompt: a bundle from before the picture read" => ['{"prompts": {"flyer": "F", "share": "S"}, "examples": [], "schemas": {}}', 'prompts.photo'];
+        yield 'a schema missing' => ['{"prompts": {"flyer": "F", "share": "S", "photo": "P"}, "examples": [], "schemas": {"flyerAnswer": {}}}', 'schemas'];
     }
 
     #[DataProvider('brokenBundles')]

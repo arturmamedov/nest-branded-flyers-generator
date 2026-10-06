@@ -9,6 +9,8 @@ import {
   AiFlyerAnswerSchema,
   AiFlyerRequestSchema,
   AiFlyerResultSchema,
+  AiPhotoAnswerSchema,
+  AiPhotoResultSchema,
   AiShareAnswerSchema,
   AiShareRequestSchema,
   ApiConfigSchema,
@@ -112,6 +114,22 @@ describe('AiShareRequestSchema and AiShareAnswerSchema', () => {
     expect(ok(AiShareAnswerSchema, { share: 'Hola' })).toBe(true);
     expect(ok(AiShareAnswerSchema, { share: 'x'.repeat(SHARE_MAX + 1) })).toBe(false);
     expect(ok(AiShareAnswerSchema, { share: 'Hola', brief })).toBe(false);
+  });
+});
+
+describe('AiPhotoAnswerSchema (the words read from a picture)', () => {
+  it('is the words alone, as long as the idea box takes and no longer; empty means the picture has none', () => {
+    expect(ok(AiPhotoAnswerSchema, { text: 'Today\nBACHATA WORKSHOP' })).toBe(true);
+    expect(ok(AiPhotoAnswerSchema, { text: '' })).toBe(true);
+    expect(ok(AiPhotoAnswerSchema, { text: 'x'.repeat(AI_INPUT_MAX) })).toBe(true);
+    expect(ok(AiPhotoAnswerSchema, { text: 'x'.repeat(AI_INPUT_MAX + 1) })).toBe(false);
+    expect(ok(AiPhotoAnswerSchema, {})).toBe(false);
+    expect(ok(AiPhotoAnswerSchema, { text: 'Yoga', brief })).toBe(false);
+  });
+
+  it('the route answers them with what is left of the day’s reads', () => {
+    expect(ok(AiPhotoResultSchema, { text: 'Yoga', remaining: 2 })).toBe(true);
+    expect(ok(AiPhotoResultSchema, { text: 'Yoga' })).toBe(false);
   });
 });
 

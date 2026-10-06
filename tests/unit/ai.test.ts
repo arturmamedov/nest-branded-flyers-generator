@@ -10,6 +10,8 @@ import {
   AI_FEATURE_NOUNS,
   AI_FEATURES,
   AI_INPUT_MAX,
+  AI_PICTURE_ASK,
+  AI_PICTURE_MAX_EDGE,
   AI_PROVIDERS,
   AI_SCHEMA_NAMES,
   AI_SHARED,
@@ -20,6 +22,7 @@ import {
   aiWithRemaining,
 } from '../../src/shared/ai.js';
 import { apiError } from '../../src/shared/errors.js';
+import { MAX_PHOTO_EDGE } from '../../src/shared/limits.js';
 import type { AiConfig } from '../../src/shared/schema.js';
 
 /* The AI assistant's shared facts (src/shared/ai.ts): each feature's daily limit, the day it counts in, and what both
@@ -155,7 +158,7 @@ describe('the AI constants', () => {
   });
 
   it('name the answer formats and the fake provider once, for both backends (schema/shared.json)', () => {
-    expect(AI_SCHEMA_NAMES).toEqual({ flyer: 'nest_flyer_brief', share: 'nest_share_text' });
+    expect(AI_SCHEMA_NAMES).toEqual({ flyer: 'nest_flyer_brief', share: 'nest_share_text', photo: 'nest_picture_text' });
     expect(AI_FAKE).toEqual({
       model: 'fake-1',
       unknownHostel: 'no-such-nest',
@@ -163,5 +166,13 @@ describe('the AI constants', () => {
     });
     expect(AI_SHARED.schemaNames).toBe(AI_SCHEMA_NAMES);
     expect(AI_SHARED.fake).toBe(AI_FAKE);
+  });
+
+  // The picture a read sends the model (the brief, 2026-10-06): 2048 px on its long edge, under the photo's own 3240.
+  it('say how large a picture a read sends, and the one line that asks for its words', () => {
+    expect(AI_PICTURE_MAX_EDGE).toBe(2048);
+    expect(AI_PICTURE_MAX_EDGE).toBeLessThan(MAX_PHOTO_EDGE);
+    expect(AI_PICTURE_ASK).toBe('Write out the words of the event in this picture.');
+    expect(AI_SHARED).toMatchObject({ pictureMaxEdge: AI_PICTURE_MAX_EDGE, pictureAsk: AI_PICTURE_ASK });
   });
 });
