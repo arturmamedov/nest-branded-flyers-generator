@@ -678,6 +678,37 @@ own environment; the ledger is in memory.
 - **The Anthropic adapter needs no change for the stronger Claude models.** It sends no field they refuse. They
   think before answering by default, and that time counts against the 25 s the app waits: the reads measure it.
 
+### One read through the Laragon copy: PHP's side
+
+Asked first, Artur said **"Yes, now, with the Canva page"**, and to leave the copy with **"The share text alone, as
+before"**.
+
+- **The release.** `npm run deploy:update` backed the copy up (`backups/nest-flyers-php-2026-10-06-12-48-33`: 10
+  flyers, 6 photos, with its `config.php`), built from `a10e92f` and copied the release over it: **`8c7a635bd009`**,
+  437 files, 3.94 MB, nothing deleted. It made the local tag `release/8c7a635bd009`. Nothing is pushed.
+- **The setting.** A script named `photo` beside `share` in the copy's `ai` block. It printed the feature names and
+  one "yes": PHP itself read the edited file, and everything else in it hashed the same as before. No line of
+  `config.php` was printed.
+- **`api/config` then listed the read with its own count:** `photo`, 3 of 3, beside the share text's.
+- **The read:** `npm run ai:smoke -- --photo <the case's .json> --to https://nest-flyers-php.test/`.
+
+| | |
+|---|---|
+| The model | `gpt-6-luna` on OpenAI: the copy's own provider, on its default model |
+| The seconds | 7.4, with the upload and PHP's preparing. The same model took 5.7 s directly on Node, the provider alone |
+| The tokens | 2,158 in and 372 out: the same tokens in as Node's read, since the picture has the same pixels |
+| What the copy kept | `ai-pictures/2026-10-06/d7758a1be13c89c7.jpg`, 899 × 1599, 163,512 bytes: PHP's JPEG, where Node's is 150 KB |
+| The count | 3 reads left before, 2 after |
+| What was misread | No fact. The two columns were read row by row: "WHEN?" and "WHERE?" first, then "20:00", "La Isleta Nest" and "Rooftop". The capital again |
+
+- **The same model read the same picture's layout two ways in two calls.** Directly, `gpt-6-luna` kept each label
+  with its value. Through the copy it wrote the two labels and then the two values. Both give every fact, and the
+  reader's rule ("the order they are read in") allows either. It is one for the table's judgment, not a fault of
+  PHP: both backends send the same rules and the same pixels.
+- **The copy is left as Artur said.** `photo` is out of its settings again: `api/config` lists the share text
+  alone, and `POST api/ai/photo` there answers 404. The new release stays. The read's picture stays in the copy's
+  data folder for its thirty days.
+
 ### The gates
 
 One sequence on 2026-10-06, on the tree of `43aa907`: the checkpoint's last commit before this report.
@@ -703,5 +734,5 @@ One sequence on 2026-10-06, on the tree of `43aa907`: the checkpoint's last comm
 - **The real reads of the other four pictures,** when Artur gives them: both providers, the default model and the
   middle one. He then gets the whole table and chooses the photo's model, whether 2048 px stays, and the reader's
   prompt's words.
-- **One read through the Laragon copy,** on his word, and how to leave the copy afterwards.
-- **Nothing is pushed.** No release was built, `.env` was not changed, and the live site was not called.
+- **Nothing is pushed.** `.env` was not changed, and the live site was not called. One release was built, for the
+  Laragon copy alone.

@@ -374,8 +374,9 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
   - A fresh-context review found no way for a switched-off feature to run, be spent, be recorded or be shown.
     Seven of its points were fixed, each with a test that failed first: among them a blank page when the
     client met a backend older than itself (`aiFor` now reads any answer it does not know as "no AI").
-  - The Laragon copy runs release `2ad58f28364e` (tag `release/2ad58f28364e`, on `2c9e5f8`) with
-    `'features' => ['share']`. This machine's `.env` has `AI_FEATURES=flyer,share`.
+  - The Laragon copy ran release `2ad58f28364e` then (tag `release/2ad58f28364e`, on `2c9e5f8`) with
+    `'features' => ['share']`; since the photo checkpoint it runs `8c7a635bd009`, still the share text alone
+    (below). This machine's `.env` has `AI_FEATURES=flyer,share`.
   - Three real generations, all captions on the Laragon copy: 5.4, 3.7 and 5.3 s.
   - Left, Artur's, in this order: `npm run build:php` and upload, then `npm run deploy:tag -- <the site>`; the
     `ai` block in live's `config.php` with `'features' => ['share']`, never before the new release is up;
@@ -417,9 +418,13 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
         `claude-haiku-4-5`, `claude-sonnet-5-5`; every fact read by all four, 3.4 to 8.5 s; the report has the
         rows). The stronger model of each provider is its middle one, his choice.
       - **The other four pictures wait for him to give them:** a handwritten board, a poster, a chat screenshot,
-        a photo with no words. He then chooses the photo's model, whether 2048 px stays, and the prompt's words.
-        One read through the Laragon copy follows, on his word. Only `npm run ai:smoke`, by hand and on his go,
-        called a provider.
+        a photo with no words. He pastes them into `backups/photo-reads/`, which git ignores. He then chooses the
+        photo's model, whether 2048 px stays, and the prompt's words. Only `npm run ai:smoke`, by hand and on his
+        go, called a provider.
+      - One read went through the Laragon copy, on his word: `gpt-6-luna`, 7.4 s with the upload. The copy now
+        runs release `8c7a635bd009` (tag `release/8c7a635bd009`, on `a10e92f`), and is left with the share text
+        alone, as he said.
+      - The case's `source` is as its picture prints it, line for line and capital for capital (his answer).
     - No release was built. A host needs the release first, then `'models'` and `'photo'`; both come out before
       going back (`docs/deploy.md`, "Rolling back").
   - **Stages 3 and 4 are not started,** and not to be started unasked: the page, and the picture as the flyer's
