@@ -53,7 +53,9 @@ describe('the AI bundle (schema/ai.json) and the ai block of shared.json', () =>
   // two ways on a list of activities, and every model wrote out a sign that announces no event.
   it('the reader’s rules say what the real reads asked for', () => {
     const rules = bundle.prompts.photo as string;
-    expect(rules).toContain("a sponsor's or a maker's name printed on a board or a poster");
+    // Narrowed to boards the same day: on a poster it had also dropped the event's own sound system.
+    expect(rules).toContain('a brand printed on a board or its frame');
+    expect(rules).not.toContain('or a poster (a drinks brand');
     expect(rules).toContain('each activity on one line of its own with its day, its time and its place');
     expect(rules).toContain('A picture that announces no event: answer with an empty text');
     // The guard against emptying a real poster: one that names an activity and gives no date is still an event.
@@ -69,6 +71,10 @@ describe('the AI bundle (schema/ai.json) and the ai block of shared.json', () =>
     expect(flyer).not.toContain('`Ask at reception`, never `Free`');
     expect(flyer).toContain('no full stop at the end');
     expect(flyer).not.toContain('usually ends with a full stop');
+    // A start and an end print as one range, written as on his Teide flyer: it stood "one time, the start".
+    expect(flyer).toContain('`17:45-23:00`');
+    expect(flyer).not.toContain('One time, the start');
+    expect((bundle.examples as { answer: { brief: Brief } }[]).map((e) => e.answer.brief.when)).toContain('Every day · 17:45-23:00');
     // Both prompts write the same caption, so both say its order.
     for (const rules of [flyer, bundle.prompts.share as string]) {
       expect(rules).toContain(`English first, then a line with \`${SHARE_SPANISH_BREAK}\`, then Spanish`);

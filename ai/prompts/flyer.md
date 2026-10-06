@@ -39,7 +39,7 @@ You cannot ask. For each thing the text leaves out, take the default below, and 
 | `text.headline1` | The lead-in, black | English, sentence case. About 18 characters before it shrinks |
 | `text.headline2` | The punch, big and teal | English, sentence case, no full stop at the end. About 15 characters |
 | `text.headlineEs` | The same idea in Spanish | One line, written fresh in natural Spanish, not word for word, with no full stop at the end |
-| `when` | Day · time | `Today · 19:00`, `Saturday 3/10 · 20:30`. Big line `·` small line. Always 24 h (5:45pm → `17:45`). One time, the start: a range (`17:45 – 23:00`) breaks over two lines in the chip, so the end time goes in the share text |
+| `when` | Day · time | `Today · 19:00`, `Saturday 3/10 · 20:30`. Big line `·` small line. Always 24 h (5:45pm → `17:45`). A start and an end are one range with a hyphen and no spaces, `17:45-23:00`: with spaces around the dash it breaks over two lines in the chip |
 | `where` | The spot | Just the spot (`Pool area`, `The rooftop`): the hostel's name prints by itself on the big line. Chain-wide: `Place · detail`. Short small lines: a chip is narrow, and a hyphenated word splits (`Pick-up & drop-off` printed `drop- / off`; `Pick-up point` fits) |
 | `cost` | Price · what it includes | `10€ · drinks included`, `Free`. A free event says `Free`. No price in the text: leave it out, as above |
 | `extras` | 0–4 short facts | 2–3 words each, English: `Bring a towel`, `Comfy clothes`. No sentences, no dots (the flyer adds them). What doesn't fit stays in the share text |
