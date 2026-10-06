@@ -25,6 +25,9 @@ export interface AiSettings {
   /** The generations a day this site allows each actor: AI_DAILY_LIMIT unless the setting of that name says
       otherwise, and never more than AI_DAILY_LIMIT_MAX. */
   dailyLimit: number;
+  /** Each feature's own number a day, for every feature the app has: the one AI_DAILY_LIMITS gives it, else
+      `dailyLimit` (the owner's answer, 2026-10-06). */
+  dailyLimits: Record<AiFeature, number>;
 }
 
 export interface Config {
@@ -57,6 +60,22 @@ function dailyLimit(value: string | undefined): number {
   return limit;
 }
 
+/** The AI_DAILY_LIMITS setting: a feature's own number a day, as `feature:number` pairs separated by commas. A feature
+    it does not name takes `others`, the site's AI_DAILY_LIMIT. Digits alone make a number here, so this reads no
+    spelling that 'dailyLimits' in config.php would refuse (`1e1`, `2.0`). */
+function dailyLimits(value: string | undefined, others: number): Record<AiFeature, number> {
+  const own = new Map<string, number>();
+  for (const pair of (value ?? '').split(',').map((p) => p.trim()).filter(Boolean)) {
+    const [name, digits, ...more] = pair.split(':').map((part) => part.trim());
+    const limit = /^\d+$/.test(digits ?? '') ? Number(digits) : NaN;
+    if (more.length > 0 || !(AI_FEATURES as readonly string[]).includes(name) || own.has(name) || !(limit >= 1 && limit <= AI_DAILY_LIMIT_MAX)) {
+      throw new Error(`AI_DAILY_LIMITS must be feature:number pairs separated by commas: a feature from ${AI_FEATURES.join(', ')}, each once, and a whole number from 1 to ${AI_DAILY_LIMIT_MAX}`);
+    }
+    own.set(name, limit);
+  }
+  return Object.fromEntries(AI_FEATURES.map((feature) => [feature, own.get(feature) ?? others])) as Record<AiFeature, number>;
+}
+
 /* A refusal names the setting and never repeats its value, as PHP's AiConfig does: these lines are typed by hand next
    to the key, and a key pasted on the wrong one would be printed back. */
 export function loadAiSettings(env: NodeJS.ProcessEnv): AiSettings {
@@ -80,6 +99,7 @@ export function loadAiSettings(env: NodeJS.ProcessEnv): AiSettings {
     enabled: provider !== null && keyed && !OFF.has((env.AI_ENABLED ?? '').trim().toLowerCase()),
     features,
     dailyLimit: limit,
+    dailyLimits: dailyLimits(env.AI_DAILY_LIMITS, limit),
   };
 }
 

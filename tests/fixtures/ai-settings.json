@@ -1,5 +1,5 @@
 {
-  "about": "The AI settings a site names itself, as both backends must read them: AI_FEATURES and AI_DAILY_LIMIT in .env (Node, loadAiSettings in server/config.ts), 'features' and 'dailyLimit' in config.php's ai block (PHP, AiConfig). Replayed by tests/unit/ai-config.test.ts and php/tests/ConfigTest.php. `env` is the variable's value (null: not set), `php` the key's value; a row without one of them is the other backend's alone. A refusal names the setting and never repeats its value. The default and the most a site may set are AI_DAILY_LIMIT and AI_DAILY_LIMIT_MAX in src/shared/ai.ts: both tests hold these rows to them.",
+  "about": "The AI settings a site names itself, as both backends must read them: AI_FEATURES, AI_DAILY_LIMIT and AI_DAILY_LIMITS in .env (Node, loadAiSettings in server/config.ts), 'features', 'dailyLimit' and 'dailyLimits' in config.php's ai block (PHP, AiConfig). Replayed by tests/unit/ai-config.test.ts and php/tests/ConfigTest.php. `env` is the variable's value (null: not set), `php` the key's value; a row without one of them is the other backend's alone. A refusal names the setting and never repeats its value. The default and the most a site may set are AI_DAILY_LIMIT and AI_DAILY_LIMIT_MAX in src/shared/ai.ts: both tests hold these rows to them. A `dailyLimits` row may set the site's own number beside the pairs (`site`: AI_DAILY_LIMIT, 'dailyLimit'); an accepted one says which features end up with a number of their own (`limits`) and what every other feature gets (`others`), so a new feature changes no row.",
   "features": {
     "accepted": [
       { "name": "not named: none run", "env": null, "php": null, "runs": [] },
@@ -34,6 +34,43 @@
       { "name": "not a whole number", "env": "2.5", "php": 2.5 },
       { "name": "words", "env": "ten", "php": "ten" },
       { "name": "a number written as text in config.php", "php": "10" },
+      { "name": "true", "php": true }
+    ]
+  },
+  "dailyLimits": {
+    "accepted": [
+      { "name": "not set: every feature takes the default", "env": null, "php": null, "limits": {}, "others": 3 },
+      { "name": "empty: none named", "env": "", "php": [], "limits": {}, "others": 3 },
+      { "name": "one feature its own number", "env": "share:10", "php": { "share": 10 }, "limits": { "share": 10 }, "others": 3 },
+      { "name": "two features, whatever order they are named in", "env": "share:10,flyer:5", "php": { "share": 10, "flyer": 5 }, "limits": { "flyer": 5, "share": 10 }, "others": 3 },
+      { "name": "one a day", "env": "flyer:1", "php": { "flyer": 1 }, "limits": { "flyer": 1 }, "others": 3 },
+      { "name": "the most a site may set", "env": "share:20", "php": { "share": 20 }, "limits": { "share": 20 }, "others": 3 },
+      { "name": "the site's own number alone: every feature takes it", "site": 7, "env": null, "php": null, "limits": {}, "others": 7 },
+      { "name": "beside the site's own number: the rest take that", "site": 7, "env": "share:1", "php": { "share": 1 }, "limits": { "share": 1 }, "others": 7 },
+      { "name": "spaces and a stray comma, as typed in .env", "env": " share : 10 , flyer:5 ,", "limits": { "flyer": 5, "share": 10 }, "others": 3 }
+    ],
+    "refused": [
+      { "name": "a name no feature has", "env": "captions:5", "php": { "captions": 5 } },
+      { "name": "a good pair beside a bad name", "env": "share:5,captions:5", "php": { "share": 5, "captions": 5 } },
+      { "name": "capitals", "env": "Share:5", "php": { "Share": 5 } },
+      { "name": "zero: off is the switch's job", "env": "share:0", "php": { "share": 0 } },
+      { "name": "one past the most", "env": "share:21", "php": { "share": 21 } },
+      { "name": "a negative number", "env": "share:-3", "php": { "share": -3 } },
+      { "name": "not a whole number", "env": "share:2.5", "php": { "share": 2.5 } },
+      { "name": "words for the number", "env": "share:ten", "php": { "share": "ten" } },
+      { "name": "a number written as text in config.php", "php": { "share": "10" } },
+      { "name": "a spelling only JavaScript reads as a number", "env": "share:1e1" },
+      { "name": "a hex number", "env": "share:0x10" },
+      { "name": "a whole number written with a decimal point", "env": "share:2.0" },
+      { "name": "a plus sign", "env": "share:+5" },
+      { "name": "a feature named twice", "env": "share:5,share:6" },
+      { "name": "a name with no number", "env": "share" },
+      { "name": "a number with no name", "env": ":5" },
+      { "name": "a pair with two colons", "env": "share:5:6" },
+      { "name": "a list, not pairs", "php": ["share"] },
+      { "name": "a list of numbers", "php": [10, 5] },
+      { "name": "a number, not pairs", "php": 5 },
+      { "name": "a string", "php": "share:5" },
       { "name": "true", "php": true }
     ]
   }

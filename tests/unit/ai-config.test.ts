@@ -3,11 +3,12 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { loadConfig } from '../../server/config.js';
 import { APP_ROOT } from '../../server/paths.js';
-import { AI_DAILY_LIMIT, AI_DAILY_LIMIT_MAX, AI_DEFAULT_MODEL, AI_TIMEOUT_MS } from '../../src/shared/ai.js';
+import { AI_DAILY_LIMIT, AI_DAILY_LIMIT_MAX, AI_DEFAULT_MODEL, AI_FEATURES, AI_TIMEOUT_MS } from '../../src/shared/ai.js';
 
 /* The AI settings the Node server reads from its environment (.env): which provider, the key, the model, the two
-   knobs, the switch, and the features that run. Off is the default, and the state the app keeps whenever a provider
-   has no key. The vectors (tests/fixtures/ai-settings.json) are replayed by PHPUnit against config.php's `ai` block. */
+   knobs, the switch, the features that run, and how many a day each may. Off is the default, and the state the app
+   keeps whenever a provider has no key. The vectors (tests/fixtures/ai-settings.json) are replayed by PHPUnit against
+   config.php's `ai` block. */
 
 const load = (env: Record<string, string>) => loadConfig(env as NodeJS.ProcessEnv).ai;
 
@@ -16,17 +17,35 @@ interface Row {
   name: string;
   env?: string | null;
 }
+/** A row of the per-feature limits: `site` is the site's own number (AI_DAILY_LIMIT), set beside the pairs. */
+type LimitsRow = Row & { site?: number };
 const vectors = JSON.parse(readFileSync(join(APP_ROOT, 'tests/fixtures/ai-settings.json'), 'utf8')) as {
   features: { accepted: (Row & { runs: string[] })[]; refused: Row[] };
   dailyLimit: { accepted: (Row & { limit: number })[]; refused: Row[] };
+  dailyLimits: { accepted: (LimitsRow & { limits: Record<string, number>; others: number })[]; refused: LimitsRow[] };
 };
 /** The rows Node reads, each with the environment that sets its variable (or leaves it out). */
 const rows = <R extends Row>(list: R[], variable: string): (Omit<R, 'env'> & { env: Record<string, string> })[] =>
   list.filter((r) => r.env !== undefined).map((r) => ({ ...r, env: r.env == null ? {} : { [variable]: r.env } }));
+/** The same for the per-feature limits, whose rows may set the site's own number too. */
+const limitRows = <R extends LimitsRow>(list: R[]) =>
+  rows(list, 'AI_DAILY_LIMITS').map((r) => ({ ...r, env: { ...r.env, ...(r.site === undefined ? {} : { AI_DAILY_LIMIT: String(r.site) }) } }));
+/** A limit for every feature the app has: its own where `own` names it, else `others`. */
+const everyFeature = (others: number, own: Record<string, number> = {}) => Object.fromEntries(AI_FEATURES.map((f) => [f, own[f] ?? others]));
 
 describe('AI settings', () => {
   it('are off with no provider', () => {
-    expect(load({})).toEqual({ provider: null, apiKey: null, model: null, effort: null, timeoutMs: AI_TIMEOUT_MS, enabled: false, features: [], dailyLimit: AI_DAILY_LIMIT });
+    expect(load({})).toEqual({
+      provider: null,
+      apiKey: null,
+      model: null,
+      effort: null,
+      timeoutMs: AI_TIMEOUT_MS,
+      enabled: false,
+      features: [],
+      dailyLimit: AI_DAILY_LIMIT,
+      dailyLimits: everyFeature(AI_DAILY_LIMIT),
+    });
   });
 
   it('the fake provider needs no key', () => {
@@ -49,6 +68,7 @@ describe('AI settings', () => {
       enabled: true,
       features: [],
       dailyLimit: AI_DAILY_LIMIT,
+      dailyLimits: everyFeature(AI_DAILY_LIMIT),
     });
   });
 
@@ -67,6 +87,32 @@ describe('AI settings', () => {
     expect(accepted.find((r) => r.env === null)?.limit).toBe(AI_DAILY_LIMIT);
     expect(Math.max(...accepted.map((r) => r.limit))).toBe(AI_DAILY_LIMIT_MAX);
     expect(refused.map((r) => r.env)).toContain(String(AI_DAILY_LIMIT_MAX + 1));
+  });
+
+  // The owner's answers (2026-10-06): every feature its own daily limit, AI_DAILY_LIMIT each feature's number unless it
+  // has its own, and one setting of pairs for those.
+  it.each(limitRows(vectors.dailyLimits.accepted))('AI_DAILY_LIMITS, $name', ({ env, limits, others }) => {
+    expect(load({ AI_PROVIDER: 'fake', ...env }).dailyLimits).toEqual(everyFeature(others, limits));
+  });
+
+  it.each(limitRows(vectors.dailyLimits.refused))('refuses AI_DAILY_LIMITS with $name, whether or not the AI is on', ({ env }) => {
+    expect(() => load(env)).toThrow(/AI_DAILY_LIMITS/);
+    expect(() => load({ AI_PROVIDER: 'fake', ...env })).toThrow(/AI_DAILY_LIMITS/);
+  });
+
+  it('the per-feature vectors name real features, and their default and their most are the shared constants', () => {
+    const { accepted, refused } = vectors.dailyLimits;
+    for (const row of accepted) for (const feature of Object.keys(row.limits)) expect(AI_FEATURES, row.name).toContain(feature);
+    expect(accepted.find((r) => r.env === null && r.site === undefined)?.others).toBe(AI_DAILY_LIMIT);
+    expect(Math.max(...accepted.flatMap((r) => Object.values(r.limits)))).toBe(AI_DAILY_LIMIT_MAX);
+    expect(refused.map((r) => r.env)).toContain(`${AI_FEATURES.at(-1)}:${AI_DAILY_LIMIT_MAX + 1}`);
+  });
+
+  it('a number for a feature the site does not run is kept, and runs nothing', () => {
+    const [runs, other] = AI_FEATURES;
+    const settings = load({ AI_PROVIDER: 'fake', AI_FEATURES: runs, AI_DAILY_LIMITS: `${other}:9` });
+    expect(settings.features).toEqual([runs]);
+    expect(settings.dailyLimits).toEqual(everyFeature(AI_DAILY_LIMIT, { [other]: 9 }));
   });
 
   // The owner's answer (2026-10-05): none until named. The switch keeps its meaning; what runs is a second fact.
@@ -111,6 +157,11 @@ describe('AI settings', () => {
     expect(said({ AI_PROVIDER: 'openai', AI_API_KEY: 'k', AI_FEATURES: `share,${pasted}` })).not.toContain(pasted);
     expect(said({ AI_PROVIDER: 'openai', AI_API_KEY: 'k', AI_DAILY_LIMIT: pasted })).toMatch(/AI_DAILY_LIMIT/);
     expect(said({ AI_PROVIDER: 'openai', AI_API_KEY: 'k', AI_DAILY_LIMIT: pasted })).not.toContain(pasted);
+    // Pasted whole, as a pair's name and as a pair's number: none of them comes back.
+    for (const value of [pasted, `${pasted}:5`, `share:${pasted}`, `share:5,${pasted}`]) {
+      expect(said({ AI_PROVIDER: 'openai', AI_API_KEY: 'k', AI_DAILY_LIMITS: value }), value).toMatch(/AI_DAILY_LIMITS/);
+      expect(said({ AI_PROVIDER: 'openai', AI_API_KEY: 'k', AI_DAILY_LIMITS: value }), value).not.toContain(pasted);
+    }
   });
 
   // `AI_API_KEY="sk-…\n"` in .env is a key with a real line break at its end: every call then failed as "fetch
@@ -141,6 +192,6 @@ describe('AI settings', () => {
 
   it('every setting is in .env.example, commented out', () => {
     const example = readFileSync(join(APP_ROOT, '.env.example'), 'utf8');
-    for (const name of ['AI_PROVIDER', 'AI_API_KEY', 'AI_FEATURES', 'AI_DAILY_LIMIT', 'AI_MODEL', 'AI_EFFORT', 'AI_TIMEOUT_MS', 'AI_ENABLED']) expect(example).toMatch(new RegExp(`^# ?${name}=`, 'm'));
+    for (const name of ['AI_PROVIDER', 'AI_API_KEY', 'AI_FEATURES', 'AI_DAILY_LIMIT', 'AI_DAILY_LIMITS', 'AI_MODEL', 'AI_EFFORT', 'AI_TIMEOUT_MS', 'AI_ENABLED']) expect(example).toMatch(new RegExp(`^# ?${name}=`, 'm'));
   });
 });
