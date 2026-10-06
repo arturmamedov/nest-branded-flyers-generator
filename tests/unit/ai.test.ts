@@ -17,6 +17,7 @@ import {
   aiDay,
   aiFor,
   aiQuotaVars,
+  aiWithRemaining,
 } from '../../src/shared/ai.js';
 import { apiError } from '../../src/shared/errors.js';
 import type { AiConfig } from '../../src/shared/schema.js';
@@ -68,6 +69,66 @@ describe('aiFor: the AI as far as one feature goes, from api/config’s answer',
       { enabled: true, features: [{ name: 'flyer' }, { name: 'share', limit: '3', remaining: 3 }] }, // no count to show
     ];
     for (const ai of older) for (const feature of AI_FEATURES) expect(aiFor(ai as unknown as AiConfig, feature), JSON.stringify(ai)).toBeNull();
+  });
+
+  // A count is a whole number from zero up (AiFeatureStatusSchema). "-1 left" beside a live button is not one to show.
+  it('is nothing for a count the contract refuses: below zero, not whole, or past what a number holds exactly', () => {
+    for (const bad of [-1, 2.5, 1e21, Number.NaN, Number.POSITIVE_INFINITY]) {
+      for (const entry of [{ name: 'flyer', limit: 3, remaining: bad }, { name: 'flyer', limit: bad, remaining: 0 }]) {
+        expect(aiFor({ enabled: true, features: [entry] } as AiConfig, 'flyer'), JSON.stringify(entry)).toBeNull();
+      }
+    }
+    const usedUp = { name: 'flyer' as const, limit: 3, remaining: 0 };
+    expect(aiFor({ enabled: true, features: [usedUp] }, 'flyer'), 'none left is a count').toBe(usedUp);
+  });
+});
+
+describe('aiWithRemaining: api/config’s answer once a route has said what is left of one feature', () => {
+  const flyer = { name: 'flyer' as const, limit: 3, remaining: 3 };
+  const share = { name: 'share' as const, limit: 10, remaining: 2 };
+
+  it('moves that feature’s count, and only that one', () => {
+    const before: AiConfig = { enabled: true, features: [flyer, share] };
+    const after = aiWithRemaining(before, 'share', 1);
+    expect(after).toEqual({ enabled: true, features: [flyer, { ...share, remaining: 1 }] });
+    expect(aiFor(after, 'flyer'), 'the other feature’s entry is the one it was').toBe(flyer);
+    expect(before, 'the answer it was given is not written to').toEqual({ enabled: true, features: [flyer, share] });
+    expect(aiWithRemaining(before, 'flyer', 0)).toEqual({ enabled: true, features: [{ ...flyer, remaining: 0 }, share] });
+  });
+
+  // Found in review (2026-10-06): aiFor() showed a feature listed beside an entry it could not read, and the first
+  // answer then walked the list by name and took the page down with it.
+  it('leaves an entry it cannot read as it came, beside one it can', () => {
+    const odd = { enabled: true, features: [null, 'share', 7, { name: 'photo', limit: 3, remaining: 3 }, share] } as unknown as AiConfig;
+    const after = aiWithRemaining(odd, 'share', 1);
+    expect(after).toEqual({ enabled: true, features: [null, 'share', 7, { name: 'photo', limit: 3, remaining: 3 }, { ...share, remaining: 1 }] });
+    expect(aiFor(after, 'share')).toEqual({ ...share, remaining: 1 });
+  });
+
+  it('answers what it was given, and no crash, with the AI off or for a backend older than this client', () => {
+    const unread = [
+      { enabled: false },
+      { enabled: true, limit: 3, remaining: 3 },
+      { enabled: true, limit: 3, remaining: 3, features: ['flyer', 'share'] },
+      { enabled: true, features: 'share' },
+      undefined,
+      null,
+    ];
+    for (const ai of unread) expect(aiWithRemaining(ai as unknown as AiConfig, 'share', 1), JSON.stringify(ai)).toEqual(ai);
+  });
+
+  // A route that answers its flyer with no count to show must not cost the flyer: the count stays where it was.
+  it('keeps the count it had when what is left is no count', () => {
+    const before: AiConfig = { enabled: true, features: [flyer, share] };
+    for (const bad of [undefined, null, '1', -1, 1.5, Number.NaN, 1e21]) {
+      expect(aiWithRemaining(before, 'share', bad as unknown as number), String(bad)).toBe(before);
+    }
+  });
+
+  it('changes nothing for a feature the answer does not list', () => {
+    const shareOnly: AiConfig = { enabled: true, features: [share] };
+    expect(aiWithRemaining(shareOnly, 'flyer', 0)).toEqual(shareOnly);
+    expect(aiFor(aiWithRemaining(shareOnly, 'flyer', 0), 'flyer')).toBeNull();
   });
 });
 

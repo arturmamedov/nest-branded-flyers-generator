@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { aiFor, type AiFeature } from '../shared/ai';
+import { aiFor, aiWithRemaining, type AiFeature } from '../shared/ai';
 import type { AiConfig, ApiConfig, Hostel } from '../shared/schema';
 import { assetUrl } from '../flyer/urls';
 import { AiPage } from './AiPage';
@@ -36,11 +36,7 @@ export function App() {
   }, []);
 
   // One feature's count moves, and only that one: a generation, or its limit reached, says nothing of the others.
-  const onRemaining = useCallback(
-    (feature: AiFeature, remaining: number) =>
-      setAi((a) => (a.enabled ? { ...a, features: a.features.map((f) => (f.name === feature ? { ...f, remaining } : f)) } : a)),
-    [],
-  );
+  const onRemaining = useCallback((feature: AiFeature, remaining: number) => setAi((a) => aiWithRemaining(a, feature, remaining)), []);
 
   // A site runs the features it names (api/config lists them): the bar's link and the #/ai page are the flyer's,
   // "Write with AI" in the editor is the share text's. Each shows only where its feature runs for this staff member,

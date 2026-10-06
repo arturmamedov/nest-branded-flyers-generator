@@ -261,6 +261,23 @@ test('a limit reached: the page says when it comes back and that none are left, 
   await expect(page.locator('.ai-used-up')).toHaveCount(0);
 });
 
+test('the share text’s limit reached in the editor: the note says what ran out, its button counts none, and the flyer keeps its count', async ({ page }) => {
+  // The other way round from the test above, and routed both ways too: one share text left on load, then the refusal.
+  await withLeft(page, { flyer: 2, share: 1 });
+  const quota = apiError('ai_quota', aiQuotaVars('share', AI_DAILY_LIMIT));
+  await page.route(apiRoute('ai/share'), (route) => route.fulfill({ status: quota.status, json: { error: { code: quota.code, message: quota.message } } }));
+  await page.goto('/#/new');
+  await expect(writeWithAi(page)).toContainText('1 left today');
+  await writeWithAi(page).click();
+  await expect(errorNote(page)).toHaveText(quota.message);
+  await expect(writeWithAi(page)).toContainText('0 left today');
+  await expect(writeWithAi(page)).toBeDisabled();
+  await expect(page.locator('.ai-used-up')).toHaveText(quota.message);
+  // The share text's limit is the share text's alone: the flyer still has its two.
+  await backToLibrary(page).click();
+  await expect(entry(page)).toHaveAccessibleName('Create with AI, 2 left today');
+});
+
 test('the day’s last flyer leaves a Try again that says none are left', async ({ page }) => {
   // Seen in a browser on both backends (2026-10-06): the greyed button read "Try again (uses one of 0 left)".
   // Routed both ways, so nothing is spent: one flyer left on load, and the answer that spends it.
@@ -355,6 +372,22 @@ for (const [which, ai] of [
     await expect(writeWithAi(page)).toHaveCount(0);
   });
 }
+
+test('an entry the editor cannot read, listed beside a feature it can, costs nothing: that feature shows, works and counts down', async ({ page }) => {
+  // Found in review (2026-10-06): the button showed, and its first answer took the whole page down. No backend
+  // answers such a list today; a later one may list what this client has no name for. Routed, so nothing is spent.
+  await page.route(apiRoute('config'), async (route) => {
+    const res = await route.fetch();
+    const features = [null, { name: 'share', limit: AI_DAILY_LIMIT, remaining: 2 }];
+    await route.fulfill({ response: res, json: { ...(await res.json()), ai: { enabled: true, features } } });
+  });
+  await page.route(apiRoute('ai/share'), (route) => route.fulfill({ json: { share: 'Written by the AI', remaining: 1 } }));
+  await page.goto('/#/new');
+  await expect(writeWithAi(page)).toContainText('2 left today');
+  await writeWithAi(page).click();
+  await expect(page.getByLabel('Caption')).toHaveValue('Written by the AI');
+  await expect(writeWithAi(page)).toContainText('1 left today');
+});
 
 // A site names the features it runs (AI_FEATURES in .env, 'features' in config.php): the trial on the live site is the
 // share text alone. Routed, so nothing is spent.

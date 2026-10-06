@@ -48,11 +48,35 @@ export type AiFeatureOn = AiOn['features'][number];
     features by name, one from before the switches lists none, one from before the AI has no `ai` block at all.
     Whatever it cannot read, nothing of the AI shows, and the page still loads. */
 export function aiFor(ai: AiConfig, feature: AiFeature): AiFeatureOn | null {
-  const answer = ai as Partial<AiOn> | null | undefined;
-  if (answer?.enabled !== true || !Array.isArray(answer.features)) return null;
-  const listed = (answer.features as unknown[]).find((f): f is AiFeatureOn => typeof f === 'object' && f !== null && (f as AiFeatureOn).name === feature);
-  return listed && Number.isInteger(listed.limit) && Number.isInteger(listed.remaining) ? listed : null;
+  const its = listed(ai)?.find(entryOf(feature));
+  return its && isCount(its.limit) && isCount(its.remaining) ? its : null;
 }
+
+/** api/config's answer once a route has said what is left today of one feature: that feature's count moves, and only
+    that one. It reads the answer as loosely as aiFor() does, since it walks the same list: an entry that is no
+    feature's stays as it came, and so does the whole answer when `remaining` is no count, so an answer the editor
+    cannot read never costs more than the AI. */
+export function aiWithRemaining(ai: AiConfig, feature: AiFeature, remaining: number): AiConfig {
+  const features = listed(ai);
+  if (!features || !isCount(remaining)) return ai;
+  const its = entryOf(feature);
+  return { ...ai, features: features.map((f) => (its(f) ? { ...f, remaining } : f)) } as AiConfig;
+}
+
+/** The entries of api/config's `ai` block as they came, when the AI is on and the block lists any: never trusted. */
+function listed(ai: AiConfig): unknown[] | null {
+  const answer = ai as Partial<AiOn> | null | undefined;
+  return answer?.enabled === true && Array.isArray(answer.features) ? answer.features : null;
+}
+
+/** Whether an entry of that list is this feature's: an object with its name. Its counts are not checked here. */
+const entryOf =
+  (feature: AiFeature) =>
+  (entry: unknown): entry is AiFeatureOn =>
+    typeof entry === 'object' && entry !== null && (entry as AiFeatureOn).name === feature;
+
+/** A count as the contract has it (AiFeatureStatusSchema): a whole number from zero up, one a number holds exactly. */
+const isCount = (n: unknown): n is number => Number.isSafeInteger(n) && (n as number) >= 0;
 
 /** The day a generation counts for is the Canary Islands day: WET in winter, WEST in summer. */
 export const AI_DAY_ZONE = 'Atlantic/Canary';
