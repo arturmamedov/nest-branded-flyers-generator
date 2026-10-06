@@ -624,6 +624,57 @@ test.describe('From a photo', () => {
     await expect(idea(page)).toHaveValue('Karaoke night 06/10 (today)');
   });
 
+  test('the third step lights when the picture’s flyer is on screen: Picture and the words are done, and the steps stay where the switch was', async ({ page }) => {
+    // Routed, so nothing is spent.
+    await withLeft(page, { photo: 2, flyer: 2 });
+    await page.route(apiRoute('ai/photo'), (route) => route.fulfill({ json: { text: example.text, remaining: 1 } }));
+    await page.route(apiRoute('ai/flyer'), (route) => route.fulfill({ json: { ...example.answer, remaining: 1 } }));
+    await page.goto('/#/ai');
+    await fromPhoto(page).click();
+    await chooseInput(page).setInputFiles(await picture('poster.png'));
+    await readPicture(page).click();
+    await expect(currentStep(page)).toHaveText('Check the words');
+    await generate(page).click();
+    await expect(preview(page)).toContainText(brief.text!.headline1!);
+
+    await expect(stepNames(page), 'the owner’s sketch, at its end').toHaveText(['Picture ✓', 'Check the words ✓', 'Flyer']);
+    await expect(currentStep(page)).toHaveText('Flyer');
+    await expect(ways(page)).toHaveCount(0);
+    await expect(openInEditor(page), 'the finish').toBeEnabled();
+    // The words can still be changed and the flyer made again: it stays this picture's.
+    await idea(page).fill(`${example.text}\nGratis`);
+    await expect(currentStep(page)).toHaveText('Flyer');
+  });
+
+  test('a flyer made from a typed idea leaves a picture read afterwards at its words: the third step is for the flyer of the picture on the page', async ({ page }) => {
+    // Routed, so nothing is spent.
+    await withLeft(page, { photo: 2, flyer: 3 });
+    await page.route(apiRoute('ai/photo'), (route) => route.fulfill({ json: { text: 'Karaoke night 06/10 (today)', remaining: 1 } }));
+    await page.route(apiRoute('ai/flyer'), (route) => route.fulfill({ json: { ...example.answer, remaining: 2 } }));
+    await page.goto('/#/ai');
+    await idea(page).fill('Yoga tomorrow at 9');
+    await generate(page).click();
+    await expect(preview(page)).toContainText(brief.text!.headline1!);
+    await expect(steps(page)).toHaveCount(0);
+
+    // The flyer on the stage is the typed idea's. A picture read now has its words to check first.
+    await fromPhoto(page).click();
+    await chooseInput(page).setInputFiles(await picture('karaoke-board.png'));
+    await answerConfirm(page, 'accept', () => readPicture(page).click());
+    await expect(idea(page)).toHaveValue('Karaoke night 06/10 (today)');
+    await expect(preview(page), 'the earlier flyer is still on the stage').toBeVisible();
+    await expect(currentStep(page)).toHaveText('Check the words');
+    // Made again from the picture's words, the flyer is the picture's.
+    await tryAgain(page).click();
+    await expect(currentStep(page)).toHaveText('Flyer');
+    // A picture chosen since is not the one that flyer came from: back at the first step, and once read, at its words.
+    await changePicture(page).click();
+    await chooseInput(page).setInputFiles(await picture('poster.png'));
+    await expect(currentStep(page)).toHaveText('Picture');
+    await answerConfirm(page, 'accept', () => readPicture(page).click());
+    await expect(currentStep(page)).toHaveText('Check the words');
+  });
+
   test('From your idea used by itself has no steps: not with a picture chosen and never read, and not with a flyer on screen', async ({ page }) => {
     // Routed, so nothing is spent: the page as it was before the read had one.
     await withLeft(page, 2);
@@ -1145,6 +1196,7 @@ test.describe('From a photo', () => {
     await generate(page).click();
     expect((await made).status()).toBe(200);
     await expect(preview(page)).toContainText(brief.text!.headline1!);
+    await expect(currentStep(page), 'the picture’s flyer: the last step').toHaveText('Flyer');
     await expect(generate(page)).toContainText(`${flyers - 1} left today`);
     expect(await left(page, 'photo'), 'a flyer costs the reads nothing').toBe(reads - 1);
     await openInEditor(page).click();

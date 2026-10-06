@@ -3,8 +3,8 @@
    the next one. They show under the page's two ways in from the first tap on From a photo (his answer), and in their
    place once the picture is read. */
 
-/** Where the staff member is: choosing the picture, or on its words. */
-export type AiStep = 1 | 2;
+/** Where the staff member is: choosing the picture, on its words, or at the flyer made from them. */
+export type AiStep = 1 | 2 | 3;
 
 /** The steps' names, the owner's. */
 const NAMES = ['Picture', 'Check the words', 'Flyer'];

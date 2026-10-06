@@ -60,6 +60,9 @@ interface Result {
   assumptions: AiAssumption[];
   /** The idea this flyer came from, as it was sent: the box may have changed since. */
   idea: string;
+  /** The picture it was made from: the one on the page, read, when Generate was pressed. Null for an idea typed in
+      by itself. Another picture may have been chosen since. */
+  picture: File | null;
 }
 
 export function AiPage({
@@ -194,9 +197,11 @@ export function AiPage({
     setBusy('flyer');
     say(null);
     const sent = idea;
+    // The picture this flyer is made from, as the page stands at this moment: the one on it, once it is read.
+    const from = pictureRead ? picture : null;
     try {
       const r = await api.aiFlyer(hostel ? { text: sent, hostel } : { text: sent });
-      setResult({ brief: r.brief, assumptions: r.assumptions, idea: sent });
+      setResult({ brief: r.brief, assumptions: r.assumptions, idea: sent, picture: from });
       onRemaining(ai.name, r.remaining);
       say(null);
     } catch (e) {
@@ -248,8 +253,10 @@ export function AiPage({
             </div>
           )}
           {/* From the first tap on From a photo (the owner's answer, 2026-10-06): under the switch while a picture is
-              chosen and read, then in its place, with the picture that was read and the way back to choosing one. */}
-          {(way === 'photo' || stepping) && <AiSteps at={way === 'photo' ? 1 : 2} />}
+              chosen and read, then in its place, with the picture that was read and the way back to choosing one.
+              The last step is for the flyer made from this picture: one from an idea typed in, or from a picture
+              chosen before, leaves this one at its words. */}
+          {(way === 'photo' || stepping) && <AiSteps at={way === 'photo' ? 1 : result?.picture === picture ? 3 : 2} />}
           {stepping && (
             <AiPicture picture={picture} className="ai-picture-read">
               <button type="button" className="linkish" disabled={!!busy} onClick={changePicture}>
