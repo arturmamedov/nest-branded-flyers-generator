@@ -70,6 +70,10 @@ function PictureKept({ onType }: { onType: () => void }) {
     ("Request failed (504)") and the browser's words for a dropped connection may not. */
 const asSentence = (message: string) => (/[.!?…]\s*$/.test(message) ? message : `${message.trim()}.`);
 
+/** On the result, the picture an idea was read from, offered as the flyer's photo (the brief's stage 4; the owner's
+    words, and his answer: "Offered, off by default"). */
+const USE_PICTURE = 'Use this picture as the flyer’s photo';
+
 /** One action at a time, as in the editor: a picture dropped or pasted while one is out. */
 const STILL_WORKING = 'Still working on the last action — try the picture again in a moment.';
 
@@ -137,6 +141,14 @@ export function AiPage({
     setPictureKept(kept);
   }, []);
   const [result, setResult] = useState<Result | null>(null);
+  // The picture the flyer on screen was made from, offered as its photo: while it is still the one on the page, so
+  // that "this picture" is the one the staff member sees there, and on an Activity flyer, since a This week one has
+  // no photo. A picture with no event is offered too (the owner's answer, 2026-10-06): the event was typed for it.
+  const offered = result && result.picture === picture && result.brief.template === 'activity' ? result.picture : null;
+  // The picture the box is ticked for, or null. Kept by picture, so a flyer made again from the same one keeps the
+  // tick, and a flyer from another picture starts unticked.
+  const [ticked, setTicked] = useState<File | null>(null);
+  const usePicture = offered !== null && ticked === offered;
   const [opening, setOpening] = useState(false);
   const { onFit, cutOff } = useFitReports();
 
@@ -362,6 +374,13 @@ export function AiPage({
           <div className="toolbar">
             <span className="status">✨ The AI’s draft · not saved yet</span>
             <span className="spacer" />
+            {/* Beside the button it changes: ticked, "Open in editor" takes the picture along as the flyer's photo. */}
+            {offered && (
+              <label className="check">
+                <input type="checkbox" checked={usePicture} disabled={!!busy} onChange={(e) => setTicked(e.target.checked ? offered : null)} />
+                {USE_PICTURE}
+              </label>
+            )}
             <button type="button" className="btn btn-dark" disabled={!!busy || left === 0} onClick={generate}>
               Try again ({left === 0 ? 'none left today' : left === 1 ? 'uses the last one' : `uses one of ${left} left`})
             </button>

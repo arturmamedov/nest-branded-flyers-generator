@@ -5,9 +5,10 @@ import sharp from 'sharp';
 import { expect, test } from '../browser';
 import { EDITOR_VIEWPORT, apiCall, apiRoute, backToLibrary, dropFile, hold, paste, saveNew, status, type FilePayload } from '../editor';
 import { LEAVE_PROMPT } from '../../src/editor/leaveGuard';
+import { PHOTO_MODE_LABEL } from '../../src/editor/photoModes';
 import { AI_DAILY_LIMIT, AI_FAKE, AI_FEATURES, AI_PICTURE_MAX_EDGE, aiFor, aiQuotaVars, type AiFeature } from '../../src/shared/ai';
 import { apiError } from '../../src/shared/errors';
-import { DEFAULT_CANVAS } from '../../src/shared/layout';
+import { DEFAULT_CANVAS, type PhotoMode } from '../../src/shared/layout';
 import { AiFlyerResultSchema, AiPhotoResultSchema, AiShareResultSchema, ApiConfigSchema, type AiFlyerAnswer } from '../../src/shared/schema';
 import { WRITE_HEADERS } from '../../src/shared/writeGuard';
 
@@ -473,6 +474,11 @@ const currentStep = (page: Page) => steps(page).locator('[aria-current="step"] .
 const changePicture = (page: Page) => page.getByRole('button', { name: 'Change the picture', exact: true });
 /** The hint under the page's title: the way's own, shown wherever the switch is. */
 const wayHint = (page: Page) => page.locator('.panel .section').first().locator('.hint');
+/** On the result, in the bar above the flyer: the picture the idea was read from, offered as the flyer's photo (stage 4
+    of the brief; the owner's words). */
+const usePicture = (page: Page) => page.locator('.toolbar').getByRole('checkbox', { name: 'Use this picture as the flyer’s photo', exact: true });
+/** The editor's button for a photo mode, lit when the flyer is in it. */
+const photoMode = (page: Page, mode: PhotoMode) => page.getByRole('button', { name: PHOTO_MODE_LABEL[mode], exact: true });
 
 /** A small picture, made here. Its width steers the fake (AI_FAKE.pictureWidths); 64 is no steer. */
 async function picture(name: string, width = 64, height = 8): Promise<FilePayload> {
@@ -499,6 +505,37 @@ function readsSent(page: Page): string[] {
     if (r.method() === 'POST' && apiRoute('ai/photo')(new URL(r.url()))) sent.push(r.url());
   });
   return sent;
+}
+
+/** Every photo a test's page uploaded, to say that none was. */
+function uploadsSent(page: Page): string[] {
+  const sent: string[] = [];
+  page.on('request', (r) => {
+    if (r.method() === 'POST' && apiRoute('photos')(new URL(r.url()))) sent.push(r.url());
+  });
+  return sent;
+}
+
+/** A This week flyer, as the AI answers one: it has no photo. */
+const weekAnswer: AiFlyerAnswer = {
+  brief: { hostel: 'adeje-nest', template: 'week', week: [{ day: 'Mon', name: 'Stretching class', time: '19:00', cost: 'Free' }], share: 'This week at Adeje Nest' },
+  assumptions: [],
+};
+
+/** A picture read and its flyer made, both answered here, so nothing is spent: the page ends with the flyer on the
+    stage. `text` is what the read finds: empty is a picture with no event, and the event is then typed in. */
+async function flyerFromPicture(page: Page, file: FilePayload, { text = example.text, answer = example.answer }: { text?: string; answer?: AiFlyerAnswer } = {}) {
+  await withLeft(page, { photo: 2, flyer: 2 });
+  await page.route(apiRoute('ai/photo'), (route) => route.fulfill({ json: { text, remaining: 1 } }));
+  await page.route(apiRoute('ai/flyer'), (route) => route.fulfill({ json: { ...answer, remaining: 1 } }));
+  await page.goto('/#/ai');
+  await fromPhoto(page).click();
+  await chooseInput(page).setInputFiles(file);
+  await readPicture(page).click();
+  await expect(readNote(page)).toBeVisible();
+  if (!text) await idea(page).fill('Pool party on Saturday at 15:00');
+  await generate(page).click();
+  await expect(preview(page).locator('[data-flyer]')).toBeVisible();
 }
 
 test.describe('From a photo', () => {
@@ -1133,6 +1170,78 @@ test.describe('From a photo', () => {
     await expect(page).toHaveURL(/#\/ai$/);
     release();
     await expect(idea(page)).toHaveValue('Bachata workshop');
+  });
+
+  /* The picture as the flyer's photo (stage 4 of the brief; the owner's answer: "Offered, off by default"). The read
+     and the flyer are answered here, so nothing is spent; an upload is a real one, to the suite's own store. */
+
+  test('the flyer made from a picture offers it as the flyer’s photo, unticked, in the bar above the flyer; left unticked, Open in editor uploads nothing and the flyer has no photo', async ({ page }) => {
+    const uploads = uploadsSent(page);
+    await flyerFromPicture(page, await picture('poster.png'));
+    await expect(usePicture(page), 'offered, off by default').not.toBeChecked();
+    await expect(usePicture(page)).toBeEnabled();
+    expect((await usePicture(page).boundingBox())!.x, 'before the buttons it belongs to').toBeLessThan((await tryAgain(page).boundingBox())!.x);
+
+    // Unticked, the flyer opens as an AI flyer always did.
+    await openInEditor(page).click();
+    await expect(page).toHaveURL(/#\/new$/);
+    await expect(page.getByLabel('Line 1')).toHaveValue(brief.text!.headline1!);
+    await expect(photoMode(page, 'none')).toHaveClass('on');
+    expect(uploads, 'nothing was uploaded').toEqual([]);
+  });
+
+  test('a picture with no event is offered as the photo too, once the staff member wrote the event and made the flyer', async ({ page }) => {
+    // The owner's answer (2026-10-06): a photo of the activity itself is the picture most worth printing.
+    await flyerFromPicture(page, await picture('pool.png'), { text: '' });
+    await expect(stepNames(page)).toHaveText(['Picture ✓', 'Write the event ✓', 'Flyer']);
+    await expect(usePicture(page)).not.toBeChecked();
+  });
+
+  test('no picture is offered for a flyer from an idea typed in, even with a picture chosen and never read', async ({ page }) => {
+    await withLeft(page, 2);
+    await page.route(apiRoute('ai/flyer'), (route) => route.fulfill({ json: { ...example.answer, remaining: 1 } }));
+    await page.goto('/#/ai');
+    await fromPhoto(page).click();
+    await chooseInput(page).setInputFiles(await picture('poster.png'));
+    await fromIdea(page).click();
+    await idea(page).fill('Yoga tomorrow at 9');
+    await generate(page).click();
+    await expect(preview(page)).toContainText(brief.text!.headline1!);
+    await expect(openInEditor(page)).toBeVisible();
+    await expect(usePicture(page)).toHaveCount(0);
+  });
+
+  test('no picture is offered for a This week flyer, which has no photo', async ({ page }) => {
+    await flyerFromPicture(page, await picture('board.png'), { answer: weekAnswer });
+    await expect(preview(page)).toContainText('Stretching class');
+    await expect(currentStep(page), 'it is still this picture’s flyer').toHaveText('Flyer');
+    await expect(openInEditor(page)).toBeVisible();
+    await expect(usePicture(page)).toHaveCount(0);
+  });
+
+  test('the offer follows the picture the flyer was made from: it outlives the words in the box, goes when another picture is chosen, and a tick is kept by a Try again from the same picture alone', async ({ page }) => {
+    await flyerFromPicture(page, await picture('poster.png'));
+    // The flyer remembers its picture from the moment Generate was pressed: the box may be emptied since.
+    await idea(page).fill('');
+    await expect(usePicture(page)).toBeVisible();
+    await idea(page).fill('Sunset stretching, 19:00, by the pool');
+    await usePicture(page).check();
+    await tryAgain(page).click();
+    await expect(tryAgain(page)).toBeEnabled();
+    await expect(usePicture(page), 'made again from the same picture: the tick stays').toBeChecked();
+
+    // Another picture is not the one this flyer came from: "this picture" would be the wrong one.
+    await changePicture(page).click();
+    await chooseInput(page).setInputFiles(await picture('board.png'));
+    await expect(preview(page).locator('[data-flyer]'), 'the flyer is still on the stage').toBeVisible();
+    await expect(usePicture(page)).toHaveCount(0);
+    // Read, and its flyer made: offered again, and unticked, as every picture starts.
+    await answerConfirm(page, 'accept', () => readPicture(page).click());
+    await expect(currentStep(page)).toHaveText('Check the words');
+    await expect(usePicture(page)).toHaveCount(0);
+    await tryAgain(page).click();
+    await expect(currentStep(page)).toHaveText('Flyer');
+    await expect(usePicture(page)).not.toBeChecked();
   });
 
   test('with a mouse there is no Take a photo: a laptop has Choose a picture, drop and paste', async ({ page }) => {

@@ -506,6 +506,22 @@ nest-nav > nav a.ai-entry .ai-count {
   font-size: 12px;
 }
 
+/* A tick box in the dark bar (the AI page's "Use this picture as the flyer's photo"): the form's, in the bar's ink. */
+.toolbar .check {
+  margin: 0;
+  color: #fff;
+  font-size: 13px;
+}
+
+.toolbar .check input {
+  accent-color: var(--teal-bright);
+}
+
+.toolbar .check:has(input:disabled) {
+  cursor: default;
+  opacity: 0.6;
+}
+
 .notes {
   display: flex;
   flex-direction: column;
