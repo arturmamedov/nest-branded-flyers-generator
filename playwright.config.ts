@@ -43,8 +43,18 @@ export default defineConfig({
     {
       command: 'node dist-server/server/cli/seed.js && node dist-server/server/index.js',
       url: `http://127.0.0.1:${AI_PORT}/api/hostels`,
-      // Every setting ai.spec.ts counts on is pinned here: the environment wins over .env, whose own cap is the owner's.
-      env: { ...server, PORT: String(AI_PORT), DATA_DIR: AI_DATA_DIR, AI_PROVIDER: 'fake', AI_ENABLED: '1', AI_FEATURES: AI_FEATURES.join(','), AI_DAILY_LIMIT: String(AI_DAILY_LIMIT) },
+      // Every setting ai.spec.ts counts on is pinned here: the environment wins over .env, whose own caps are the
+      // owner's. Each feature's limit is named as well as the site's: a pair in .env would otherwise still count.
+      env: {
+        ...server,
+        PORT: String(AI_PORT),
+        DATA_DIR: AI_DATA_DIR,
+        AI_PROVIDER: 'fake',
+        AI_ENABLED: '1',
+        AI_FEATURES: AI_FEATURES.join(','),
+        AI_DAILY_LIMIT: String(AI_DAILY_LIMIT),
+        AI_DAILY_LIMITS: AI_FEATURES.map((feature) => `${feature}:${AI_DAILY_LIMIT}`).join(','),
+      },
       reuseExistingServer: false,
       timeout: 60_000,
     },
