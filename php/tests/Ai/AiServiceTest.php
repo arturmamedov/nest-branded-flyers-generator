@@ -154,7 +154,7 @@ final class AiServiceTest extends TestCase
                 throw new RuntimeException('the ledger was written');
             }
 
-            public function countOk(string $actorId, string $day): array
+            public function countDay(string $actorId, string $day): array
             {
                 throw new RuntimeException('the ledger was counted');
             }
@@ -249,7 +249,7 @@ final class AiServiceTest extends TestCase
         self::assertSame('hostel', $result['assumptions'][0]->field);
         self::assertStringContainsString('no-such-nest', $result['assumptions'][0]->note);
         JsonAssert::same($this->example->answer->assumptions, array_slice($result['assumptions'], 1));
-        self::assertSame(['flyer' => 1], $this->usage->countOk('anonymous', '2026-09-18'));
+        self::assertSame(['flyer' => 1], $this->usage->countDay('anonymous', '2026-09-18')['ok']);
     }
 
     public function testItKeepsToTheAssumptionsTheContractAllowsItsOwnNoteFirstAndOnAFullListTheModelsLastGoes(): void
@@ -381,10 +381,10 @@ final class AiServiceTest extends TestCase
             {
             }
 
-            public function countOk(string $actorId, string $day): array
+            public function countDay(string $actorId, string $day): array
             {
                 $this->reads++;
-                return [];
+                return ['ok' => [], 'tried' => []];
             }
         };
         self::assertSame($this->on(), $this->service(['usage' => $counting])->status($this->actor));
@@ -633,7 +633,7 @@ final class AiServiceTest extends TestCase
         self::assertSame(self::LIMIT - 1, $service->flyer($this->actor, $this->idea())['remaining']);
         self::assertSame(self::LIMIT - 1, $service->share($this->actor, $this->shareBody())['remaining']);
         self::assertSame(2, $probe->calls);
-        self::assertSame(['flyer' => 1, 'share' => 1], $repos->aiUsage->countOk('anonymous', '2026-09-18'));
+        self::assertSame(['flyer' => 1, 'share' => 1], $repos->aiUsage->countDay('anonymous', '2026-09-18')['ok']);
     }
 
     public function testALedgerThatCannotBeReadHidesTheAiAndTheLogSaysWhy(): void
@@ -645,7 +645,7 @@ final class AiServiceTest extends TestCase
             {
             }
 
-            public function countOk(string $actorId, string $day): array
+            public function countDay(string $actorId, string $day): array
             {
                 throw new RuntimeException('ai-usage/2026-09.json is damaged: expected a JSON array of ledger records.');
             }

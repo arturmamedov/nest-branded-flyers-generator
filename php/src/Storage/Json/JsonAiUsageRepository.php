@@ -36,14 +36,18 @@ final class JsonAiUsageRepository implements AiUsageRepository
         });
     }
 
-    public function countOk(string $actorId, string $day): array
+    public function countDay(string $actorId, string $day): array
     {
         $records = $this->lock->shared(fn (): array => $this->read($this->file($day)));
-        $counts = [];
+        $counts = ['ok' => [], 'tried' => []];
         foreach ($records as $r) {
             $feature = $r->feature ?? null;
-            if (($r->ok ?? null) === true && ($r->actorId ?? null) === $actorId && ($r->day ?? null) === $day && is_string($feature)) {
-                $counts[$feature] = ($counts[$feature] ?? 0) + 1;
+            if (($r->actorId ?? null) !== $actorId || ($r->day ?? null) !== $day || !is_string($feature)) {
+                continue;
+            }
+            $counts['tried'][$feature] = ($counts['tried'][$feature] ?? 0) + 1;
+            if (($r->ok ?? null) === true) {
+                $counts['ok'][$feature] = ($counts['ok'][$feature] ?? 0) + 1;
             }
         }
         return $counts;

@@ -298,7 +298,7 @@ final class JsonRepositoriesTest extends RepositoryContractTestCase
     {
         // A store from before the ledger, or a site that never used the AI: tests/cross pins that reads add no file.
         $before = TempDir::files($this->dir);
-        self::assertSame([], $this->repos->aiUsage->countOk('anonymous', '2026-09-18'));
+        self::assertSame(['ok' => [], 'tried' => []], $this->repos->aiUsage->countDay('anonymous', '2026-09-18'));
         self::assertSame($before, TempDir::files($this->dir));
     }
 
@@ -308,7 +308,7 @@ final class JsonRepositoriesTest extends RepositoryContractTestCase
         file_put_contents("$this->dir/ai-usage/2026-09.json", '{"not": "a list"}');
         $this->expectException(RuntimeException::class);
         $this->expectExceptionMessage('ai-usage/2026-09.json');
-        $this->repos->aiUsage->countOk('anonymous', '2026-09-18');
+        $this->repos->aiUsage->countDay('anonymous', '2026-09-18');
     }
 
     public function testALedgerFileThatIsNotJsonIsNamed(): void
@@ -317,7 +317,7 @@ final class JsonRepositoriesTest extends RepositoryContractTestCase
         file_put_contents("$this->dir/ai-usage/2026-09.json", '{ damaged');
         $this->expectException(RuntimeException::class);
         $this->expectExceptionMessageMatches('~2026-09\.json is not valid JSON~');
-        $this->repos->aiUsage->countOk('anonymous', '2026-09-18');
+        $this->repos->aiUsage->countDay('anonymous', '2026-09-18');
     }
 
     public function testARecordWithACountThatIsNoWholeNumberStillCounts(): void
@@ -328,7 +328,7 @@ final class JsonRepositoriesTest extends RepositoryContractTestCase
         $file = "$this->dir/ai-usage/2026-09.json";
         file_put_contents($file, str_replace('"input": 10', '"input": 12.5', (string) file_get_contents($file), $replaced));
         self::assertSame(1, $replaced);
-        self::assertSame(['flyer' => 1], $this->repos->aiUsage->countOk('anonymous', '2026-09-18'));
+        self::assertSame(['ok' => ['flyer' => 1], 'tried' => ['flyer' => 1]], $this->repos->aiUsage->countDay('anonymous', '2026-09-18'));
     }
 
     public function testARecordOfAFeatureThisReleaseDoesNotKnowIsCountedUnderItsOwnName(): void
@@ -337,7 +337,8 @@ final class JsonRepositoriesTest extends RepositoryContractTestCase
         // record neither closes the month (as it does on Node's JSON driver) nor counts for a feature this release runs.
         $this->repos->aiUsage->record($this->usage());
         $this->repos->aiUsage->record($this->usage(['feature' => 'a-later-feature']));
-        self::assertSame(['flyer' => 1, 'a-later-feature' => 1], $this->repos->aiUsage->countOk('anonymous', '2026-09-18'));
+        $both = ['flyer' => 1, 'a-later-feature' => 1];
+        self::assertSame(['ok' => $both, 'tried' => $both], $this->repos->aiUsage->countDay('anonymous', '2026-09-18'));
     }
 
     public function testARecordThatNamesNoFeatureCountsForNone(): void
@@ -348,7 +349,8 @@ final class JsonRepositoriesTest extends RepositoryContractTestCase
         $file = "$this->dir/ai-usage/2026-09.json";
         file_put_contents($file, str_replace('"feature": "share"', '"feature": 7', (string) file_get_contents($file), $replaced));
         self::assertSame(1, $replaced);
-        self::assertSame(['flyer' => 1], $this->repos->aiUsage->countOk('anonymous', '2026-09-18'));
+        // Not a try either: a try is some feature's.
+        self::assertSame(['ok' => ['flyer' => 1], 'tried' => ['flyer' => 1]], $this->repos->aiUsage->countDay('anonymous', '2026-09-18'));
     }
 
     public function testARecordFileDeletedByHandReadsAsEmpty(): void
