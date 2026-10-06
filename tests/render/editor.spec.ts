@@ -8,6 +8,7 @@ import {
   apiCall,
   apiRoute,
   backToLibrary,
+  canvasButton,
   cutOff,
   cutOffOn,
   dropFile,
@@ -23,7 +24,7 @@ import { LEAVE_PROMPT } from '../../src/editor/leaveGuard';
 import { PHOTO_MODE_LABEL } from '../../src/editor/photoModes';
 import { TEMPLATE_LABEL } from '../../src/editor/templates';
 import { DEFAULT_PHOTO_MODE, marksFor } from '../../src/shared/defaults';
-import { CANVASES, CANVAS_IDS, type CanvasId, type PhotoMode } from '../../src/shared/layout';
+import { CANVASES, CANVAS_IDS, DEFAULT_CANVAS, type PhotoMode } from '../../src/shared/layout';
 import { FlyerPayloadSchema, FlyerSavedSchema, type FlyerListItem } from '../../src/shared/schema';
 import { WEEK_ROWS_MAX } from '../../src/shared/week';
 import { WRITE_HEADERS } from '../../src/shared/writeGuard';
@@ -378,13 +379,32 @@ test('This week: switching template with a hostel picked names it, and takes the
   expect(await lines()).toEqual(['', '', '']);
 });
 
-const canvasButton = (page: Page, canvas: CanvasId) => button(page, CANVASES[canvas].label);
+// The owner's answer (2026-10-05): WhatsApp is what a viewer who never chose sees. This is the screen's default; the
+// export API's own stays the story (render.spec.ts, "No canvas at all").
+test('a viewer who never chose a canvas gets WhatsApp: the toolbar, the preview and the first download', async ({ page }) => {
+  await page.goto('/#/new');
+  const stored = () => page.evaluate(() => localStorage.getItem('editor.canvas'));
+  expect(await stored(), 'nothing was chosen').toBeNull();
+  await expect(canvasButton(page, 'whatsapp')).toHaveAttribute('aria-pressed', 'true');
+  await expect(canvasButton(page, 'story')).toHaveAttribute('aria-pressed', 'false');
+  await expect(page.locator('.stage-canvas [data-flyer]')).toHaveAttribute('data-canvas', 'whatsapp');
+
+  await page.getByLabel('Library name').fill(`default canvas ${Date.now()}`);
+  await modeButton(page, 'none').click();
+  await saveNew(page, keep);
+  const [download] = await Promise.all([page.waitForEvent('download'), button(page, 'Download PNG').click()]);
+  expect(download.suggestedFilename()).toMatch(/-whatsapp\.png$/);
+  const meta = await sharp(readFileSync(await download.path())).metadata();
+  expect([meta.width, meta.height]).toEqual([CANVASES.whatsapp.width, CANVASES.whatsapp.height]);
+  expect(await stored(), 'a default is not a choice: nothing is stored').toBeNull();
+});
+
 // Too wide at its floor on every canvas: render.spec's "cut at its column" test.
 const LONG_TIME = 'Mon–Fri 10:00–13:00';
 
 test('This week: a row edit, and a switch of template alone, refit the canvas offscreen as well as the one on screen', async ({ page }) => {
   await page.goto('/#/new');
-  await expect(canvasButton(page, 'story')).toHaveAttribute('aria-pressed', 'true');
+  await expect(canvasButton(page, DEFAULT_CANVAS)).toHaveAttribute('aria-pressed', 'true');
   await templateButton(page, 'week').click();
   await button(page, '+ Add row').click();
   await row(page, 1, 'day').fill('Fridays');

@@ -7,6 +7,7 @@ import { DEFAULT_DOODLES, DEFAULT_TEXT, PROTOTYPE_DOODLES, newFlyerData, resolve
 import {
   CANVASES,
   CANVAS_IDS,
+  DEFAULT_CANVAS,
   activityGroups,
   artAnchors,
   bodyOf,
@@ -94,6 +95,12 @@ describe('canvases', () => {
     expect(CANVASES.whatsapp.width * 4).toBe(CANVASES.whatsapp.height * 3);
     expect(CANVAS_IDS.every(isCanvasId)).toBe(true);
     for (const bad of ['__proto__', 'toString', 'constructor', '', 'STORY', null, undefined, 1, {}]) expect(isCanvasId(bad), String(bad)).toBe(false);
+  });
+
+  // The owner's answer (2026-10-05). It is the screen's default alone: the export API's own stays the story.
+  it('the canvas a viewer who never chose sees is WhatsApp', () => {
+    expect(DEFAULT_CANVAS).toBe('whatsapp');
+    expect(isCanvasId(DEFAULT_CANVAS)).toBe(true);
   });
 
   it('the story is exactly the handoff\'s: 250 top, 300 bottom, 70 sides, the design pass\'s boxes', () => {

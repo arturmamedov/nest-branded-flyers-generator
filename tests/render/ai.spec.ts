@@ -6,6 +6,7 @@ import { EDITOR_VIEWPORT, apiCall, apiRoute, backToLibrary, saveNew, status } fr
 import { LEAVE_PROMPT } from '../../src/editor/leaveGuard';
 import { AI_DAILY_LIMIT, AI_FEATURES, type AiFeature } from '../../src/shared/ai';
 import { apiError } from '../../src/shared/errors';
+import { DEFAULT_CANVAS } from '../../src/shared/layout';
 import { AiFlyerResultSchema, AiShareResultSchema, ApiConfigSchema, type AiFlyerAnswer } from '../../src/shared/schema';
 import { WRITE_HEADERS } from '../../src/shared/writeGuard';
 
@@ -131,7 +132,8 @@ test('an idea becomes a flyer: a waiting state, the preview, what the AI assumed
   expect(AiFlyerResultSchema.parse(await res.json()).remaining).toBe(n - 1);
   await page.unrouteAll({ behavior: 'wait' });
 
-  // The flyer, through the same <Flyer> the editor and the export use.
+  // The flyer, through the same <Flyer> the editor and the export use, on the canvas a viewer who never chose sees.
+  await expect(preview(page).locator('[data-flyer]')).toHaveAttribute('data-canvas', DEFAULT_CANVAS);
   await expect(preview(page)).toContainText(brief.text!.headline1!);
   await expect(preview(page)).toContainText(brief.text!.headline2!);
   const assumed = page.locator('.ai-assumptions li');

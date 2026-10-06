@@ -3,7 +3,7 @@ import { deriveChip, splitBigSub } from '../shared/chips';
 import { ACCEPTED_PHOTO_TYPES } from '../shared/limits';
 import { lintFlyer } from '../shared/copyRules';
 import { DEFAULT_PHOTO_MODE, followHostel, marksFor, newFlyerData, switchTemplate, weekTitle } from '../shared/defaults';
-import { CANVASES, CANVAS_IDS, bodyOf, isCanvasId, photoFrame, type CanvasId, type PhotoMode } from '../shared/layout';
+import { CANVASES, CANVAS_IDS, DEFAULT_CANVAS, bodyOf, isCanvasId, photoFrame, type CanvasId, type PhotoMode } from '../shared/layout';
 import { DEFAULT_CROP, ZOOM_MAX, ZOOM_MIN, clampCrop, wholePhotoZoom, zoomCrop } from '../shared/photo';
 import type { AiOn } from '../shared/ai';
 import type { Chip, ChipKey, Crop, FlyerData, FlyerInput, FlyerListItem, FlyerText, Hostel, PhotoInfo, Template, WeekRow } from '../shared/schema';
@@ -64,11 +64,11 @@ function withShortName(row: WeekRow, shortName: string): WeekRow {
   return shortName ? { ...rest, shortName } : rest;
 }
 
-/** The canvas on screen is how this viewer likes to work, never flyer data. */
+/** The canvas on screen is how this viewer likes to work, never flyer data: the one they last chose, else the default. */
 const CANVAS_PREF = 'editor.canvas';
 const savedCanvas = (): CanvasId => {
   const v = localStorageGet(CANVAS_PREF);
-  return isCanvasId(v) ? v : 'story';
+  return isCanvasId(v) ? v : DEFAULT_CANVAS;
 };
 
 const CHIP_HELP: Record<ChipKey, { placeholder: string; help: string }> = {

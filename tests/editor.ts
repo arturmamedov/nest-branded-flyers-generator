@@ -54,6 +54,11 @@ export const backToLibrary = (page: Page) => page.locator('.panel').getByRole('l
 export const templateButton = (page: Page, template: Template) =>
   page.getByRole('group', { name: 'Template' }).getByRole('button', { name: TEMPLATE_LABEL[template], exact: true });
 
+/** The toolbar's button for a canvas ("Story 9:16", "WhatsApp 3:4"): pressed while that canvas is on screen. A test
+    about one canvas clicks its button; only a test about the default relies on what a fresh editor shows. */
+export const canvasButton = (page: Page, canvas: CanvasId) =>
+  page.getByRole('group', { name: 'Canvas' }).getByRole('button', { name: CANVASES[canvas].label, exact: true });
+
 /** The editor's warning that copy is cut off, on the canvas on screen or on one fitted offscreen. */
 export const cutOff = (page: Page) => page.locator('.note-warn', { hasText: 'is being cut off' });
 

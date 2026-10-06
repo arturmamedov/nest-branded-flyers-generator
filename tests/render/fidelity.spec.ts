@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import type { APIRequestContext, Browser, Download, Page } from '@playwright/test';
 import { expect, test, withoutKit } from '../browser';
+import { canvasButton } from '../editor';
 import { PNG } from 'pngjs';
 import sharp from 'sharp';
 import { flyerFilename } from '../../src/shared/filename';
@@ -155,7 +156,7 @@ for (const { label, dpr } of runs) {
     const { context, page, overridden } = await clientOnlyEditor(browser, baseURL, dpr);
     try {
       await page.goto(`./#/flyers/${c.id}`);
-      await page.getByRole('button', { name: CANVASES[c.canvas].label, exact: true }).click();
+      await canvasButton(page, c.canvas).click();
       const png = await download(page, 'Download PNG');
       const jpg = await download(page, 'JPG');
       expect(overridden(), 'the editor read the client-only config').toBe(true);
@@ -184,6 +185,8 @@ test('the check is not blind: a sliced highlighter fails it', async ({ browser, 
   const { context, page } = await clientOnlyEditor(browser, baseURL, 1);
   try {
     await page.goto(`./#/flyers/${c.id}`);
+    // The case's own canvas, as the test above chooses it: the golden is its size, whatever a fresh editor shows.
+    await canvasButton(page, c.canvas).click();
     // Break the feature the handoff (§9) worried about, the way the renderer
     // writes it — an inline style — on every flyer mounted from now on,
     // including the exporter's offscreen one. (A stylesheet rule would not

@@ -179,7 +179,8 @@ export function createApp(deps: AppDeps) {
       const id = idParam(req);
       const format = (req.body?.format ?? 'png') as string;
       if (format !== 'png' && format !== 'jpg') throw new HttpError('bad_format');
-      // Absent (older editors) or null means the story, as format defaults to png.
+      // Absent (older editors) or null means the story, as format defaults to png. This is the contract's default, and
+      // on purpose not DEFAULT_CANVAS (src/shared/layout.ts), which is what a viewer who never chose sees on screen.
       const canvas: unknown = req.body?.canvas ?? 'story';
       if (!isCanvasId(canvas)) throw new HttpError('bad_canvas');
       const flyer = await repos.flyers.get(id);

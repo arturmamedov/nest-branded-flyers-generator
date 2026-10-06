@@ -2,13 +2,13 @@ import { readFileSync } from 'node:fs';
 import type { APIRequestContext, APIResponse, Page } from '@playwright/test';
 import { PNG } from 'pngjs';
 import { expect, test } from '../browser';
-import { EDITOR_VIEWPORT, cutOff, cutOffOn } from '../editor';
+import { EDITOR_VIEWPORT, canvasButton, cutOff, cutOffOn } from '../editor';
 import { bodiesOf, groupsOf, highlighterWrapSample } from './pixels';
 import sharp from 'sharp';
 import { apiError, type ApiErrorKey } from '../../src/shared/errors';
 import { flyerFilename } from '../../src/shared/filename';
 import { marksFor, resolveDoodles } from '../../src/shared/defaults';
-import { CANVASES, CANVAS_IDS, artAnchors, placeArt, safeBox, weekRowRect, type CanvasId } from '../../src/shared/layout';
+import { CANVASES, CANVAS_IDS, DEFAULT_CANVAS, artAnchors, placeArt, safeBox, weekRowRect, type CanvasId } from '../../src/shared/layout';
 import { SAMPLE_FLYERS } from '../../src/shared/samples';
 import type { FlyerListItem, FlyerPayload } from '../../src/shared/schema';
 import { printedRows } from '../../src/shared/week';
@@ -632,14 +632,16 @@ test('the editor previews, fits and downloads every canvas, through the server e
   await page.goto(`/#/flyers/${flyer.id}`);
   await expect.poll(async () => page.evaluate(() => document.fonts.status)).toBe('loaded');
   const preview = page.locator('.stage-canvas [data-flyer]');
-  const toggle = (canvas: CanvasId) => page.getByRole('button', { name: CANVASES[canvas].label, exact: true });
+  const toggle = (canvas: CanvasId) => canvasButton(page, canvas);
 
-  // With the story on screen, WhatsApp is fitted offscreen, as its export will be. The stress copy
+  // The default canvas is on screen and every other one is fitted offscreen, as its export will be. The stress copy
   // fits differently on the two canvases, so neither comparison can pass by accident.
-  await expect(toggle('story')).toHaveAttribute('aria-pressed', 'true');
-  const want = { story: await exportFit(page, flyer.id, 'story'), whatsapp: await exportFit(page, flyer.id, 'whatsapp') };
+  await expect(toggle(DEFAULT_CANVAS)).toHaveAttribute('aria-pressed', 'true');
+  const want: Record<CanvasId, string[]> = { story: await exportFit(page, flyer.id, 'story'), whatsapp: await exportFit(page, flyer.id, 'whatsapp') };
   expect(want.story, 'the stress copy fits differently per canvas').not.toEqual(want.whatsapp);
-  await expect.poll(() => page.evaluate(fitted, '[aria-hidden="true"] [data-flyer][data-canvas="whatsapp"]'), { message: 'offscreen WhatsApp fit' }).toEqual(want.whatsapp);
+  for (const hidden of CANVAS_IDS.filter((c) => c !== DEFAULT_CANVAS)) {
+    await expect.poll(() => page.evaluate(fitted, `[aria-hidden="true"] [data-flyer][data-canvas="${hidden}"]`), { message: `offscreen ${hidden} fit` }).toEqual(want[hidden]);
+  }
 
   for (const canvas of CANVAS_IDS) {
     await toggle(canvas).click();
@@ -662,14 +664,17 @@ test('the editor previews, fits and downloads every canvas, through the server e
     CANVAS_IDS.flatMap((c) => [c, c]),
   );
 
-  // The last canvas chosen is remembered for this viewer; a value no canvas has is ignored.
-  const last = CANVAS_IDS.at(-1)!;
+  // The canvas chosen is remembered for this viewer; a value no canvas has is ignored. The one remembered here is
+  // not the default, so the reload proves the memory, and the bad value proves the default.
+  const chosen = CANVAS_IDS.find((c) => c !== DEFAULT_CANVAS)!;
+  await toggle(chosen).click();
   await page.reload();
-  await expect(toggle(last)).toHaveAttribute('aria-pressed', 'true');
-  await expect(preview).toHaveAttribute('data-canvas', last);
+  await expect(toggle(chosen)).toHaveAttribute('aria-pressed', 'true');
+  await expect(preview).toHaveAttribute('data-canvas', chosen);
   await page.evaluate(() => localStorage.setItem('editor.canvas', '__proto__'));
   await page.reload();
-  await expect(toggle('story')).toHaveAttribute('aria-pressed', 'true');
+  await expect(toggle(DEFAULT_CANVAS)).toHaveAttribute('aria-pressed', 'true');
+  await expect(preview).toHaveAttribute('data-canvas', DEFAULT_CANVAS);
 
   // Copy that is cut off says so, naming every canvas it is cut off on, and the warning shrinks when it fits again: to
   // the story alone, whose WHERE chip this copy fills 2 px past its padding at its floors (accepted, 2026-09-30).

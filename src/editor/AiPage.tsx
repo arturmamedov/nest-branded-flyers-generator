@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { AI_INPUT_MAX, type AiOn } from '../shared/ai';
 import { flyerFromBrief } from '../shared/brief';
 import { lintFlyer } from '../shared/copyRules';
+import { DEFAULT_CANVAS } from '../shared/layout';
 import type { AiAssumption, Brief, Hostel } from '../shared/schema';
 import { api, ApiError } from './api';
 import { offerDraft } from './handoff';
@@ -155,7 +156,7 @@ export function AiPage({ hostels, ai, onRemaining }: { hostels: Hostel[]; ai: Ai
         ) : flyer ? (
           <Preview
             data={flyer.data}
-            canvas="story"
+            canvas={DEFAULT_CANVAS}
             hostel={hostels.find((h) => h.slug === flyer.hostel) ?? null}
             photo={null}
             showSafeZones={false}

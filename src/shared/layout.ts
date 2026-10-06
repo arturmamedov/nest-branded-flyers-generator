@@ -218,6 +218,12 @@ export type CanvasId = keyof typeof CANVASES;
 
 export const CANVAS_IDS = Object.keys(CANVASES) as CanvasId[];
 
+/** The canvas on screen for a viewer who never chose one: the editor's preview (a stored choice wins there), the AI
+    page's, and the library's cards. The owner's answer (2026-10-05): WhatsApp, where most flyers are sent.
+    It is the screen's default alone. The export API (server/app.ts) and the render page (src/render/main.tsx) keep
+    `story` for a request that names no canvas: that is the contract, and what an editor from before canvases sends. */
+export const DEFAULT_CANVAS: CanvasId = 'whatsapp';
+
 /** Own keys only: `in` would let '__proto__' or 'toString' through. */
 export function isCanvasId(value: unknown): value is CanvasId {
   return typeof value === 'string' && Object.hasOwn(CANVASES, value);
