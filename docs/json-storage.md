@@ -115,7 +115,9 @@ on Node and on PHP.
 - **Thirty days** (`AI_PICTURE_DAYS`): a day's folder goes once that day is more than thirty days before today's
   Canary Islands day.
 - **So many a day at most:** the reads' tries, three for each read of the site's limit (9 at the default). A read
-  past them is refused before its picture is kept, so a day's folder cannot grow past that for one actor.
+  past them is refused before its picture is kept, so a day's folder does not grow past that for one actor. One
+  exception, a known limit: reads sent at the same moment are each counted when they are answered, so a burst passes
+  the count together and keeps a picture each.
 - **The app deletes them itself,** inside `GET api/config`, which every visit asks: at most once a day (`.swept`
   holds the day), whether or not the AI is on, and it is the one read that deletes. Only folders named as a day are
   ever deleted, and a link is never followed. A day that cannot be deleted is named in the log and tried again the

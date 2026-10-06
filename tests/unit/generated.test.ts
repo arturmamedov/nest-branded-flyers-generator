@@ -75,6 +75,8 @@ describe('the AI bundle (schema/ai.json) and the ai block of shared.json', () =>
     expect(flyer).toContain('`17:45-23:00`');
     expect(flyer).not.toContain('One time, the start');
     expect((bundle.examples as { answer: { brief: Brief } }[]).map((e) => e.answer.brief.when)).toContain('Every day · 17:45-23:00');
+    // So the end time is on the flyer, and is no longer among what the share text carries for want of room there.
+    expect(flyer).not.toContain('(the end time,');
     // Both prompts write the same caption, so both say its order.
     for (const rules of [flyer, bundle.prompts.share as string]) {
       expect(rules).toContain(`English first, then a line with \`${SHARE_SPANISH_BREAK}\`, then Spanish`);
@@ -85,6 +87,16 @@ describe('the AI bundle (schema/ai.json) and the ai block of shared.json', () =>
   it('every example follows them: an example is what the AI imitates', () => {
     expect(bundle.examples.length).toBeGreaterThan(0);
     for (const e of bundle.examples as { text: string; answer: { brief: Brief } }[]) expectOwnersRules(e.answer.brief, e.text.slice(0, 30));
+  });
+
+  it('the rules the examples are held to refuse a range with spaces round its dash, or a long dash', () => {
+    // Found in review (2026-10-06): the range was a rule of the prompt's and no example was held to it.
+    for (const when of ['Every day · 17:45 – 23:00', 'Every day · 17:45 - 23:00', 'Today · 19:00—21:00']) {
+      expect(() => expectOwnersRules({ when } as Brief, when), when).toThrow();
+    }
+    for (const when of ['Every day · 17:45-23:00', 'Today · 19:00', 'Saturday 3/10 · 20:30']) {
+      expect(() => expectOwnersRules({ when } as Brief, when), when).not.toThrow();
+    }
   });
 
   it('the picture read answers its words alone, strictly: { text }', () => {

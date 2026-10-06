@@ -87,13 +87,13 @@
       { "name": "the fake with a site's model: every feature takes it", "provider": "fake", "site": "model-a", "env": null, "php": null, "runs": { "flyer": "model-a", "share": "model-a", "photo": "model-a" } }
     ],
     "accepted": [
-      { "name": "not set: every feature takes the site's model", "env": null, "php": null, "models": {} },
+      { "name": "not set: no feature has a model of its own", "env": null, "php": null, "models": {} },
       { "name": "empty: none named", "env": "", "php": [], "models": {} },
       { "name": "one feature its own model", "env": "share:model-b", "php": { "share": "model-b" }, "models": { "share": "model-b" } },
       { "name": "two features, whatever order they are named in", "env": "share:model-b,flyer:model-c", "php": { "share": "model-b", "flyer": "model-c" }, "models": { "flyer": "model-c", "share": "model-b" } },
       { "name": "a model whose id holds colons: the pair splits at its first", "env": "share:ft:model-b:nest", "php": { "share": "ft:model-b:nest" }, "models": { "share": "ft:model-b:nest" } },
       { "name": "beside the site's own model: the rest take that", "site": "model-a", "env": "share:model-b", "php": { "share": "model-b" }, "models": { "share": "model-b" } },
-      { "name": "the site's own model alone: every feature takes it", "site": "model-a", "env": null, "php": null, "models": {} },
+      { "name": "the site's own model alone: it names no feature's own", "site": "model-a", "env": null, "php": null, "models": {} },
       { "name": "spaces and a stray comma, as typed in .env", "env": " share : model-b , flyer:model-c ,", "models": { "flyer": "model-c", "share": "model-b" } }
     ],
     "refused": [

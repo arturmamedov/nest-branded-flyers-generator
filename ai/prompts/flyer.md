@@ -61,4 +61,4 @@ The caption staff paste when they post the story or send the image to the guests
 - A long caption (a tour with its highlights): after the hook, a line `🇪🇸 Español abajo 👇`, so a Spanish reader knows to scroll.
 - Shape of each block: a hook line with emoji; one or two sentences inviting people; one line per fact, each with its emoji (🕖 time, 📍 place, 💶 price, plus what to bring); a warm closing line and a short sign-off. A fact the text does not give has no line: no price, no 💶 line. The examples show it.
 - Wording: keep the staff member's own words and emoji where they have them. Exclamation marks and emoji are free here: the flyer's limits don't apply.
-- Facts: every fact matches the flyer exactly: the same time, place and price. What the flyer had no room for (the end time, every phone number, the highlights) goes here.
+- Facts: every fact matches the flyer exactly: the same time, place and price. What the flyer had no room for (every phone number, the highlights) goes here.

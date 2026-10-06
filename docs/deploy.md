@@ -353,7 +353,8 @@ What to know:
   - **It is not part of the library:** leave it out of backups (*Backups*, above).
   - **Disk:** about 45 MB at 3 reads a day, and about 300 MB at 20. A failed read keeps its picture
     too, so at the very most it is three times that, with every try of every day used: the tries
-    stop it there. If the host's disk is full, a read stops with an error before the provider is
+    stop it there. They do not stop reads sent at the same moment, which are counted as each is
+    answered: a known limit, and one more reason for the lock. If the host's disk is full, a read stops with an error before the provider is
     asked, and nothing is counted.
 - **The other settings,** all optional:
   - `model`: the flyer's and the share text's model. The default is the provider's fast one;
@@ -366,7 +367,7 @@ What to know:
     - `model` does not change the read's model. Only `'photo'` here does.
     - A model named for `photo` must be one that reads pictures: one that cannot makes every read
       fail with "The AI didn't answer properly", and the log says why.
-    - A read on the middle model costs about a cent and takes 9 to 18 seconds on OpenAI, 4 to 12 on
+    - A read on the middle model costs about a cent and takes 5 to 22 seconds on OpenAI, 4 to 12 on
       Anthropic, measured on this machine and not on the host;
   - `effort`: `'low'` makes OpenAI answer sooner. Leave it out for Claude Haiku, which refuses it.
     There is one `effort` for the whole site: if any feature runs on a model that refuses it, leave
@@ -381,8 +382,8 @@ What to know:
   - Anthropic takes about 20 seconds the first time after a release that changed the shape of the
     answer, then 4 to 5. If staff see "The AI didn't answer properly" once and it works on the
     next try, that is why;
-  - a picture read is the slow one: 5 to 22 seconds on OpenAI in the real reads of 2026-10-06, the
-    longest on a screenshot dense with small print. The page waits for as long as the app does,
+  - a picture read is the slow one (its seconds are with its model, above), the longest on a
+    screenshot dense with small print. The page waits for as long as the app does,
     and says so meanwhile. A read that runs out of time is free, though it is one of the day's
     tries: the page keeps the picture and says "try again, or type the event yourself". If reads
     fail often, `timeoutMs` can go up, but never above the host's own limit (next point).
@@ -494,7 +495,7 @@ the site's `data/ai-usage/` file, which no address serves.
 | photos alone answer 500 | the same, in `uploads/.htaccess` (IONOS accepts it as shipped) |
 | 503 `not_configured` | `config.php` is missing, has no access rule, or PHP could not read it (a typo): check it against the one the preflight page printed |
 | 503 on everything right after going back to an older release | `config.php` has a key the older release does not know: `dailyLimits`, `features` or `dailyLimit` in the `ai` block, or the whole block. Take it out (*Rolling back* has the dates) |
-| 503 right after adding or changing the `ai` block | the release is older than the key (`features` and `dailyLimit` need the release of 2026-10-06 (`2ad58f28364e`), `dailyLimits` the one after it: upload it first), or a typo in the block: a setting the sample does not have, a feature that is not `flyer` or `share`, a `dailyLimit` that is not a whole number from 1 to 20, a `dailyLimits` that is not written `['share' => 10]` with such a number, or a value of the wrong kind. The reason names the setting, never its value. **It is in the host's own PHP error log** (the hosting panel's logs), not in `data/php-errors.log`: PHP's log moves into the data folder only once `config.php` has been read. "`ai.apiKey` must not hold spaces or line breaks" means the key was pasted with one: write it between single quotes, with nothing after its last character |
+| 503 right after adding or changing the `ai` block | the release is older than the key (`features` and `dailyLimit` need the release of 2026-10-06 (`2ad58f28364e`), `dailyLimits` the one after it: upload it first), or a typo in the block: a setting the sample does not have, a feature that is not `flyer`, `share` or `photo`, a `dailyLimit` that is not a whole number from 1 to 20, a `dailyLimits` that is not written `['share' => 10]` with such a number, or a value of the wrong kind. The reason names the setting, never its value. **It is in the host's own PHP error log** (the hosting panel's logs), not in `data/php-errors.log`: PHP's log moves into the data folder only once `config.php` has been read. "`ai.apiKey` must not hold spaces or line breaks" means the key was pasted with one: write it between single quotes, with nothing after its last character |
 | nothing of the AI shows | the AI is off: `config.php` has no `ai` block, the block has no `provider`, no `apiKey` or no `features`, or it says `'enabled' => false`. A provider and its key alone run nothing: name the features. `GET api/config` shows `"ai": {"enabled": false}` |
 | "✨ Write with AI" in the editor, but no "✨ Create with AI" on the bar | by design where `features` names `share` alone. `GET api/config` then lists one feature: `"features": [{"name": "share", "limit": 3, "remaining": 3}]` |
 | "Create with AI" has no "From a photo" | `features` does not name `photo`, or the release is from before its page (the preflight page shows the release). `GET api/config` lists `photo` where the server runs it. Named without `flyer`, the read has no page at all |

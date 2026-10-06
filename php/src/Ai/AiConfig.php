@@ -109,7 +109,8 @@ final class AiConfig
             $apiKey,
             $model,
             // The fake has one model, whatever the feature.
-            self::models($raw, $facts['features'], $model, $facts['featureDefaultModel'][$provider] ?? []),
+            // No provider, no default of its own to look up: a null offset is deprecated from PHP 8.5 on.
+            self::models($raw, $facts['features'], $model, $provider === null ? [] : $facts['featureDefaultModel'][$provider] ?? []),
             self::text($raw, 'effort'),
             $timeoutMs,
             $provider !== null && $keyed && $switch,
