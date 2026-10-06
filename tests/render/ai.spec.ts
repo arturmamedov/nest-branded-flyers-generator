@@ -1368,7 +1368,7 @@ test.describe('From a photo', () => {
       { width: 390, height: 844 },
       { width: 360, height: 780 },
     ]) {
-      test(`the steps fit a phone ${viewport.width} px wide: three names on one line under the switch and then in its place, the next button in view, and no sideways scroll`, async ({ page }) => {
+      test(`the steps and the picture’s offer fit a phone ${viewport.width} px wide: three names on one line under the switch and then in its place, the next button in view, and no sideways scroll`, async ({ page }) => {
         // Routed, so nothing is spent.
         await page.setViewportSize(viewport);
         await withLeft(page, { photo: 2, flyer: 2 });
@@ -1407,6 +1407,12 @@ test.describe('From a photo', () => {
         await expect(stepNames(page)).toHaveText(['Picture ✓', 'Check the words ✓', 'Flyer']);
         await onOneLine();
         await expect(openInEditor(page), 'the finish').toBeInViewport(whole);
+        // With it, the picture offered as the flyer's photo: the box and all of its words on screen.
+        await expect(usePicture(page)).toBeInViewport(whole);
+        const offer = (await page.locator('.toolbar .check').boundingBox())!;
+        expect(offer.x, 'the offer starts on screen').toBeGreaterThanOrEqual(0);
+        expect(offer.x + offer.width, 'and ends on it').toBeLessThanOrEqual(viewport.width);
+        expect(await sideways()).toBeLessThanOrEqual(0);
       });
     }
 
