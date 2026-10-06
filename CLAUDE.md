@@ -25,7 +25,8 @@ npm run deploy:update  # a newer release over a local copy of a deployment: back
 npm run deploy:tag     # the git tag release/<id> for a deployed release (a folder, or a site's address); never pushes
 npm run copy           # move a library between storage drivers (SQLite <-> JSON files)
 npm run ai:smoke       # one real AI generation by hand, with .env's AI_PROVIDER and AI_API_KEY (--share: a share text;
-                       # --to <app root>: through a site, spending one of its 3 for the day). Never part of a test
+                       # --to <app root>: through a site, spending one of its day's generations; it stops before
+                       # spending when the feature it would call is off there). Never part of a test
 npm run compare:design # reference pixel-diff vs the prototype (dev server running)
 npm run build          # vite build → dist/, tsc → dist-server/
 ```
@@ -43,7 +44,8 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
   2026-09-30). Keep the `data-fit*` attributes. `ready.ts` loads fonts/images and fits before any export.
 - `src/shared/` — DOM-free, used by client **and** server: `schema.ts` (zod, source of truth for the data
   shape), `layout.ts` (the `CANVASES` registry: every canvas's size, safe zones, both templates' box positions
-  and art anchor points; a new canvas is one entry), `defaults.ts` (tokens, template art, each template's
+  and art anchor points; a new canvas is one entry; and `DEFAULT_CANVAS`, the canvas a viewer who never chose
+  sees), `defaults.ts` (tokens, template art, each template's
   defaults and the switch between them, and `EYEBROW_MARKS`, which marks print at the eyebrow's right),
   `chips.ts` (the `·` convention), `week.ts` (the This week rows: their limits, a row taken from a saved flyer,
   what a row prints — zod-free, so the client imports it and `schema.ts` takes its limits from it), `names.ts`
@@ -52,13 +54,23 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
   button floating by the preview, never printed), `brief.ts` (`flyerFromBrief`: a flyer from its copy alone, the shape the staff-text
   workflow in `docs/ai-flyers/` writes — zod-free; `BriefSchema` is in `schema.ts`), `photo.ts` (crop maths),
   `copyRules.ts`, `writeGuard.ts` (the write header, and the methods that need none), `ai.ts` (the AI assistant's
-  facts: the daily cap, the idea's and the assumptions' limits, the day's zone, the provider defaults, the fake
-  provider's markers — zod-free), `samples.ts` (the seed and
+  facts: its features, the daily cap's default and bound, the idea's and the assumptions' limits, the day's zone,
+  the provider defaults, the fake provider's markers, and `aiFor`, which reads `api/config`'s answer for one
+  feature — zod-free), `samples.ts` (the seed and
   test flyers). Relative imports here use `.js` extensions
   (NodeNext). The client never imports a value from `schema.ts`: that would bundle zod into the editor and the
   export page. Nothing the browser loads imports `samples.ts` either: it imports `seed/hostels.json` for the
   hostels' names, and Vite would bundle the whole seed.
 - `src/editor/` — editor + library UI. `render.html` + `src/render/` — the bare page headless Chromium shoots.
+- Each library card shows its flyer (`src/editor/FlyerThumb.tsx`, 2026-10-06): the same `<Flyer>`, on
+  `DEFAULT_CANVAS` at its true size, scaled by a transform and prepared with `prepareFlyer()`. Never a stored
+  thumbnail.
+  - Each card asks `GET api/flyers/:id` for its own flyer when it nears the screen, so the list's contract did
+    not change and nothing was added to either backend.
+  - The box is the same size waiting, shown or failed. Its width on screen is `--thumb-w` in `editor.css`; the
+    flyer's size comes from the registry.
+  - It is decoration inside the card's link: `aria-hidden` and `inert`. `tests/render/library.spec.ts` holds
+    all of it, and the fitted sizes to the export's.
 - The library's top bar is `<nest-nav tool="flyers">` (`App.tsx`), the bar every Nests tool shares.
   - It is loaded `async` from `https://nestpass.ai/kit/nest-nav.js`. That file lives in the
     `nestpass-tools` repo (`A:\serverpath\laragon\nestpass-tools`), with the list of tools and the
@@ -105,12 +117,27 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
     with their limits, the few-shot, the schemas) and the `ai` block of `schema/shared.json`.
   - The model's answer only ever becomes data held to `AiFlyerAnswerSchema` / `AiShareAnswerSchema`. A flyer's
     answer always carries its share text (required there, not in `BriefSchema`): one generation is a whole flyer.
-  - Settings: `AI_PROVIDER`, `AI_API_KEY`, `AI_MODEL`, `AI_EFFORT`, `AI_TIMEOUT_MS`, `AI_ENABLED` in `.env` (Node);
-    the `ai` block of `config.php` (PHP). Off without a key, and then nothing of it shows. The key never reaches
+  - Settings: `AI_PROVIDER`, `AI_API_KEY`, `AI_FEATURES`, `AI_DAILY_LIMIT`, `AI_MODEL`, `AI_EFFORT`,
+    `AI_TIMEOUT_MS`, `AI_ENABLED` in `.env` (Node); the `ai` block of `config.php` (PHP: `features`, `dailyLimit`
+    and the rest). Off without a key or with no feature named, and then nothing of it shows. The key never reaches
     `api/config`, a log line, the ledger, a release or git, and a refusal names a setting, never its value.
+    `tests/fixtures/ai-settings.json` holds both loaders to one table.
+  - Each feature has its own switch (2026-10-06): a site runs the features its settings name, and none until
+    they are named (the owner's answer: a key alone runs nothing). The setting `AI_FEATURES` shares its name with
+    the constant in `src/shared/ai.ts`, which lists every feature the app has.
+    - The policy decides, in one place: `runs(feature)`, `mayUse(actor)`, `dailyLimit(actor)`. "The AI is on"
+      is derived as "some feature runs". A feature that is off answers `ai_off` where the whole AI does.
+    - `api/config` lists the features that run, and the client shows a feature only through `aiFor()`:
+      `App.tsx` is the one place that asks. `flyer` off: no "Create with AI", and `#/ai` is the library.
+      `share` off: no "Write with AI".
+    - One feature off is proved in process on each backend, over the generated list of features
+      (`tests/unit/ai-app.test.ts`, `php/tests/BootstrapTest.php`), with no server per case.
+    - An older release refuses `features` and `dailyLimit` (503): on a host the release goes up first, and the
+      keys come out before going back (`docs/deploy.md`, "Rolling back").
   - The ledger (`aiUsage` in each storage driver; `ai-usage/YYYY-MM.json` in the JSON store) keeps one append-only
-    record per generation attempted. The cap (`AI_DAILY_LIMIT`, 3) is the count of the Canary Islands day's `ok`
-    records for the actor: today one anonymous actor, so site-wide. A ledger that cannot be read hides the AI
+    record per generation attempted. The cap is the site's own (`AI_DAILY_LIMIT`, 3 unless its settings say
+    otherwise, `AI_DAILY_LIMIT_MAX` = 20 at most): the count of the Canary Islands day's `ok` records for the
+    actor, both features together: today one anonymous actor, so site-wide. A ledger that cannot be read hides the AI
     (`status()` answers `enabled: false` and logs why) and never takes `api/config` down: the editor renders
     nothing without that answer. Node's drivers check a record before writing it (`checkedAiUsage`).
   - The client: `src/editor/AiPage.tsx` (`#/ai`, a focus page like the editor), `handoff.ts` (the unsaved flyer
@@ -119,9 +146,10 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
     `briefFieldLabel()` names a brief's key for "The AI assumed…" (an assumption's `field` is the model's to choose,
     so a key no field has is shown as written).
   - No test touches a provider. The render suite has two projects: `render` (every spec but `ai.spec.ts`, the AI
-    off whatever `.env` holds) and `ai` (`ai.spec.ts` on a second server with the fake, port 8798, spending
-    exactly the day's 3; a test that needs another count routes `api/config`). The contract suite's `node-ai` and
-    `php-ai` run the AI routes on the fake, both on the JSON driver, so `ai.test.ts` can damage the ledger's file.
+    off whatever `.env` holds) and `ai` (`ai.spec.ts` on a second server with the fake, port 8798, every feature
+    named and the cap pinned, spending exactly the day's 3; a test that needs another count, or a site that runs
+    one feature, routes `api/config`). The contract suite's `node-ai` and `php-ai` run the AI routes on the fake
+    with every feature named, both on the JSON driver, so `ai.test.ts` can damage the ledger's file.
   - `npm run ai:smoke` (`scripts/ai/smoke.ts`) is the one thing that calls a real provider, by hand.
     `scripts/site.ts` is how a script calls a site's API (`flyers:post` too): it never follows a redirect.
 - Releases and git: a release's id names a build (two builds of one commit get two ids: composer's autoloader
@@ -160,6 +188,9 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
   each canvas through render-only anchors (`resolveDoodles`), so stored doodles never changed and an older
   release still reads every flyer. Every canvas is fitted in the editor, the others offscreen with the same
   `<Flyer>`. The story renders byte-identical to before (`tests/render/baseline.spec.ts`, opt-in).
+  A viewer who never chose sees WhatsApp (`DEFAULT_CANVAS`, the owner's answer, 2026-10-05): the editor (a stored
+  choice still wins), the AI page's preview and the library's pictures. It is the screen's default alone: the
+  export API and the render page keep `story` for a request that names no canvas.
 - The owner's editor pass (2026-09-28) supersedes two handoff lines; the handoff itself stays as
   delivered:
   - a new flyer, and a photo dropped on "No photo", land "In a frame" (`DEFAULT_PHOTO_MODE` in
