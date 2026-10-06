@@ -30,6 +30,33 @@ export const apiCall =
   (res: PwResponse) =>
     res.request().method() === method && apiRoute(path, search)(new URL(res.url()));
 
+/** Holds a request the route predicate matches until the returned release() is called. */
+export async function hold(page: Page, url: (url: URL) => boolean, method = 'GET'): Promise<() => void> {
+  let release = () => {};
+  const held = new Promise<void>((resolve) => (release = resolve));
+  await page.route(url, async (route) => {
+    if (route.request().method() === method) await held;
+    await route.continue();
+  });
+  return release;
+}
+
+/** The fitted font sizes of one flyer, in document order: run in the page (page.evaluate(fitted, selector)). */
+export const fitted = (selector: string) =>
+  [...document.querySelectorAll<HTMLElement>(`${selector} [data-fit]`)].map((el) => el.style.fontSize);
+
+/** What the render page (the export) fits for a flyer on a canvas. Node's render suite only: the PHP backend has no
+    render page. */
+export async function exportFit(page: Page, id: number, canvas: CanvasId): Promise<string[]> {
+  const other = await page.context().newPage();
+  await other.setViewportSize({ width: CANVASES[canvas].width, height: CANVASES[canvas].height });
+  await other.goto(`/render.html?id=${id}&canvas=${canvas}`);
+  await other.waitForFunction(() => (window as unknown as { __FLYER_READY?: boolean }).__FLYER_READY);
+  const sizes = await other.evaluate(fitted, '[data-flyer]');
+  await other.close();
+  return sizes;
+}
+
 /** The toolbar's "Saved" / "Unsaved changes". */
 export const status = (page: Page) => page.locator('.toolbar .status');
 

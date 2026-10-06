@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import type { APIRequestContext, APIResponse, Page } from '@playwright/test';
 import { PNG } from 'pngjs';
 import { expect, test } from '../browser';
-import { EDITOR_VIEWPORT, canvasButton, cutOff, cutOffOn } from '../editor';
+import { EDITOR_VIEWPORT, canvasButton, cutOff, cutOffOn, exportFit, fitted } from '../editor';
 import { bodiesOf, groupsOf, highlighterWrapSample } from './pixels';
 import sharp from 'sharp';
 import { apiError, type ApiErrorKey } from '../../src/shared/errors';
@@ -605,21 +605,6 @@ test('the render page refuses an unknown canvas instead of drawing the story', a
   expect(await page.evaluate(() => (window as unknown as { __FLYER_ERROR?: string }).__FLYER_ERROR)).toContain('square');
   expect(await page.locator('[data-flyer]').count()).toBe(0);
 });
-
-/** The fitted font sizes of one flyer, in document order. */
-const fitted = (selector: string) =>
-  [...document.querySelectorAll<HTMLElement>(`${selector} [data-fit]`)].map((el) => el.style.fontSize);
-
-/** What the render page (the export) fits for a flyer on a canvas. */
-async function exportFit(page: Page, id: number, canvas: CanvasId): Promise<string[]> {
-  const other = await page.context().newPage();
-  await other.setViewportSize({ width: CANVASES[canvas].width, height: CANVASES[canvas].height });
-  await other.goto(`/render.html?id=${id}&canvas=${canvas}`);
-  await other.waitForFunction(() => (window as unknown as { __FLYER_READY?: boolean }).__FLYER_READY);
-  const sizes = await other.evaluate(fitted, '[data-flyer]');
-  await other.close();
-  return sizes;
-}
 
 test('the editor previews, fits and downloads every canvas, through the server exporter', async ({ page, request }) => {
   const list = (await (await request.get('/api/flyers')).json()) as FlyerListItem[];

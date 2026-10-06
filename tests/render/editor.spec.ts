@@ -13,6 +13,7 @@ import {
   cutOffOn,
   dropFile,
   filterLibrary,
+  hold,
   libraryCard as card,
   rowField as row,
   saveNew,
@@ -61,17 +62,6 @@ async function poolPartyCopy(request: APIRequestContext, title: string): Promise
   const { id } = FlyerSavedSchema.parse(await res.json());
   keep(id);
   return id;
-}
-
-/** Holds a request the route predicate matches until the returned release() is called. */
-async function hold(page: Page, url: (url: URL) => boolean, method = 'GET'): Promise<() => void> {
-  let release = () => {};
-  const held = new Promise<void>((resolve) => (release = resolve));
-  await page.route(url, async (route) => {
-    if (route.request().method() === method) await held;
-    await route.continue();
-  });
-  return release;
 }
 
 /** Opens a new flyer from the library, so the history holds the library entry behind it. */

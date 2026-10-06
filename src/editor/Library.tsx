@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { copyTitle, libraryDate } from '../shared/names';
 import type { FlyerListItem, Hostel, Template } from '../shared/schema';
 import { api } from './api';
+import { FlyerThumb } from './FlyerThumb';
 import { go, onPage } from './route';
 import { localStorageGet, localStorageSet } from './prefs';
 import { TEMPLATE_LABEL, isTemplate } from './templates';
@@ -19,6 +20,8 @@ export function Library({ hostels }: { hostels: Hostel[] }) {
   const [items, setItems] = useState<FlyerListItem[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<number | null>(null);
+  // The library scrolls inside itself (editor.css): each card's picture measures its nearness against this.
+  const scroller = useRef<HTMLDivElement>(null);
 
   // Answers can come back out of order (a slow host, two quick changes of filter): only the latest load's answer is
   // applied, or an earlier filter's list would show under the later choice.
@@ -76,7 +79,7 @@ export function Library({ hostels }: { hostels: Hostel[] }) {
   }
 
   return (
-    <div className="library">
+    <div className="library" ref={scroller}>
       <div className="library-head">
         <h1>Flyer library</h1>
         <label className="filter">
@@ -117,10 +120,14 @@ export function Library({ hostels }: { hostels: Hostel[] }) {
         <ul className="cards">
           {items.map((f) => (
             <li key={f.id} className="card">
+              {/* The picture is inside the link and hidden from its name (FlyerThumb): the card is still its title. */}
               <a className="card-main" href={`#/flyers/${f.id}`}>
-                <span className="card-title">{f.title}</span>
-                <span className="card-meta">
-                  {f.hostelName ?? 'All hostels'} · {TEMPLATE_LABEL[f.template]} · {when(f.updatedAt)}
+                <FlyerThumb id={f.id} version={f.updatedAt} scroller={scroller} />
+                <span className="card-text">
+                  <span className="card-title">{f.title}</span>
+                  <span className="card-meta">
+                    {f.hostelName ?? 'All hostels'} · {TEMPLATE_LABEL[f.template]} · {when(f.updatedAt)}
+                  </span>
                 </span>
               </a>
               <div className="card-actions">

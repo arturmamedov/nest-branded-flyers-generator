@@ -743,11 +743,55 @@ nest-nav > nav a.ai-entry .ai-count {
 
 .card-main {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
+  align-items: center;
+  gap: 14px;
+  flex: 1 1 auto;
   color: inherit;
   text-decoration: none;
   min-width: 0;
+}
+
+.card-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+/* A card's picture of its flyer (FlyerThumb.tsx). The box is this size in every state (waiting, shown, a flyer that
+   could not load), so nothing jumps as pictures arrive. Its width on screen is the one number written here; the
+   flyer's own size comes from the canvas registry (--flyer-w and --flyer-h, set by the component), so the box's
+   height and the scale follow from it. */
+.card-thumb {
+  --thumb-w: 120;
+  flex: 0 0 auto;
+  width: calc(var(--thumb-w) * 1px);
+  height: calc(var(--thumb-w) * var(--flyer-h) / var(--flyer-w) * 1px);
+  overflow: hidden;
+  border-radius: 6px;
+  background: var(--cream);
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+
+/* The flyer at its true size, scaled down: a transform, never zoom, which would change what the fit measures. Unseen
+   until it is fitted, by opacity and never display: none, because it has to lay out to be fitted. */
+.card-thumb-flyer {
+  width: calc(var(--flyer-w) * 1px);
+  height: calc(var(--flyer-h) * 1px);
+  transform: scale(calc(var(--thumb-w) / var(--flyer-w)));
+  transform-origin: 0 0;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.card-thumb-ready .card-thumb-flyer {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card-thumb-flyer {
+    transition: none;
+  }
 }
 
 .card-title {
@@ -833,5 +877,10 @@ nest-nav > nav a.ai-entry .ai-count {
   /* "✨ Create with AI · N left" becomes "✨ AI"; the link's name still says it all. */
   .ai-wide {
     display: none;
+  }
+
+  /* A phone's card: a smaller picture, so the title keeps most of the line. */
+  .card-thumb {
+    --thumb-w: 96;
   }
 }
