@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { AI_INPUT_MAX, type AiFeature, type AiFeatureOn } from '../shared/ai';
 import { flyerFromBrief } from '../shared/brief';
 import { lintFlyer } from '../shared/copyRules';
@@ -47,6 +47,10 @@ const READ_NOTE = {
     read was free, and the picture is still chosen. */
 const PICTURE_KEPT = 'Your picture is still here: try again, or type the event yourself.';
 
+/** A message as a sentence, for another to follow it. The server's own end with a full stop; a host's error page
+    ("Request failed (504)") and the browser's words for a dropped connection may not. */
+const asSentence = (message: string) => (/[.!?…]\s*$/.test(message) ? message : `${message.trim()}.`);
+
 /** One action at a time, as in the editor: a picture dropped or pasted while one is out. */
 const STILL_WORKING = 'Still working on the last action — try the picture again in a moment.';
 
@@ -84,19 +88,37 @@ export function AiPage({
   const [idea, setIdea] = useState('');
   // What the last read left: words in the idea box, or none. It picks the line under the box.
   const [read, setRead] = useState<keyof typeof READ_NOTE | null>(null);
+  // The box holds words a read was spent on. A later read that finds no event leaves them there, and this with them.
+  const [wordsRead, setWordsRead] = useState(false);
+  // The reads that landed: each one moves the focus to the line under the box.
+  const [landed, setLanded] = useState(0);
+  const readNote = useRef<HTMLParagraphElement>(null);
+  const readNoteId = useId();
   const [hostel, setHostel] = useState('');
   // One action at a time: the flyer's generation, or a picture's read.
   const [busy, setBusy] = useState<null | 'flyer' | 'photo'>(null);
   const [error, setError] = useState<string | null>(null);
+  // The red note is a read's that failed for no fault of its picture, which is still worth another try.
+  const [pictureKept, setPictureKept] = useState(false);
+  const say = useCallback((message: string | null, kept = false) => {
+    setError(message);
+    setPictureKept(kept);
+  }, []);
   const [result, setResult] = useState<Result | null>(null);
   const [opening, setOpening] = useState(false);
   const { onFit, cutOff } = useFitReports();
 
   // A flyer made and not yet opened is unsaved work, and a generation spent: leaving asks, as the editor does. So are
-  // the words read from a picture while they are in the box: a read was spent on them. A picture chosen and not read
-  // cost nothing, and asks nothing.
-  const wordsRead = read === 'words' && idea.trim() !== '';
-  useLeaveGuard((result !== null || wordsRead) && !opening);
+  // the words read from a picture while they are in the box: a read was spent on them. So is a read on its way: it
+  // counts once it is answered, and its words would land nowhere (the editor guards a photo on its way the same).
+  // A picture chosen and not read cost nothing, and asks nothing.
+  useLeaveGuard((result !== null || (wordsRead && idea.trim() !== '') || busy === 'photo') && !opening);
+  // After a read the button that was pressed is gone with its way. The focus goes to the line under the box, so a
+  // keyboard stands at the box and a screen reader hears what happened. Not to the box itself: on a phone that
+  // raises the keyboard over the words to check.
+  useEffect(() => {
+    if (landed) readNote.current?.focus();
+  }, [landed]);
   // "Open in editor" moves once the guard has let go (its layout effect runs first), so the move asks nothing.
   useEffect(() => {
     if (opening) go('#/new');
@@ -111,11 +133,11 @@ export function AiPage({
   // while an action is out is refused with a reason: the read on its way is of the picture on screen.
   const pick = useCallback(
     (file: File | null) => {
-      if (busy) return setError(STILL_WORKING);
+      if (busy) return say(STILL_WORKING);
       setPicture(file);
-      setError(null);
+      say(null);
     },
-    [busy],
+    [busy, say],
   );
 
   // A picture → its words, in the idea box. Words already there are replaced only on a yes, asked before the read
@@ -125,7 +147,7 @@ export function AiPage({
     const cost = photo.remaining === 1 ? 'the last of today’s picture reads' : `one of the ${photo.remaining} picture reads left today`;
     if (idea.trim() && !confirm(`Replace your idea with the words the AI reads from this picture? It uses ${cost}.`)) return;
     setBusy('photo');
-    setError(null);
+    say(null);
     let sent = false;
     try {
       // Shrunk here first, as a flyer's photo is, to the read's edge and under the host's upload limit.
@@ -134,9 +156,15 @@ export function AiPage({
       const r = await api.aiPhoto(blob, name);
       onRemaining(photo.name, r.remaining);
       // No event in the picture: the box stays as it was. Nothing is worth less than what was typed.
-      if (r.text) setIdea(r.text);
+      if (r.text) {
+        setIdea(r.text);
+        setWordsRead(true);
+      }
       setRead(r.text ? 'words' : 'none');
       setWay('idea');
+      setLanded((n) => n + 1);
+      // What was said while it was out (a picture that came too soon) is about a moment that is over.
+      say(null);
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
       // Refused: the picture itself, here or by the server's own checks, or the day's reads are used up. The message
@@ -146,7 +174,7 @@ export function AiPage({
       // Anything else may have reached the provider. Such a read is free, answers no count, and is one of the day's
       // tries: what is left is asked from the server again.
       else if (!refused) recount(photo.name);
-      setError(refused ? message : `${message} ${PICTURE_KEPT}`);
+      say(refused ? message : asSentence(message), !refused);
     } finally {
       setBusy(null);
     }
@@ -154,16 +182,17 @@ export function AiPage({
 
   async function generate() {
     setBusy('flyer');
-    setError(null);
+    say(null);
     const sent = idea;
     try {
       const r = await api.aiFlyer(hostel ? { text: sent, hostel } : { text: sent });
       setResult({ brief: r.brief, assumptions: r.assumptions, idea: sent });
       onRemaining(ai.name, r.remaining);
+      say(null);
     } catch (e) {
       // The limit was reached elsewhere (another tab, another staff member): say so in this feature's count too.
       if (e instanceof ApiError && e.status === 429) onRemaining(ai.name, 0);
-      setError(e instanceof Error ? e.message : String(e));
+      say(e instanceof Error ? e.message : String(e));
     } finally {
       setBusy(null);
     }
@@ -193,14 +222,26 @@ export function AiPage({
             </div>
           )}
           {way === 'photo' && photo ? (
-            <AiPhoto ai={photo} picture={picture} busy={!!busy} reading={busy === 'photo'} onPick={pick} onRead={readPicture} />
+            <AiPhoto ai={photo} flyer={ai} picture={picture} busy={!!busy} reading={busy === 'photo'} onPick={pick} onRead={readPicture} />
           ) : (
             <>
               <Field label="Your idea">
-                <textarea rows={10} value={idea} maxLength={AI_INPUT_MAX} placeholder={PLACEHOLDER} onChange={(e) => setIdea(e.target.value)} />
+                <textarea
+                  rows={10}
+                  value={idea}
+                  maxLength={AI_INPUT_MAX}
+                  placeholder={PLACEHOLDER}
+                  aria-describedby={read ? readNoteId : undefined}
+                  onChange={(e) => {
+                    setIdea(e.target.value);
+                    // Emptied, the box holds nothing of a read any more.
+                    if (!e.target.value.trim()) setWordsRead(false);
+                  }}
+                />
               </Field>
+              {/* Focused when a read lands (above), which is how it is announced: it holds its words from the start. */}
               {read && (
-                <p className="help ai-read-note" role="status">
+                <p ref={readNote} id={readNoteId} tabIndex={-1} className="help ai-read-note">
                   {READ_NOTE[read]}
                 </p>
               )}
@@ -257,7 +298,13 @@ export function AiPage({
 
         {(error || (flyer && !busy && (cutOff.length > 0 || lints.length > 0))) && (
           <div className="notes">
-            {error && <div className="note note-error">{error}</div>}
+            {error && (
+              <div className="note note-error">
+                {error}
+                {/* "Try again" only while a read is left to try with: at none, the used-up sentence says the rest. */}
+                {pictureKept && photo && photo.remaining > 0 && ` ${PICTURE_KEPT}`}
+              </div>
+            )}
             {flyer && !busy && cutOff.length > 0 && <CutOffNote canvases={cutOff} />}
             {flyer &&
               !busy &&
@@ -285,7 +332,7 @@ export function AiPage({
             actualSize={false}
             onFit={onFit}
             onCrop={() => {}}
-            onDropFile={() => setError('Open the flyer in the editor to add its photo.')}
+            onDropFile={() => say('Open the flyer in the editor to add its photo.')}
           />
         ) : (
           <div className="stage">

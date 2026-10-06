@@ -10,6 +10,7 @@ import { AiUsedUp } from './panel';
 
 export function AiPhoto({
   ai,
+  flyer,
   picture,
   busy,
   reading,
@@ -18,6 +19,9 @@ export function AiPhoto({
 }: {
   /** The picture read as api/config lists it: its own limit, and what is left of it today. */
   ai: AiFeatureOn;
+  /** The flyer's own count. Every way in ends in a flyer, so with none left today a read would be spent on words
+      nothing can be made from: the button waits, and the flyers' sentence says why. */
+  flyer: AiFeatureOn;
   /** The picture chosen, or null. It is the page's, so it is still there after a look at the other way. */
   picture: File | null;
   /** An action of the page's is out, this read or a generation: the buttons wait for it. */
@@ -90,10 +94,11 @@ export function AiPhoto({
         <p className="help ai-mouse">Or drop a picture here, or paste a screenshot.</p>
         {picture && <Chosen picture={picture} busy={busy} onRemove={() => onPick(null)} />}
       </div>
-      <button type="button" className="btn btn-accent" disabled={busy || !picture || left === 0} onClick={onRead}>
+      <button type="button" className="btn btn-accent" disabled={busy || !picture || left === 0 || flyer.remaining === 0} onClick={onRead}>
         {reading ? 'Reading…' : '✨ Read the picture'} <span className="ai-left">({left} left today)</span>
       </button>
       <AiUsedUp feature={ai.name} limit={ai.limit} left={left} />
+      {left > 0 && <AiUsedUp feature={flyer.name} limit={flyer.limit} left={flyer.remaining} />}
     </>
   );
 }

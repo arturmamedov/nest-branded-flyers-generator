@@ -5,7 +5,7 @@ import sharp from 'sharp';
 import { expect, test } from '../browser';
 import { EDITOR_VIEWPORT, apiCall, apiRoute, backToLibrary, dropFile, hold, paste, saveNew, status, type FilePayload } from '../editor';
 import { LEAVE_PROMPT } from '../../src/editor/leaveGuard';
-import { AI_DAILY_LIMIT, AI_FAKE, AI_FEATURES, aiFor, aiQuotaVars, type AiFeature } from '../../src/shared/ai';
+import { AI_DAILY_LIMIT, AI_FAKE, AI_FEATURES, AI_PICTURE_MAX_EDGE, aiFor, aiQuotaVars, type AiFeature } from '../../src/shared/ai';
 import { apiError } from '../../src/shared/errors';
 import { DEFAULT_CANVAS } from '../../src/shared/layout';
 import { AiFlyerResultSchema, AiPhotoResultSchema, AiShareResultSchema, ApiConfigSchema, type AiFlyerAnswer } from '../../src/shared/schema';
@@ -469,6 +469,18 @@ async function picture(name: string, width = 64, height = 8): Promise<FilePayloa
   return { name, mimeType: 'image/png', buffer };
 }
 
+/** api/config with the counts a test says, one answer after another: the first on load, the next each time the page
+    asks again (after a failed read), the last one from then on. A feature left out has all of its own. */
+async function withCounts(page: Page, answers: Partial<Record<AiFeature, number>>[]) {
+  let asked = 0;
+  await page.route(apiRoute('config'), async (route) => {
+    const res = await route.fetch();
+    const counts = answers[Math.min(asked++, answers.length - 1)];
+    const features = AI_FEATURES.map((name) => ({ name, limit: AI_DAILY_LIMIT, remaining: counts[name] ?? AI_DAILY_LIMIT }));
+    await route.fulfill({ response: res, json: { ...(await res.json()), ai: { enabled: true, features } } });
+  });
+}
+
 /** Every read a test's page sent, to say that nothing was. */
 function readsSent(page: Page): string[] {
   const sent: string[] = [];
@@ -576,63 +588,19 @@ test.describe('From a photo', () => {
     await expect(readPicture(page)).toBeVisible();
     await expect(chosen(page)).toHaveCount(0);
     // The stage is no place for a picture: the page refuses the drop, so the browser never opens the file in the tab.
-    await dropFile(page, page.locator('.stage'), await picture('stray.png'));
+    // A scripted drop opens nothing either way, so the refusal itself is read off the event, as in editor.spec.ts.
+    const prevented = await page.locator('.stage').evaluate((el) => {
+      const dataTransfer = new DataTransfer();
+      dataTransfer.items.add(new File(['x'], 'stray.png', { type: 'image/png' }));
+      return ['dragover', 'drop'].map((type) => {
+        const e = new DragEvent(type, { bubbles: true, cancelable: true, dataTransfer });
+        el.dispatchEvent(e);
+        return e.defaultPrevented;
+      });
+    });
+    expect(prevented, 'dragover and drop both refused').toEqual([true, true]);
     await expect(chosen(page)).toHaveCount(0);
-    await expect(page).toHaveURL(/#\/ai$/);
     await expect(readPicture(page)).toBeDisabled();
-  });
-
-  test('a picture becomes its words and the words a flyer: a waiting state, the words in Your idea with a line to check them by, and each count its own', async ({ page }) => {
-    test.setTimeout(90_000);
-    const reads = await left(page, 'photo');
-    const flyers = await left(page, 'flyer');
-    expect(Math.min(reads, flyers), 'this file spends a read and the day’s last flyer here').toBeGreaterThan(0);
-    await page.goto('/#/ai');
-    await fromPhoto(page).click();
-    await chooseInput(page).setInputFiles(await picture('poster.png'));
-
-    // The answer is held, so the waiting state can be seen. Nothing is in the idea box, so nothing is asked first.
-    const release = await hold(page, apiRoute('ai/photo'), 'POST');
-    const answered = page.waitForResponse(apiCall('POST', 'ai/photo'));
-    await readPicture(page).click();
-    await expect(page.locator('.ai-waiting')).toHaveText('✨ The AI is reading your picture… it can take half a minute.');
-    await expect(page.getByRole('button', { name: /^Reading…/ }), 'one read at a time').toBeDisabled();
-    await expect(fromIdea(page), 'the page does not change under an answer on its way').toBeDisabled();
-    await expect(choosePicture(page)).toBeDisabled();
-    release();
-    const res = await answered;
-    expect(res.status(), await res.text()).toBe(200);
-    expect(res.request().headers()['content-type'], 'the picture as a file, as a flyer’s photo travels').toMatch(/^multipart\/form-data/);
-    // The fake reads every picture as its first example's text: the words that example's flyer came from.
-    expect(AiPhotoResultSchema.parse(await res.json())).toEqual({ text: example.text, remaining: reads - 1 });
-    await page.unrouteAll({ behavior: 'wait' });
-
-    // The page is on From your idea, with the words to check: the flyer is the staff member's own next step.
-    await expect(fromIdea(page)).toHaveAttribute('aria-pressed', 'true');
-    await expect(idea(page)).toHaveValue(example.text);
-    await expect(readNote(page), 'the owner’s words (2026-10-06)').toHaveText(
-      'Read from your picture. Check every word, and add what is missing (the price?). [?] marks a word the AI could not read. If it lists several activities, keep the one this flyer is for.',
-    );
-    await expect(errorNote(page)).toHaveCount(0);
-    await expect(preview(page), 'a read makes no flyer').toHaveCount(0);
-    await expect(generate(page)).toContainText(`${flyers} left today`);
-    expect(await left(page, 'photo')).toBe(reads - 1);
-    expect(await left(page, 'flyer'), 'a read costs the flyer nothing').toBe(flyers);
-    await fromPhoto(page).click();
-    await expect(readPicture(page)).toContainText(`${reads - 1} left today`);
-    await expect(chosen(page), 'the picture is still the page’s').toContainText('poster.png');
-    await fromIdea(page).click();
-
-    // From here it is the page as it was: Generate, that example's flyer, Open in editor.
-    const made = page.waitForResponse(apiCall('POST', 'ai/flyer'));
-    await generate(page).click();
-    expect((await made).status()).toBe(200);
-    await expect(preview(page)).toContainText(brief.text!.headline1!);
-    await expect(generate(page)).toContainText(`${flyers - 1} left today`);
-    expect(await left(page, 'photo'), 'a flyer costs the reads nothing').toBe(reads - 1);
-    await openInEditor(page).click();
-    await expect(page).toHaveURL(/#\/new$/);
-    await expect(page.getByLabel('Line 1')).toHaveValue(brief.text!.headline1!);
   });
 
   test('words already in the box are replaced only on a yes, asked before the read is spent', async ({ page }) => {
@@ -675,6 +643,7 @@ test.describe('From a photo', () => {
     await expect(fromIdea(page)).toHaveAttribute('aria-pressed', 'true');
     await expect(idea(page)).toBeEmpty();
     await expect(readNote(page), 'the owner’s words (2026-10-06)').toHaveText('The AI found no event in this picture. Write the event here yourself.');
+    await expect(readNote(page)).toBeFocused();
     await expect(errorNote(page)).toHaveCount(0);
     await expect(generate(page), 'nothing to make a flyer from yet').toBeDisabled();
     expect(await left(page, 'photo'), 'the provider answered, so it counts').toBe(reads - 1);
@@ -714,14 +683,9 @@ test.describe('From a photo', () => {
 
   test('after a failed read the button shows what the server says is left, which can be less: the day’s tries', async ({ page }) => {
     // Routed, so nothing is spent. api/config says two reads on load and one when asked again, as it does once the
-    // day's tries bind before its reads (three tries for each read of the limit, failed ones included).
-    let asked = 0;
-    await page.route(apiRoute('config'), async (route) => {
-      const res = await route.fetch();
-      const reads = asked++ === 0 ? 2 : 1;
-      const features = AI_FEATURES.map((name) => ({ name, limit: AI_DAILY_LIMIT, remaining: name === 'photo' ? reads : AI_DAILY_LIMIT }));
-      await route.fulfill({ response: res, json: { ...(await res.json()), ai: { enabled: true, features } } });
-    });
+    // day's tries bind before its reads (three tries for each read of the limit, failed ones included). The second
+    // answer also says fewer flyers, as after a colleague's: the question was the read's, and moves the read's alone.
+    await withCounts(page, [{ photo: 2 }, { photo: 1, flyer: 1 }]);
     const failed = apiError('ai_failed');
     await page.route(apiRoute('ai/photo'), (route) => route.fulfill({ status: failed.status, json: { error: { code: failed.code, message: failed.message } } }));
     await page.goto('/#/ai');
@@ -734,6 +698,81 @@ test.describe('From a photo', () => {
     // The read's count moved, and only the read's.
     await fromIdea(page).click();
     await expect(generate(page)).toContainText(`${AI_DAILY_LIMIT} left today`);
+  });
+
+  test('a failed read that was the day’s last try says so without "try again": the used-up sentence stands under a greyed button', async ({ page }) => {
+    // Found in review (2026-10-06): the note said "try again" over a button that read "0 left today". Routed.
+    await withCounts(page, [{ photo: 1 }, { photo: 0 }]);
+    const failed = apiError('ai_failed');
+    await page.route(apiRoute('ai/photo'), (route) => route.fulfill({ status: failed.status, json: { error: { code: failed.code, message: failed.message } } }));
+    await page.goto('/#/ai');
+    await fromPhoto(page).click();
+    await chooseInput(page).setInputFiles(await picture('poster.png'));
+    await readPicture(page).click();
+    await expect(readPicture(page)).toContainText('0 left today');
+    await expect(readPicture(page)).toBeDisabled();
+    await expect(errorNote(page), 'the server’s sentence alone').toHaveText(failed.message);
+    await expect(page.locator('.ai-used-up')).toHaveText(apiError('ai_quota', aiQuotaVars('photo', AI_DAILY_LIMIT)).message);
+  });
+
+  test('a failure that brings no sentence of the server’s still reads as sentences: a full stop, then the owner’s line', async ({ page }) => {
+    // Found in review (2026-10-06): "Request failed (504) Your picture is still here…". A host that cuts a slow read
+    // off answers with its own page, and a dropped connection with nothing: both are the slow read's own cases.
+    await withLeft(page, { photo: 2 });
+    const kept = 'Your picture is still here: try again, or type the event yourself.';
+    let dropped = false;
+    await page.route(apiRoute('ai/photo'), (route) => (dropped ? route.abort('connectionreset') : route.fulfill({ status: 504, contentType: 'text/html', body: '<h1>Gateway Timeout</h1>' })));
+    await page.goto('/#/ai');
+    await fromPhoto(page).click();
+    await chooseInput(page).setInputFiles(await picture('poster.png'));
+    await readPicture(page).click();
+    await expect(errorNote(page)).toHaveText(`Request failed (504). ${kept}`);
+
+    dropped = true;
+    await readPicture(page).click();
+    // The browser's own words for a dropped connection, whatever they are, end before the line begins.
+    await expect(errorNote(page)).toHaveText(/[.!?] Your picture is still here: try again, or type the event yourself\.$/);
+    await expect(chosen(page)).toContainText('poster.png');
+  });
+
+  test('with no flyer left today the photo way spends no read: the button waits, and the flyers’ sentence says why', async ({ page }) => {
+    // Found in review (2026-10-06): a read could be spent on words no flyer could be made from that day.
+    await withLeft(page, { flyer: 0, photo: 2 });
+    const sent = readsSent(page);
+    await page.goto('/#/ai');
+    await fromPhoto(page).click();
+    await chooseInput(page).setInputFiles(await picture('poster.png'));
+    await expect(readPicture(page)).toContainText('2 left today');
+    await expect(readPicture(page)).toBeDisabled();
+    await expect(page.locator('.ai-used-up')).toHaveText(apiError('ai_quota', aiQuotaVars('flyer', AI_DAILY_LIMIT)).message);
+    expect(sent).toEqual([]);
+  });
+
+  test('a picture larger than the read’s edge is shrunk in the browser before it is sent, as a flyer’s photo is to its own', async ({ page }) => {
+    // Found in review (2026-10-06): no test sent the page a picture over the edge, so the read's own limits could
+    // have been the photo's and nothing would have said so. The file as fetch() is given it is measured in the page.
+    await withLeft(page, { photo: 2 });
+    await page.addInitScript(() => {
+      const send = window.fetch;
+      window.fetch = async (input, init) => {
+        const body = init?.body;
+        if (String(input).endsWith('api/ai/photo') && body instanceof FormData) {
+          const file = body.get('photo') as File;
+          const drawn = await createImageBitmap(file);
+          (window as unknown as { sentPicture?: unknown }).sentPicture = { name: file.name, type: file.type, width: drawn.width, height: drawn.height };
+        }
+        return send(input, init);
+      };
+    });
+    await page.route(apiRoute('ai/photo'), (route) => route.fulfill({ json: { text: 'Bachata workshop', remaining: 1 } }));
+    await page.goto('/#/ai');
+    await fromPhoto(page).click();
+    // Wider than the read's edge and under a flyer photo's (MAX_PHOTO_EDGE): only the read's own limits shrink it.
+    await chooseInput(page).setInputFiles(await picture('banner.png', 3000, 60));
+    await readPicture(page).click();
+    await expect(idea(page)).toHaveValue('Bachata workshop');
+    const sent = await page.evaluate(() => (window as unknown as { sentPicture?: unknown }).sentPicture);
+    expect(sent).toEqual({ name: 'banner.jpg', type: 'image/jpeg', width: AI_PICTURE_MAX_EDGE, height: 41 });
   });
 
   test('a picture the photo route refuses shows that route’s own message, and nothing more: an iPhone’s HEIC gets the hint', async ({ page }) => {
@@ -801,6 +840,8 @@ test.describe('From a photo', () => {
     await expect(chosen(page), 'the picture being read stays').toContainText('poster.png');
     release();
     await expect(idea(page)).toHaveValue('Bachata workshop');
+    // Found in review (2026-10-06): the red note stayed over the words it had nothing to do with.
+    await expect(errorNote(page), 'the moment it spoke of is over').toHaveCount(0);
   });
 
   test('words read and not yet made into a flyer are unsaved work, so leaving asks; a picture not read and a read with no event ask nothing', async ({ page }) => {
@@ -845,6 +886,48 @@ test.describe('From a photo', () => {
     await backToLibrary(page).click();
     await expect(library).toBeVisible();
     expect(quiet()).toEqual([]);
+  });
+
+  test('words read stay unsaved work when a second picture has no event: the box keeps them, and leaving still asks', async ({ page }) => {
+    // Found in review (2026-10-06): the second, empty read took the guard off words a read had been spent on.
+    await withLeft(page, { photo: 3 });
+    let text = 'Bachata workshop\nToday 20:00';
+    await page.route(apiRoute('ai/photo'), (route) => route.fulfill({ json: { text, remaining: 2 } }));
+    await page.goto('/#/ai');
+    await fromPhoto(page).click();
+    await chooseInput(page).setInputFiles(await picture('poster.png'));
+    await readPicture(page).click();
+    await expect(idea(page)).toHaveValue(text);
+
+    text = '';
+    await fromPhoto(page).click();
+    await chooseInput(page).setInputFiles(await picture('wall.png'));
+    await answerConfirm(page, 'accept', () => readPicture(page).click());
+    await expect(readNote(page)).toContainText('no event');
+    await expect(idea(page), 'the first picture’s words').toHaveValue('Bachata workshop\nToday 20:00');
+    expect(await answerConfirm(page, 'dismiss', () => backToLibrary(page).click())).toBe(LEAVE_PROMPT);
+    await expect(page).toHaveURL(/#\/ai$/);
+  });
+
+  test('a read on its way is unsaved work: leaving asks, and a no keeps the page for its answer', async ({ page }) => {
+    // Found in review (2026-10-06): the wait is 5 to 22 seconds by design, and "← Library" left it without a
+    // question, with the read still out and still counted. The editor guards a photo on its way the same.
+    await withLeft(page, { photo: 2 });
+    let release = () => {};
+    const held = new Promise<void>((resolve) => (release = resolve));
+    await page.route(apiRoute('ai/photo'), async (route) => {
+      await held;
+      await route.fulfill({ json: { text: 'Bachata workshop', remaining: 1 } });
+    });
+    await page.goto('/#/ai');
+    await fromPhoto(page).click();
+    await chooseInput(page).setInputFiles(await picture('poster.png'));
+    await readPicture(page).click();
+    await expect(page.locator('.ai-waiting')).toBeVisible();
+    expect(await answerConfirm(page, 'dismiss', () => backToLibrary(page).click())).toBe(LEAVE_PROMPT);
+    await expect(page).toHaveURL(/#\/ai$/);
+    release();
+    await expect(idea(page)).toHaveValue('Bachata workshop');
   });
 
   test('with a mouse there is no Take a photo: a laptop has Choose a picture, drop and paste', async ({ page }) => {
@@ -907,5 +990,64 @@ test.describe('From a photo', () => {
       await expect(readNote(page)).toBeVisible();
       expect(await sideways()).toBeLessThanOrEqual(0);
     });
+  });
+
+  // Last on purpose: it spends the day's last flyer, and with none left the photo way reads nothing (above), so
+  // every spec that sends the server a read runs before it.
+  test('a picture becomes its words and the words a flyer: a waiting state, the words in Your idea with a line to check them by, and each count its own', async ({ page }) => {
+    test.setTimeout(90_000);
+    const reads = await left(page, 'photo');
+    const flyers = await left(page, 'flyer');
+    expect(Math.min(reads, flyers), 'this file spends a read and the day’s last flyer here').toBeGreaterThan(0);
+    await page.goto('/#/ai');
+    await fromPhoto(page).click();
+    await chooseInput(page).setInputFiles(await picture('poster.png'));
+
+    // The answer is held, so the waiting state can be seen. Nothing is in the idea box, so nothing is asked first.
+    const release = await hold(page, apiRoute('ai/photo'), 'POST');
+    const answered = page.waitForResponse(apiCall('POST', 'ai/photo'));
+    await readPicture(page).click();
+    await expect(page.locator('.ai-waiting')).toHaveText('✨ The AI is reading your picture… it can take half a minute.');
+    await expect(page.getByRole('button', { name: /^Reading…/ }), 'one read at a time').toBeDisabled();
+    await expect(fromIdea(page), 'the page does not change under an answer on its way').toBeDisabled();
+    await expect(choosePicture(page)).toBeDisabled();
+    release();
+    const res = await answered;
+    expect(res.status(), await res.text()).toBe(200);
+    expect(res.request().headers()['content-type'], 'the picture as a file, as a flyer’s photo travels').toMatch(/^multipart\/form-data/);
+    // The fake reads every picture as its first example's text: the words that example's flyer came from.
+    expect(AiPhotoResultSchema.parse(await res.json())).toEqual({ text: example.text, remaining: reads - 1 });
+    await page.unrouteAll({ behavior: 'wait' });
+
+    // The page is on From your idea, with the words to check: the flyer is the staff member's own next step.
+    await expect(fromIdea(page)).toHaveAttribute('aria-pressed', 'true');
+    await expect(idea(page)).toHaveValue(example.text);
+    await expect(readNote(page), 'the owner’s words (2026-10-06)').toHaveText(
+      'Read from your picture. Check every word, and add what is missing (the price?). [?] marks a word the AI could not read. If it lists several activities, keep the one this flyer is for.',
+    );
+    // The button that was pressed went with its way. The focus goes to the line, so a keyboard or a screen reader is
+    // told what happened and stands at the box; the box itself would raise a phone's keyboard over the words.
+    await expect(readNote(page)).toBeFocused();
+    expect(await idea(page).getAttribute('aria-describedby'), 'the box is described by its line').toBe(await readNote(page).getAttribute('id'));
+    await expect(errorNote(page)).toHaveCount(0);
+    await expect(preview(page), 'a read makes no flyer').toHaveCount(0);
+    await expect(generate(page)).toContainText(`${flyers} left today`);
+    expect(await left(page, 'photo')).toBe(reads - 1);
+    expect(await left(page, 'flyer'), 'a read costs the flyer nothing').toBe(flyers);
+    await fromPhoto(page).click();
+    await expect(readPicture(page)).toContainText(`${reads - 1} left today`);
+    await expect(chosen(page), 'the picture is still the page’s').toContainText('poster.png');
+    await fromIdea(page).click();
+
+    // From here it is the page as it was: Generate, that example's flyer, Open in editor.
+    const made = page.waitForResponse(apiCall('POST', 'ai/flyer'));
+    await generate(page).click();
+    expect((await made).status()).toBe(200);
+    await expect(preview(page)).toContainText(brief.text!.headline1!);
+    await expect(generate(page)).toContainText(`${flyers - 1} left today`);
+    expect(await left(page, 'photo'), 'a flyer costs the reads nothing').toBe(reads - 1);
+    await openInEditor(page).click();
+    await expect(page).toHaveURL(/#\/new$/);
+    await expect(page.getByLabel('Line 1')).toHaveValue(brief.text!.headline1!);
   });
 });
