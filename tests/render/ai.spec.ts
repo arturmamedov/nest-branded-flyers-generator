@@ -464,8 +464,8 @@ const readNote = (page: Page) => page.locator('.ai-read-note');
 const dropOrPaste = (page: Page) => picker(page).getByText('Or drop a picture here, or paste a screenshot.', { exact: true });
 
 /** A small picture, made here. Its width steers the fake (AI_FAKE.pictureWidths); 64 is no steer. */
-async function picture(name: string, width = 64): Promise<FilePayload> {
-  const buffer = await sharp({ create: { width, height: 8, channels: 3, background: '#0d6f82' } }).png().toBuffer();
+async function picture(name: string, width = 64, height = 8): Promise<FilePayload> {
+  const buffer = await sharp({ create: { width, height, channels: 3, background: '#0d6f82' } }).png().toBuffer();
   return { name, mimeType: 'image/png', buffer };
 }
 
@@ -872,6 +872,40 @@ test.describe('From a photo', () => {
       await chooser.setFiles(await picture('camera.png'));
       await expect(chosen(page)).toContainText('camera.png');
       await expect(readPicture(page)).toBeEnabled();
+    });
+
+    test('the photo way fits a phone: the switch, both buttons and Read in view with a picture chosen, the waiting line in view, and no sideways scroll', async ({ page }) => {
+      // Routed and held, so nothing is spent and the waiting state can be seen.
+      await withLeft(page, { photo: 2 });
+      let release = () => {};
+      const held = new Promise<void>((resolve) => (release = resolve));
+      await page.route(apiRoute('ai/photo'), async (route) => {
+        await held;
+        await route.fulfill({ json: { text: 'Bachata workshop\nToday 20:00', remaining: 1 } });
+      });
+      /** How far the page, or the form inside it (it scrolls by itself), can be scrolled sideways: not at all. */
+      const sideways = () => page.evaluate(() => Math.max(...[document.documentElement, document.querySelector('.panel')!].map((el) => el.scrollWidth - el.clientWidth)));
+      const whole = { ratio: 1 };
+
+      await page.goto('/#/ai');
+      await expect(fromIdea(page)).toBeInViewport(whole);
+      await expect(fromPhoto(page)).toBeInViewport(whole);
+      await fromPhoto(page).click();
+      await expect(takePhoto(page)).toBeInViewport(whole);
+      await expect(choosePicture(page)).toBeInViewport(whole);
+      // A photo as a phone takes it, upright: the small picture is then as tall as it gets.
+      await chooseInput(page).setInputFiles(await picture('IMG_2041.png', 600, 800));
+      await expect(chosen(page).locator('img')).toBeInViewport(whole);
+      await expect(readPicture(page), 'the next step, without scrolling').toBeInViewport(whole);
+      expect(await sideways()).toBeLessThanOrEqual(0);
+
+      await readPicture(page).click();
+      await expect(page.locator('.ai-waiting'), 'the read is slow: what the page is doing must be on screen').toBeInViewport(whole);
+      expect(await sideways()).toBeLessThanOrEqual(0);
+      release();
+      await expect(idea(page)).toHaveValue('Bachata workshop\nToday 20:00');
+      await expect(readNote(page)).toBeVisible();
+      expect(await sideways()).toBeLessThanOrEqual(0);
     });
   });
 });
