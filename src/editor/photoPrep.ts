@@ -1,3 +1,4 @@
+import { AI_PICTURE_MAX_EDGE } from '../shared/ai';
 import { apiError } from '../shared/errors';
 import { ACCEPTED_PHOTO_TYPES, PHOTO_JPEG_QUALITY, fitLongEdge, isHeic } from '../shared/limits';
 import type { ApiConfig } from '../shared/schema';
@@ -8,6 +9,10 @@ import type { ApiConfig } from '../shared/schema';
    re-encodes everything: this is a courtesy, never a check. */
 
 export type PhotoLimits = ApiConfig['limits'];
+
+/** The limits a picture is prepared with for the AI's read: the site's own, with the long edge at the read's, which
+    the server shrinks to anyway (AI_PICTURE_MAX_EDGE). Never above the site's own edge. */
+export const pictureLimits = (limits: PhotoLimits): PhotoLimits => ({ ...limits, maxPhotoEdge: Math.min(limits.maxPhotoEdge, AI_PICTURE_MAX_EDGE) });
 
 /** The step-down stops here; past it the server's 413 explains the problem. */
 const MIN_EDGE = 1080;

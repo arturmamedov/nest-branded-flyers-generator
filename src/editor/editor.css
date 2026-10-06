@@ -713,6 +713,11 @@ nest-nav > nav a.ai-entry .ai-count {
   border-radius: 6px;
 }
 
+/* Under the idea box after a picture was read: what to check, or that it had no event. */
+.ai-read-note {
+  margin: -6px 0 12px;
+}
+
 .ai-picture-name {
   flex: 1 1 auto;
   min-width: 0;

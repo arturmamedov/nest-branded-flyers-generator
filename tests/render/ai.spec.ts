@@ -3,20 +3,22 @@ import { join } from 'node:path';
 import type { Dialog, Page } from '@playwright/test';
 import sharp from 'sharp';
 import { expect, test } from '../browser';
-import { EDITOR_VIEWPORT, apiCall, apiRoute, backToLibrary, dropFile, paste, saveNew, status, type FilePayload } from '../editor';
+import { EDITOR_VIEWPORT, apiCall, apiRoute, backToLibrary, dropFile, hold, paste, saveNew, status, type FilePayload } from '../editor';
 import { LEAVE_PROMPT } from '../../src/editor/leaveGuard';
-import { AI_DAILY_LIMIT, AI_FEATURES, aiFor, aiQuotaVars, type AiFeature } from '../../src/shared/ai';
+import { AI_DAILY_LIMIT, AI_FAKE, AI_FEATURES, aiFor, aiQuotaVars, type AiFeature } from '../../src/shared/ai';
 import { apiError } from '../../src/shared/errors';
 import { DEFAULT_CANVAS } from '../../src/shared/layout';
-import { AiFlyerResultSchema, AiShareResultSchema, ApiConfigSchema, type AiFlyerAnswer } from '../../src/shared/schema';
+import { AiFlyerResultSchema, AiPhotoResultSchema, AiShareResultSchema, ApiConfigSchema, type AiFlyerAnswer } from '../../src/shared/schema';
 import { WRITE_HEADERS } from '../../src/shared/writeGuard';
 
 /* The AI assistant in the browser (docs/prompts/ai-assistant.md, Phase 4). playwright.config.ts runs this file alone
    against a second server on the fake provider, with its own store and ledger. A day allows AI_DAILY_LIMIT
-   generations of each feature (the owner's answer, 2026-10-06), and the file spends, on purpose: two of the flyer's (a
-   Generate and a Try again) and one of the share text's (a Write with AI). Every failure comes from the fake's
-   markers, which never count, and a limit reached is a routed answer. Counts are read from api/config, never assumed,
-   so each test checks what it spent itself. */
+   generations of each feature (the owner's answer, 2026-10-06), and the file spends, on purpose: all three of the
+   flyer's (a Generate, a Try again, and at the end the flyer made from a picture's words), one of the share text's (a
+   Write with AI) and two of the picture reads' (one with words, one with none). Every failure comes from the fake's
+   markers or, for a read, from a picture's width. Those never count, though a failed read is one of the day's nine
+   tries, and the file makes one. A limit reached is a routed answer. Counts are read from api/config, never assumed,
+   so each test checks what it spent itself, and a test that needs another count routes it. */
 
 test.use({ viewport: EDITOR_VIEWPORT });
 
@@ -456,6 +458,8 @@ const chooseInput = (page: Page) => picker(page).locator('input[type=file]:not([
 const chosen = (page: Page) => page.locator('.ai-picture');
 const takePhoto = (page: Page) => page.getByRole('button', { name: 'Take a photo', exact: true });
 const choosePicture = (page: Page) => page.getByRole('button', { name: 'Choose a picture', exact: true });
+/** The line under the idea box after a read: what to check, or that the picture had no event. */
+const readNote = (page: Page) => page.locator('.ai-read-note');
 /** The line that offers drop and paste, a mouse device's. */
 const dropOrPaste = (page: Page) => picker(page).getByText('Or drop a picture here, or paste a screenshot.', { exact: true });
 
@@ -576,6 +580,227 @@ test.describe('From a photo', () => {
     await expect(chosen(page)).toHaveCount(0);
     await expect(page).toHaveURL(/#\/ai$/);
     await expect(readPicture(page)).toBeDisabled();
+  });
+
+  test('a picture becomes its words and the words a flyer: a waiting state, the words in Your idea with a line to check them by, and each count its own', async ({ page }) => {
+    test.setTimeout(90_000);
+    const reads = await left(page, 'photo');
+    const flyers = await left(page, 'flyer');
+    expect(Math.min(reads, flyers), 'this file spends a read and the day’s last flyer here').toBeGreaterThan(0);
+    await page.goto('/#/ai');
+    await fromPhoto(page).click();
+    await chooseInput(page).setInputFiles(await picture('poster.png'));
+
+    // The answer is held, so the waiting state can be seen. Nothing is in the idea box, so nothing is asked first.
+    const release = await hold(page, apiRoute('ai/photo'), 'POST');
+    const answered = page.waitForResponse(apiCall('POST', 'ai/photo'));
+    await readPicture(page).click();
+    await expect(page.locator('.ai-waiting')).toHaveText('✨ The AI is reading your picture… it can take half a minute.');
+    await expect(page.getByRole('button', { name: /^Reading…/ }), 'one read at a time').toBeDisabled();
+    await expect(fromIdea(page), 'the page does not change under an answer on its way').toBeDisabled();
+    await expect(choosePicture(page)).toBeDisabled();
+    release();
+    const res = await answered;
+    expect(res.status(), await res.text()).toBe(200);
+    expect(res.request().headers()['content-type'], 'the picture as a file, as a flyer’s photo travels').toMatch(/^multipart\/form-data/);
+    // The fake reads every picture as its first example's text: the words that example's flyer came from.
+    expect(AiPhotoResultSchema.parse(await res.json())).toEqual({ text: example.text, remaining: reads - 1 });
+    await page.unrouteAll({ behavior: 'wait' });
+
+    // The page is on From your idea, with the words to check: the flyer is the staff member's own next step.
+    await expect(fromIdea(page)).toHaveAttribute('aria-pressed', 'true');
+    await expect(idea(page)).toHaveValue(example.text);
+    await expect(readNote(page), 'the owner’s words (2026-10-06)').toHaveText(
+      'Read from your picture. Check every word, and add what is missing (the price?). [?] marks a word the AI could not read. If it lists several activities, keep the one this flyer is for.',
+    );
+    await expect(errorNote(page)).toHaveCount(0);
+    await expect(preview(page), 'a read makes no flyer').toHaveCount(0);
+    await expect(generate(page)).toContainText(`${flyers} left today`);
+    expect(await left(page, 'photo')).toBe(reads - 1);
+    expect(await left(page, 'flyer'), 'a read costs the flyer nothing').toBe(flyers);
+    await fromPhoto(page).click();
+    await expect(readPicture(page)).toContainText(`${reads - 1} left today`);
+    await expect(chosen(page), 'the picture is still the page’s').toContainText('poster.png');
+    await fromIdea(page).click();
+
+    // From here it is the page as it was: Generate, that example's flyer, Open in editor.
+    const made = page.waitForResponse(apiCall('POST', 'ai/flyer'));
+    await generate(page).click();
+    expect((await made).status()).toBe(200);
+    await expect(preview(page)).toContainText(brief.text!.headline1!);
+    await expect(generate(page)).toContainText(`${flyers - 1} left today`);
+    expect(await left(page, 'photo'), 'a flyer costs the reads nothing').toBe(reads - 1);
+    await openInEditor(page).click();
+    await expect(page).toHaveURL(/#\/new$/);
+    await expect(page.getByLabel('Line 1')).toHaveValue(brief.text!.headline1!);
+  });
+
+  test('words already in the box are replaced only on a yes, asked before the read is spent', async ({ page }) => {
+    // Routed, so nothing is spent: two reads left on load, and the answer that spends one.
+    await withLeft(page, { photo: 2 });
+    await page.route(apiRoute('ai/photo'), (route) => route.fulfill({ json: { text: 'Bachata workshop\nToday 20:00', remaining: 1 } }));
+    const sent = readsSent(page);
+    await page.goto('/#/ai');
+    await idea(page).fill('My own words');
+    await fromPhoto(page).click();
+    await chooseInput(page).setInputFiles(await picture('poster.png'));
+
+    const asked = await answerConfirm(page, 'dismiss', () => readPicture(page).click());
+    expect(asked).toBe('Replace your idea with the words the AI reads from this picture? It uses one of the 2 picture reads left today.');
+    expect(sent, 'nothing sent on a no').toEqual([]);
+    await expect(fromPhoto(page), 'still on From a photo').toHaveAttribute('aria-pressed', 'true');
+    await expect(readPicture(page)).toContainText('2 left today');
+
+    await answerConfirm(page, 'accept', () => readPicture(page).click());
+    await expect(idea(page)).toHaveValue('Bachata workshop\nToday 20:00');
+    expect(sent).toHaveLength(1);
+
+    // With one left the question counts in plain words.
+    await fromPhoto(page).click();
+    await expect(readPicture(page)).toContainText('1 left today');
+    const last = await answerConfirm(page, 'dismiss', () => readPicture(page).click());
+    expect(last).toBe('Replace your idea with the words the AI reads from this picture? It uses the last of today’s picture reads.');
+  });
+
+  test('a picture with no event says so under the box, and counts as a read', async ({ page }) => {
+    const reads = await left(page, 'photo');
+    expect(reads, 'this file spends a read here').toBeGreaterThan(0);
+    await page.goto('/#/ai');
+    await fromPhoto(page).click();
+    await chooseInput(page).setInputFiles(await picture('wall.png', AI_FAKE.pictureWidths.noWords));
+    const answered = page.waitForResponse(apiCall('POST', 'ai/photo'));
+    await readPicture(page).click();
+    expect(AiPhotoResultSchema.parse(await (await answered).json())).toEqual({ text: '', remaining: reads - 1 });
+
+    await expect(fromIdea(page)).toHaveAttribute('aria-pressed', 'true');
+    await expect(idea(page)).toBeEmpty();
+    await expect(readNote(page), 'the owner’s words (2026-10-06)').toHaveText('The AI found no event in this picture. Write the event here yourself.');
+    await expect(errorNote(page)).toHaveCount(0);
+    await expect(generate(page), 'nothing to make a flyer from yet').toBeDisabled();
+    expect(await left(page, 'photo'), 'the provider answered, so it counts').toBe(reads - 1);
+  });
+
+  test('a read that finds no event leaves what was typed in the box', async ({ page }) => {
+    await withLeft(page, { photo: 2 });
+    await page.route(apiRoute('ai/photo'), (route) => route.fulfill({ json: { text: '', remaining: 1 } }));
+    await page.goto('/#/ai');
+    await idea(page).fill('My own words');
+    await fromPhoto(page).click();
+    await chooseInput(page).setInputFiles(await picture('wall.png'));
+    await answerConfirm(page, 'accept', () => readPicture(page).click());
+    await expect(readNote(page)).toHaveText('The AI found no event in this picture. Write the event here yourself.');
+    await expect(idea(page), 'nothing is worth less than what was typed').toHaveValue('My own words');
+  });
+
+  test('a read the AI fails is free: the page says so, keeps the picture, and asks the server what is left', async ({ page }) => {
+    // The fake fails this picture by its width. A failed read is one of the day's tries, and never one of its reads.
+    const reads = await left(page, 'photo');
+    await page.goto('/#/ai');
+    await fromPhoto(page).click();
+    await chooseInput(page).setInputFiles(await picture('poster.png', AI_FAKE.pictureWidths.invalid));
+    const recounted = page.waitForResponse(apiCall('GET', 'config'));
+    await readPicture(page).click();
+    await expect(errorNote(page), 'the server’s sentence, then the owner’s line (2026-10-06)').toHaveText(
+      `${apiError('ai_failed').message} Your picture is still here: try again, or type the event yourself.`,
+    );
+    expect((await recounted).status(), 'a failed read answers no count, so the page asks').toBe(200);
+    await expect(fromPhoto(page), 'still on From a photo').toHaveAttribute('aria-pressed', 'true');
+    await expect(chosen(page)).toContainText('poster.png');
+    await expect(readPicture(page)).toBeEnabled();
+    await expect(readPicture(page)).toContainText(`${reads} left today`);
+    await expect(readNote(page)).toHaveCount(0);
+    expect(await left(page, 'photo'), 'a failed read is free').toBe(reads);
+  });
+
+  test('after a failed read the button shows what the server says is left, which can be less: the day’s tries', async ({ page }) => {
+    // Routed, so nothing is spent. api/config says two reads on load and one when asked again, as it does once the
+    // day's tries bind before its reads (three tries for each read of the limit, failed ones included).
+    let asked = 0;
+    await page.route(apiRoute('config'), async (route) => {
+      const res = await route.fetch();
+      const reads = asked++ === 0 ? 2 : 1;
+      const features = AI_FEATURES.map((name) => ({ name, limit: AI_DAILY_LIMIT, remaining: name === 'photo' ? reads : AI_DAILY_LIMIT }));
+      await route.fulfill({ response: res, json: { ...(await res.json()), ai: { enabled: true, features } } });
+    });
+    const failed = apiError('ai_failed');
+    await page.route(apiRoute('ai/photo'), (route) => route.fulfill({ status: failed.status, json: { error: { code: failed.code, message: failed.message } } }));
+    await page.goto('/#/ai');
+    await fromPhoto(page).click();
+    await expect(readPicture(page)).toContainText('2 left today');
+    await chooseInput(page).setInputFiles(await picture('poster.png'));
+    await readPicture(page).click();
+    await expect(errorNote(page)).toContainText(failed.message);
+    await expect(readPicture(page)).toContainText('1 left today');
+    // The read's count moved, and only the read's.
+    await fromIdea(page).click();
+    await expect(generate(page)).toContainText(`${AI_DAILY_LIMIT} left today`);
+  });
+
+  test('a picture the photo route refuses shows that route’s own message, and nothing more: an iPhone’s HEIC gets the hint', async ({ page }) => {
+    const reads = await left(page, 'photo');
+    const { limits } = ApiConfigSchema.parse(await (await page.request.get('/api/config')).json());
+    const sent = readsSent(page);
+    await page.goto('/#/ai');
+    await fromPhoto(page).click();
+
+    // Small enough to upload: the server reads it and says HEIC. It is refused before the limit is asked or a
+    // provider is, so it is no read and no try.
+    const heic = (bytes: number): FilePayload => ({ name: 'IMG_0001.HEIC', mimeType: 'image/heic', buffer: Buffer.concat([Buffer.from([0, 0, 0, 24]), Buffer.from('ftypheic'), Buffer.alloc(bytes)]) });
+    await chooseInput(page).setInputFiles(heic(64));
+    await expect(chosen(page), 'a picture the browser cannot draw shows by its name').toContainText('IMG_0001.HEIC');
+    await expect(chosen(page).locator('img')).toHaveCount(0);
+    const answered = page.waitForResponse(apiCall('POST', 'ai/photo'));
+    await readPicture(page).click();
+    expect((await answered).status()).toBe(apiError('heic').status);
+    await expect(errorNote(page)).toHaveText(apiError('heic').message);
+    expect(sent).toHaveLength(1);
+
+    // Over the upload limit the server would refuse it unread (too large): the page says HEIC itself, and sends nothing.
+    await chooseInput(page).setInputFiles(await picture('poster.png'));
+    await expect(errorNote(page), 'a new picture is a new start').toHaveCount(0);
+    await chooseInput(page).setInputFiles(heic(limits.maxUploadBytes));
+    await readPicture(page).click();
+    await expect(errorNote(page)).toHaveText(apiError('heic').message);
+    expect(sent, 'nothing more was sent').toHaveLength(1);
+    await expect(readPicture(page)).toContainText(`${reads} left today`);
+    expect(await left(page, 'photo')).toBe(reads);
+  });
+
+  test('the reads’ limit reached elsewhere: the page says when they come back, the button counts none, and the flyer keeps its count', async ({ page }) => {
+    // Routed both ways, so it holds whatever this file has spent: one read left on load, then the server's refusal.
+    await withLeft(page, { flyer: 2, photo: 1 });
+    const quota = apiError('ai_quota', aiQuotaVars('photo', AI_DAILY_LIMIT));
+    await page.route(apiRoute('ai/photo'), (route) => route.fulfill({ status: quota.status, json: { error: { code: quota.code, message: quota.message } } }));
+    await page.goto('/#/ai');
+    await fromPhoto(page).click();
+    await chooseInput(page).setInputFiles(await picture('poster.png'));
+    await readPicture(page).click();
+    await expect(errorNote(page), 'the sentence alone: trying again would not help').toHaveText(quota.message);
+    await expect(readPicture(page)).toContainText('0 left today');
+    await expect(readPicture(page)).toBeDisabled();
+    await expect(page.locator('.ai-used-up')).toHaveText(quota.message);
+    await fromIdea(page).click();
+    await expect(generate(page)).toContainText('2 left today');
+  });
+
+  test('one action at a time: a picture that arrives while a read is out is refused with a reason', async ({ page }) => {
+    await withLeft(page, { photo: 2 });
+    let release = () => {};
+    const held = new Promise<void>((resolve) => (release = resolve));
+    await page.route(apiRoute('ai/photo'), async (route) => {
+      await held;
+      await route.fulfill({ json: { text: 'Bachata workshop', remaining: 1 } });
+    });
+    await page.goto('/#/ai');
+    await fromPhoto(page).click();
+    await chooseInput(page).setInputFiles(await picture('poster.png'));
+    await readPicture(page).click();
+    await expect(page.locator('.ai-waiting')).toBeVisible();
+    await paste(page, await picture('late.png'));
+    await expect(errorNote(page)).toHaveText('Still working on the last action — try the picture again in a moment.');
+    await expect(chosen(page), 'the picture being read stays').toContainText('poster.png');
+    release();
+    await expect(idea(page)).toHaveValue('Bachata workshop');
   });
 
   test('with a mouse there is no Take a photo: a laptop has Choose a picture, drop and paste', async ({ page }) => {

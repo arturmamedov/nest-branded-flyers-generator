@@ -38,6 +38,22 @@ export function App() {
   // One feature's count moves, and only that one: a generation, or its limit reached, says nothing of the others.
   const onRemaining = useCallback((feature: AiFeature, remaining: number) => setAi((a) => aiWithRemaining(a, feature, remaining)), []);
 
+  // What is left today of one feature, asked from the server again. A picture read the provider failed answers no
+  // count and is one of the day's tries, so the number on its button could be too high. Only that feature's count
+  // moves, and if the question fails it stays as it was: the server still refuses at the right moment.
+  const recount = useCallback(
+    (feature: AiFeature) => {
+      api.config().then(
+        (config) => {
+          const its = aiFor(config.ai ?? { enabled: false }, feature);
+          if (its) onRemaining(feature, its.remaining);
+        },
+        () => {},
+      );
+    },
+    [onRemaining],
+  );
+
   // A site runs the features it names (api/config lists them): the bar's link and the #/ai page are the flyer's,
   // "Write with AI" in the editor is the share text's, and "From a photo" on the #/ai page is the picture read's (its
   // words land in the flyer's idea box, so it shows only where the flyer's page does). Each shows only where its
@@ -88,7 +104,7 @@ export function App() {
         (page === 'library' ? (
           <Library hostels={hostels} />
         ) : page === 'ai' && flyerAi ? (
-          <AiPage key={nav} hostels={hostels} ai={flyerAi} photo={photoAi} onRemaining={onRemaining} />
+          <AiPage key={nav} hostels={hostels} ai={flyerAi} photo={photoAi} limits={backend.limits} onRemaining={onRemaining} recount={recount} />
         ) : (
           <Editor
             key={nav}

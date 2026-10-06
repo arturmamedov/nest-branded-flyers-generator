@@ -5,20 +5,29 @@ import { AiUsedUp } from './panel';
 
 /* "From a photo" on the AI page (docs/prompts/ai-flyer-from-photo.md, stage 3): the picture a staff member chooses,
    and the button that has it read. It makes no request of its own: choosing a picture sends nothing, and AiPage has
-   it read and takes the words. Any file may be chosen: the server is the only judge of formats, as for a flyer's
+   it read (`onRead`) and takes the words. Any file may be chosen: the server is the only judge of formats, as for a flyer's
    photo, and its message says what is wrong with one it refuses. */
 
 export function AiPhoto({
   ai,
   picture,
+  busy,
+  reading,
   onPick,
+  onRead,
 }: {
   /** The picture read as api/config lists it: its own limit, and what is left of it today. */
   ai: AiFeatureOn;
   /** The picture chosen, or null. It is the page's, so it is still there after a look at the other way. */
   picture: File | null;
-  /** A picture chosen, dropped or pasted, in the place of the one before; null takes the one there away. */
+  /** An action of the page's is out, this read or a generation: the buttons wait for it. */
+  busy: boolean;
+  /** That action is this picture's read. */
+  reading: boolean;
+  /** A picture chosen, dropped or pasted, in the place of the one before; null takes the one there away. A drop or a
+      paste can arrive while the page is busy, and the page then says why it was not taken. */
   onPick: (picture: File | null) => void;
+  onRead: () => void;
 }) {
   const cameraInput = useRef<HTMLInputElement>(null);
   const chooseInput = useRef<HTMLInputElement>(null);
@@ -69,20 +78,20 @@ export function AiPhoto({
           {/* The device's own camera (the owner's answer, 2026-10-06: "Phone's own camera; none on a laptop"). A
               laptop's browser ignores `capture` and would open the same file dialog as the button beside it, so
               this one shows only where the main pointer is a finger (editor.css). */}
-          <button type="button" className="btn ai-touch" onClick={() => cameraInput.current?.click()}>
+          <button type="button" className="btn ai-touch" disabled={busy} onClick={() => cameraInput.current?.click()}>
             Take a photo
           </button>
-          <button type="button" className="btn" onClick={() => chooseInput.current?.click()}>
+          <button type="button" className="btn" disabled={busy} onClick={() => chooseInput.current?.click()}>
             Choose a picture
           </button>
           <input ref={cameraInput} type="file" accept={accept} capture="environment" hidden onChange={onChosen} />
           <input ref={chooseInput} type="file" accept={accept} hidden onChange={onChosen} />
         </div>
         <p className="help ai-mouse">Or drop a picture here, or paste a screenshot.</p>
-        {picture && <Chosen picture={picture} onRemove={() => onPick(null)} />}
+        {picture && <Chosen picture={picture} busy={busy} onRemove={() => onPick(null)} />}
       </div>
-      <button type="button" className="btn btn-accent" disabled={!picture || left === 0}>
-        ✨ Read the picture <span className="ai-left">({left} left today)</span>
+      <button type="button" className="btn btn-accent" disabled={busy || !picture || left === 0} onClick={onRead}>
+        {reading ? 'Reading…' : '✨ Read the picture'} <span className="ai-left">({left} left today)</span>
       </button>
       <AiUsedUp feature={ai.name} limit={ai.limit} left={left} />
     </>
@@ -91,7 +100,7 @@ export function AiPhoto({
 
 /** The chosen picture, small, straight from memory: nothing is uploaded before it is read. One the browser cannot
     draw (an iPhone's HEIC) shows by its name alone. */
-function Chosen({ picture, onRemove }: { picture: File; onRemove: () => void }) {
+function Chosen({ picture, busy, onRemove }: { picture: File; busy: boolean; onRemove: () => void }) {
   const [url, setUrl] = useState<string | null>(null);
   useEffect(() => {
     const made = URL.createObjectURL(picture);
@@ -106,7 +115,7 @@ function Chosen({ picture, onRemove }: { picture: File; onRemove: () => void }) 
     <div className="ai-picture">
       {url && <img src={url} alt="" onError={() => setUrl(null)} />}
       <span className="ai-picture-name">{picture.name}</span>
-      <button type="button" className="btn btn-quiet" onClick={onRemove}>
+      <button type="button" className="btn btn-quiet" disabled={busy} onClick={onRemove}>
         Remove
       </button>
     </div>

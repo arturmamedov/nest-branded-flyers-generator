@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AI_INPUT_MAX, type AiFeature, type AiFeatureOn } from '../shared/ai';
 import { flyerFromBrief } from '../shared/brief';
 import { lintFlyer } from '../shared/copyRules';
@@ -10,6 +10,7 @@ import { offerDraft } from './handoff';
 import { useLeaveGuard } from './leaveGuard';
 import { briefFieldLabel, FIELD } from './fields';
 import { AiUsedUp, BackToLibrary, Field, HostelOptions, Section } from './panel';
+import { pictureLimits, preparePhoto, type PhotoLimits } from './photoPrep';
 import { CutOffNote, Preview, useFitReports } from './Preview';
 import { go } from './route';
 import { ShareCopy } from './share';
@@ -17,7 +18,9 @@ import { ShareCopy } from './share';
 /* "Create with AI" (#/ai, docs/prompts/ai-assistant.md): a staff member's idea in, a flyer out, ending at "Open in
    editor". A focus page like the editor, which stays the place where a flyer is adjusted and saved. The flyer is
    built from the brief with flyerFromBrief() and shown by the same <Preview> and <Flyer> as everywhere: never a second
-   renderer. Everything the model wrote is marked as the AI's. */
+   renderer. Everything the model wrote is marked as the AI's.
+   Where the site runs the picture read, the idea can come from a picture (docs/prompts/ai-flyer-from-photo.md, stage
+   3): the read stops at the words, in the idea box, and the flyer is the staff member's own next step. */
 
 /** What an idea looks like: two plain sentences, the owner's words (2026-10-05). The first one was a real staff
     post, an emoji and a line per fact, and staff read it as a form to fill in. Free text has no lines to copy. */
@@ -32,6 +35,21 @@ const WAY_HINT: Record<Way, string> = {
   photo: 'A poster, a board, a Canva page or a chat screenshot. The AI reads its words into “Your idea”; you check them, then Generate.',
 };
 
+/** Under the idea box after a read: what to check in the words it left there, or that it left none. The owner's
+    words (2026-10-06). `none` is a picture with no words, or one that announces no event: a sign, a menu, an empty
+    board. */
+const READ_NOTE = {
+  words: 'Read from your picture. Check every word, and add what is missing (the price?). [?] marks a word the AI could not read. If it lists several activities, keep the one this flyer is for.',
+  none: 'The AI found no event in this picture. Write the event here yourself.',
+} as const;
+
+/** After the server's own sentence when a read failed for no fault of the picture (the owner's line, 2026-10-06): the
+    read was free, and the picture is still chosen. */
+const PICTURE_KEPT = 'Your picture is still here: try again, or type the event yourself.';
+
+/** One action at a time, as in the editor: a picture dropped or pasted while one is out. */
+const STILL_WORKING = 'Still working on the last action — try the picture again in a moment.';
+
 interface Result {
   brief: Brief;
   assumptions: AiAssumption[];
@@ -43,7 +61,9 @@ export function AiPage({
   hostels,
   ai,
   photo,
+  limits,
   onRemaining,
+  recount,
 }: {
   hostels: Hostel[];
   /** The flyer feature as api/config lists it: its own limit, and what is left of it today. */
@@ -51,15 +71,22 @@ export function AiPage({
   /** The picture read for this staff member, with its own count: null where the site does not run it, and the page
       then has its one way in, as before. */
   photo: AiFeatureOn | null;
+  /** The site's photo upload limits: a picture is shrunk in the browser before it is sent to be read. */
+  limits: PhotoLimits;
   onRemaining: (feature: AiFeature, remaining: number) => void;
+  /** Asks the server again what is left today of a feature. */
+  recount: (feature: AiFeature) => void;
 }) {
   const [chosenWay, setWay] = useState<Way>('idea');
   const way: Way = photo ? chosenWay : 'idea';
-  // The picture to read. It is kept here, so it is still chosen after a look at the other way.
+  // The picture to read. It is kept here, so it is still chosen after a look at the other way, and after a read.
   const [picture, setPicture] = useState<File | null>(null);
   const [idea, setIdea] = useState('');
+  // What the last read left: words in the idea box, or none. It picks the line under the box.
+  const [read, setRead] = useState<keyof typeof READ_NOTE | null>(null);
   const [hostel, setHostel] = useState('');
-  const [busy, setBusy] = useState(false);
+  // One action at a time: the flyer's generation, or a picture's read.
+  const [busy, setBusy] = useState<null | 'flyer' | 'photo'>(null);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<Result | null>(null);
   const [opening, setOpening] = useState(false);
@@ -77,8 +104,53 @@ export function AiPage({
   const lints = useMemo(() => (flyer ? lintFlyer(flyer.data) : []), [flyer]);
   const left = ai.remaining;
 
+  // A picture chosen, dropped or pasted. It is a new start, so what the last one was told goes. One that arrives
+  // while an action is out is refused with a reason: the read on its way is of the picture on screen.
+  const pick = useCallback(
+    (file: File | null) => {
+      if (busy) return setError(STILL_WORKING);
+      setPicture(file);
+      setError(null);
+    },
+    [busy],
+  );
+
+  // A picture → its words, in the idea box. Words already there are replaced only on a yes, asked before the read
+  // is sent: it counts once the provider has answered, whatever becomes of the words.
+  async function readPicture() {
+    if (!photo || !picture) return;
+    const cost = photo.remaining === 1 ? 'the last of today’s picture reads' : `one of the ${photo.remaining} picture reads left today`;
+    if (idea.trim() && !confirm(`Replace your idea with the words the AI reads from this picture? It uses ${cost}.`)) return;
+    setBusy('photo');
+    setError(null);
+    let sent = false;
+    try {
+      // Shrunk here first, as a flyer's photo is, to the read's edge and under the host's upload limit.
+      const { blob, name } = await preparePhoto(picture, pictureLimits(limits));
+      sent = true;
+      const r = await api.aiPhoto(blob, name);
+      onRemaining(photo.name, r.remaining);
+      // No event in the picture: the box stays as it was. Nothing is worth less than what was typed.
+      if (r.text) setIdea(r.text);
+      setRead(r.text ? 'words' : 'none');
+      setWay('idea');
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      // Refused: the picture itself, here or by the server's own checks, or the day's reads are used up. The message
+      // says what to do, and nothing reached the provider.
+      const refused = !sent || (e instanceof ApiError && e.status < 500);
+      if (e instanceof ApiError && e.status === 429) onRemaining(photo.name, 0);
+      // Anything else may have reached the provider. Such a read is free, answers no count, and is one of the day's
+      // tries: what is left is asked from the server again.
+      else if (!refused) recount(photo.name);
+      setError(refused ? message : `${message} ${PICTURE_KEPT}`);
+    } finally {
+      setBusy(null);
+    }
+  }
+
   async function generate() {
-    setBusy(true);
+    setBusy('flyer');
     setError(null);
     const sent = idea;
     try {
@@ -90,7 +162,7 @@ export function AiPage({
       if (e instanceof ApiError && e.status === 429) onRemaining(ai.name, 0);
       setError(e instanceof Error ? e.message : String(e));
     } finally {
-      setBusy(false);
+      setBusy(null);
     }
   }
 
@@ -111,27 +183,32 @@ export function AiPage({
           {photo && (
             <div className="seg ai-ways" role="group" aria-label="Start from">
               {(Object.entries(WAY_LABEL) as [Way, string][]).map(([key, label]) => (
-                <button key={key} type="button" className={way === key ? 'on' : ''} aria-pressed={way === key} disabled={busy} onClick={() => setWay(key)}>
+                <button key={key} type="button" className={way === key ? 'on' : ''} aria-pressed={way === key} disabled={!!busy} onClick={() => setWay(key)}>
                   {label}
                 </button>
               ))}
             </div>
           )}
           {way === 'photo' && photo ? (
-            <AiPhoto ai={photo} picture={picture} onPick={setPicture} />
+            <AiPhoto ai={photo} picture={picture} busy={!!busy} reading={busy === 'photo'} onPick={pick} onRead={readPicture} />
           ) : (
             <>
               <Field label="Your idea">
                 <textarea rows={10} value={idea} maxLength={AI_INPUT_MAX} placeholder={PLACEHOLDER} onChange={(e) => setIdea(e.target.value)} />
               </Field>
+              {read && (
+                <p className="help ai-read-note" role="status">
+                  {READ_NOTE[read]}
+                </p>
+              )}
               <Field label={FIELD.hostel} help="Pick one, or let the AI read it from your text">
                 <select aria-label={FIELD.hostel} value={hostel} onChange={(e) => setHostel(e.target.value)}>
                   <option value="">Let the AI decide</option>
                   <HostelOptions hostels={hostels} />
                 </select>
               </Field>
-              <button type="button" className="btn btn-accent" disabled={busy || !idea.trim() || left === 0} onClick={generate}>
-                {busy ? 'Writing…' : '✨ Generate'} <span className="ai-left">({left} left today)</span>
+              <button type="button" className="btn btn-accent" disabled={!!busy || !idea.trim() || left === 0} onClick={generate}>
+                {busy === 'flyer' ? 'Writing…' : '✨ Generate'} <span className="ai-left">({left} left today)</span>
               </button>
               <AiUsedUp feature={ai.name} limit={ai.limit} left={left} />
             </>
@@ -166,10 +243,10 @@ export function AiPage({
           <div className="toolbar">
             <span className="status">✨ The AI’s draft · not saved yet</span>
             <span className="spacer" />
-            <button type="button" className="btn btn-dark" disabled={busy || left === 0} onClick={generate}>
+            <button type="button" className="btn btn-dark" disabled={!!busy || left === 0} onClick={generate}>
               Try again ({left === 0 ? 'none left today' : left === 1 ? 'uses the last one' : `uses one of ${left} left`})
             </button>
-            <button type="button" className="btn btn-accent" disabled={busy} onClick={open}>
+            <button type="button" className="btn btn-accent" disabled={!!busy} onClick={open}>
               Open in editor
             </button>
           </div>
@@ -192,7 +269,7 @@ export function AiPage({
         {busy ? (
           <div className="stage">
             <p className="ai-waiting" role="status">
-              ✨ The AI is writing your flyer… it can take half a minute.
+              {busy === 'photo' ? '✨ The AI is reading your picture… it can take half a minute.' : '✨ The AI is writing your flyer… it can take half a minute.'}
             </p>
           </div>
         ) : flyer ? (

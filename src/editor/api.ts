@@ -2,6 +2,7 @@ import { apiUrl } from '../flyer/urls';
 import type {
   AiFlyerRequest,
   AiFlyerResult,
+  AiPhotoResult,
   AiShareRequest,
   AiShareResult,
   ApiConfig,
@@ -46,6 +47,13 @@ async function call<T>(method: string, path: string, body?: unknown): Promise<T>
   return (res.status === 204 ? undefined : await res.json()) as T;
 }
 
+/** A picture as both routes that take one read it: multipart form data, the file in the field `photo`. */
+function photoForm(photo: Blob, name: string): FormData {
+  const form = new FormData();
+  form.append('photo', photo, name);
+  return form;
+}
+
 export const api = {
   config: () => call<ApiConfig>('GET', 'config'),
   hostels: () => call<Hostel[]>('GET', 'hostels'),
@@ -61,13 +69,11 @@ export const api = {
   create: (input: FlyerInput) => call<FlyerSaved>('POST', 'flyers', input),
   update: (id: number, input: FlyerInput) => call<FlyerSaved>('PUT', `flyers/${id}`, input),
   archive: (id: number) => call<void>('DELETE', `flyers/${id}`),
-  uploadPhoto: (photo: Blob, name: string) => {
-    const form = new FormData();
-    form.append('photo', photo, name);
-    return call<PhotoInfo>('POST', 'photos', form);
-  },
+  uploadPhoto: (photo: Blob, name: string) => call<PhotoInfo>('POST', 'photos', photoForm(photo, name)),
   /** An idea → a brief (docs/api-contract.md, "The AI assistant"); 429 when the day's generations are used up. */
   aiFlyer: (request: AiFlyerRequest) => call<AiFlyerResult>('POST', 'ai/flyer', request),
   /** A flyer's fields → its share text. */
   aiShare: (request: AiShareRequest) => call<AiShareResult>('POST', 'ai/share', request),
+  /** A picture → the words it shows about an event, for "Your idea". It is read, never kept as a flyer's photo. */
+  aiPhoto: (picture: Blob, name: string) => call<AiPhotoResult>('POST', 'ai/photo', photoForm(picture, name)),
 };
