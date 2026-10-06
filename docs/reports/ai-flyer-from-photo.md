@@ -655,7 +655,9 @@ own environment; the ledger is in memory.
 - **The case's typed words differ from its own picture in two places,** seen by enlarging the picture: it prints
   "BACHATA" and "WORKSHOP" on two lines, and "La isleta Nest" with a small "i". `source` has one line and a
   capital. All four models wrote the two lines, as the reader's rule asks ("a line for each line of the picture").
-  Whether `source` is made exact is Artur's.
+  Asked, Artur said **"Yes, as the picture prints"**: `source` is now exact. `claude-sonnet-5-5`'s read matches it
+  to the letter. The other three differ by the one capital in their rows, and `gpt-6-luna` by an empty line after
+  "Today" as well. The brief and the flyer did not change.
 - **The cost of these four reads:** about 2 cents in all, from the tokens and the providers' prices: a fast model
   under half a cent, a middle one about one cent. Less than the estimate given before them.
 - The stronger Claude model thought before answering (626 tokens out for 15 words) and still answered in 8.4 s of
