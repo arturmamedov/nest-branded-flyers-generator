@@ -591,14 +591,28 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
         the first example's "Free".
     - No release was built. A host needs nothing new for this work: it comes with the files. A host that names
       `photo` names it with `flyer`.
-- Waiting, don't start unasked: **two things Artur saw on his phone** (2026-10-07, at the end of the flyer from a
-  photo; his words: "Follow ups will fix in future"). Neither is designed.
-  - **"Copy text" did not work on the phone.** Not looked into. The button calls `navigator.clipboard.writeText()`
-    (`src/editor/share.tsx`), and a browser gives a page no clipboard unless it is served over https or from the
-    device itself: that test was plain http on a LAN address, so try it on the live site from a phone first. The
-    button also says nothing when the clipboard is missing, where it means to say "Couldn’t copy: select the text
-    instead".
-  - **The counts of what is left today confuse the interface a little** ("AI credits left", in his words).
+- Designed, not started: **the editor's UX round** (brief `docs/prompts/editor-ux.md`, four parts, one session
+  each; the report will be `docs/reports/editor-ux.md`, one section per part built). Designed with Artur on
+  2026-10-07: his answers are quoted in the brief, and are not to be reopened. The brief marks the designing
+  session's own suggestions *Mine*: each one is shown to him in the part's plan.
+  - Part 1: the notes become toasts in the stage's bottom-right corner, each with a close button, and a closed
+    warning folds into a "⚠ n" chip. "Write with AI" saves the flyer, then becomes a small "Write again" link
+    until the flyer's details change.
+  - Part 2: the left panel folds away on a desktop, and its sections open and close. A new or AI-made flyer
+    starts fully open; an existing one as the sections were left last time, and before any last time with
+    When · Where · Cost open.
+  - Part 3: `[Copy image] [Download ▾]` in the toolbar, a "Share…" entry on phones, and one clipboard helper. It
+    starts with a spike. **The phone's silent "Copy text" is fixed here** (Artur saw it on 2026-10-07): the
+    button calls `navigator.clipboard.writeText()` directly (`src/editor/share.tsx`), which throws where the
+    browser gives a page no clipboard (plain http on a LAN address, which that test was), so it never says
+    "Couldn’t copy".
+  - Part 4: the tag may be 24 characters, and the pill becomes a fitted line. Artur signs off a proof sheet
+    before the limit is committed. It needs a release, and an older release refuses a flyer with a longer tag.
+  - All four on `feat/ai-feature-switches`, by his word, a commit per piece. Don't start a part unasked: he
+    launches each one with its prompt, at the end of the brief.
+- Waiting, don't start unasked: **the counts of what is left today confuse the interface a little** ("AI credits
+  left", in Artur's words, on his phone, 2026-10-07; "Follow ups will fix in future"). Not designed, and not part
+  of the editor's UX round.
 - Waiting, don't start unasked: **a second shape for the share text, "one mixed caption"** (Artur, 2026-10-06):
   one caption in English with the key facts repeated in Spanish, where today's has two blocks. He wants a switch
   to turn it on and generate it as another option for the share text. Not designed: where the switch lives (a
