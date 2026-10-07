@@ -13,6 +13,8 @@ next part's prompt, so he never has to come back here for one.
   for all four parts. Don't ask again, and don't cut a branch.
 - The last commit before this brief is `e3b29de`. This brief's own commits sit on top of it. Nothing is pushed,
   and `main` is at `684189e`.
+- **Part 1 is built** (2026-10-07): its section of `docs/reports/editor-ux.md` says what it left, and
+  `docs/prompts/editor-ux-part-2.md` is Part 2's prompt, which replaces the starting point at the end of this file.
 - Commit each piece as it goes green, as in the flyer from a photo.
 - Before anything else, check git against that: the branch, the last commit, and whether the tree holds work that
   is not yours. Another session may write in the same folder, so stage by path and never check out. If anything

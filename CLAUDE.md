@@ -85,6 +85,23 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
   - Browser specs import `test`/`expect` from `tests/browser.ts`, which blocks the script.
     `tests/render/chrome.spec.ts` holds both states; `tests/editor.ts` has the helpers that drive
     the editor (the render suite and the PHP smoke test share them).
+- What a focus page says about the flyer on its stage is a toast (2026-10-07, the editor's UX round, Part 1;
+  Artur's rule above the rest: "a note never takes space from the flyer").
+  - `src/editor/Toasts.tsx`, mounted inside `.workspace` by the editor and the AI page: an action's outcome (one
+    slot, `ok` or `error`) and the standing warnings, in the stage's bottom-right corner, out of the layout.
+    `copyWarnings()` in `Preview.tsx` makes the cut-off and copy-rule warnings for both pages.
+  - Every toast has a close button. A closed warning whose problem stands folds into a "⚠ n" chip; the chip opens
+    them again. At 860 px and narrower the warnings start folded.
+  - The folding rule is `src/editor/toastFolds.ts`, pure and tested by itself. A warning is its kind, its field
+    and its words (`warningId`). The file is not called `toasts.ts`: on Windows that is `Toasts.tsx`.
+  - A success closes after `OUTCOME_MS` (6 s) and waits under the pointer or the focus; an error stays.
+  - The corner hangs from `.toasts-anchor`, a sticky line with no height at the workspace's end: on a phone,
+    where the stage ends below the screen, the toasts stay at the screen's bottom edge.
+  - An error is `role="alert"`, a success sits in a `role="status"` region that is in the page before its words,
+    and the warnings are a plain list: they change with every key.
+  - Browser specs read them through `tests/editor.ts`: `toast(page, kind)`, `closeToast()`, `warningsChip()`.
+    A test of a toast's time stops the page's clock (`stopClock` in `tests/render/toasts.spec.ts`).
+  - Not toasts: failures with no flyer on screen (the editor's "This flyer does not exist", the library's banner).
 - Leaving the editor with unsaved work asks first, on every way out (`src/editor/leaveGuard.ts`).
   `src/editor/route.ts` cancels a refused move in the Navigation API's `navigate` event (every major
   browser since January 2026), so it never happens. A Back or Forward the browser won't let the page
@@ -583,7 +600,8 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
         leave question's own, as where there is no flyer yet);
       - whether a picture that failed to read is offered as the photo once the event is typed;
       - whether a Try again keeps the tick, and where the box sits;
-      - the red notes a screen reader is not told of, which the editor shares;
+      - the red notes a screen reader is not told of, which the editor shares (answered since by the toasts:
+        an error is an alert, 2026-10-07);
       - and stage 3's list, unchanged: **reads sent at the same moment pass the tries together** (a limit of 1,
         20 reads at once, 20 provider calls and 20 pictures kept; holding the bound means recording a try before
         the provider is asked, on both backends); the words on the page that are mine; that Read the picture
@@ -591,13 +609,35 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
         the first example's "Free".
     - No release was built. A host needs nothing new for this work: it comes with the files. A host that names
       `photo` names it with `flyer`.
-- Designed, not started: **the editor's UX round** (brief `docs/prompts/editor-ux.md`, four parts, one session
-  each; the report will be `docs/reports/editor-ux.md`, one section per part built). Designed with Artur on
-  2026-10-07: his answers are quoted in the brief, and are not to be reopened. The brief marks the designing
-  session's own suggestions *Mine*: each one is shown to him in the part's plan.
-  - Part 1: the notes become toasts in the stage's bottom-right corner, each with a close button, and a closed
-    warning folds into a "⚠ n" chip. "Write with AI" saves the flyer, then becomes a small "Write again" link
-    until the flyer's details change.
+- In progress: **the editor's UX round** (brief `docs/prompts/editor-ux.md`, four parts, one session each; the
+  report is `docs/reports/editor-ux.md`, one section per part built). Designed with Artur on 2026-10-07: his
+  answers are quoted in the brief, and are not to be reopened. The brief marks the designing session's own
+  suggestions *Mine*: each one is shown to him in the part's plan.
+  - **Part 1 is built: the toasts, and the AI caption that saves itself** (2026-10-07, five commits on top of
+    `497186c` and their record). Artur approved the plan with every *Mine* point kept. Nothing is pushed.
+    - The toasts: the architecture section above says how they work.
+    - "Write with AI" writes the caption and saves the flyer as one action (`writeShare()` in `Editor.tsx`).
+      `save(draft)` takes the draft to write: the answer lands after the render its action started from, so it
+      saves `latestDraft` with the caption in it.
+    - The button is a small "Write again" link while the caption stands for the flyer's details: `captionOf`
+      holds the details it was written from (after a generation, or as a flyer opened with a caption), and
+      `captionWritten` compares them with the fields now. A detail changed, or the caption emptied, brings the
+      button back. Nothing new is stored with a flyer.
+    - "The flyer's details" are the hostel, the template and `SHARE_DETAILS` in `src/shared/share.ts` (`text`,
+      `chips`, `extras`, `week`). The server's `ShareInput` is typed from the same list.
+    - A refused save keeps the caption in the form and says so (`captionUnsaved`). A caption that lands after
+      the page was left writes nothing (the URL and the page's own `here` ref, as on the AI page).
+    - The AI draft warning leaves at the staff member's own Save or download (`ownSave`), not at that save.
+    - It is the client alone, on both backends, and the baseline is byte-identical to `497186c`.
+    - A fresh-context review found no blocking defect. What it found is fixed, each test first: among it, a
+      success that never closed while anyone typed, and a toast below the fold on a short phone.
+    - The look ran in the installed Chrome driven by a script, on Node with the fake, at 1440, 1280, 390 and
+      360 px. The screenshots are in `backups/editor-ux-part-1/`, outside git. Not looked at by eye on PHP.
+    - **For Artur to decide** (the report has each): on a desktop an open toast lies over the flyer's
+      bottom-right corner (about 106 px at 1440 wide, 148 px at 1280), and the fix offered is to start folded
+      where the strip beside the flyer is too narrow; the handle and the tag count as details; the words that
+      are mine; a generation on its way is still not guarded when leaving; six seconds for a success.
+    - Part 2's standalone prompt is `docs/prompts/editor-ux-part-2.md`.
   - Part 2: the left panel folds away on a desktop, and its sections open and close. A new or AI-made flyer
     starts fully open; an existing one as the sections were left last time, and before any last time with
     When · Where · Cost open.
@@ -609,8 +649,8 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
   - Part 4: the tag may be 24 characters, and the pill becomes a fitted line. Artur signs off a proof sheet
     before the limit is committed. It needs a release, and an older release refuses a flyer with a longer tag.
   - All four on `feat/ai-feature-switches`, by his word, a commit per piece. Don't start a part unasked: he
-    launches Part 1 with its prompt, at the end of the brief, and each session ends by handing him the next
-    part's standalone prompt (`docs/prompts/editor-ux-part-<n>.md`, and in the chat).
+    launches each with its prompt, and each session ends by handing him the next part's standalone prompt
+    (`docs/prompts/editor-ux-part-<n>.md`, and in the chat).
 - Waiting, don't start unasked: **the counts of what is left today confuse the interface a little** ("AI credits
   left", in Artur's words, on his phone, 2026-10-07; "Follow ups will fix in future"). Not designed, and not part
   of the editor's UX round.
