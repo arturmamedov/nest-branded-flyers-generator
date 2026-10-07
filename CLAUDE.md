@@ -469,10 +469,10 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
     backends and a backfill); where a refused `config.php` logs its reason (the host's own PHP log today, not
     `data/php-errors.log`); Node reads a few number spellings PHP refuses; the Node start-up line prints
     `AI_MODEL` as typed.
-- Built, and waiting at stage 4's checkpoint for Artur: a flyer from a photo (brief
-  `docs/prompts/ai-flyer-from-photo.md`, four stages; report `docs/reports/ai-flyer-from-photo.md`, one section per
-  stage built, and one for the follow-up to the page). Designed with Artur on 2026-10-06: his answers are quoted in
-  the brief, and are not to be reopened.
+- Done, closed by Artur on 2026-10-07: a flyer from a photo (brief `docs/prompts/ai-flyer-from-photo.md`, four
+  stages; report `docs/reports/ai-flyer-from-photo.md`, one section per stage built, and one for the follow-up to
+  the page). Designed with Artur on 2026-10-06: his answers are quoted in the brief, and are not to be reopened.
+  Nothing is pushed, `main` is at `684189e`, and the release to IONOS is his.
   - **Stage 1 is done: a daily limit per feature** (2026-10-06, on `feat/ai-feature-switches` by Artur's choice,
     on top of `684189e`). `main` stays at `684189e` until he says; nothing is pushed.
     - A review found no defect in the counting, the settings or the wording on either backend. What it and the
@@ -555,8 +555,8 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
     - His answers in that session: the steps show **"From the first tap on From a photo"** (over my advice, "Once
       a picture is read"), and a read with no event names the second step **"Write the event"**.
     - In the failed-read line "type the event yourself" is a link to the idea box. His sentence is unchanged.
-  - **Stage 4 is built: the picture as the flyer's photo** (the same session; sixteen commits on top of `bab60d0`
-    for both parts, each as it went green). Nothing is pushed.
+  - **Stage 4 is built: the picture as the flyer's photo** (the same session; seventeen commits on top of
+    `bab60d0` for both parts and their record, each as it went green). Nothing is pushed.
     - It is the client alone, on both backends. With `photo` not named the app is as it was, and the baseline is
       byte-identical (32 cases, against a capture of `bab60d0`).
     - His answers: the tick box is offered for a picture with no event too (**"Yes, offer it"**), and while the
@@ -572,8 +572,13 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
     - The gates on `e447fbd`: 603 unit, 378 contract, 182 in the browser (66 of them the AI project's), 893 PHP,
       2 in the PHP smoke test. No provider was called in the session.
     - **The checkpoint has what the brief asks: the screenshots on both backends and the gates.**
-    - **For Artur to decide** (the report has each):
-      - the whole path on his phone, the picture ending as the flyer's photo: stage 3's phone stopped at the words;
+    - **The whole path was tried on his phone, and he closed the work** (the first hour of 2026-10-07; his Galaxy
+      S23, Chrome, the fake, over this PC's own hotspot): a picture, Read, Generate, the tick, Open in editor, Save.
+      "We can close that, everything nice working."
+      - The server kept two files of two sizes: the read's copy at 1153 × 2048, and the flyer's photo at
+        1824 × 3240, made from the original. Both upright. They are in `backups/phone-test-2026-10-07/`, outside git.
+      - Not tried there: Take a photo (the picture came from the gallery), a sideways photo, an iPhone.
+    - **For Artur to decide** (the report has each; he answered none of these when he closed it):
       - the words of the question "Open in editor" now asks with words read and an older flyer on the stage (the
         leave question's own, as where there is no flyer yet);
       - whether a picture that failed to read is offered as the photo once the event is typed;
@@ -586,6 +591,14 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
         the first example's "Free".
     - No release was built. A host needs nothing new for this work: it comes with the files. A host that names
       `photo` names it with `flyer`.
+- Waiting, don't start unasked: **two things Artur saw on his phone** (2026-10-07, at the end of the flyer from a
+  photo; his words: "Follow ups will fix in future"). Neither is designed.
+  - **"Copy text" did not work on the phone.** Not looked into. The button calls `navigator.clipboard.writeText()`
+    (`src/editor/share.tsx`), and a browser gives a page no clipboard unless it is served over https or from the
+    device itself: that test was plain http on a LAN address, so try it on the live site from a phone first. The
+    button also says nothing when the clipboard is missing, where it means to say "Couldn’t copy: select the text
+    instead".
+  - **The counts of what is left today confuse the interface a little** ("AI credits left", in his words).
 - Waiting, don't start unasked: **a second shape for the share text, "one mixed caption"** (Artur, 2026-10-06):
   one caption in English with the key facts repeated in Spanish, where today's has two blocks. He wants a switch
   to turn it on and generate it as another option for the share text. Not designed: where the switch lives (a

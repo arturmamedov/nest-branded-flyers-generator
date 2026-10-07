@@ -17,6 +17,10 @@ were built on 2026-10-06, and a follow-up to stage 3's page with stage 4.
 - Stage 4 is built as "The shape" below says, with two of Artur's answers of that day: the tick box is offered for
   a picture with no event too, and the button reads "Uploading…" while the picture is on its way. Its checkpoint is
   the report's *Stage 4*: the screenshots on both backends and the gates. What it leaves is Artur's to decide.
+- **Artur closed the work on 2026-10-07,** after the whole path on his phone: "We can close that, everything nice
+  working." Two things he saw there wait for a later session and are not to be started unasked: "Copy text" did not
+  work on the phone, and the counts of what is left today confuse the interface a little (the report's *The phone,
+  and Artur's word*).
 - Stage 3 changed two things in "The shape" below, both Artur's answers of that day: an empty read says "The AI
   found no event in this picture. Write the event here yourself.", and a failed read adds "Your picture is still
   here: try again, or type the event yourself." The report has the rest: what the page does that the shape does not

@@ -9,7 +9,7 @@ stage that is built. **A stage with no section here is not built.**
 | 2. The read, on both backends | Built, 2026-10-06 (below, after stage 1). Its checkpoint: Artur's answers are built, the first case is in git, and the real reads are done, and what he chose from them is built (*The checkpoint*, at the end). **The checkpoint is closed** |
 | 3. The page | Built, 2026-10-06 (the last section). Looked at on both backends, reviewed, and tried on a real phone the same evening. **Its checkpoint has all it asked for; what is left is Artur's to decide** |
 | A follow-up to the page: numbered steps, and a link | Built, 2026-10-06 (the section after stage 3), in the session of `docs/prompts/ai-flyer-from-photo-stage-4.md`, before stage 4 |
-| 4. The picture as the flyer's photo | Built, 2026-10-06 (the last section). Looked at on both backends and reviewed. **Its checkpoint has what the brief asks: the screenshots and the gates; what is left is Artur's to decide** |
+| 4. The picture as the flyer's photo | Built, 2026-10-06 (the last section). Looked at on both backends, reviewed, and tried on Artur's phone in the first hour of 2026-10-07, the whole path. **He closed it: "We can close that, everything nice working." Two things he saw wait for later, and the last section's list is still his to decide** |
 
 # Stage 1: a limit per feature
 
@@ -1809,7 +1809,7 @@ Two sequences on 2026-10-06: on `0d61f95`, before the review, and on `e447fbd`, 
 
 1. **The whole path on your phone.** Stage 3's phone stopped at the words. This time it would end with the picture
    as the flyer's photo: Take a photo, Read, Generate, the tick, Open in editor. Over this PC's own hotspot, with
-   the fake, as before.
+   the fake, as before. **Done the same night: *The phone, and Artur's word*, below.**
 2. **The question "Open in editor" now asks** when words read are in the box and the flyer on the stage is an older
    one. It is the leave question's own ("This flyer has unsaved changes. Leave without saving?"), which fits this
    case no better than stage 3's fourth item. One sentence of yours would serve both.
@@ -1820,3 +1820,52 @@ Two sequences on 2026-10-06: on `0d61f95`, before the review, and on `e447fbd`, 
 5. **Where the box sits:** in the bar above the flyer, before "Try again".
 6. **The page's red notes are not announced to a screen reader** (above). It is the same in the editor.
 7. **Older, unchanged:** stage 3's list above, and stage 1's three items.
+
+## The phone, and Artur's word
+
+Asked at the checkpoint, Artur chose **"Yes, now"**. In the first hour of 2026-10-07, on his Galaxy S23 in Chrome,
+against the built app on this PC with the fake provider and a throwaway data folder. Nothing was spent.
+
+- The server was bound to the PC's own hotspot address alone (`192.168.137.1`). It answered there, and not on the
+  hostel Wi-Fi's address nor on the PC itself: checked before he opened it.
+- **He went the whole path:** a picture, Read, Generate, the tick, Open in editor, Save. His words: "Everything
+  good and Uploading was showed for enough. […] the generation from image was perfect."
+- **The flyer's photo was made from the original, not from the read's copy:** the two files the server kept are of
+  two sizes. That is stage 4's point, seen on a real phone.
+- **The picture is upright** in both, with no orientation tag left, and in the saved flyer's frame. He also moved
+  it in the frame before saving: the flyer's crop is no longer the one a new photo starts with.
+
+| | The read's copy | The flyer's photo |
+|---|---|---|
+| Where the server kept it | `ai-pictures/2026-10-07/` | `uploads/2026/10/` |
+| As it was kept | 1153 × 2048, a JPEG of 562,680 bytes | 1824 × 3240, a JPEG of 1,302,518 bytes |
+| Its long edge | the read's 2048 | a photo's own 3240 |
+
+| What the server had afterwards | |
+|---|---|
+| `api/config` | flyer 4 of 5, share 5 of 5, photo 4 of 5: one read and one flyer |
+| The saved flyer | #1 "Stretching class at sunset", Adeje Nest, Activity, "In a frame", photo 1 (1824 × 3240) |
+
+The picture was the Muay Thai board of stage 3's phone test, chosen from the gallery again: the read's copy is that
+day's file, byte for byte. The words and the flyer are the fake's, so the flyer is of another event than its
+picture.
+
+**Two things he saw and left for later.** His words: "Follow ups will fix in future the things are wrong but they
+are related to ui 'copy text' not working on mobile, AI credits left confusing a little the interface."
+
+1. **"Copy text" did not work on the phone.** Not looked into, by his word. One thing the code says, for whoever
+   takes it up: the button calls `navigator.clipboard.writeText()` (`src/editor/share.tsx`), and a browser gives a
+   page no clipboard unless it is served over https or from the device itself. This test was plain http on a LAN
+   address. So it may work on the live site, which is https: one tap there on a phone settles it. Either way the
+   button says nothing when the clipboard is missing, where it means to say "Couldn’t copy: select the text
+   instead".
+2. **The counts of what is left today confuse the interface a little.** Not designed.
+
+**Not tried on the phone, said plainly:** Take a photo this time (the picture came from the gallery), a sideways
+photo, an iPhone, and a real provider.
+
+**Kept, outside git:** `backups/phone-test-2026-10-07/` has the read's copy, the flyer's photo as stored, and the
+saved flyer as a WhatsApp PNG. The server was stopped by its port and its data folder removed.
+
+**Artur closed it:** "We can close that, everything nice working." The list above, *For Artur to decide*, is still
+his: he answered its first item by doing it, and none of the others.
