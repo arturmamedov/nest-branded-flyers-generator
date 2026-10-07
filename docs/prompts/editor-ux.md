@@ -4,7 +4,8 @@ Designed with Artur on 2026-10-07, in a session that read the editor and built n
 changes after using the editor on the live site. They are grouped here into four parts, each built in its own
 session, one after another.
 
-The launch prompt of each part is at the end of this file. Paste it as the first message of a new session.
+Artur starts Part 1 with its launch prompt, at the end of this file. Each session then ends by handing him the
+next part's prompt, so he never has to come back here for one.
 
 ## Where it stands (2026-10-07)
 
@@ -32,6 +33,17 @@ The launch prompt of each part is at the end of this file. Paste it as the first
 - Write the part's section in `docs/reports/editor-ux.md` (one section per part: what was built, what the review
   found, what is left for Artur to decide), and bring CLAUDE.md's status up to date.
 - Push nothing. Build no release. Don't touch the live site or the Laragon copy.
+- **End by handing over the next part** (Artur's ask, 2026-10-07: "ask each session to come back with next
+  session standalone prompt at the end for follow up always untill the end the work").
+  - When the part is done and committed, write the next part's standalone prompt, for a session with no memory
+    of this one. Start from its launch prompt at the end of this brief.
+  - Add what this part left: the last commit, what the next part will meet that this brief does not know (a new
+    component, a renamed test helper, a selector that moved), what Artur decided along the way, and what is still
+    open.
+  - Save it as `docs/prompts/editor-ux-part-<n>.md`, commit it with the report, and give it to Artur in the chat,
+    ready to paste.
+  - The order is 1, 2, 3, 4 unless he says otherwise. Part 4 ends the round: instead of a prompt, tell him it is
+    done and what is left that is his (the release, the live site).
 - Artur often runs `npm run dev`: warn him before large edits to the server or `src/shared/`.
 - The editor's own look is the editor's (`editor.css`). Nothing here changes the flyer except Part 4.
 
@@ -387,7 +399,8 @@ long pill. If the spark has to move with the pill, that is a design question for
 
 ## The launch prompts
 
-One per session, in this order. Part 4 can go at any point.
+One per session, in this order. Part 1's is the one Artur starts with. The other three are starting points: the
+session before each one rewrites it with what it left, and hands it over.
 
 ### Part 1
 
@@ -402,6 +415,7 @@ saves itself. Only Part 1.
   one in the plan so I can keep it or strike it.
 - Stay on feat/ai-feature-switches, a commit per piece as it goes green. Push nothing, build no release, and
   don't touch the live site or the Laragon copy.
+- When the part is done, follow the brief's "End by handing over the next part".
 ```
 
 ### Part 2
@@ -419,6 +433,7 @@ the panel that folds, and its sections. Only Part 2.
 - Show me the section's header in its states as pictures before you build the rest.
 - Stay on feat/ai-feature-switches, a commit per piece as it goes green. Push nothing, build no release, and
   don't touch the live site or the Laragon copy.
+- When the part is done, follow the brief's "End by handing over the next part".
 ```
 
 ### Part 3
@@ -436,6 +451,7 @@ copy the picture, the share sheet, and one clipboard. Only Part 3.
   one in the plan so I can keep it or strike it.
 - Stay on feat/ai-feature-switches, a commit per piece as it goes green. Push nothing, build no release, and
   don't touch the live site or the Laragon copy.
+- When the part is done, follow the brief's "End by handing over the next part".
 ```
 
 ### Part 4
@@ -453,4 +469,5 @@ Part 4 of the brief: a tag of 24 characters, with a pill that fits. Only Part 4.
 - I sign off the proof sheet before the new limit is committed.
 - Stay on feat/ai-feature-switches, a commit per piece as it goes green. Push nothing, build no release, and
   don't touch the live site or the Laragon copy.
+- When the part is done, follow the brief's "End by handing over the next part".
 ```

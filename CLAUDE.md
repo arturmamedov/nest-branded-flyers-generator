@@ -609,7 +609,8 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
   - Part 4: the tag may be 24 characters, and the pill becomes a fitted line. Artur signs off a proof sheet
     before the limit is committed. It needs a release, and an older release refuses a flyer with a longer tag.
   - All four on `feat/ai-feature-switches`, by his word, a commit per piece. Don't start a part unasked: he
-    launches each one with its prompt, at the end of the brief.
+    launches Part 1 with its prompt, at the end of the brief, and each session ends by handing him the next
+    part's standalone prompt (`docs/prompts/editor-ux-part-<n>.md`, and in the chat).
 - Waiting, don't start unasked: **the counts of what is left today confuse the interface a little** ("AI credits
   left", in Artur's words, on his phone, 2026-10-07; "Follow ups will fix in future"). Not designed, and not part
   of the editor's UX round.
