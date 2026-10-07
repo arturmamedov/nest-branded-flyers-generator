@@ -140,6 +140,8 @@ describe('a closed section’s line', () => {
   it('Headline: its two lines as one', () => {
     expect(line('headline', pool)).toBe('Saturday is a pool party.');
     expect(line('headline', withText(pool, { headline1: '  ' }))).toBe('pool party.');
+    // Found in review (2026-10-07): with no English line, a Spanish line that prints is what the section holds.
+    expect(line('headline', withText(activity(), { headlineEs: 'El sábado toca fiesta.' }))).toBe('El sábado toca fiesta.');
     expect(line('headline', activity())).toBe('Empty');
   });
 
@@ -172,9 +174,10 @@ describe('a closed section’s line', () => {
     expect(line('rows', week())).toBe('No rows yet');
   });
 
-  it('The ask: the English line', () => {
+  it('The ask: the English line, else the Spanish one', () => {
     expect(line('ask', pool)).toBe('Sign up at reception.');
-    expect(line('ask', withText(pool, { askEn: '' }))).toBe('Empty');
+    expect(line('ask', withText(pool, { askEn: '' })), 'found in review: it said "Empty" over a Spanish ask that prints').toBe('Apúntate en recepción.');
+    expect(line('ask', withText(pool, { askEn: ' ', askEs: '' }))).toBe('Empty');
   });
 
   it('Photo: the mode, and whether a photo is set', () => {

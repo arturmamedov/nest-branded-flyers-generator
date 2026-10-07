@@ -193,8 +193,11 @@ nest-nav > nav a.ai-entry .ai-count {
 /* A focus page's form: its head, and under it the form itself, which scrolls by itself. 420 px: a form 380 wide and
    20 px each side of it. */
 .panel {
-  --panel-head: 48px;
   flex: 0 0 420px;
+  /* Held to that width, and on a phone to the screen's height, whatever is in it: it no longer scrolls by itself,
+     and a flex item that does not is as big as its content wants (a closed section's long line never wraps). */
+  min-width: 0;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   background: var(--paper);
@@ -211,7 +214,7 @@ nest-nav > nav a.ai-entry .ai-count {
   align-items: center;
   gap: 6px;
   box-sizing: border-box;
-  height: var(--panel-head);
+  height: 48px;
   padding: 0 10px;
   border-bottom: 1px solid var(--line);
 }
@@ -232,8 +235,9 @@ nest-nav > nav a.ai-entry .ai-count {
 
 /* The panel folded on a desktop (the owner's ask, 2026-10-07; a slim rail, his pick of three shapes): what is left
    of it is its head, standing, with the same two buttons, each with its word under it. The flyer's stage gets the
-   rest. At 860 px and narrower the form is on top, and folded it is its head bar: the block at this file's end. */
-@media (min-width: 861px) {
+   rest. At 860 px and narrower the form is on top, and folded it is its head bar: the block at this file's end.
+   This is every width that block is not, a fraction of a pixel over 860 included (a zoomed window). */
+@media (width > 860px) {
   .panel-folded {
     box-sizing: border-box;
     flex-basis: 56px;
@@ -332,9 +336,12 @@ nest-nav > nav a.ai-entry .ai-count {
   cursor: pointer;
 }
 
-/* Drawn inside the pill, so nothing moves under the pointer. */
-.section-head:hover {
-  box-shadow: inset 0 0 0 1px var(--teal);
+/* Drawn inside the pill, so nothing moves under the pointer. Only where there is a pointer to move away: under a
+   finger the ring would stay on the pill tapped last. */
+@media (hover: hover) {
+  .section-head:hover {
+    box-shadow: inset 0 0 0 1px var(--teal);
+  }
 }
 
 .section-head:focus-visible {
@@ -360,7 +367,7 @@ nest-nav > nav a.ai-entry .ai-count {
   color: var(--muted);
 }
 
-/* A warning stands for a field inside: the warnings' own colours, as the "⚠ n" chip's. */
+/* A warning stands for a field inside: amber, on the ground the warnings and their "⚠ n" chip have. */
 .section-dot {
   flex: 0 0 auto;
   width: 8px;

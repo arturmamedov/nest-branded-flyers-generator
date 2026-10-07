@@ -719,6 +719,21 @@ test('on a phone the bar entry shrinks to ✨ AI, and the page stacks like the e
   expect(stage.y, 'the workspace sits under the form').toBeGreaterThanOrEqual(panel.y + panel.height - 1);
 });
 
+test('on a short phone the form scrolls under its head, and the way back stays on the screen', async ({ page }) => {
+  // Found in review (2026-10-07): the form scrolls by itself now, and with nothing to hold the panel to the screen
+  // the whole page scrolled instead, taking "← Library" with it.
+  await page.setViewportSize({ width: 375, height: 553 });
+  await withLeft(page, 1);
+  await page.goto('/#/ai');
+  await expect(idea(page)).toBeVisible();
+  const form = page.locator('.panel-body');
+  expect(await form.evaluate((el) => el.scrollHeight - el.clientHeight), 'the form is taller than the screen').toBeGreaterThan(0);
+  await generate(page).scrollIntoViewIfNeeded();
+  await expect(generate(page)).toBeInViewport({ ratio: 1 });
+  expect(await page.evaluate(() => [scrollY, document.documentElement.scrollHeight - innerHeight]), 'the page itself does not scroll').toEqual([0, 0]);
+  await expect(backToLibrary(page)).toBeInViewport({ ratio: 1 });
+});
+
 /* "From a photo" (docs/prompts/ai-flyer-from-photo.md, stage 3): the page's second way in, where the site runs the
    picture read. The read puts a picture's words in "Your idea", and from there the page is the one above. */
 const ways = (page: Page) => page.getByRole('group', { name: 'Start from' });

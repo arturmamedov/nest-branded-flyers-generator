@@ -7,18 +7,23 @@ import { TEMPLATE_LABEL } from './templates';
    in the editor's bundle. */
 
 export const FIELD = {
+  flyer: 'Flyer',
   template: 'Template',
   hostel: 'Hostel',
   title: 'Library name',
   headline: 'Headline',
+  weekTitle: 'Title',
   line1: 'Line 1',
   line2: 'Line 2',
   spanishLine: 'Spanish line',
+  facts: 'When · Where · Cost',
   extras: 'Nice to know',
   weekRows: `${TEMPLATE_LABEL.week}’s rows`,
   ask: 'The ask',
   english: 'English',
   spanish: 'Spanish',
+  photo: 'Photo',
+  top: 'Top and tag pill',
   eyebrow: 'Eyebrow',
   handle: 'Handle',
   tag: 'Tag',

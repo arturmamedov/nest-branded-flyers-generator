@@ -97,7 +97,8 @@ export function sectionLine(id: SectionId, { data, hostelName, hasPhoto }: { dat
     case 'flyer':
       return dotted([TEMPLATE_LABEL[data.template], hostelName ?? 'All hostels']);
     case 'headline':
-      return [t.headline1, t.headline2].map((line) => line.trim()).filter(Boolean).join(' ') || EMPTY;
+      // With no English line, the Spanish one is what the section holds.
+      return [t.headline1, t.headline2].map((line) => line.trim()).filter(Boolean).join(' ') || t.headlineEs.trim() || EMPTY;
     case 'facts':
       // Each block's big line, as it prints: the hostel in WHERE, and no block that is hidden.
       return dotted(deriveChips(data.chips, hostelName).map((c) => c.big)) || EMPTY;
@@ -111,7 +112,7 @@ export function sectionLine(id: SectionId, { data, hostelName, hasPhoto }: { dat
       return dotted([`${rows.length} ${rows.length === 1 ? 'row' : 'rows'}`, days.join(', ')]);
     }
     case 'ask':
-      return t.askEn.trim() || EMPTY;
+      return t.askEn.trim() || t.askEs.trim() || EMPTY;
     case 'photo':
       // A photo kept for switching back prints nothing on "No photo".
       return data.photoMode === 'none' ? PHOTO_MODE_LABEL.none : dotted([PHOTO_MODE_LABEL[data.photoMode], hasPhoto ? 'photo set' : 'no photo yet']);

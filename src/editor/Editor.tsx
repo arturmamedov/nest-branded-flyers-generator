@@ -20,7 +20,7 @@ import { PHOTO_MODE_LABEL, PHOTO_UPLOADING } from './photoModes';
 import { preparePhoto, type PhotoLimits } from './photoPrep';
 import { onPage, replaceHash } from './route';
 import { localStorageGet, localStorageSet } from './prefs';
-import { SECTIONS, SECTIONS_PREF, allOpen, flaggedSections, openAtStart, opened, sectionLine, storeOpen, toggled, type SectionId } from './sectionFolds';
+import { SECTIONS, SECTIONS_PREF, allOpen, flaggedSections, openAtStart, opened, sectionLine, sectionsOf, storeOpen, toggled, type SectionId } from './sectionFolds';
 import { Preview, copyWarnings, useFitReports } from './Preview';
 import { ShareCopy, ShareFab } from './share';
 import { Toasts, type Warning } from './Toasts';
@@ -294,6 +294,9 @@ export function Editor({
       const { blob, name } = await preparePhoto(file, limits);
       const photo = await api.uploadPhoto(blob, name);
       setDraft((d) => (d ? { ...d, photo, data: withPhoto(d.data) } : d));
+      // The photo's controls are in its section: a photo that lands opens it. One that is dropped on the preview
+      // finds it closed on a saved flyer; a file the checks above refuse opens nothing.
+      setOpenSections((open) => opened(open, 'photo'));
     });
 
   // A week flyer has no photo: a drop gets a reason, never an upload. Nor does a drop while another action is out:
@@ -301,11 +304,7 @@ export function Editor({
   const onDrop = (file: File) => {
     if (week) setMessage({ kind: 'error', text: `A ${TEMPLATE_LABEL.week} flyer has no photo — switch to ${TEMPLATE_LABEL.activity} to use one.` });
     else if (busy) setMessage({ kind: 'error', text: 'Still working on the last action — drop the photo again in a moment.' });
-    else {
-      // The photo's controls are in its section: a photo that lands opens it.
-      setOpenSections((open) => opened(open, 'photo'));
-      onFile(file);
-    }
+    else onFile(file);
   };
 
   // A row from a saved Activity flyer: a copy, never a link. It joins the rows as they are when it
@@ -390,6 +389,8 @@ export function Editor({
     if (panelOpen) formPlace.current = form.current?.scrollTop ?? 0;
     setPanelOpen((open) => !open);
   };
+  // The sections this template shows: one list (sectionFolds.ts) for the form below, and for "Open all".
+  const shown = sectionsOf(draft.data.template);
   // "Open all" until every section on screen is open, then "Close all". Either one is every section's, the other
   // template's too.
   const everyOpen = allOpen(openSections, draft.data.template);
@@ -430,7 +431,7 @@ export function Editor({
         {/* Folded, the form is hidden whole, so no field can be reached by Tab, by the pointer or by a screen
             reader; it stays mounted, as a closed section's content does. */}
         <div ref={form} id={formId} className="panel-body" hidden={!panelOpen}>
-          <Section title="Flyer" fold={fold('flyer')}>
+          <Section title={FIELD.flyer} fold={fold('flyer')}>
             <div className="field">
               <span className="label">{FIELD.template}</span>
               <div className="seg" role="group" aria-label={FIELD.template}>
@@ -456,7 +457,7 @@ export function Editor({
           </Section>
 
           {/* A week flyer's title is the headline's lines: one set, kept across a switch (the owner's call, 2026-09-29). */}
-          <Section title={week ? 'Title' : FIELD.headline} fold={fold('headline')} hint={week ? `The same lines as the ${TEMPLATE_LABEL.activity} headline: switching template keeps them.` : undefined}>
+          <Section title={week ? FIELD.weekTitle : FIELD.headline} fold={fold('headline')} hint={week ? `The same lines as the ${TEMPLATE_LABEL.activity} headline: switching template keeps them.` : undefined}>
             <Field label={FIELD.line1} lang="en" help={week ? 'Black' : 'Black. About 18 characters before it starts to shrink'}>
               <input value={t.headline1} maxLength={40} placeholder={week ? weekDefaults.headline1 : 'Saturday is a'} onChange={(e) => setText('headline1', e.target.value)} />
             </Field>
@@ -479,22 +480,24 @@ export function Editor({
             </Field>
           </Section>
 
-          {week ? (
+          {shown.includes('facts') && (
+            <Section title={FIELD.facts} fold={fold('facts')} hint="Put a · between the big line and the small line.">
+              {(['when', 'where', 'cost'] as const).map((key) => (
+                <ChipField key={key} chip={chip(key)} hostelName={hostel?.name ?? null} onChange={(v) => setChip(key, v)} />
+              ))}
+            </Section>
+          )}
+
+          {shown.includes('extras') && (
+            <Section title={FIELD.extras} fold={fold('extras')} hint="0–4 short items. The dots are added for you.">
+              <ExtrasField extras={draft.data.extras} onChange={(extras) => setData({ extras })} />
+            </Section>
+          )}
+
+          {shown.includes('rows') && (
             <Section title={FIELD.weekRows} fold={fold('rows')} hint={`Up to ${WEEK_ROWS_MAX}. Type them, or take one from a saved ${TEMPLATE_LABEL.activity} flyer and change it.`}>
               <WeekRowsField rows={draft.data.week} onChange={updateWeek} onTake={takeRow} busy={busy !== null} />
             </Section>
-          ) : (
-            <>
-              <Section title="When · Where · Cost" fold={fold('facts')} hint="Put a · between the big line and the small line.">
-                {(['when', 'where', 'cost'] as const).map((key) => (
-                  <ChipField key={key} chip={chip(key)} hostelName={hostel?.name ?? null} onChange={(v) => setChip(key, v)} />
-                ))}
-              </Section>
-
-              <Section title={FIELD.extras} fold={fold('extras')} hint="0–4 short items. The dots are added for you.">
-                <ExtrasField extras={draft.data.extras} onChange={(extras) => setData({ extras })} />
-              </Section>
-            </>
           )}
 
           <Section title={FIELD.ask} fold={fold('ask')}>
@@ -506,8 +509,8 @@ export function Editor({
             </Field>
           </Section>
 
-          {!week && (
-            <Section title="Photo" fold={fold('photo')}>
+          {shown.includes('photo') && (
+            <Section title={FIELD.photo} fold={fold('photo')}>
               <div className="seg">
                 {(Object.entries(PHOTO_MODE_LABEL) as [PhotoMode, string][]).map(([mode, label]) => (
                   <button key={mode} type="button" className={draft.data.photoMode === mode ? 'on' : ''} onClick={() => setData({ photoMode: mode })}>
@@ -557,7 +560,7 @@ export function Editor({
             </Section>
           )}
 
-          <Section title="Top and tag pill" fold={fold('top')}>
+          <Section title={FIELD.top} fold={fold('top')}>
             <Field label={FIELD.eyebrow}>
               <input value={t.eyebrow} maxLength={18} onChange={(e) => setText('eyebrow', e.target.value)} />
             </Field>
@@ -729,7 +732,8 @@ function WeekRowsField({ rows, onChange, onTake, busy }: { rows: WeekRow[]; onCh
   const root = useRef<HTMLDivElement>(null);
   const focus = useRef<RowFocus | null>(null);
 
-  // The saved Activity flyers to take a row from, fetched when the rows are first shown, and again on "Try again".
+  // The saved Activity flyers to take a row from, fetched when a week flyer's form is first shown (its rows may be
+  // closed then: a closed section stays mounted), and again on "Try again".
   useEffect(() => {
     let live = true;
     api.flyers({ template: 'activity' }).then(

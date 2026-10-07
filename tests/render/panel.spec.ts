@@ -9,6 +9,7 @@ import {
   backToLibrary,
   canvasButton,
   dropFile,
+  hold,
   openSection,
   panelFold,
   rowField,
@@ -22,8 +23,9 @@ import {
 import { FIELD } from '../../src/editor/fields';
 import { LEAVE_PROMPT } from '../../src/editor/leaveGuard';
 import { SECTIONS, SECTIONS_PREF } from '../../src/editor/sectionFolds';
+import { newFlyerData } from '../../src/shared/defaults';
 import { CANVAS_IDS } from '../../src/shared/layout';
-import type { FlyerListItem } from '../../src/shared/schema';
+import { FlyerSavedSchema, type FlyerListItem } from '../../src/shared/schema';
 import { WRITE_HEADERS } from '../../src/shared/writeGuard';
 
 /* The editor's form folds (the editor's UX round, Part 2; src/editor/sectionFolds.ts has the rule, panel.tsx draws
@@ -35,9 +37,9 @@ import { WRITE_HEADERS } from '../../src/shared/writeGuard';
 test.use({ viewport: EDITOR_VIEWPORT });
 
 const PHOTO: FilePayload = { name: 'pool-party.png', mimeType: 'image/png', buffer: readFileSync(POOL_PARTY) };
-const FACTS = 'When · Where · Cost';
-const ACTIVITY = ['Flyer', FIELD.headline, FACTS, FIELD.extras, FIELD.ask, 'Photo', 'Top and tag pill', FIELD.share];
-const WEEK = ['Flyer', 'Title', FIELD.weekRows, FIELD.ask, 'Top and tag pill', FIELD.share];
+const FACTS = FIELD.facts;
+const ACTIVITY = [FIELD.flyer, FIELD.headline, FACTS, FIELD.extras, FIELD.ask, FIELD.photo, FIELD.top, FIELD.share];
+const WEEK = [FIELD.flyer, FIELD.weekTitle, FIELD.weekRows, FIELD.ask, FIELD.top, FIELD.share];
 
 /** Flyers a test saved: archived afterwards, so the specs after this one find the library as seeded. */
 const saved: number[] = [];
@@ -50,6 +52,18 @@ test.afterEach(async ({ request }) => {
 async function sample(request: APIRequestContext, title: string): Promise<number> {
   const list = (await (await request.get('/api/flyers')).json()) as FlyerListItem[];
   return list.find((f) => f.title === title)!.id;
+}
+
+/** A saved Activity flyer of this spec's own, for a test that saves: made through the API, archived afterwards. */
+async function savedActivity(request: APIRequestContext): Promise<number> {
+  const res = await request.post('/api/flyers', {
+    headers: WRITE_HEADERS,
+    data: { title: `panel spec ${Date.now()}`, hostel: null, template: 'activity', data: newFlyerData('activity'), photoId: null },
+  });
+  expect(res.status(), await res.text()).toBe(201);
+  const { id } = FlyerSavedSchema.parse(await res.json());
+  keep(id);
+  return id;
 }
 
 /** Every section on screen, in order, with whether it is open. */
@@ -273,13 +287,90 @@ test('a photo dropped on the preview opens the Photo section, and on a saved fly
   await expect(status(page)).toHaveText('Unsaved changes');
 });
 
-test('a dropped photo that is refused opens nothing', async ({ page }) => {
-  await page.goto('/#/new');
-  await templateButton(page, 'week').click();
-  await sectionHead(page, 'Flyer').click();
+/* Found in review (2026-10-07): the test that stood here started on a new flyer, where Photo is open already, and
+   looked at a week flyer, which has no Photo section: it could not fail. And a file the photo checks refuse opened
+   the section all the same, and wrote that into the memory. Photo opens for a photo that lands. */
+
+test('a dropped file that is no photo opens nothing, and nothing is remembered of it', async ({ page, request }) => {
+  await openFlyer(page, await sample(request, 'Pool party'));
+  // The smallest GIF there is: the photo checks refuse the format.
+  const gif: FilePayload = { name: 'party.gif', mimeType: 'image/gif', buffer: Buffer.from('R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==', 'base64') };
+  await dropFile(page, page.locator('.stage'), gif);
+  await expect(toast(page, 'error')).toContainText('GIF');
+  await expect(sectionHead(page, FIELD.photo)).toHaveAttribute('aria-expanded', 'false');
+  expect(await remembered(page)).toBeNull();
+  await expect(status(page)).toHaveText('Saved');
+});
+
+test('a photo dropped while another action is out is refused, and opens nothing', async ({ page, request }) => {
+  const id = await savedActivity(request);
+  await openFlyer(page, id);
+  // Something to save, typed in the one section that is open; the save is held, so the editor is busy.
+  await page.getByLabel('When', { exact: true }).fill('Saturday 19/9');
+  const release = await hold(page, apiRoute(`flyers/${id}`), 'PUT');
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Saving…', exact: true })).toBeDisabled();
+  await dropFile(page, page.locator('.stage'), PHOTO);
+  await expect(toast(page, 'error')).toHaveText('Still working on the last action — drop the photo again in a moment.');
+  await expect(sectionHead(page, FIELD.photo)).toHaveAttribute('aria-expanded', 'false');
+  expect(await remembered(page)).toBeNull();
+  release();
+  await expect(status(page)).toHaveText('Saved');
+});
+
+test('a photo dropped on a This week flyer is refused, and its sections stay as they were', async ({ page, request }) => {
+  await openFlyer(page, await sample(request, 'This week · Duque Nest'));
   await dropFile(page, page.locator('.stage'), PHOTO);
   await expect(toast(page, 'error')).toContainText('flyer has no photo');
-  expect(await sections(page)).toEqual(allOf(WEEK, WEEK.filter((title) => title !== 'Flyer')));
+  expect(await sections(page)).toEqual(allOf(WEEK, [FIELD.weekRows]));
+  expect(await remembered(page)).toBeNull();
+});
+
+test('with the panel folded a dropped photo opens the Photo section, and the panel stays folded', async ({ page, request }) => {
+  await openFlyer(page, await sample(request, 'Pool party'));
+  await panelFold(page).click();
+  const [res] = await Promise.all([page.waitForResponse(apiCall('POST', 'photos')), dropFile(page, page.locator('.stage'), PHOTO)]);
+  expect(res.status(), await res.text()).toBe(201);
+  await expect(status(page)).toHaveText('Unsaved changes');
+  await expect(panelFold(page), 'the staff member folded it to see the flyer').toHaveAccessibleName('Show the form');
+  await panelFold(page).click();
+  await expect(sectionHead(page, FIELD.photo)).toHaveAttribute('aria-expanded', 'true');
+  await expect(page.getByText(/^Zoom /)).toBeVisible();
+});
+
+test('the panel keeps its width whatever is in it: a long line is cut inside its pill', async ({ page, request }) => {
+  // Found in review (2026-10-07): once the form scrolled by itself the panel was a flex item with nothing to hold it
+  // to its width, and a closed section's long line, which never wraps, widened the whole panel.
+  const PANEL = 421;
+  const panelWidth = () => widthOf(page, '.panel');
+  const cut = (title: string) => sectionHead(page, title).locator('.section-line').evaluate((el) => el.scrollWidth > el.clientWidth);
+
+  await openFlyer(page, await sample(request, 'Pool party'));
+  expect(await panelWidth(), 'the form’s 380 px, 20 px each side, and its edge').toBe(PANEL);
+  await openFlyer(page, await sample(request, 'Long copy · stress test'));
+  expect(await panelWidth()).toBe(PANEL);
+  expect(await cut(FIELD.extras), 'the line is longer than its pill, and ends in "…"').toBe(true);
+  await openFlyer(page, await sample(request, 'This week · stress test'));
+  await sectionHead(page, FIELD.weekRows).click();
+  expect(await panelWidth()).toBe(PANEL);
+  expect(await cut(FIELD.weekRows)).toBe(true);
+  for (const title of WEEK) await openSection(page, title);
+  expect(await panelWidth(), 'with every section open').toBe(PANEL);
+  expect(await page.locator('.panel-body').evaluate((el) => el.scrollWidth - el.clientWidth), 'and the form never scrolls sideways').toBe(0);
+});
+
+test('folded, the panel is its rail above 860 px wide and its head bar from there down, with nothing between', async ({ page, request }) => {
+  await openFlyer(page, await sample(request, 'Pool party'));
+  await panelFold(page).click();
+  const box = async () => (await page.locator('.panel').boundingBox())!;
+  await page.setViewportSize({ width: 861, height: 900 });
+  expect([(await box()).width, (await box()).height], 'a rail, as tall as the window').toEqual([56, 900]);
+  await page.setViewportSize({ width: 860, height: 900 });
+  expect([(await box()).width, (await box()).height], 'a bar, as wide as the window').toEqual([860, 48]);
+  // Folded on a desktop and then narrowed: both buttons are still there, and the form opens again.
+  await expect(backToLibrary(page)).toBeInViewport({ ratio: 1 });
+  await panelFold(page).click();
+  await expect(page.getByLabel('When', { exact: true })).toBeVisible();
 });
 
 /* The whole panel folds away to the left on a desktop (the owner's ask; a slim rail, his pick of three shapes), and
@@ -295,8 +386,11 @@ test('the panel folds to a rail and opens again from the keyboard; folded, no fi
   await page.getByLabel('Line 1').fill('Sunday is a');
   const [stage, panel] = [await stageWidth(page), await widthOf(page, '.panel')];
 
+  expect(panel, 'the open panel’s own width').toBe(421);
+
   const fold = panelFold(page);
   await expect(fold).toHaveAccessibleName('Hide the form');
+  expect(await page.locator(`[id="${await fold.getAttribute('aria-controls')}"]`).getAttribute('class'), 'it names the form it hides').toBe('panel-body');
   await fold.focus();
   await page.keyboard.press('Enter');
   await expect(fold).toHaveAccessibleName('Show the form');
@@ -413,6 +507,22 @@ test('"Open all" opens every section and then reads "Close all"; on a saved flye
   await expect(status(page)).toHaveText('Saved');
 });
 
+test.describe('on a touch screen', () => {
+  test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+
+  test('a pill that was tapped keeps no pointer’s ring', async ({ page, request }) => {
+    // Seen in the look (2026-10-07): a finger has no pointer to move away, so the ring a pill wears under the mouse
+    // stayed on the one tapped last.
+    await openFlyer(page, await sample(request, 'Pool party'));
+    const head = sectionHead(page, FIELD.headline);
+    await head.tap();
+    await expect(head).toHaveAttribute('aria-expanded', 'true');
+    await head.tap();
+    await expect(head).toHaveAttribute('aria-expanded', 'false');
+    await expect(head).toHaveCSS('box-shadow', 'none');
+  });
+});
+
 test.describe('on a phone', () => {
   test.use({ viewport: { width: 390, height: 844 } });
 
@@ -420,7 +530,8 @@ test.describe('on a phone', () => {
     await openFlyer(page, await sample(request, 'Pool party'));
     const box = async (selector: string) => (await page.locator(selector).boundingBox())!;
     const open = { panel: await box('.panel'), stage: await box('.stage') };
-    expect(open.panel.height, 'the form on top, at most 45% of the screen').toBeGreaterThan(300);
+    expect(open.panel.height, 'the form on top, a good part of the screen').toBeGreaterThan(300);
+    expect(open.panel.height, 'and at most 45% of it, with its edge').toBeLessThanOrEqual(0.45 * 844 + 1);
 
     await panelFold(page).click();
     await expect(panelFold(page)).toHaveAccessibleName('Show the form');
