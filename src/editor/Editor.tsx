@@ -8,9 +8,9 @@ import { DEFAULT_CROP, ZOOM_MAX, ZOOM_MIN, clampCrop, wholePhotoZoom, zoomCrop }
 import type { AiFeature, AiFeatureOn } from '../shared/ai';
 import type { Chip, ChipKey, Crop, FlyerData, FlyerInput, FlyerListItem, FlyerText, Hostel, PhotoInfo, Template, WeekRow } from '../shared/schema';
 import { TITLE_MAX, libraryName } from '../shared/names';
-import { SHARE_MAX, SHARE_SPANISH_BREAK } from '../shared/share';
+import { SHARE_MAX, SHARE_SPANISH_BREAK, shareDetails } from '../shared/share';
 import { WEEK_ROWS_MAX, WEEK_ROW_LIMITS, isPrintable, rowFromActivity } from '../shared/week';
-import { api, ApiError } from './api';
+import { api, ApiError, asSentence } from './api';
 import type { FlyerExporter } from './export';
 import { takeDraft } from './handoff';
 import { useLeaveGuard } from './leaveGuard';
@@ -49,6 +49,14 @@ const toInput = (d: Draft, hostels: Hostel[]): FlyerInput => ({
   data: d.data,
   photoId: d.photo?.id ?? null,
 });
+
+/** The details a flyer's caption stands for when the flyer is opened: its own, when it has a caption. Nothing is
+    stored of where a caption came from, so one that is there counts as written for the flyer as it is. */
+const captionDetails = (d: Draft): string | null => (d.data.share.trim() ? shareDetails(d.hostel, d.data) : null);
+
+/** What "Write with AI" answers (the editor's UX round, Part 1): it writes the caption and saves the flyer. */
+const CAPTION_SAVED = '✨ The AI wrote the caption and saved the flyer: read it before you post.';
+const captionUnsaved = (reason: string) => `✨ The AI wrote the caption, but the flyer was not saved. ${asSentence(reason)} Press Save to try again.`;
 
 const EMPTY_ROW: WeekRow = { day: '', name: '', time: '', cost: '' };
 
@@ -115,6 +123,30 @@ export function Editor({
   const [busy, setBusy] = useState<null | 'save' | 'png' | 'jpg' | 'upload' | 'row' | 'ai'>(null);
   const [message, setMessage] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
+  // The details the caption on the form was written from: by the AI in this visit, or as the flyer stood when it was
+  // opened with one. While they are still the flyer's, "Write with AI" steps back to a small "Write again" (the
+  // owner's answers, 2026-10-07). A caption typed by hand in this visit sets nothing here.
+  const [captionOf, setCaptionOf] = useState<string | null>(() => (draft ? captionDetails(draft) : null));
+  // The staff member has saved the AI's flyer themselves (Save, or a download): the save "Write with AI" makes does
+  // not count, or the AI draft warning would leave at the moment the AI wrote one thing more.
+  const [ownSave, setOwnSave] = useState(false);
+  // "Write with AI" is greyed while it works, and a greyed button drops the focus: it gets it back when the work is
+  // done, unless the staff member has put it somewhere since.
+  const aiButton = useRef<HTMLButtonElement>(null);
+  const aiPressed = useRef(false);
+  useEffect(() => {
+    if (busy || !aiPressed.current) return;
+    aiPressed.current = false;
+    if (document.activeElement === document.body) aiButton.current?.focus();
+  }, [busy]);
+  // Whether this editor is still the page on screen, for an answer that lands after the staff member has left.
+  const here = useRef(true);
+  useEffect(() => {
+    here.current = true;
+    return () => {
+      here.current = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (id == null) return;
@@ -123,6 +155,7 @@ export function Editor({
         // The record's template wins over data.template, as it does on every write (normalize.ts).
         const d: Draft = { title: p.flyer.title, hostel: p.flyer.hostel, data: { ...p.flyer.data, template: p.flyer.template }, photo: p.photo };
         setDraft(d);
+        setCaptionOf(captionDetails(d));
         setSavedJson(JSON.stringify(toInput(d, hostels)));
       },
       (e) => setLoadError(e instanceof ApiError && e.status === 404 ? 'This flyer does not exist or was archived.' : String(e.message)),
@@ -174,18 +207,23 @@ export function Editor({
   const updateWeek = (fn: (rows: WeekRow[]) => WeekRow[]) => setDraft((d) => (d ? { ...d, data: { ...d.data, week: fn(d.data.week) } } : d));
 
   const week = draft.data.template === 'week';
-  // The AI wrote this flyer and nobody has saved it yet: every fact is still the model's.
-  const aiDraft = handoff !== null && flyerId == null;
+  // The AI wrote this flyer and the staff member has not saved it yet: every fact is still the model's.
+  const aiDraft = handoff !== null && !ownSave;
+  // The caption was written for the flyer as it is: a second try is a small link. Once a detail changes, or the
+  // caption is emptied, the button is back.
+  const captionWritten = draft.data.share.trim() !== '' && captionOf === shareDetails(draft.hostel, draft.data);
   // The week title's defaults, as a new week flyer gets them for this hostel: the placeholders once cleared.
   const weekDefaults = weekTitle(hostel?.name ?? null);
   // A frame with no photo in it would print as a blank strip; a week flyer has no frame at all.
   const needsPhoto = photoFrame(canvas, bodyOf(draft.data)) !== null && !draft.photo;
 
-  async function save(): Promise<number> {
-    const input = toInput(draft!, hostels);
+  // The draft to write is this render's unless the caller has a later one: an answer that lands after the render its
+  // action started from (writeShare) saves the draft as it is then.
+  async function save(d: Draft = draft!): Promise<number> {
+    const input = toInput(d, hostels);
     const res = flyerId == null ? await api.create(input) : await api.update(flyerId, input);
     setSavedJson(JSON.stringify(input));
-    if (draft!.title.trim() === '') set({ title: input.title });
+    if (d.title.trim() === '') set({ title: input.title });
     if (flyerId == null) {
       setFlyerId(res.id);
       // Keep this editor mounted; just make the URL reopenable. Only while the new flyer is still the page
@@ -208,11 +246,17 @@ export function Editor({
     }
   }
 
-  const onSave = () => run('save', async () => (await save(), 'Saved to the library.'));
+  const onSave = () =>
+    run('save', async () => {
+      await save();
+      setOwnSave(true);
+      return 'Saved to the library.';
+    });
 
   const onDownload = (format: 'png' | 'jpg') =>
     run(format, async () => {
       const savedId = await save();
+      setOwnSave(true);
       // The canvas on screen when the button was pressed: what you see is what you download.
       const { blob, filename } = await exporter.export({ id: savedId, format, canvas });
       const url = URL.createObjectURL(blob);
@@ -255,22 +299,38 @@ export function Editor({
     });
 
   // The caption from what the fields say now, with the idea the flyer came from when the AI made it. A caption already
-  // there is replaced only on a yes: the generation is counted either way once it is sent.
+  // there is replaced only on a yes: the generation is counted either way once it is sent. One press writes it and
+  // saves the flyer (the owner's ask, 2026-10-07), as one action.
   const writeShare = () => {
     if (!ai) return;
     const cost = ai.remaining === 1 ? 'the last generation' : `one of the ${ai.remaining} generations`;
     if (draft.data.share.trim() && !confirm(`Replace the caption with one the AI writes? It uses ${cost} left today.`)) return;
+    aiPressed.current = document.activeElement === aiButton.current;
     run('ai', async () => {
-      try {
-        const { hostel: slug, data } = latestDraft.current!;
-        const r = await api.aiShare({ hostel: slug, template: data.template, data, ...(handoff ? { idea: handoff.idea } : {}) });
-        setData({ share: r.share });
-        onRemaining(ai.name, r.remaining);
-        return '✨ The AI wrote the caption: read it before you post.';
-      } catch (e) {
+      const { hostel: slug, data } = latestDraft.current!;
+      // The details as they were sent: a field changed while the answer was on its way leaves a caption that is no
+      // longer the flyer's, and the button stays.
+      const sent = shareDetails(slug, data);
+      const r = await api.aiShare({ hostel: slug, template: data.template, data, ...(handoff ? { idea: handoff.idea } : {}) }).catch((e) => {
         if (e instanceof ApiError && e.status === 429) onRemaining(ai.name, 0);
         throw e;
+      });
+      onRemaining(ai.name, r.remaining);
+      // The staff member left while it was on its way, on a yes to the leave question where there was unsaved work:
+      // nothing of this flyer is written behind their back.
+      if (!here.current) return;
+      setData({ share: r.share });
+      setCaptionOf(sent);
+      // The draft as it is now, with the caption: save() by itself would write the draft of the render this action
+      // started from, which has neither the caption nor what was typed since.
+      const now = latestDraft.current!;
+      try {
+        await save({ ...now, data: { ...now.data, share: r.share } });
+      } catch (e) {
+        // The caption stays in the form, unsaved, and the generation is spent either way.
+        throw new Error(captionUnsaved(e instanceof Error ? e.message : String(e)));
       }
+      return CAPTION_SAVED;
     });
   };
 
@@ -457,8 +517,9 @@ export function Editor({
         <Section title={FIELD.share} hint="Not printed. The caption to paste when you post or send the flyer.">
           {ai && (
             <div className="ai-write">
-              <button type="button" className="btn" disabled={!!busy || ai.remaining === 0} onClick={writeShare}>
-                {busy === 'ai' ? 'Writing…' : '✨ Write with AI'} <span className="ai-left">({ai.remaining} left today)</span>
+              {/* One button in both states: the one that was pressed is there to take the focus back. */}
+              <button ref={aiButton} type="button" className={captionWritten ? 'linkish ai-again' : 'btn'} disabled={!!busy || ai.remaining === 0} onClick={writeShare}>
+                {busy === 'ai' ? 'Writing…' : captionWritten ? 'Write again' : '✨ Write with AI'} <span className="ai-left">({ai.remaining} left today)</span>
               </button>
               <AiUsedUp feature={ai.name} limit={ai.limit} left={ai.remaining} />
             </div>

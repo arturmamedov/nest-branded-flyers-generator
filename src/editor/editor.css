@@ -758,6 +758,23 @@ nest-nav > nav a.ai-entry .ai-count {
   margin-bottom: 10px;
 }
 
+/* "Write again": the caption is written for the flyer as it is, so a second try is a small link where the button was. */
+.ai-again {
+  color: var(--teal);
+  font-size: 13px;
+}
+
+.ai-again:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.ai-again:focus-visible {
+  outline: 2px solid var(--teal);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
 /* The AI page's two ways in, From your idea / From a photo: shown only where the site runs the picture read. */
 .ai-ways {
   margin-bottom: 12px;

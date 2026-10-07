@@ -7,7 +7,7 @@ import { DEFAULT_CANVAS } from '../shared/layout';
 import type { AiAssumption, Brief, Hostel } from '../shared/schema';
 import { AiPhoto, AiPicture } from './AiPhoto';
 import { AiSteps, type Found } from './AiSteps';
-import { api, ApiError } from './api';
+import { api, ApiError, asSentence } from './api';
 import { offerDraft } from './handoff';
 import { LEAVE_PROMPT, useLeaveGuard } from './leaveGuard';
 import { briefFieldLabel, FIELD } from './fields';
@@ -69,10 +69,6 @@ function PictureKept({ onType }: { onType: () => void }) {
     </>
   );
 }
-
-/** A message as a sentence, for another to follow it. The server's own end with a full stop; a host's error page
-    ("Request failed (504)") and the browser's words for a dropped connection may not. */
-const asSentence = (message: string) => (/[.!?…]\s*$/.test(message) ? message : `${message.trim()}.`);
 
 /** On the result, the picture an idea was read from, offered as the flyer's photo (the brief's stage 4; the owner's
     words, and his answer: "Offered, off by default"). */

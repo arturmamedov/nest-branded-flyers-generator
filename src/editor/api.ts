@@ -35,6 +35,10 @@ export async function errorFrom(res: Response, fallback: string): Promise<ApiErr
   return new ApiError(res.status, err?.error?.message ?? `${fallback} (${res.status})`, err?.error?.fields);
 }
 
+/** A message as a sentence, for another to follow it. The server's own end with a full stop; a host's error page
+    ("Request failed (504)") does not. */
+export const asSentence = (message: string) => (/[.!?…]\s*$/.test(message) ? message : `${message.trim()}.`);
+
 async function call<T>(method: string, path: string, body?: unknown): Promise<T> {
   const init: RequestInit = { method, headers: WRITE_HEADERS };
   if (body instanceof FormData) init.body = body;

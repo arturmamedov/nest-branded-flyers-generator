@@ -8,8 +8,9 @@ import { LEAVE_PROMPT } from '../../src/editor/leaveGuard';
 import { PHOTO_MODE_LABEL } from '../../src/editor/photoModes';
 import { AI_DAILY_LIMIT, AI_FAKE, AI_FEATURES, AI_PICTURE_MAX_EDGE, aiFor, aiQuotaVars, type AiFeature } from '../../src/shared/ai';
 import { apiError } from '../../src/shared/errors';
+import { newFlyerData } from '../../src/shared/defaults';
 import { DEFAULT_CANVAS, type PhotoMode } from '../../src/shared/layout';
-import { AiFlyerResultSchema, AiPhotoResultSchema, AiShareResultSchema, ApiConfigSchema, PhotoInfoSchema, type AiFlyerAnswer } from '../../src/shared/schema';
+import { AiFlyerResultSchema, AiPhotoResultSchema, AiShareResultSchema, ApiConfigSchema, FlyerSavedSchema, PhotoInfoSchema, type AiFlyerAnswer } from '../../src/shared/schema';
 import { WRITE_HEADERS } from '../../src/shared/writeGuard';
 
 /* The AI assistant in the browser (docs/prompts/ai-assistant.md, Phase 4). playwright.config.ts runs this file alone
@@ -35,6 +36,28 @@ const keep = (id: number) => saved.push(id);
 test.afterEach(async ({ request }) => {
   for (const id of saved.splice(0)) await request.delete(`/api/flyers/${id}`, { headers: WRITE_HEADERS });
 });
+// A new flyer the page saves by itself is kept too: "Write with AI" writes the caption and saves the flyer.
+test.beforeEach(({ page }) => {
+  page.on('response', (res) => {
+    if (res.status() !== 201 || !apiCall('POST', 'flyers')(res)) return;
+    res.json().then(
+      (body) => keep(FlyerSavedSchema.parse(body).id),
+      () => {},
+    );
+  });
+});
+
+/** A saved flyer made through the API, with this caption, archived afterwards. */
+async function savedFlyer(page: Page, share: string): Promise<number> {
+  const res = await page.request.post('/api/flyers', {
+    headers: WRITE_HEADERS,
+    data: { title: `ai spec caption ${Date.now()}`, hostel: null, template: 'activity', data: { ...newFlyerData('activity'), share }, photoId: null },
+  });
+  expect(res.status(), await res.text()).toBe(201);
+  const { id } = FlyerSavedSchema.parse(await res.json());
+  keep(id);
+  return id;
+}
 
 /** What is left today of one feature, as the server says. */
 async function left(page: Page, feature: AiFeature): Promise<number> {
@@ -51,6 +74,9 @@ const generate = (page: Page) => page.getByRole('button', { name: /^✨ Generate
 const tryAgain = (page: Page) => page.getByRole('button', { name: /^Try again/ });
 const openInEditor = (page: Page) => page.getByRole('button', { name: 'Open in editor', exact: true });
 const writeWithAi = (page: Page) => page.getByRole('button', { name: /^✨ Write with AI/ });
+/** What "Write with AI" steps back to once the caption is written for the flyer as it is. */
+const writeAgain = (page: Page) => page.getByRole('button', { name: /^Write again/ });
+const CAPTION_SAVED = '✨ The AI wrote the caption and saved the flyer: read it before you post.';
 const errorNote = (page: Page) => toast(page, 'error');
 const preview = (page: Page) => page.locator('.stage-canvas');
 
@@ -175,8 +201,10 @@ test('an idea becomes a flyer: a waiting state, the preview, what the AI assumed
   await openInEditor(page).click();
   await expect(page).toHaveURL(/#\/new$/);
   expect(dialogs(), 'opening asks nothing').toEqual([]);
-  // The editor's button counts the share text's own, which the two flyers above did not move.
-  await expect(writeWithAi(page)).toContainText(`${shareLeft} left today`);
+  // The editor counts the share text's own, which the two flyers above did not move. The flyer came with the AI's
+  // caption, so a second try is the small link from the start.
+  await expect(writeAgain(page)).toContainText(`${shareLeft} left today`);
+  await expect(writeWithAi(page)).toHaveCount(0);
   await expect(page.getByLabel('Line 1')).toHaveValue(brief.text!.headline1!);
   await expect(page.getByLabel('Hostel', { exact: true })).toHaveValue('adeje-nest');
   await expect(page.getByLabel('Caption')).toHaveValue(brief.share!);
@@ -205,7 +233,7 @@ test('an answer that fails its schema shows the catalogue message and costs noth
   expect(await left(page, 'flyer')).toBe(n);
 });
 
-test('Write with AI fills the caption from the fields, asking before it replaces one', async ({ page }) => {
+test('Write with AI fills the caption from the fields, asking before it replaces one, and saves the flyer', async ({ page }) => {
   const n = await left(page, 'share');
   const flyerLeft = await left(page, 'flyer');
   expect(n, 'this file spends one generation here').toBeGreaterThan(0);
@@ -224,6 +252,7 @@ test('Write with AI fills the caption from the fields, asking before it replaces
   expect(sent, 'nothing sent on a no').toBe(0);
 
   const answered = page.waitForResponse(apiCall('POST', 'ai/share'));
+  const savedAs = page.waitForResponse(apiCall('POST', 'flyers'));
   await answerConfirm(page, 'accept', () => writeWithAi(page).click());
   const res = await answered;
   expect(res.status(), await res.text()).toBe(200);
@@ -231,9 +260,153 @@ test('Write with AI fills the caption from the fields, asking before it replaces
   expect([request.hostel, request.template, request.data.text.headline1]).toEqual([null, 'activity', 'Stretching class']);
   expect(AiShareResultSchema.parse(await res.json()).remaining).toBe(n - 1);
   await expect(page.getByLabel('Caption')).toHaveValue(brief.share!);
-  await expect(toast(page, 'ok')).toContainText('AI');
-  await expect(writeWithAi(page)).toContainText(`${n - 1} left today`);
+  // One press wrote it and saved the flyer (the owner's ask, 2026-10-07): the draft as it was when the answer landed,
+  // with the caption in it, as a new flyer's first save.
+  const created = await savedAs;
+  expect(created.status(), await created.text()).toBe(201);
+  const written = created.request().postDataJSON() as { title: string; data: { share: string; text: { headline1: string } } };
+  expect([written.data.share, written.data.text.headline1]).toEqual([brief.share, 'Stretching class']);
+  expect(written.title, 'an untitled flyer gets its library name, as on any first save').not.toBe('');
+  await expect(page).toHaveURL(new RegExp(`#/flyers/${FlyerSavedSchema.parse(await created.json()).id}$`));
+  await expect(status(page)).toHaveText('Saved');
+  await expect(toast(page, 'ok')).toHaveText(CAPTION_SAVED);
+  // The big button steps back to a small link for a second try, with the count it had.
+  await expect(writeWithAi(page)).toHaveCount(0);
+  await expect(writeAgain(page)).toHaveText(`Write again (${n - 1} left today)`);
+  await expect(writeAgain(page), 'the button that was pressed is the link now, and has the focus again once it can').toBeFocused();
   expect(await left(page, 'flyer'), 'a share text costs the flyer nothing').toBe(flyerLeft);
+
+  // The button is back when a detail changes, and steps back again when the detail is as it was.
+  await page.getByLabel('Line 1').fill('Stretching class at 9');
+  await expect(writeWithAi(page)).toContainText(`${n - 1} left today`);
+  await expect(writeAgain(page)).toHaveCount(0);
+  await page.getByLabel('Line 1').fill('Stretching class');
+  await expect(writeAgain(page)).toBeVisible();
+  // What is no detail changes nothing: the library name, and the caption's own words.
+  await page.getByLabel('Library name').fill('Stretching');
+  await page.getByLabel('Caption').fill(`${brief.share} 🙂`);
+  await expect(writeAgain(page)).toBeVisible();
+  // An emptied caption has nothing to write again.
+  await page.getByLabel('Caption').fill('');
+  await expect(writeWithAi(page)).toBeVisible();
+  // The flyer is saved, with unsaved changes since: leaving asks. Saved here, so the test ends clean.
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(status(page)).toHaveText('Saved');
+});
+
+test('a flyer that opens with a caption offers "Write again"; one with none, and a caption typed by hand, the button', async ({ page }) => {
+  await withLeft(page, { share: 2 });
+  await page.goto(`/#/flyers/${await savedFlyer(page, 'Come to the pool')}`);
+  await expect(page.getByLabel('Caption')).toHaveValue('Come to the pool');
+  await expect(writeAgain(page)).toHaveText('Write again (2 left today)');
+  await expect(writeWithAi(page)).toHaveCount(0);
+  // It still asks before it replaces the caption.
+  expect(await answerConfirm(page, 'dismiss', () => writeAgain(page).click())).toContain('Replace the caption');
+
+  await page.goto(`/#/flyers/${await savedFlyer(page, '')}`);
+  await expect(page.getByLabel('Caption')).toHaveValue('');
+  await expect(writeWithAi(page)).toBeVisible();
+  await page.getByLabel('Caption').fill('My own words');
+  await expect(writeWithAi(page), 'only a generation, or a flyer opened with a caption, hides it').toBeVisible();
+  await expect(writeAgain(page)).toHaveCount(0);
+});
+
+test('Write with AI on a saved flyer saves what was typed while the answer was on its way, and a detail changed meanwhile keeps the button', async ({ page }) => {
+  await withLeft(page, { share: 2 });
+  const id = await savedFlyer(page, '');
+  await page.route(apiRoute('ai/share'), async (route) => {
+    await asked;
+    await route.fulfill({ json: { share: 'Written by the AI', remaining: 1 } });
+  });
+  let answer = () => {};
+  const asked = new Promise<void>((resolve) => (answer = resolve));
+  await page.goto(`/#/flyers/${id}`);
+  await writeWithAi(page).click();
+  await expect(page.getByRole('button', { name: /^Writing…/ })).toBeDisabled();
+  await page.getByLabel('Line 1').fill('Typed meanwhile');
+  const put = page.waitForResponse(apiCall('PUT', `flyers/${id}`));
+  answer();
+  const body = (await put).request().postDataJSON() as { data: { share: string; text: { headline1: string } } };
+  expect([body.data.share, body.data.text.headline1], 'the draft as it is when the answer lands').toEqual(['Written by the AI', 'Typed meanwhile']);
+  await expect(status(page)).toHaveText('Saved');
+  await expect(toast(page, 'ok')).toHaveText(CAPTION_SAVED);
+  // The caption was written from the fields as they were sent: the line typed since is not in it.
+  await expect(writeWithAi(page)).toContainText('1 left today');
+  await expect(writeAgain(page)).toHaveCount(0);
+});
+
+test('a caption written and a save refused: the caption stays, unsaved, and the toast says so', async ({ page }) => {
+  await withLeft(page, { share: 2 });
+  await page.route(apiRoute('ai/share'), (route) => route.fulfill({ json: { share: 'Written by the AI', remaining: 1 } }));
+  const flyers = apiRoute('flyers');
+  await page.route(flyers, (route) =>
+    route.request().method() === 'POST' ? route.fulfill({ status: 500, json: { error: { code: 'internal', message: 'The disk is full.' } } }) : route.continue(),
+  );
+  await page.goto('/#/new');
+  await writeWithAi(page).click();
+  await expect(toast(page, 'error')).toHaveText('✨ The AI wrote the caption, but the flyer was not saved. The disk is full. Press Save to try again.');
+  await expect(toast(page, 'ok')).toHaveCount(0);
+  await expect(page.getByLabel('Caption')).toHaveValue('Written by the AI');
+  await expect(status(page)).toHaveText('Unsaved changes');
+  await expect(page).toHaveURL(/#\/new$/);
+  // The generation is spent either way, and the caption is the AI's for the flyer as it is.
+  await expect(writeAgain(page)).toHaveText('Write again (1 left today)');
+  // Save then does what the toast says.
+  await page.unroute(flyers);
+  await saveNew(page, keep);
+});
+
+test('a caption that lands after the staff member has left saves nothing', async ({ page }) => {
+  await withLeft(page, { share: 2 });
+  let answer = () => {};
+  const asked = new Promise<void>((resolve) => (answer = resolve));
+  await page.route(apiRoute('ai/share'), async (route) => {
+    await asked;
+    await route.fulfill({ json: { share: 'Written by the AI', remaining: 1 } });
+  });
+  const writes: string[] = [];
+  page.on('request', (r) => {
+    if (r.method() !== 'GET' && /\/api\/flyers(\/\d+)?$/.test(new URL(r.url()).pathname)) writes.push(`${r.method()} ${r.url()}`);
+  });
+  await page.goto('/#/new');
+  await writeWithAi(page).click();
+  await expect(page.getByRole('button', { name: /^Writing…/ })).toBeDisabled();
+  // Nothing is typed, so nothing is unsaved and the way back asks nothing.
+  await backToLibrary(page).click();
+  await expect(page.getByRole('heading', { name: 'Flyer library' })).toBeVisible();
+  const answered = page.waitForResponse(apiCall('POST', 'ai/share'));
+  answer();
+  await answered;
+  await page.waitForTimeout(300);
+  expect(writes, 'no flyer written behind their back').toEqual([]);
+  await expect(page).toHaveURL(/#\/$/);
+});
+
+test('the AI draft warning outlives the save Write with AI makes, and leaves at the staff member’s own Save', async ({ page }) => {
+  // Routed both ways, so nothing is spent.
+  await withLeft(page, { flyer: 2, share: 2 });
+  await page.route(apiRoute('ai/flyer'), (route) => route.fulfill({ json: { brief, assumptions: [], remaining: 1 } }));
+  await page.route(apiRoute('ai/share'), (route) => route.fulfill({ json: { share: 'Written again by the AI', remaining: 1 } }));
+  await page.goto('/#/ai');
+  await idea(page).fill('Yoga tomorrow at 9');
+  await generate(page).click();
+  await openInEditor(page).click();
+  await expect(page).toHaveURL(/#\/new$/);
+  const draftNote = toast(page, 'warn').filter({ hasText: 'AI draft: check every fact before you print' });
+  await expect(draftNote).toBeVisible();
+  // The flyer came with the AI's caption: a second try is the small link from the start.
+  await expect(writeAgain(page)).toHaveText('Write again (2 left today)');
+
+  await answerConfirm(page, 'accept', () => writeAgain(page).click());
+  await expect(toast(page, 'ok')).toHaveText(CAPTION_SAVED);
+  await expect(page).toHaveURL(/#\/flyers\/\d+$/);
+  await expect(status(page)).toHaveText('Saved');
+  await expect(draftNote, 'nobody has checked the facts yet').toBeVisible();
+
+  await page.getByLabel('Line 1').fill('Checked by me');
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(toast(page, 'ok')).toHaveText('Saved to the library.');
+  await expect(draftNote).toHaveCount(0);
 });
 
 test('each feature shows its own count: the bar and Generate the flyer’s, Write with AI the share text’s', async ({ page }) => {
@@ -435,7 +608,7 @@ test('an entry the editor cannot read, listed beside a feature it can, costs not
   await expect(writeWithAi(page)).toContainText('2 left today');
   await writeWithAi(page).click();
   await expect(page.getByLabel('Caption')).toHaveValue('Written by the AI');
-  await expect(writeWithAi(page)).toContainText('1 left today');
+  await expect(writeAgain(page)).toContainText('1 left today');
 });
 
 // A site names the features it runs (AI_FEATURES in .env, 'features' in config.php): the trial on the live site is the
