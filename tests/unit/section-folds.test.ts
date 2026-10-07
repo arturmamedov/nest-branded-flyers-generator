@@ -165,6 +165,9 @@ describe('a closed section’s line', () => {
       ],
     });
     expect(line('rows', rows)).toBe('3 rows · Fridays, Sundays');
+    // Two rows on one day name it once.
+    const twice = week({ week: ['Surf', 'Dinner', 'Hike'].map((name, i) => ({ day: i < 2 ? 'Fridays' : 'Sundays', name, time: '', cost: '' })) });
+    expect(line('rows', twice)).toBe('3 rows · Fridays, Sundays');
     expect(line('rows', week({ week: [{ day: '', name: 'Paella', time: '', cost: '' }] }))).toBe('1 row');
     expect(line('rows', week())).toBe('No rows yet');
   });

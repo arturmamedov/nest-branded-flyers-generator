@@ -296,6 +296,28 @@ nest-nav > nav a.ai-entry .ai-count {
   font-weight: 600;
 }
 
+/* What a closed section says of itself: one line, cut where the pill ends. */
+.section-line {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+/* A warning stands for a field inside: the warnings' own colours, as the "⚠ n" chip's. */
+.section-dot {
+  flex: 0 0 auto;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #b97400;
+  box-shadow: 0 0 0 3px var(--warn-bg);
+}
+
 .section-chev {
   flex: 0 0 auto;
   margin-left: auto;

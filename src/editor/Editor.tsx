@@ -20,7 +20,7 @@ import { PHOTO_MODE_LABEL, PHOTO_UPLOADING } from './photoModes';
 import { preparePhoto, type PhotoLimits } from './photoPrep';
 import { onPage, replaceHash } from './route';
 import { localStorageGet, localStorageSet } from './prefs';
-import { SECTIONS_PREF, openAtStart, storeOpen, toggled, type SectionId } from './sectionFolds';
+import { SECTIONS_PREF, flaggedSections, openAtStart, opened, sectionLine, storeOpen, toggled, type SectionId } from './sectionFolds';
 import { Preview, copyWarnings, useFitReports } from './Preview';
 import { ShareCopy, ShareFab } from './share';
 import { Toasts, type Warning } from './Toasts';
@@ -291,7 +291,11 @@ export function Editor({
   const onDrop = (file: File) => {
     if (week) setMessage({ kind: 'error', text: `A ${TEMPLATE_LABEL.week} flyer has no photo — switch to ${TEMPLATE_LABEL.activity} to use one.` });
     else if (busy) setMessage({ kind: 'error', text: 'Still working on the last action — drop the photo again in a moment.' });
-    else onFile(file);
+    else {
+      // The photo's controls are in its section: a photo that lands opens it.
+      setOpenSections((open) => opened(open, 'photo'));
+      onFile(file);
+    }
   };
 
   // A row from a saved Activity flyer: a copy, never a link. It joins the rows as they are when it
@@ -372,7 +376,17 @@ export function Editor({
 
   const t = draft.data.text;
   const chip = (key: ChipKey) => draft.data.chips.find((c) => c.key === key) as Chip;
-  const fold = (section: SectionId): Fold => ({ open: openSections.includes(section), onToggle: () => setOpenSections((open) => toggled(open, section)) });
+  // A closed section says what is inside, and shows a dot while a warning stands for one of its fields.
+  const flagged = flaggedSections(
+    lints.map((l) => l.field),
+    needsPhoto,
+  );
+  const fold = (section: SectionId): Fold => ({
+    open: openSections.includes(section),
+    onToggle: () => setOpenSections((open) => toggled(open, section)),
+    line: sectionLine(section, { data: draft.data, hostelName: hostel?.name ?? null, hasPhoto: draft.photo !== null }),
+    flagged: flagged.includes(section),
+  });
 
   return (
     <div className="editor">

@@ -29,6 +29,10 @@ export function BackToLibrary({ className }: { className?: string }) {
 export interface Fold {
   open: boolean;
   onToggle: () => void;
+  /** What a closed section says of itself, beside its name: the whole flyer then reads at a glance. */
+  line: string;
+  /** Something in it is to be seen to (a warning stands for one of its fields): closed, it shows a dot. */
+  flagged: boolean;
 }
 
 /** A section of the form. Given a `fold`, its header is a button that opens and closes it (the owner's "pill
@@ -48,6 +52,9 @@ export function Section({ title, hint, fold, children }: { title: string; hint?:
       <h2>
         <button type="button" className="section-head" aria-expanded={fold.open} aria-controls={body} onClick={fold.onToggle}>
           <span className="section-title">{title}</span>
+          {/* Both are part of what the header is called: a screen reader hears them with the name. */}
+          {!fold.open && fold.flagged && <span className="section-dot" role="img" aria-label="has a warning" />}
+          {!fold.open && <span className="section-line">{fold.line}</span>}
           <svg className="section-chev" aria-hidden="true" width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
             <path d="M2.5 4.5 6 8l3.5-3.5" />
           </svg>

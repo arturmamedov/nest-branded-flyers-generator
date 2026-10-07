@@ -1,6 +1,7 @@
+import { readFileSync } from 'node:fs';
 import type { APIRequestContext, Page } from '@playwright/test';
 import { expect, test } from '../browser';
-import { EDITOR_VIEWPORT, apiRoute, backToLibrary, openSection, rowField, saveNew, sectionHead, status, templateButton } from '../editor';
+import { EDITOR_VIEWPORT, POOL_PARTY, apiCall, apiRoute, backToLibrary, dropFile, openSection, rowField, saveNew, sectionHead, status, templateButton, toast, type FilePayload } from '../editor';
 import { FIELD } from '../../src/editor/fields';
 import { SECTIONS_PREF } from '../../src/editor/sectionFolds';
 import type { FlyerListItem } from '../../src/shared/schema';
@@ -14,6 +15,7 @@ import { WRITE_HEADERS } from '../../src/shared/writeGuard';
 
 test.use({ viewport: EDITOR_VIEWPORT });
 
+const PHOTO: FilePayload = { name: 'pool-party.png', mimeType: 'image/png', buffer: readFileSync(POOL_PARTY) };
 const FACTS = 'When · Where · Cost';
 const ACTIVITY = ['Flyer', FIELD.headline, FACTS, FIELD.extras, FIELD.ask, 'Photo', 'Top and tag pill', FIELD.share];
 const WEEK = ['Flyer', 'Title', FIELD.weekRows, FIELD.ask, 'Top and tag pill', FIELD.share];
@@ -172,4 +174,91 @@ test('a closed section keeps its content: the rows’ saved flyers are asked for
   await openFlyer(page, await sample(request, 'Pool party'));
   await expect(sectionHead(page, 'Photo')).toHaveAttribute('aria-expanded', 'false');
   await expect(page.locator('.panel input[type=file]')).toHaveCount(1);
+});
+
+/** What a closed section says of itself beside its name, and the dot of one with something to see to. */
+const lineOf = (page: Page, title: string) => sectionHead(page, title).locator('.section-line');
+const dotOf = (page: Page, title: string) => sectionHead(page, title).locator('.section-dot');
+
+test('a closed section says in one line what is inside, and the line follows what is typed', async ({ page, request }) => {
+  await openFlyer(page, await sample(request, 'This week · Duque Nest'));
+  await expect(lineOf(page, 'Flyer')).toHaveText('This week · Duque Nest');
+  await expect(lineOf(page, 'Title')).toHaveText('What’s on this week.');
+  await sectionHead(page, FIELD.weekRows).click();
+  await expect(lineOf(page, FIELD.weekRows)).toHaveText('4 rows · Fridays, Saturday 19/9, Most mornings');
+
+  await openFlyer(page, await sample(request, 'Pool party'));
+  const lines: Record<string, string> = {
+    Flyer: 'Activity · Duque Nest',
+    [FIELD.headline]: 'Saturday is a pool party.',
+    [FIELD.extras]: 'Everyone welcome · Bring a towel',
+    [FIELD.ask]: 'Sign up at reception.',
+    Photo: 'Full bleed · photo set',
+    'Top and tag pill': 'NEXT ACTIVITY · @NESTSHOSTELS · ¡TAG US!',
+    [FIELD.share]: 'No caption yet',
+  };
+  for (const [title, line] of Object.entries(lines)) await expect(lineOf(page, title), title).toHaveText(line);
+  // The line is part of what the header is called, so a screen reader hears it with the name.
+  await expect(sectionHead(page, 'Flyer')).toHaveAccessibleName('Flyer Activity · Duque Nest');
+  // An open section's fields say it themselves; closed, it has its line: the hostel prints big in WHERE.
+  await expect(lineOf(page, FACTS)).toHaveCount(0);
+  await sectionHead(page, FACTS).click();
+  await expect(lineOf(page, FACTS)).toHaveText('Saturday 19/9 · Duque Nest · Free');
+
+  await openSection(page, FIELD.headline, FIELD.share);
+  await page.getByLabel('Line 2').fill('paella night.');
+  await page.getByLabel('Caption').fill('Come to the pool');
+  await sectionHead(page, FIELD.headline).click();
+  await sectionHead(page, FIELD.share).click();
+  await expect(lineOf(page, FIELD.headline)).toHaveText('Saturday is a paella night.');
+  await expect(lineOf(page, FIELD.share)).toHaveText('Caption written');
+});
+
+test('a closed section with something to see to shows a dot: a copy rule broken in one of its fields, and a frame with no photo', async ({ page }) => {
+  await page.goto('/#/new');
+  const dots = page.locator('.panel .section-dot');
+  // A new flyer's frame has no photo, and the warning stands; its section is open, and an open one shows no dot.
+  const addPhoto = toast(page, 'warn').filter({ hasText: 'Add a photo' });
+  await expect(addPhoto).toBeVisible();
+  await expect(dots).toHaveCount(0);
+  await sectionHead(page, 'Photo').click();
+  await expect(dotOf(page, 'Photo')).toHaveCount(1);
+  await expect(sectionHead(page, 'Photo')).toHaveAccessibleName(/^Photo has a warning /);
+  await addPhoto.getByRole('button', { name: 'switch to No photo' }).click();
+  await expect(dots).toHaveCount(0);
+
+  // A copy rule names its field: the dot is on that field's section, once it is closed.
+  await page.getByLabel('Line 1').fill('SATURDAY IS A');
+  await expect(toast(page, 'warn').filter({ hasText: 'Sentence case for headlines' })).toBeVisible();
+  await expect(dots).toHaveCount(0);
+  await sectionHead(page, FIELD.headline).click();
+  await expect(dotOf(page, FIELD.headline)).toHaveCount(1);
+  await expect(dots).toHaveCount(1);
+  // The rule about too many exclamation marks is about the whole flyer: no section's dot.
+  await sectionHead(page, FIELD.headline).click();
+  await page.getByLabel('Line 1').fill('Saturday is a!!!!!');
+  await expect(toast(page, 'warn').filter({ hasText: 'exclamation marks' })).toBeVisible();
+  for (const title of ACTIVITY) await openSection(page, title).then(() => sectionHead(page, title).click());
+  await expect(dots).toHaveCount(0);
+});
+
+test('a photo dropped on the preview opens the Photo section, and on a saved flyer that is how it was left', async ({ page, request }) => {
+  await openFlyer(page, await sample(request, 'Pool party'));
+  await expect(sectionHead(page, 'Photo')).toHaveAttribute('aria-expanded', 'false');
+  const [res] = await Promise.all([page.waitForResponse(apiCall('POST', 'photos')), dropFile(page, page.locator('.stage'), PHOTO)]);
+  expect(res.status(), await res.text()).toBe(201);
+  await expect(sectionHead(page, 'Photo')).toHaveAttribute('aria-expanded', 'true');
+  await expect(page.getByText(/^Zoom /)).toBeVisible();
+  expect(await remembered(page)).toBe('["facts","rows","photo"]');
+  // The sample itself was not saved over: the draft is unsaved, and stays in this page.
+  await expect(status(page)).toHaveText('Unsaved changes');
+});
+
+test('a dropped photo that is refused opens nothing', async ({ page }) => {
+  await page.goto('/#/new');
+  await templateButton(page, 'week').click();
+  await sectionHead(page, 'Flyer').click();
+  await dropFile(page, page.locator('.stage'), PHOTO);
+  await expect(toast(page, 'error')).toContainText('flyer has no photo');
+  expect(await sections(page)).toEqual(allOf(WEEK, WEEK.filter((title) => title !== 'Flyer')));
 });

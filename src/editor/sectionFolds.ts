@@ -106,7 +106,8 @@ export function sectionLine(id: SectionId, { data, hostelName, hasPhoto }: { dat
     case 'rows': {
       const rows = data.week.filter(isPrintable);
       if (rows.length === 0) return 'No rows yet';
-      const days = rows.map((r) => r.day.trim()).filter(Boolean);
+      // Two rows on one day name it once.
+      const days = [...new Set(rows.map((r) => r.day.trim()).filter(Boolean))];
       return dotted([`${rows.length} ${rows.length === 1 ? 'row' : 'rows'}`, days.join(', ')]);
     }
     case 'ask':
