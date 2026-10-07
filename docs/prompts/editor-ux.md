@@ -10,7 +10,7 @@ The launch prompt of each part is at the end of this file. Paste it as the first
 
 - The branch is `feat/ai-feature-switches`. Asked on 2026-10-07, Artur chose "Stay on feat/ai-feature-switches"
   for all four parts. Don't ask again, and don't cut a branch.
-- The last commit before this brief is `e3b29de`. This brief's own commit sits on top of it. Nothing is pushed,
+- The last commit before this brief is `e3b29de`. This brief's own commits sit on top of it. Nothing is pushed,
   and `main` is at `684189e`.
 - Commit each piece as it goes green, as in the flyer from a photo.
 - Before anything else, check git against that: the branch, the last commit, and whether the tree holds work that
@@ -84,6 +84,9 @@ Two things in one session, the toasts first. The caption's new messages are then
 
 **Decided**
 
+- **The rule that outranks the rest: a note never takes space from the flyer.** His words (2026-10-07): "the
+  important thing is that they not stole space to the flyer so fold if it's will not or close". Whether a note
+  folds or closes matters less than that.
 - Every note the editor shows above the flyer becomes a toast in the bottom-right corner of the stage.
 - It floats over the stage, out of the layout, so the flyer keeps the whole stage. The "Share text" pill
   (`.share-fab`) already works that way.
@@ -98,6 +101,9 @@ Two things in one session, the toasts first. The caption's new messages are then
   stays until it is closed.
 - A warning that goes away and comes back shows again. A closed warning whose words have not changed stays
   folded while the staff member types.
+- On a desktop the corner is usually empty stage beside the flyer. On a phone the flyer fills the stage, so an
+  open toast covers part of it. There, and in any window that narrow, standing warnings start folded into the
+  chip, and only an action's outcome opens, for its few seconds.
 - One component, used by the editor and by the AI page, which has the same block.
 - Not toasts: failures with no flyer on screen (the editor's "This flyer does not exist", the library's banner,
   "Could not reach the server").
@@ -271,7 +277,15 @@ Label anything the spike builds as throwaway.
 - Copy image copies the canvas on screen, after saving, as a download does: what you see is what you copy.
 - "Copy image" shows only where the browser can do it. "Share…" shows only where the device says it can share a
   file.
-- "Share…" is the last entry of the Download menu. A third button would not fit a phone's toolbar.
+- **On a phone "Share…" is the first button.** Artur asked on 2026-10-07 whether the share sheet would be the
+  primary option. Suggested: yes on a phone, no on a desktop.
+  - A phone: `[Share…] [Download ▾]`, the menu holding PNG, JPG and Copy image. The sheet is how a phone hands a
+    picture to WhatsApp or Instagram.
+  - A desktop: `[Copy image] [Download ▾]`, as he chose. Windows has a share sheet too, and the spike says
+    whether it is worth a menu entry there.
+  - "A phone" is one of the signals `editor.css` already uses (860 px and below, or a coarse pointer). Pick one.
+- What an app does with the caption is the app's: expect WhatsApp on Android to keep it, an iPhone to drop it
+  more often, and Instagram to ignore it. The spike tries Artur's own phone, and the report says what it saw.
 - One clipboard helper for text and picture, each answering "copied" or "couldn't" the same way.
 - The menu is a small component of the editor's own, with the keyboard a menu needs (Escape, the arrows, a click
   outside). No new dependency.
