@@ -1,5 +1,6 @@
 import { AI_PICTURE_ASK, aiDateLine } from '../../src/shared/ai.js';
 import type { AiAssumption, Brief, FlyerData, FlyerText, Template, WeekRow } from '../../src/shared/schema.js';
+import type { ShareDetail } from '../../src/shared/share.js';
 import type { LlmMessage, LlmPart } from './provider.js';
 
 /* What a provider is sent, built from the generated bundle (schema/ai.json: the prompts and the few-shot examples),
@@ -43,7 +44,8 @@ interface Copy {
 export type ShareInput = {
   hostel: string | null;
   template: Template;
-  data: Pick<FlyerData, 'text' | 'chips' | 'extras' | 'week'>;
+  /** The printed copy alone: the one list of it is SHARE_DETAILS, which the editor reads too. */
+  data: Pick<FlyerData, ShareDetail>;
   idea?: string;
 };
 
