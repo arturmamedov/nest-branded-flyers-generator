@@ -77,6 +77,20 @@ export async function saveNew(page: Page, keep: (id: number) => void): Promise<F
 /** The editor's one way back, "← Library" at the top of its form (it has no top bar). */
 export const backToLibrary = (page: Page) => page.locator('.panel').getByRole('link', { name: 'Library', exact: true });
 
+/** A section's header in the editor's form, by the section's title: a button, pressed to open and close it. */
+export const sectionHead = (page: Page, title: string) =>
+  page.locator('.panel .section-head').filter({ has: page.locator('.section-title', { hasText: exactly(title) }) });
+
+/** Opens the named sections of the editor's form, each if it is closed. A saved flyer opens with most of them closed
+    (src/editor/sectionFolds.ts), and a field in a closed section can be neither seen nor filled. */
+export async function openSection(page: Page, ...titles: string[]) {
+  for (const title of titles) {
+    const head = sectionHead(page, title);
+    if ((await head.getAttribute('aria-expanded')) === 'false') await head.click();
+    await expect(head).toHaveAttribute('aria-expanded', 'true');
+  }
+}
+
 /** The editor's template toggle: "Activity" or "This week". */
 export const templateButton = (page: Page, template: Template) =>
   page.getByRole('group', { name: 'Template' }).getByRole('button', { name: TEMPLATE_LABEL[template], exact: true });

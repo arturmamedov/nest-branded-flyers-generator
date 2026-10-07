@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useId, type ReactNode } from 'react';
 import { aiQuotaVars, type AiFeature } from '../shared/ai';
 import { apiError } from '../shared/errors';
 import type { Hostel } from '../shared/schema';
@@ -25,12 +25,40 @@ export function BackToLibrary({ className }: { className?: string }) {
   );
 }
 
-export function Section({ title, hint, children }: { title: string; hint?: string; children: ReactNode }) {
+/** A section that opens and closes by its header (the editor's; sectionFolds.ts says which are open). */
+export interface Fold {
+  open: boolean;
+  onToggle: () => void;
+}
+
+/** A section of the form. Given a `fold`, its header is a button that opens and closes it (the owner's "pill
+    dropdown section", 2026-10-07); without one it is always open, as on the AI page. */
+export function Section({ title, hint, fold, children }: { title: string; hint?: string; fold?: Fold; children: ReactNode }) {
+  const body = useId();
+  if (!fold)
+    return (
+      <section className="section">
+        <h2>{title}</h2>
+        {hint && <p className="hint">{hint}</p>}
+        {children}
+      </section>
+    );
   return (
-    <section className="section">
-      <h2>{title}</h2>
-      {hint && <p className="hint">{hint}</p>}
-      {children}
+    <section className={`section section-fold${fold.open ? ' section-open' : ''}`}>
+      <h2>
+        <button type="button" className="section-head" aria-expanded={fold.open} aria-controls={body} onClick={fold.onToggle}>
+          <span className="section-title">{title}</span>
+          <svg className="section-chev" aria-hidden="true" width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M2.5 4.5 6 8l3.5-3.5" />
+          </svg>
+        </button>
+      </h2>
+      {/* Closed, its content is hidden and stays mounted: the rows' list of saved flyers is asked for once, the
+          photo's file input is still there for a photo that is chosen, and nothing typed is lost. */}
+      <div id={body} className="section-body" hidden={!fold.open}>
+        {hint && <p className="hint">{hint}</p>}
+        {children}
+      </div>
     </section>
   );
 }

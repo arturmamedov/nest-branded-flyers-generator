@@ -15,6 +15,7 @@ import {
   filterLibrary,
   hold,
   libraryCard as card,
+  openSection,
   rowField as row,
   saveNew,
   status,
@@ -154,6 +155,8 @@ test('one action at a time: a photo dropped while a download is out is refused, 
   page.on('request', (r) => {
     if (r.method() === 'POST' && /\/api\/photos$/.test(new URL(r.url()).pathname)) uploads.push(r.url());
   });
+  // A saved flyer opens with most of its sections closed: the photo's button is in Photo.
+  await openSection(page, 'Photo');
   const photoButton = page.getByRole('button', { name: 'Replace photo', exact: true });
   await expect(photoButton).toBeEnabled();
 
@@ -644,6 +647,8 @@ test('This week: a dropped photo is refused with a reason, and an Activity flyer
 
   await page.goto(`/#/flyers/${id}`);
   await expect(status(page)).toHaveText('Saved');
+  // The sections this test reads and drives, closed on a saved flyer.
+  await openSection(page, 'Flyer', 'Headline', 'Photo', 'Top and tag pill');
   await templateButton(page, 'week').click();
   // One set of headline lines: the Activity headline becomes the week's title.
   await expect(page.getByLabel('Line 1')).toHaveValue('Saturday is a');
@@ -674,6 +679,8 @@ test('This week: reopened and saved again it is still a week flyer, and it downl
   const { id } = await saveNew(page, keep);
 
   await page.reload();
+  // Reopened, it is a saved flyer: its rows are open, and the template is in Flyer, which is closed.
+  await openSection(page, 'Flyer');
   await expect(templateButton(page, 'week')).toHaveAttribute('aria-pressed', 'true');
   await row(page, 1, 'time').fill('15:00'); // an edit, so there is something to save
   const [put] = await Promise.all([page.waitForResponse(apiCall('PUT', `flyers/${id}`)), button(page, 'Save').click()]);

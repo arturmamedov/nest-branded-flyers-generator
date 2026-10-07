@@ -237,6 +237,99 @@ nest-nav > nav a.ai-entry .ai-count {
   font-size: 12px;
 }
 
+/* A section that opens and closes (panel.tsx; the editor's UX round, Part 2): the owner's "pill dropdown section".
+   Closed, it is a pill in the segmented control's cream. Open, the pill grows into a card that holds its fields,
+   with the pill's own top corners, a very light teal ground and a thin teal edge: his ask, on seeing the first
+   pictures, that the section one is in be marked by padding, a light background and a border. The pills are their
+   own dividers. */
+.section-fold {
+  margin-top: 8px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 20px;
+}
+
+.panel-head + .section-fold {
+  margin-top: 14px;
+}
+
+.section-fold > h2 {
+  margin: 0;
+  font-size: inherit;
+  font-weight: inherit;
+  letter-spacing: 0;
+  text-transform: none;
+  color: inherit;
+}
+
+.section-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 38px;
+  margin: 0;
+  padding: 6px 14px 6px 16px;
+  border: 0;
+  border-radius: 999px;
+  background: #efeadc;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+/* Drawn inside the pill, so nothing moves under the pointer. */
+.section-head:hover {
+  box-shadow: inset 0 0 0 1px var(--teal);
+}
+
+.section-head:focus-visible {
+  outline: 2px solid var(--teal);
+  outline-offset: 2px;
+}
+
+.section-title {
+  flex: 0 0 auto;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.section-chev {
+  flex: 0 0 auto;
+  margin-left: auto;
+  color: var(--muted);
+}
+
+.section-open {
+  border-color: rgba(13, 111, 130, 0.28);
+  background: #f0f6f4;
+}
+
+.section-open .section-head {
+  background: transparent;
+}
+
+.section-open .section-title {
+  font-weight: 700;
+  color: var(--teal);
+}
+
+.section-open .section-chev {
+  color: var(--teal);
+  transform: rotate(180deg);
+}
+
+/* The fields end with their own space under them. */
+.section-body {
+  padding: 6px 16px 4px;
+}
+
+.section-fold .hint {
+  margin-top: 0;
+}
+
 .field {
   display: flex;
   flex-direction: column;

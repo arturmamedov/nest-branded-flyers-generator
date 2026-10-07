@@ -2,7 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import type { APIRequestContext, Page, Response as PwResponse } from '@playwright/test';
 import { expect, test } from '../browser';
-import { POOL_PARTY, apiCall, backToLibrary, dropFile, filterLibrary, libraryCard as card, rowField, saveNew, status, templateButton, toast, type FilePayload } from '../editor';
+import { POOL_PARTY, apiCall, backToLibrary, dropFile, filterLibrary, libraryCard as card, openSection, rowField, saveNew, status, templateButton, toast, type FilePayload } from '../editor';
 import sharp from 'sharp';
 import { PHOTO_MODE_LABEL } from '../../src/editor/photoModes';
 import { TEMPLATE_LABEL } from '../../src/editor/templates';
@@ -263,6 +263,8 @@ test('the editor on the PHP backend: create, photos, crop, reopen, library, down
 
   await test.step('7. reopen: a reload shows the saved flyer in the form', async () => {
     await page.reload();
+    // Reopened, it is a saved flyer: When · Where · Cost is open and the other sections are closed.
+    await openSection(page, 'Flyer', 'Headline');
     await expect(page.getByLabel('Line 1')).toHaveValue(COPY.headline1);
     await expect(page.getByLabel('Line 2')).toHaveValue(COPY.headline2);
     await expect(page.getByLabel('Library name')).toHaveValue(title);
@@ -406,6 +408,7 @@ test('a This week flyer on the PHP backend: made, refused a photo, reopened and 
 
   await test.step('reopened, edited and saved again it is still a week flyer, and the week filter lists it', async () => {
     await page.reload();
+    await openSection(page, 'Flyer'); // its rows are open; the template is in Flyer, closed on a saved flyer
     await expect(week).toHaveAttribute('aria-pressed', 'true');
     await rowField(page, 1, 'time').fill('16:00');
     await save(page, id);

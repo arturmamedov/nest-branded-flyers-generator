@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import type { APIRequestContext, APIResponse, Page } from '@playwright/test';
 import { PNG } from 'pngjs';
 import { expect, test } from '../browser';
-import { EDITOR_VIEWPORT, canvasButton, cutOff, cutOffOn, exportFit, fitted } from '../editor';
+import { EDITOR_VIEWPORT, canvasButton, cutOff, cutOffOn, exportFit, fitted, openSection } from '../editor';
 import { bodiesOf, groupsOf, highlighterWrapSample } from './pixels';
 import sharp from 'sharp';
 import { apiError, type ApiErrorKey } from '../../src/shared/errors';
@@ -663,6 +663,7 @@ test('the editor previews, fits and downloads every canvas, through the server e
 
   // Copy that is cut off says so, naming every canvas it is cut off on, and the warning shrinks when it fits again: to
   // the story alone, whose WHERE chip this copy fills 2 px past its padding at its floors (accepted, 2026-09-30).
+  await openSection(page, 'Headline'); // closed on a saved flyer
   const line2 = page.getByLabel('Line 2');
   const before = await line2.inputValue();
   const warning = cutOff(page);

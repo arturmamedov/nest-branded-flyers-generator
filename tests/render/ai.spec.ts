@@ -3,9 +3,10 @@ import { join } from 'node:path';
 import type { Dialog, Page } from '@playwright/test';
 import sharp from 'sharp';
 import { expect, test } from '../browser';
-import { EDITOR_VIEWPORT, apiCall, apiRoute, backToLibrary, dropFile, hold, paste, closeToast, saveNew, status, toast, warningsChip, type FilePayload } from '../editor';
+import { EDITOR_VIEWPORT, apiCall, apiRoute, backToLibrary, dropFile, hold, openSection, paste, closeToast, saveNew, status, toast, warningsChip, type FilePayload } from '../editor';
 import { LEAVE_PROMPT } from '../../src/editor/leaveGuard';
 import { PHOTO_MODE_LABEL } from '../../src/editor/photoModes';
+import { SECTIONS_PREF } from '../../src/editor/sectionFolds';
 import { AI_DAILY_LIMIT, AI_FAKE, AI_FEATURES, AI_PICTURE_MAX_EDGE, aiFor, aiQuotaVars, type AiFeature } from '../../src/shared/ai';
 import { apiError } from '../../src/shared/errors';
 import { newFlyerData } from '../../src/shared/defaults';
@@ -82,6 +83,8 @@ const writeWithAi = (page: Page) => page.getByRole('button', { name: /^✨ Write
 /** What "Write with AI" steps back to once the caption is written for the flyer as it is. */
 const writeAgain = (page: Page) => page.getByRole('button', { name: /^Write again/ });
 const CAPTION_SAVED = '✨ The AI wrote the caption and saved the flyer: read it before you post.';
+/** The editor's sections that are closed (src/editor/sectionFolds.ts; panel.spec.ts has the rest). */
+const closedSections = (page: Page) => page.locator('.panel .section-head[aria-expanded="false"]');
 const errorNote = (page: Page) => toast(page, 'error');
 const preview = (page: Page) => page.locator('.stage-canvas');
 
@@ -203,9 +206,14 @@ test('an idea becomes a flyer: a waiting state, the preview, what the AI assumed
 
   // Open in editor: a new, unsaved flyer, marked as the AI's until it is saved; nothing was asked on the way.
   const dialogs = noDialogs(page);
+  await page.evaluate((key) => localStorage.setItem(key, '[]'), SECTIONS_PREF);
   await openInEditor(page).click();
   await expect(page).toHaveURL(/#\/new$/);
   expect(dialogs(), 'opening asks nothing').toEqual([]);
+  // An AI-made flyer starts with every section open, as a new one does, though every section of the last saved
+  // flyer was left closed (the owner's answer, 2026-10-07).
+  await expect(page.locator('.panel .section-head').first()).toBeVisible();
+  await expect(closedSections(page)).toHaveCount(0);
   // The editor counts the share text's own, which the two flyers above did not move. The flyer came with the AI's
   // caption, so a second try is the small link from the start.
   await expect(writeAgain(page)).toContainText(`${shareLeft} left today`);
@@ -275,11 +283,18 @@ test('Write with AI fills the caption from the fields, asking before it replaces
   await expect(page).toHaveURL(new RegExp(`#/flyers/${FlyerSavedSchema.parse(await created.json()).id}$`));
   await expect(status(page)).toHaveText('Saved');
   await expect(toast(page, 'ok')).toHaveText(CAPTION_SAVED);
+  // That first save keeps the editor as it was: no section folds under the staff member.
+  await expect(closedSections(page)).toHaveCount(0);
   // The big button steps back to a small link for a second try, with the count it had.
   await expect(writeWithAi(page)).toHaveCount(0);
   await expect(writeAgain(page)).toHaveText(`Write again (${n - 1} left today)`);
   await expect(writeAgain(page), 'the button that was pressed is the link now, and has the focus again once it can').toBeFocused();
   expect(await left(page, 'flyer'), 'a share text costs the flyer nothing').toBe(flyerLeft);
+  // A flyer that started new still remembers nothing of its sections, though it is saved now.
+  await page.locator('.panel .section-head').first().click();
+  await expect(closedSections(page)).toHaveCount(1);
+  expect(await page.evaluate((key) => localStorage.getItem(key), SECTIONS_PREF)).toBeNull();
+  await page.locator('.panel .section-head').first().click();
 
   // The button is back when a detail changes, and steps back again when the detail is as it was.
   await page.getByLabel('Line 1').fill('Stretching class at 9');
@@ -305,6 +320,8 @@ test('Write with AI fills the caption from the fields, asking before it replaces
 test('a flyer that opens with a caption offers "Write again"; one with none, and a caption typed by hand, the button', async ({ page }) => {
   await withLeft(page, { share: 2 });
   await page.goto(`/#/flyers/${await savedFlyer(page, 'Come to the pool')}`);
+  // A saved flyer opens with Share text closed (panel.spec.ts): the button is in it.
+  await openSection(page, 'Share text');
   await expect(page.getByLabel('Caption')).toHaveValue('Come to the pool');
   await expect(writeAgain(page)).toHaveText('Write again (2 left today)');
   await expect(writeWithAi(page)).toHaveCount(0);
@@ -312,6 +329,7 @@ test('a flyer that opens with a caption offers "Write again"; one with none, and
   expect(await answerConfirm(page, 'dismiss', () => writeAgain(page).click())).toContain('Replace the caption');
 
   await page.goto(`/#/flyers/${await savedFlyer(page, '')}`);
+  await openSection(page, 'Share text');
   await expect(page.getByLabel('Caption')).toHaveValue('');
   await expect(writeWithAi(page)).toBeVisible();
   await page.getByLabel('Caption').fill('My own words');
@@ -329,6 +347,7 @@ test('Write with AI on a saved flyer saves what was typed while the answer was o
   let answer = () => {};
   const asked = new Promise<void>((resolve) => (answer = resolve));
   await page.goto(`/#/flyers/${id}`);
+  await openSection(page, 'Headline', 'Share text');
   await writeWithAi(page).click();
   await expect(page.getByRole('button', { name: /^Writing…/ })).toBeDisabled();
   await page.getByLabel('Line 1').fill('Typed meanwhile');

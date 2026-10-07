@@ -15,11 +15,12 @@ import type { FlyerExporter } from './export';
 import { takeDraft } from './handoff';
 import { useLeaveGuard } from './leaveGuard';
 import { FIELD } from './fields';
-import { AiUsedUp, BackToLibrary, Field, HostelOptions, Section } from './panel';
+import { AiUsedUp, BackToLibrary, Field, HostelOptions, Section, type Fold } from './panel';
 import { PHOTO_MODE_LABEL, PHOTO_UPLOADING } from './photoModes';
 import { preparePhoto, type PhotoLimits } from './photoPrep';
 import { onPage, replaceHash } from './route';
 import { localStorageGet, localStorageSet } from './prefs';
+import { SECTIONS_PREF, openAtStart, storeOpen, toggled, type SectionId } from './sectionFolds';
 import { Preview, copyWarnings, useFitReports } from './Preview';
 import { ShareCopy, ShareFab } from './share';
 import { Toasts, type Warning } from './Toasts';
@@ -147,6 +148,16 @@ export function Editor({
       here.current = false;
     };
   }, []);
+
+  // The sections open in this editor (sectionFolds.ts): all of a new flyer's and of an AI-made one's, a saved flyer's
+  // as they were left last time. Only an editor that opened a saved flyer remembers them. `id` is this editor's for
+  // as long as it is mounted, and a new flyer's first save keeps it mounted: nothing folds or is written then.
+  const [openSections, setOpenSections] = useState<readonly SectionId[]>(() => openAtStart(id != null, localStorageGet(SECTIONS_PREF)));
+  const sectionsAtStart = useRef(openSections);
+  useEffect(() => {
+    // Opening a flyer is no "last time": only a change is written.
+    if (id != null && openSections !== sectionsAtStart.current) localStorageSet(SECTIONS_PREF, storeOpen(openSections));
+  }, [id, openSections]);
 
   useEffect(() => {
     if (id == null) return;
@@ -361,6 +372,7 @@ export function Editor({
 
   const t = draft.data.text;
   const chip = (key: ChipKey) => draft.data.chips.find((c) => c.key === key) as Chip;
+  const fold = (section: SectionId): Fold => ({ open: openSections.includes(section), onToggle: () => setOpenSections((open) => toggled(open, section)) });
 
   return (
     <div className="editor">
@@ -369,7 +381,7 @@ export function Editor({
         <div className="panel-head">
           <BackToLibrary className="btn btn-quiet" />
         </div>
-        <Section title="Flyer">
+        <Section title="Flyer" fold={fold('flyer')}>
           <div className="field">
             <span className="label">{FIELD.template}</span>
             <div className="seg" role="group" aria-label={FIELD.template}>
@@ -395,7 +407,7 @@ export function Editor({
         </Section>
 
         {/* A week flyer's title is the headline's lines: one set, kept across a switch (the owner's call, 2026-09-29). */}
-        <Section title={week ? 'Title' : FIELD.headline} hint={week ? `The same lines as the ${TEMPLATE_LABEL.activity} headline: switching template keeps them.` : undefined}>
+        <Section title={week ? 'Title' : FIELD.headline} fold={fold('headline')} hint={week ? `The same lines as the ${TEMPLATE_LABEL.activity} headline: switching template keeps them.` : undefined}>
           <Field label={FIELD.line1} lang="en" help={week ? 'Black' : 'Black. About 18 characters before it starts to shrink'}>
             <input value={t.headline1} maxLength={40} placeholder={week ? weekDefaults.headline1 : 'Saturday is a'} onChange={(e) => setText('headline1', e.target.value)} />
           </Field>
@@ -419,24 +431,24 @@ export function Editor({
         </Section>
 
         {week ? (
-          <Section title={FIELD.weekRows} hint={`Up to ${WEEK_ROWS_MAX}. Type them, or take one from a saved ${TEMPLATE_LABEL.activity} flyer and change it.`}>
+          <Section title={FIELD.weekRows} fold={fold('rows')} hint={`Up to ${WEEK_ROWS_MAX}. Type them, or take one from a saved ${TEMPLATE_LABEL.activity} flyer and change it.`}>
             <WeekRowsField rows={draft.data.week} onChange={updateWeek} onTake={takeRow} busy={busy !== null} />
           </Section>
         ) : (
           <>
-            <Section title="When · Where · Cost" hint="Put a · between the big line and the small line.">
+            <Section title="When · Where · Cost" fold={fold('facts')} hint="Put a · between the big line and the small line.">
               {(['when', 'where', 'cost'] as const).map((key) => (
                 <ChipField key={key} chip={chip(key)} hostelName={hostel?.name ?? null} onChange={(v) => setChip(key, v)} />
               ))}
             </Section>
 
-            <Section title={FIELD.extras} hint="0–4 short items. The dots are added for you.">
+            <Section title={FIELD.extras} fold={fold('extras')} hint="0–4 short items. The dots are added for you.">
               <ExtrasField extras={draft.data.extras} onChange={(extras) => setData({ extras })} />
             </Section>
           </>
         )}
 
-        <Section title={FIELD.ask}>
+        <Section title={FIELD.ask} fold={fold('ask')}>
           <Field label={FIELD.english} lang="en">
             <input value={t.askEn} maxLength={60} onChange={(e) => setText('askEn', e.target.value)} />
           </Field>
@@ -446,7 +458,7 @@ export function Editor({
         </Section>
 
         {!week && (
-          <Section title="Photo">
+          <Section title="Photo" fold={fold('photo')}>
             <div className="seg">
               {(Object.entries(PHOTO_MODE_LABEL) as [PhotoMode, string][]).map(([mode, label]) => (
                 <button key={mode} type="button" className={draft.data.photoMode === mode ? 'on' : ''} onClick={() => setData({ photoMode: mode })}>
@@ -496,7 +508,7 @@ export function Editor({
           </Section>
         )}
 
-        <Section title="Top and tag pill">
+        <Section title="Top and tag pill" fold={fold('top')}>
           <Field label={FIELD.eyebrow}>
             <input value={t.eyebrow} maxLength={18} onChange={(e) => setText('eyebrow', e.target.value)} />
           </Field>
@@ -516,7 +528,7 @@ export function Editor({
           )}
         </Section>
 
-        <Section title={FIELD.share} hint="Not printed. The caption to paste when you post or send the flyer.">
+        <Section title={FIELD.share} fold={fold('share')} hint="Not printed. The caption to paste when you post or send the flyer.">
           {ai && (
             <div className="ai-write">
               {/* One button in both states: the one that was pressed is there to take the focus back. */}
