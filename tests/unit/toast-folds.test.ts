@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { NO_FOLDS, closeWarning, foldsFor, openAll, warningId, type Folds } from '../../src/editor/toasts.js';
+import { NO_FOLDS, closeWarning, foldsFor, openAll, warningId, type Folds } from '../../src/editor/toastFolds.js';
 
-/* Which of the standing warnings are folded into the "⚠ n" chip (src/editor/toasts.ts; the editor's UX round, Part 1).
+/* Which of the standing warnings are folded into the "⚠ n" chip (src/editor/toastFolds.ts; the editor's UX round, Part 1).
    A warning is known by its kind and its words, so a closed one stays folded while the staff member types, and one
    whose words change, or that left and came back, shows again. */
 

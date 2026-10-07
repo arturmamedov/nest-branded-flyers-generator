@@ -86,8 +86,19 @@ export const templateButton = (page: Page, template: Template) =>
 export const canvasButton = (page: Page, canvas: CanvasId) =>
   page.getByRole('group', { name: 'Canvas' }).getByRole('button', { name: CANVASES[canvas].label, exact: true });
 
+/** What a focus page says about the flyer on its stage (src/editor/Toasts.tsx), by kind: an action's outcome ('ok',
+    'error') or an open warning. Its words alone, without its close button. A warning folded into the chip is not one
+    of these: see warningsChip. */
+export const toast = (page: Page, kind: 'ok' | 'error' | 'warn') => page.locator(`.toasts .toast-${kind} .toast-body`);
+
+/** A toast's close button, from its words (a locator toast() gave). */
+export const closeToast = (words: Locator) => words.locator('xpath=..').getByRole('button', { name: /^Close this/ });
+
+/** The "⚠ n" chip the closed warnings fold into; a click opens them again. */
+export const warningsChip = (page: Page) => page.locator('.toasts .toast-chip');
+
 /** The editor's warning that copy is cut off, on the canvas on screen or on one fitted offscreen. */
-export const cutOff = (page: Page) => page.locator('.note-warn', { hasText: 'is being cut off' });
+export const cutOff = (page: Page) => toast(page, 'warn').filter({ hasText: 'is being cut off' });
 
 /** The end of that warning naming exactly these canvases: the tail makes a one-canvas match exact. */
 export const cutOffOn = (...canvases: CanvasId[]) =>

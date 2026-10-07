@@ -19,6 +19,7 @@ import {
   saveNew,
   status,
   templateButton,
+  toast,
   type FilePayload,
 } from '../editor';
 import { LEAVE_PROMPT } from '../../src/editor/leaveGuard';
@@ -161,13 +162,13 @@ test('one action at a time: a photo dropped while a download is out is refused, 
   await expect(page.getByRole('button', { name: 'Rendering…', exact: true }), 'the download is out').toBeDisabled();
   await dropFile(page, page.locator('.stage'), PHOTO);
   // Checked now: when the download ends, its own note takes the refusal's place.
-  await expect(page.locator('.notes .note-error')).toHaveText('Still working on the last action — drop the photo again in a moment.');
+  await expect(toast(page, 'error')).toHaveText('Still working on the last action — drop the photo again in a moment.');
   expect(uploads, 'nothing uploaded').toEqual([]);
   await expect(photoButton).toBeDisabled();
 
   release();
   await downloaded;
-  await expect(page.locator('.notes .note-ok')).toContainText('Downloaded');
+  await expect(toast(page, 'ok')).toContainText('Downloaded');
   await expect(photoButton).toBeEnabled();
 });
 
@@ -497,7 +498,7 @@ test('This week: rows typed, taken from a saved flyer, reordered and removed are
   await expect(row(page, 2, 'day')).toHaveValue('Saturday 19/9');
   await expect(row(page, 2, 'time')).toHaveValue('15:00');
   await expect(row(page, 2, 'cost')).toHaveValue('Free');
-  await expect(page.locator('.notes .note-ok')).toHaveText('Added “Saturday is a pool party” from Pool party.');
+  await expect(toast(page, 'ok')).toHaveText('Added “Saturday is a pool party” from Pool party.');
 
   await button(page, '+ Add row').click();
   await row(page, 3, 'event').fill('Open mic night');
@@ -563,10 +564,10 @@ test('This week: a row taken from a saved flyer is refused, by name, when the we
   release();
   expect((await took).status()).toBe(200);
 
-  await expect(page.locator('.notes .note-error')).toHaveText(
+  await expect(toast(page, 'error')).toHaveText(
     `“Saturday is a pool party” was not added: a week holds ${WEEK_ROWS_MAX} rows. Remove one, then add it again.`,
   );
-  await expect(page.locator('.notes .note-ok')).toHaveCount(0);
+  await expect(toast(page, 'ok')).toHaveCount(0);
   await expect(page.locator('.week-row')).toHaveCount(WEEK_ROWS_MAX);
   for (let n = 1; n <= WEEK_ROWS_MAX; n++) await expect(row(page, n, 'event'), `row ${n}`).toHaveValue('');
 });
@@ -582,10 +583,10 @@ test('This week: a row taken from a saved flyer is refused, by name, when the fl
   release();
   expect((await took).status()).toBe(200);
 
-  await expect(page.locator('.notes .note-error')).toHaveText(
+  await expect(toast(page, 'error')).toHaveText(
     `“Saturday is a pool party” was not added: this is an ${TEMPLATE_LABEL.activity} flyer now. Switch back to ${TEMPLATE_LABEL.week}, then add it again.`,
   );
-  await expect(page.locator('.notes .note-ok')).toHaveCount(0);
+  await expect(toast(page, 'ok')).toHaveCount(0);
   await templateButton(page, 'week').click();
   await expect(picker(page)).toBeVisible();
   await expect(row(page, 1, 'event')).toHaveCount(0);
@@ -653,7 +654,7 @@ test('This week: a dropped photo is refused with a reason, and an Activity flyer
     if (r.method() === 'POST' && /\/api\/photos$/.test(new URL(r.url()).pathname)) uploads.push(r.url());
   });
   await dropFile(page, page.locator('.stage'), PHOTO);
-  await expect(page.locator('.notes .note-error')).toContainText(`${TEMPLATE_LABEL.week} flyer has no photo`);
+  await expect(toast(page, 'error')).toContainText(`${TEMPLATE_LABEL.week} flyer has no photo`);
   expect(uploads, 'nothing uploaded').toEqual([]);
 
   await templateButton(page, 'activity').click();

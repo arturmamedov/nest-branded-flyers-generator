@@ -14,9 +14,10 @@ import { briefFieldLabel, FIELD } from './fields';
 import { AiUsedUp, BackToLibrary, Field, HostelOptions, Section } from './panel';
 import { PHOTO_UPLOADING } from './photoModes';
 import { pictureLimits, preparePhoto, type PhotoLimits } from './photoPrep';
-import { CutOffNote, Preview, useFitReports } from './Preview';
+import { Preview, copyWarnings, useFitReports } from './Preview';
 import { go, onPage } from './route';
 import { ShareCopy } from './share';
+import { Toasts } from './Toasts';
 
 /* "Create with AI" (#/ai, docs/prompts/ai-assistant.md): a staff member's idea in, a flyer out, ending at "Open in
    editor". A focus page like the editor, which stays the place where a flyer is adjusted and saved. The flyer is
@@ -448,26 +449,6 @@ export function AiPage({
           </div>
         )}
 
-        {(error || (flyer && !busy && (cutOff.length > 0 || lints.length > 0))) && (
-          <div className="notes">
-            {error && (
-              <div className="note note-error">
-                {error}
-                {/* "Try again" only while a read is left to try with: at none, the used-up sentence says the rest. */}
-                {pictureKept && photo && photo.remaining > 0 && <PictureKept onType={typeIt} />}
-              </div>
-            )}
-            {flyer && !busy && cutOff.length > 0 && <CutOffNote canvases={cutOff} />}
-            {flyer &&
-              !busy &&
-              lints.map((l, i) => (
-                <div key={i} className="note note-warn">
-                  {l.message}
-                </div>
-              ))}
-          </div>
-        )}
-
         {busy ? (
           <div className="stage">
             <p className="ai-waiting" role="status">
@@ -491,6 +472,25 @@ export function AiPage({
             <p className="ai-empty">Your flyer appears here.</p>
           </div>
         )}
+
+        <Toasts
+          outcome={
+            error === null
+              ? null
+              : {
+                  kind: 'error',
+                  body: (
+                    <>
+                      {error}
+                      {/* "Try again" only while a read is left to try with: at none, the used-up sentence says the rest. */}
+                      {pictureKept && photo && photo.remaining > 0 && <PictureKept onType={typeIt} />}
+                    </>
+                  ),
+                }
+          }
+          onCloseOutcome={() => say(null)}
+          warnings={flyer && !busy ? copyWarnings(cutOff, lints) : []}
+        />
       </main>
     </div>
   );

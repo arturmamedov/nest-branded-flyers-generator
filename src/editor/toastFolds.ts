@@ -1,5 +1,5 @@
 /* Which of a focus page's standing warnings are folded into the "⚠ n" chip (Toasts.tsx draws them). No React and no
-   DOM here, so the rule is tested by itself (tests/unit/toasts.test.ts). */
+   DOM here, so the rule is tested by itself (tests/unit/toast-folds.test.ts). */
 
 /** The window's width at and below which the form sits on top of the flyer (editor.css): there the flyer fills the
     stage, so a warning starts folded. */

@@ -2,8 +2,11 @@ import { useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, use
 import { fitFlyer, type FitReport } from '../flyer/fit';
 import { Flyer } from '../flyer/Flyer';
 import { CANVASES, CANVAS_IDS, activityGroups, bodyOf, photoFrame, type CanvasId } from '../shared/layout';
+import type { Lint } from '../shared/copyRules';
 import { clampCrop, panCrop } from '../shared/photo';
 import type { Crop, FlyerData, Hostel, PhotoInfo } from '../shared/schema';
+import type { Warning } from './Toasts';
+import { warningId } from './toastFolds';
 
 /* The live preview IS the export renderer: the same <Flyer> at its canvas's
    true size, scaled with transform (never CSS zoom, which would change the
@@ -27,13 +30,11 @@ export function useFitReports(): { onFit: FitCallback; cutOff: CanvasId[] } {
   return { onFit, cutOff };
 }
 
-/** The warning that some copy is at its smallest size and still cut off, naming where. */
-export function CutOffNote({ canvases }: { canvases: CanvasId[] }) {
-  return (
-    <div className="note note-warn">
-      Some text is at its smallest size and is being cut off on {canvases.map((c) => CANVASES[c].label).join(' and ')} — shorten it.
-    </div>
-  );
+/** What the copy on the stage is warned of, on either focus page: that some of it is at its smallest size and still
+    cut off, naming where, and each copy rule it breaks. */
+export function copyWarnings(cutOff: CanvasId[], lints: Lint[]): Warning[] {
+  const cut = `Some text is at its smallest size and is being cut off on ${cutOff.map((c) => CANVASES[c].label).join(' and ')} — shorten it.`;
+  return [...(cutOff.length > 0 ? [cut] : []).map((words) => ({ id: warningId('cut-off', words), body: words })), ...lints.map((l) => ({ id: warningId('lint', l.message), body: l.message }))];
 }
 
 interface Props {

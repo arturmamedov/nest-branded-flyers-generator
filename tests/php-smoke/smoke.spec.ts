@@ -2,7 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import type { APIRequestContext, Page, Response as PwResponse } from '@playwright/test';
 import { expect, test } from '../browser';
-import { POOL_PARTY, apiCall, backToLibrary, dropFile, filterLibrary, libraryCard as card, rowField, saveNew, status, templateButton, type FilePayload } from '../editor';
+import { POOL_PARTY, apiCall, backToLibrary, dropFile, filterLibrary, libraryCard as card, rowField, saveNew, status, templateButton, toast, type FilePayload } from '../editor';
 import sharp from 'sharp';
 import { PHOTO_MODE_LABEL } from '../../src/editor/photoModes';
 import { TEMPLATE_LABEL } from '../../src/editor/templates';
@@ -55,7 +55,7 @@ test.afterEach(async ({ request }) => {
   leftovers.clear();
 });
 
-const errorNote = (page: Page) => page.locator('.notes .note-error');
+const errorNote = (page: Page) => toast(page, 'error');
 const fileInput = (page: Page) => page.locator('input[type=file]');
 
 async function payload(request: APIRequestContext, id: number): Promise<FlyerPayload> {
@@ -357,7 +357,7 @@ test('the editor on the PHP backend: create, photos, crop, reopen, library, down
         await download.saveAs(file);
         const meta = await sharp(file).metadata();
         expect([meta.format, meta.width, meta.height], name).toEqual([sharpFormat, width, height]);
-        await expect(page.locator('.notes .note-ok')).toContainText(`${name} (${width} × ${height})`);
+        await expect(toast(page, 'ok')).toContainText(`${name} (${width} × ${height})`);
         await expect(button).toBeEnabled(); // the editor is idle again
       }
     }

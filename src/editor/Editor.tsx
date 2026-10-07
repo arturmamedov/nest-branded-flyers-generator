@@ -20,8 +20,10 @@ import { PHOTO_MODE_LABEL, PHOTO_UPLOADING } from './photoModes';
 import { preparePhoto, type PhotoLimits } from './photoPrep';
 import { replaceHash } from './route';
 import { localStorageGet, localStorageSet } from './prefs';
-import { CutOffNote, Preview, useFitReports } from './Preview';
+import { Preview, copyWarnings, useFitReports } from './Preview';
 import { ShareCopy, ShareFab } from './share';
+import { Toasts, type Warning } from './Toasts';
+import { warningId } from './toastFolds';
 import { TEMPLATE_LABEL } from './templates';
 
 /** A flyer as the editor holds it. The AI page hands one over whole (handoff.ts). */
@@ -272,6 +274,29 @@ export function Editor({
     });
   };
 
+  // What is still true of the flyer on the stage, in the order it matters: whose facts these are, what stops a
+  // download, then the copy.
+  const warnings: Warning[] = [
+    ...(aiDraft ? [{ id: warningId('ai-draft', ''), body: '✨ AI draft: check every fact before you print.' }] : []),
+    ...(needsPhoto
+      ? [
+          {
+            id: warningId('needs-photo', ''),
+            body: (
+              <>
+                Add a photo, or{' '}
+                <button type="button" className="linkish" onClick={() => setData({ photoMode: 'none' })}>
+                  switch to {PHOTO_MODE_LABEL.none}
+                </button>{' '}
+                — the empty photo band would print as a blank strip.
+              </>
+            ),
+          },
+        ]
+      : []),
+    ...copyWarnings(cutOff, lints),
+  ];
+
   const t = draft.data.text;
   const chip = (key: ChipKey) => draft.data.chips.find((c) => c.key === key) as Chip;
 
@@ -490,28 +515,6 @@ export function Editor({
           </button>
         </div>
 
-        {(message || aiDraft || needsPhoto || lints.length > 0 || cutOff.length > 0) && (
-          <div className="notes">
-            {message && <div className={message.kind === 'ok' ? 'note note-ok' : 'note note-error'}>{message.text}</div>}
-            {aiDraft && <div className="note note-warn">✨ AI draft: check every fact before you print.</div>}
-            {needsPhoto && (
-              <div className="note note-warn">
-                Add a photo, or{' '}
-                <button type="button" className="linkish" onClick={() => setData({ photoMode: 'none' })}>
-                  switch to {PHOTO_MODE_LABEL.none}
-                </button>{' '}
-                — the empty photo band would print as a blank strip.
-              </div>
-            )}
-            {cutOff.length > 0 && <CutOffNote canvases={cutOff} />}
-            {lints.map((l, i) => (
-              <div key={i} className="note note-warn">
-                {l.message}
-              </div>
-            ))}
-          </div>
-        )}
-
         <Preview
           data={draft.data}
           canvas={canvas}
@@ -525,6 +528,7 @@ export function Editor({
         />
 
         {draft.data.share.trim() && <ShareFab text={draft.data.share} />}
+        <Toasts outcome={message && { kind: message.kind, body: message.text }} onCloseOutcome={() => setMessage(null)} warnings={warnings} />
       </main>
     </div>
   );

@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import type { Dialog, Page } from '@playwright/test';
 import sharp from 'sharp';
 import { expect, test } from '../browser';
-import { EDITOR_VIEWPORT, apiCall, apiRoute, backToLibrary, dropFile, hold, paste, saveNew, status, type FilePayload } from '../editor';
+import { EDITOR_VIEWPORT, apiCall, apiRoute, backToLibrary, dropFile, hold, paste, closeToast, saveNew, status, toast, warningsChip, type FilePayload } from '../editor';
 import { LEAVE_PROMPT } from '../../src/editor/leaveGuard';
 import { PHOTO_MODE_LABEL } from '../../src/editor/photoModes';
 import { AI_DAILY_LIMIT, AI_FAKE, AI_FEATURES, AI_PICTURE_MAX_EDGE, aiFor, aiQuotaVars, type AiFeature } from '../../src/shared/ai';
@@ -51,7 +51,7 @@ const generate = (page: Page) => page.getByRole('button', { name: /^✨ Generate
 const tryAgain = (page: Page) => page.getByRole('button', { name: /^Try again/ });
 const openInEditor = (page: Page) => page.getByRole('button', { name: 'Open in editor', exact: true });
 const writeWithAi = (page: Page) => page.getByRole('button', { name: /^✨ Write with AI/ });
-const errorNote = (page: Page) => page.locator('.notes .note-error');
+const errorNote = (page: Page) => toast(page, 'error');
 const preview = (page: Page) => page.locator('.stage-canvas');
 
 /** api/config as the server answers it, but with `remaining` left today: for a test that must not depend on what the
@@ -180,7 +180,7 @@ test('an idea becomes a flyer: a waiting state, the preview, what the AI assumed
   await expect(page.getByLabel('Line 1')).toHaveValue(brief.text!.headline1!);
   await expect(page.getByLabel('Hostel', { exact: true })).toHaveValue('adeje-nest');
   await expect(page.getByLabel('Caption')).toHaveValue(brief.share!);
-  const draftNote = page.locator('.note-warn', { hasText: 'AI draft: check every fact before you print' });
+  const draftNote = toast(page, 'warn').filter({ hasText: 'AI draft: check every fact before you print' });
   await expect(draftNote).toBeVisible();
   await expect(status(page)).toHaveText('Unsaved changes');
   expect(await answerConfirm(page, 'dismiss', () => backToLibrary(page).click())).toBe(LEAVE_PROMPT);
@@ -231,7 +231,7 @@ test('Write with AI fills the caption from the fields, asking before it replaces
   expect([request.hostel, request.template, request.data.text.headline1]).toEqual([null, 'activity', 'Stretching class']);
   expect(AiShareResultSchema.parse(await res.json()).remaining).toBe(n - 1);
   await expect(page.getByLabel('Caption')).toHaveValue(brief.share!);
-  await expect(page.locator('.notes .note-ok')).toContainText('AI');
+  await expect(toast(page, 'ok')).toContainText('AI');
   await expect(writeWithAi(page)).toContainText(`${n - 1} left today`);
   expect(await left(page, 'flyer'), 'a share text costs the flyer nothing').toBe(flyerLeft);
 });
@@ -282,6 +282,49 @@ test('the share text’s limit reached in the editor: the note says what ran out
   // The share text's limit is the share text's alone: the flyer still has its two.
   await backToLibrary(page).click();
   await expect(entry(page)).toHaveAccessibleName('Create with AI, 2 left today');
+});
+
+test('the AI page’s notes are toasts too: the flyer keeps the whole stage, and a warning folds into the chip', async ({ page }) => {
+  // The editor's UX round, Part 1 (tests/render/toasts.spec.ts has the rest, on the editor). Routed both ways, so
+  // nothing is spent: a flyer whose copy breaks a rule, so a warning stands beside it.
+  await withLeft(page, { flyer: 2 });
+  const broken = { ...brief, text: { ...brief.text, headline1: 'Book now' } };
+  await page.route(apiRoute('ai/flyer'), (route) => route.fulfill({ json: { brief: broken, assumptions: [], remaining: 1 } }));
+  await page.goto('/#/ai');
+  await idea(page).fill('Yoga tomorrow at 9');
+  await generate(page).click();
+  await expect(preview(page)).toBeVisible();
+  const rule = toast(page, 'warn').filter({ hasText: 'Book now' });
+  await expect(rule).toBeVisible();
+  // The stage starts where the bar above it ends: no note lies between them.
+  await expect
+    .poll(async () => {
+      const [bar, stage] = [(await page.locator('.toolbar').boundingBox())!, (await page.locator('.stage').boundingBox())!];
+      return [Math.round(stage.y - (bar.y + bar.height)), Math.round(stage.y + stage.height)];
+    })
+    .toEqual([0, EDITOR_VIEWPORT.height]);
+  await closeToast(rule).click();
+  await expect(rule).toHaveCount(0);
+  await expect(warningsChip(page)).toHaveText('⚠ 1');
+  await warningsChip(page).click();
+  await expect(rule).toBeVisible();
+});
+
+test('the AI page’s error is a toast that stays until it is closed', async ({ page }) => {
+  await withLeft(page, { flyer: 2 });
+  const failed = apiError('ai_failed');
+  await page.route(apiRoute('ai/flyer'), (route) => route.fulfill({ status: failed.status, json: { error: { code: failed.code, message: failed.message } } }));
+  await page.clock.install();
+  await page.goto('/#/ai');
+  await idea(page).fill('Yoga tomorrow at 9');
+  await generate(page).click();
+  await expect(errorNote(page)).toHaveText(failed.message);
+  await expect(page.locator('.toasts [role="alert"] .toast-error')).toBeVisible();
+  await page.clock.fastForward(60_000);
+  await expect(errorNote(page)).toBeVisible();
+  await closeToast(errorNote(page)).click();
+  await expect(errorNote(page)).toHaveCount(0);
+  await expect(idea(page), 'closing a note loses nothing typed').toHaveValue('Yoga tomorrow at 9');
 });
 
 test('the day’s last flyer leaves a Try again that says none are left', async ({ page }) => {
@@ -1341,7 +1384,7 @@ test.describe('From a photo', () => {
     const inFlyer = preview(page).locator('[data-group="photo"] img');
     await expect(inFlyer).toBeVisible();
     expect(await inFlyer.getAttribute('src'), 'the uploaded picture is the flyer’s photo').toContain(photo.url);
-    await expect(page.locator('.note-warn', { hasText: 'AI draft: check every fact before you print' })).toBeVisible();
+    await expect(toast(page, 'warn').filter({ hasText: 'AI draft: check every fact before you print' })).toBeVisible();
     await expect(status(page)).toHaveText('Unsaved changes');
 
     const saved = await saveNew(page, keep);
@@ -1392,7 +1435,7 @@ test.describe('From a photo', () => {
     // Nothing was handed over: the next new flyer is nobody's draft.
     await page.getByRole('link', { name: 'New flyer' }).click();
     await expect(page.getByLabel('Line 1')).toHaveValue('');
-    await expect(page.locator('.note-warn', { hasText: 'AI draft' })).toHaveCount(0);
+    await expect(toast(page, 'warn').filter({ hasText: 'AI draft' })).toHaveCount(0);
   });
 
   test('a picture that lands after the staff member left and came back to Create with AI opens nothing either: the page that asked is gone', async ({ page }) => {
@@ -1420,7 +1463,7 @@ test.describe('From a photo', () => {
     await backToLibrary(page).click();
     await page.getByRole('link', { name: 'New flyer' }).click();
     await expect(page.getByLabel('Line 1')).toHaveValue('');
-    await expect(page.locator('.note-warn', { hasText: 'AI draft' })).toHaveCount(0);
+    await expect(toast(page, 'warn').filter({ hasText: 'AI draft' })).toHaveCount(0);
     expect(quiet(), 'the new page had nothing unsaved').toEqual([]);
   });
 
