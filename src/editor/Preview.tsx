@@ -34,7 +34,11 @@ export function useFitReports(): { onFit: FitCallback; cutOff: CanvasId[] } {
     cut off, naming where, and each copy rule it breaks. */
 export function copyWarnings(cutOff: CanvasId[], lints: Lint[]): Warning[] {
   const cut = `Some text is at its smallest size and is being cut off on ${cutOff.map((c) => CANVASES[c].label).join(' and ')} — shorten it.`;
-  return [...(cutOff.length > 0 ? [cut] : []).map((words) => ({ id: warningId('cut-off', words), body: words })), ...lints.map((l) => ({ id: warningId('lint', l.message), body: l.message }))];
+  return [
+    ...(cutOff.length > 0 ? [cut] : []).map((words) => ({ id: warningId('cut-off', words), body: words })),
+    // A rule broken in two fields is two warnings, though their words are the same.
+    ...lints.map((l) => ({ id: warningId(`lint:${l.field}`, l.message), body: l.message })),
+  ];
 }
 
 interface Props {

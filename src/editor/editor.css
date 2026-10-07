@@ -525,20 +525,33 @@ nest-nav > nav a.ai-entry .ai-count {
 /* What the page has to say about the flyer (Toasts.tsx): in the stage's bottom-right corner, over it and out of the
    flow, so a note never takes space from the flyer (the owner's rule, 2026-10-07). The corner itself lets a drop and
    a drag through to the stage; only the toasts take the pointer. */
+/* The corner hangs from a line at the workspace's end. The line is sticky: where the workspace ends below the screen
+   (a phone, whose stage is at least 420 px under the form), it stays at the screen's bottom edge, so a toast is seen
+   when it comes; scrolled to the stage's end, it is the stage's corner again. It has no height, so it takes none. */
+.toasts-anchor {
+  position: sticky;
+  bottom: 0;
+  z-index: 3;
+  flex: 0 0 0;
+  height: 0;
+  pointer-events: none;
+}
+
+/* Its padding is room for what the toasts draw outside themselves (the chip's focus ring, their shadows): it scrolls
+   when the warnings are many, and what scrolls clips. The toasts stand 16 px from the stage's edges. */
 .toasts {
   position: absolute;
-  right: 16px;
-  bottom: 16px;
-  z-index: 3;
+  right: 8px;
+  bottom: 8px;
   box-sizing: border-box;
-  width: min(300px, calc(100% - 32px));
-  max-height: calc(100% - 80px);
+  width: min(316px, calc(100% - 16px));
+  max-height: 70vh;
+  padding: 8px;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
   align-items: flex-end;
   gap: 6px;
-  pointer-events: none;
 }
 
 .toasts > [role],
@@ -546,9 +559,13 @@ nest-nav > nav a.ai-entry .ai-count {
   width: 100%;
 }
 
-/* The region a success is announced from is there before its words: empty, it takes no room and no gap. */
-.toasts > [role]:empty {
-  display: none;
+/* The region a success is announced from is in the page before its words, or a screen reader may not read them.
+   Empty, it is out of the column, so it takes no room and no gap. */
+.toasts > [role='status']:empty {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
 }
 
 .toast-warnings {
@@ -1170,14 +1187,13 @@ nest-nav > nav a.ai-entry .ai-count {
 
   /* The toasts share that corner, and stand above the reminder where there is one: it keeps its place. */
   .toasts {
-    right: 12px;
-    bottom: 12px;
-    width: min(300px, calc(100% - 24px));
+    right: 4px;
+    bottom: 4px;
+    width: min(316px, calc(100% - 8px));
   }
 
   .workspace:has(.share-fab) .toasts {
-    bottom: 56px;
-    max-height: calc(100% - 120px);
+    bottom: 48px;
   }
 
   /* The AI page before a flyer: the form has the screen, or the empty preview would push Generate out of sight. */

@@ -51,16 +51,22 @@ export function Toasts({ outcome, onCloseOutcome, warnings }: { outcome: Outcome
   const folded = warnings.length - open.length;
 
   // A success leaves by itself; it waits while the pointer or the focus is on it. An error stays until it is closed.
-  const [held, setHeld] = useState(false);
+  // Each holds it by itself: the pointer leaving must not let go of a toast the keyboard is on.
+  const [holds, setHolds] = useState({ pointer: false, focus: false });
+  const held = holds.pointer || holds.focus;
   const close = useRef(onCloseOutcome);
   close.current = onCloseOutcome;
+  // Its time runs from when it came: by its kind and its words, never by the object, which a page makes anew on
+  // every render, and a keystroke would start the wait again. A page empties the slot between two actions (run()), so
+  // the same words twice are two toasts.
+  const [kind, body] = [outcome?.kind, outcome?.body];
   useEffect(() => {
-    if (outcome?.kind !== 'ok' || held) return;
+    if (kind !== 'ok' || held) return;
     const t = setTimeout(() => close.current(), OUTCOME_MS);
     return () => clearTimeout(t);
-  }, [outcome, held]);
+  }, [kind, body, held]);
   useEffect(() => {
-    if (!outcome) setHeld(false);
+    if (!outcome) setHolds({ pointer: false, focus: false });
   }, [outcome]);
 
   // A toast never takes the focus. One closed from the keyboard would drop it nowhere, though: it goes to the chip
@@ -76,7 +82,12 @@ export function Toasts({ outcome, onCloseOutcome, warnings }: { outcome: Outcome
     if (hadFocus) setRefocus((n) => n + 1);
   };
 
-  const hold = { onPointerEnter: () => setHeld(true), onPointerLeave: () => setHeld(false), onFocus: () => setHeld(true), onBlur: () => setHeld(false) };
+  const hold = {
+    onPointerEnter: () => setHolds((h) => ({ ...h, pointer: true })),
+    onPointerLeave: () => setHolds((h) => ({ ...h, pointer: false })),
+    onFocus: () => setHolds((h) => ({ ...h, focus: true })),
+    onBlur: () => setHolds((h) => ({ ...h, focus: false })),
+  };
   const outcomeToast = (o: Outcome) => (
     <div className={`toast toast-${o.kind}`} {...(o.kind === 'ok' ? hold : {})}>
       <div className="toast-body">{o.body}</div>
@@ -85,26 +96,30 @@ export function Toasts({ outcome, onCloseOutcome, warnings }: { outcome: Outcome
   );
 
   return (
-    <div ref={root} className="toasts">
-      {/* An error is said at once. A success is said when there is a pause, from a region that is there before its
-          words are. The warnings are not said: they change with every key. */}
-      {outcome?.kind === 'error' && <div role="alert">{outcomeToast(outcome)}</div>}
-      <div role="status">{outcome?.kind === 'ok' && outcomeToast(outcome)}</div>
-      {open.length > 0 && (
-        <ul className="toast-warnings" aria-label="Warnings">
-          {open.map((w, i) => (
-            <li key={`${i}:${w.id}`} className="toast toast-warn">
-              <div className="toast-body">{w.body}</div>
-              <Close what="this warning" onClose={(hadFocus) => closing(hadFocus, () => setFolds((f) => closeWarning(f, w.id)))} />
-            </li>
-          ))}
-        </ul>
-      )}
-      {folded > 0 && (
-        <button ref={chip} type="button" className="toast-chip" aria-label={folded === 1 ? 'Show 1 warning' : `Show ${folded} warnings`} onClick={() => setFolds(openAll)}>
-          <span aria-hidden="true">⚠ {folded}</span>
-        </button>
-      )}
+    // The anchor is a line at the workspace's end that stays on the screen (editor.css): on a phone the stage ends
+    // below the fold, and a toast in its corner would come and go unseen.
+    <div className="toasts-anchor">
+      <div ref={root} className="toasts">
+        {/* An error is said at once. A success is said when there is a pause, from a region that is there before its
+            words are. The warnings are not said: they change with every key. */}
+        {outcome?.kind === 'error' && <div role="alert">{outcomeToast(outcome)}</div>}
+        <div role="status">{outcome?.kind === 'ok' && outcomeToast(outcome)}</div>
+        {open.length > 0 && (
+          <ul className="toast-warnings" aria-label="Warnings">
+            {open.map((w) => (
+              <li key={w.id} className="toast toast-warn">
+                <div className="toast-body">{w.body}</div>
+                <Close what="this warning" onClose={(hadFocus) => closing(hadFocus, () => setFolds((f) => closeWarning(f, w.id)))} />
+              </li>
+            ))}
+          </ul>
+        )}
+        {folded > 0 && (
+          <button ref={chip} type="button" className="toast-chip" aria-label={folded === 1 ? 'Show 1 warning' : `Show ${folded} warnings`} onClick={() => setFolds(openAll)}>
+            <span aria-hidden="true">⚠ {folded}</span>
+          </button>
+        )}
+      </div>
     </div>
   );
 }

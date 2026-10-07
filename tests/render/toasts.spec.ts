@@ -56,7 +56,7 @@ test('a warning takes nothing from the flyer: the stage keeps the whole height u
 test('the toasts stand in the stage’s bottom-right corner, inside it', async ({ page }) => {
   await page.goto('/#/new');
   await expect(needsPhoto(page)).toBeVisible();
-  const [s, t] = [await box(stage(page)), await box(page.locator('.toasts'))];
+  const [s, t] = [await box(stage(page)), await box(page.locator('.toasts .toast-warn'))];
   expect(Math.round(s.x + s.width - (t.x + t.width)), 'from the right edge').toBe(16);
   expect(Math.round(s.y + s.height - (t.y + t.height)), 'from the bottom edge').toBe(16);
   expect(t.y).toBeGreaterThan(s.y);
@@ -107,23 +107,49 @@ test('a second warning joins the chip’s count only when it is closed too', asy
   await expect(toast(page, 'warn')).toHaveCount(2);
 });
 
-test('a success closes by itself after a while, and waits while the pointer is on it', async ({ page }) => {
+/** The page's clock stands still from here: a toast's own time passes only when the test says so, however slow the
+    machine is. */
+async function stopClock(page: Page) {
   await page.clock.install();
+  await page.clock.pauseAt(Date.now() + 1000);
+}
+
+test('a success closes by itself after a while, and waits while the pointer or the focus is on it', async ({ page }) => {
   await page.goto('/#/new');
+  await stopClock(page);
   await saveNew(page, keep);
   const done = toast(page, 'ok');
   await expect(done).toHaveText('Saved to the library.');
   await done.hover();
   await page.clock.fastForward(OUTCOME_MS * 2);
   await expect(done, 'read at leisure').toBeVisible();
+  await closeToast(done).focus();
   await page.mouse.move(5, 5);
+  await page.clock.fastForward(OUTCOME_MS * 2);
+  await expect(done, 'the focus holds it as the pointer did').toBeVisible();
+  await page.getByLabel('Line 1').focus();
   await page.clock.fastForward(OUTCOME_MS + 100);
   await expect(done).toHaveCount(0);
 });
 
-test('an error stays until it is closed', async ({ page }) => {
-  await page.clock.install();
+test('a success closes after its time while the staff member keeps typing', async ({ page }) => {
+  // Found in review (2026-10-07): every render started the six seconds again, so the toast stayed for as long as
+  // anyone worked.
   await page.goto('/#/new');
+  await stopClock(page);
+  await saveNew(page, keep);
+  const done = toast(page, 'ok');
+  await expect(done).toBeVisible();
+  for (const typed of ['S', 'Sa', 'Sat']) {
+    await page.getByLabel('Line 1').fill(typed);
+    await page.clock.fastForward(OUTCOME_MS / 2);
+  }
+  await expect(done).toHaveCount(0);
+});
+
+test('an error stays until it is closed', async ({ page }) => {
+  await page.goto('/#/new');
+  await stopClock(page);
   await templateButton(page, 'week').click();
   const file: FilePayload = { name: 'party.png', mimeType: 'image/png', buffer: Buffer.from('x') };
   await dropFile(page, stage(page), file);
@@ -157,13 +183,51 @@ test('an error is an alert and a success a status; the standing warnings are a p
   await expect(page.locator('.toasts [role="alert"] .toast-error')).toBeVisible();
 });
 
-test('the stage under the corner still takes a drop', async ({ page }) => {
+test('the corner is no wall: beside the chip, the stage under it gets the pointer', async ({ page }) => {
   await page.goto('/#/new');
-  await templateButton(page, 'week').click();
-  const t = await box(page.locator('.toasts'));
-  // The corner's own box, beside the toasts in it, is no wall: what is under it gets the pointer.
-  const under = await page.evaluate(([x, y]) => document.elementFromPoint(x, y)?.closest('.toasts') === null, [t.x + 2, t.y + t.height + 4]);
-  expect(under).toBe(true);
+  await closeToast(needsPhoto(page)).click();
+  const [corner, chip] = [await box(page.locator('.toasts')), await box(warningsChip(page))];
+  expect(chip.x - corner.x, 'the corner is wider than the chip in it').toBeGreaterThan(100);
+  // A point inside the corner's box, left of the chip.
+  const point: [number, number] = [corner.x + 20, chip.y + chip.height / 2];
+  const hit = await page.evaluate(([x, y]) => {
+    const el = document.elementFromPoint(x, y);
+    return { inCorner: el?.closest('.toasts') !== null, inStage: el?.closest('.stage') !== null };
+  }, point);
+  expect(hit).toEqual({ inCorner: false, inStage: true });
+});
+
+test('the same words on two fields are two warnings: closing one leaves the other', async ({ page }) => {
+  // Found in review (2026-10-07): they shared an id, so one close folded both.
+  await page.goto('/#/new');
+  await page.getByLabel('Line 1').fill('Book now');
+  await page.getByLabel('Line 2').fill('Book now');
+  const rule = toast(page, 'warn').filter({ hasText: 'Book now' });
+  await expect(rule).toHaveCount(2);
+  await closeToast(rule.first()).click();
+  await expect(rule).toHaveCount(1);
+  await expect(warningsChip(page)).toHaveText('⚠ 1');
+});
+
+test('the chip’s focus ring is drawn whole, inside the corner’s box', async ({ page }) => {
+  // Found in review (2026-10-07): the corner scrolls, so it clips, and the chip stood flush against its edges.
+  await page.goto('/#/new');
+  await closeToast(needsPhoto(page)).click();
+  const [corner, chip] = [await box(page.locator('.toasts')), await box(warningsChip(page))];
+  const ring = 4; // a 2 px outline, 2 px off the chip
+  expect(corner.x + corner.width - (chip.x + chip.width)).toBeGreaterThanOrEqual(ring);
+  expect(corner.y + corner.height - (chip.y + chip.height)).toBeGreaterThanOrEqual(ring);
+});
+
+test('the region a success is announced from is in the page before its words', async ({ page }) => {
+  // Found in review (2026-10-07): empty, it was display: none, and a region shown together with its words is one
+  // several screen readers do not read.
+  await page.goto('/#/new');
+  const region = page.locator('.toasts [role="status"]');
+  await expect(region).toBeEmpty();
+  expect(await region.evaluate((el) => getComputedStyle(el).display)).not.toBe('none');
+  // Empty, it takes no room: the warning above it sits where it would without it.
+  expect((await box(region)).height).toBeLessThanOrEqual(1);
 });
 
 test.describe('on a phone', () => {
@@ -187,15 +251,35 @@ test.describe('on a phone', () => {
     await expect(pill).toBeVisible();
     await warningsChip(page).click();
     await expect(needsPhoto(page)).toBeVisible();
-    expect(apart(await box(pill), await box(page.locator('.toasts'))), 'they do not overlap').toBe(true);
+    expect(apart(await box(pill), await box(page.locator('.toasts .toast-warn'))), 'they do not overlap').toBe(true);
+    // Nor does the corner's own box lie over the pill: it would take the tap meant for it.
+    const [x, y] = [(await box(pill)).x + 10, (await box(pill)).y + 10];
+    expect(await page.evaluate(([x, y]) => document.elementFromPoint(x, y)?.closest('.share-fab') !== null, [x, y])).toBe(true);
     const [s, p] = [await box(stage(page)), await box(pill)];
     expect(Math.round(s.x + s.width - (p.x + p.width))).toBe(12);
+  });
+
+  test('on a short phone, where the stage ends below the screen, a toast is on the screen all the same', async ({ page }) => {
+    // Found in review (2026-10-07): the corner is the stage's, and on a small phone the stage's bottom is under the
+    // fold, so a success came and went unseen.
+    await page.setViewportSize({ width: 360, height: 640 });
+    await page.goto('/#/new');
+    const s = await box(stage(page));
+    expect(s.y + s.height, 'the stage ends below the screen').toBeGreaterThan(640);
+    await expect(warningsChip(page)).toBeInViewport({ ratio: 1 });
+    await saveNew(page, keep);
+    await expect(toast(page, 'ok')).toBeInViewport({ ratio: 1 });
+    // Scrolled to the stage's end, they stand in its corner, above the Share text pill's place.
+    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+    await expect(warningsChip(page)).toBeInViewport({ ratio: 1 });
+    const [end, chip] = [await box(stage(page)), await box(warningsChip(page))];
+    expect(Math.round(end.y + end.height - (chip.y + chip.height))).toBe(12);
   });
 
   test('the toasts fit the phone’s width', async ({ page }) => {
     await page.goto('/#/new');
     await warningsChip(page).click();
-    const t = await box(page.locator('.toasts'));
+    const t = await box(page.locator('.toasts .toast-warn'));
     expect(t.x).toBeGreaterThanOrEqual(12);
     expect(t.x + t.width).toBeLessThanOrEqual(PHONE.width - 12 + 0.5);
   });

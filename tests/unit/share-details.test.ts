@@ -41,11 +41,22 @@ describe('the details a caption is written from', () => {
     const input = (data: FlyerData): ShareInput => ({ hostel: null, template: data.template, data });
     const bundle = { prompts: { flyer: '', share: 'rules', photo: '' }, examples: [] };
     const call = (data: FlyerData) => JSON.stringify(buildShareCall(bundle, [], '2026-10-07T12:00:00.000Z', input(data)));
+    // Every field of a flyer outside the list, whatever it is called: found from the data, so a field added later
+    // is held to this too.
     const outside = Object.keys(d).filter((k) => k !== 'template' && !(SHARE_DETAILS as readonly string[]).includes(k)) as (keyof FlyerData)[];
-    expect(outside.length).toBeGreaterThan(0);
-    // The same flyer with every other field at another value writes the same prompt.
-    const other = { ...d, share: 'x', photoMode: 'none', showPill: !d.showPill, photoCrop: { ...d.photoCrop, zoom: 3 } } as FlyerData;
-    expect(call(other)).toBe(call(d));
+    expect(outside).toEqual(expect.arrayContaining(['share', 'photoMode', 'photoCrop']));
+    const another = (v: unknown): unknown =>
+      typeof v === 'string' ? `${v} changed` : typeof v === 'boolean' ? !v : typeof v === 'number' ? v + 1 : Array.isArray(v) ? [...v, 'changed'] : { ...(v as object), changed: 1 };
+    for (const key of outside) {
+      const other = { ...d, [key]: another(d[key]) } as FlyerData;
+      expect(other[key], key).not.toEqual(d[key]);
+      expect(call(other), `${key} is no detail: the prompt is the same`).toBe(call(d));
+      expect(of(other), key).toBe(of(d));
+    }
+    for (const key of SHARE_DETAILS) {
+      const other = { ...d, [key]: another(d[key]) } as FlyerData;
+      expect(of(other), key).not.toBe(of(d));
+    }
     expect(call({ ...d, extras: ['Music'] })).not.toBe(call(d));
   });
 });

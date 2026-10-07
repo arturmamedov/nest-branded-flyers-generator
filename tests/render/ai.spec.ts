@@ -33,16 +33,21 @@ const brief = example.answer.brief;
 /** Flyers a test saved, archived afterwards. */
 const saved: number[] = [];
 const keep = (id: number) => saved.push(id);
+/** The answers still being read for an id: the clean-up waits for them. */
+const reading: Promise<void>[] = [];
 test.afterEach(async ({ request }) => {
+  await Promise.all(reading.splice(0));
   for (const id of saved.splice(0)) await request.delete(`/api/flyers/${id}`, { headers: WRITE_HEADERS });
 });
 // A new flyer the page saves by itself is kept too: "Write with AI" writes the caption and saves the flyer.
 test.beforeEach(({ page }) => {
   page.on('response', (res) => {
     if (res.status() !== 201 || !apiCall('POST', 'flyers')(res)) return;
-    res.json().then(
-      (body) => keep(FlyerSavedSchema.parse(body).id),
-      () => {},
+    reading.push(
+      res.json().then(
+        (body) => void keep(FlyerSavedSchema.parse(body).id),
+        () => {},
+      ),
     );
   });
 });
@@ -286,9 +291,12 @@ test('Write with AI fills the caption from the fields, asking before it replaces
   await page.getByLabel('Library name').fill('Stretching');
   await page.getByLabel('Caption').fill(`${brief.share} 🙂`);
   await expect(writeAgain(page)).toBeVisible();
-  // An emptied caption has nothing to write again.
+  // An emptied caption has nothing to write again, and one typed by hand after it is the staff member's own.
   await page.getByLabel('Caption').fill('');
   await expect(writeWithAi(page)).toBeVisible();
+  await page.getByLabel('Caption').fill('My own words');
+  await expect(writeWithAi(page), 'found in review (2026-10-07): one typed character brought the link back').toBeVisible();
+  await expect(writeAgain(page)).toHaveCount(0);
   // The flyer is saved, with unsaved changes since: leaving asks. Saved here, so the test ends clean.
   await page.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(status(page)).toHaveText('Saved');
@@ -354,6 +362,35 @@ test('a caption written and a save refused: the caption stays, unsaved, and the 
   // Save then does what the toast says.
   await page.unroute(flyers);
   await saveNew(page, keep);
+});
+
+test('a caption that lands while the leave question is open, answered yes, saves nothing', async ({ page }) => {
+  // Found in review (2026-10-07): React unmounts a page a few tasks after the move, so the page's own word that it
+  // is still there is not enough. The URL says so at once.
+  await withLeft(page, { share: 2 });
+  let answer = () => {};
+  const asked = new Promise<void>((resolve) => (answer = resolve));
+  await page.route(apiRoute('ai/share'), async (route) => {
+    await asked;
+    await route.fulfill({ json: { share: 'Written by the AI', remaining: 1 } });
+  });
+  const writes: string[] = [];
+  page.on('request', (r) => {
+    if (r.method() !== 'GET' && /\/api\/flyers(\/\d+)?$/.test(new URL(r.url()).pathname)) writes.push(`${r.method()} ${r.url()}`);
+  });
+  await page.goto('/#/new');
+  await page.getByLabel('Line 1').fill('Unsaved work');
+  await writeWithAi(page).click();
+  await expect(page.getByRole('button', { name: /^Writing…/ })).toBeDisabled();
+  // The answer is let go while the question is open, and lands the moment it is answered.
+  page.once('dialog', (d) => {
+    answer();
+    setTimeout(() => void d.accept(), 300);
+  });
+  await backToLibrary(page).click();
+  await expect(page.getByRole('heading', { name: 'Flyer library' })).toBeVisible();
+  await page.waitForTimeout(300);
+  expect(writes, 'the flyer they chose to leave is not in the library').toEqual([]);
 });
 
 test('a caption that lands after the staff member has left saves nothing', async ({ page }) => {

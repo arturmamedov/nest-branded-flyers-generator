@@ -18,7 +18,7 @@ import { FIELD } from './fields';
 import { AiUsedUp, BackToLibrary, Field, HostelOptions, Section } from './panel';
 import { PHOTO_MODE_LABEL, PHOTO_UPLOADING } from './photoModes';
 import { preparePhoto, type PhotoLimits } from './photoPrep';
-import { replaceHash } from './route';
+import { onPage, replaceHash } from './route';
 import { localStorageGet, localStorageSet } from './prefs';
 import { Preview, copyWarnings, useFitReports } from './Preview';
 import { ShareCopy, ShareFab } from './share';
@@ -317,8 +317,10 @@ export function Editor({
       });
       onRemaining(ai.name, r.remaining);
       // The staff member left while it was on its way, on a yes to the leave question where there was unsaved work:
-      // nothing of this flyer is written behind their back.
-      if (!here.current) return;
+      // nothing of this flyer is written behind their back. It takes both checks, as on the AI page: the URL says so
+      // at once, where React unmounts a page a few tasks after the move; the page itself says so when they have since
+      // opened another flyer, which is the same kind of URL and another editor.
+      if (!(onPage('new') || onPage('edit')) || !here.current) return;
       setData({ share: r.share });
       setCaptionOf(sent);
       // The draft as it is now, with the caption: save() by itself would write the draft of the render this action
@@ -531,7 +533,11 @@ export function Editor({
               readOnly={busy === 'ai'}
               maxLength={SHARE_MAX}
               placeholder={`TODAY we have a plan! 🌅\n🕖 19:00 h · 📍 The pool\n\n${SHARE_SPANISH_BREAK}\n\n¡HOY tenemos plan! 🌅`}
-              onChange={(e) => setData({ share: e.target.value })}
+              onChange={(e) => {
+                setData({ share: e.target.value });
+                // Emptied, the caption that was written is gone: what is typed next is the staff member's own.
+                if (!e.target.value.trim()) setCaptionOf(null);
+              }}
             />
           </Field>
           <ShareCopy text={draft.data.share} />
