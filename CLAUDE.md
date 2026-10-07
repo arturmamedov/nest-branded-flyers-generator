@@ -102,6 +102,35 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
   - Browser specs read them through `tests/editor.ts`: `toast(page, kind)`, `closeToast()`, `warningsChip()`.
     A test of a toast's time stops the page's clock (`stopClock` in `tests/render/toasts.spec.ts`).
   - Not toasts: failures with no flyer on screen (the editor's "This flyer does not exist", the library's banner).
+- The editor's form folds (2026-10-07, the editor's UX round, Part 2; Artur's "pill dropdown section" and
+  "collapsible to the left"). How a viewer looks at the form, never flyer data.
+  - A focus page's form is `.panel`: its head (`.panel-head`), and under it the form (`.panel-body`), which
+    scrolls by itself. The head is no part of what scrolls. It was a sticky bar inside the scrolling panel, with
+    room kept for it by scroll padding: focusing one of its controls then scrolled the form to its top.
+  - `Section` in `panel.tsx` folds when it is given a `fold`. Its header is a button with `aria-expanded`: closed,
+    a pill with one line of what is inside, and a dot while a warning stands for one of its fields; open, a lightly
+    marked card that holds its fields (his pick of two looks, and his ask for the mark). The AI page's sections are
+    given none. A closed section's content is `hidden`, never unmounted.
+  - The rule is `src/editor/sectionFolds.ts`, pure and tested by itself: the sections, which ones a template shows,
+    which start open, each one's line, and the section a copy rule's field is in (`Lint.field`).
+  - A new flyer and an AI-made one start with every section open. A saved one opens as the sections were left last
+    time, and before any last time with When · Where · Cost open, or the week's rows.
+  - One memory for every saved flyer in a browser: `editor.sections` (`prefs.ts`). Only an editor that opened a
+    saved flyer writes it (`id != null`): a new flyer's first save keeps the editor mounted and its `id` null, so
+    nothing folds or is written then.
+  - The head holds the fold button first ("Hide" / "Form": one button, in the same corner in every state), then
+    "← Library", then "Open all" / "Close all". Folded, the form is `hidden` whole: a 56 px rail on a desktop (his
+    pick of three shapes), the head bar alone at 860 px and narrower. The panel starts open on every visit, and
+    the form gets its scroll place back when it opens again.
+  - A photo that lands opens the Photo section (one dropped on the preview finds it closed on a saved flyer); a
+    file the photo checks refuse opens nothing.
+  - The panel is held to its width by `min-width: 0`, and on a phone to the screen by `min-height: 0`: it does not
+    scroll by itself, and a closed section's long line never wraps. `panel.spec.ts` holds the 421 px.
+  - The section titles are in `FIELD` (`fields.ts`), and the form asks `sectionsOf()` which sections a template
+    shows.
+  - Browser specs: `tests/render/panel.spec.ts`. `tests/editor.ts` has `sectionHead(page, title)`,
+    `openSection(page, ...titles)` and `panelFold(page)`: a spec that opens a saved flyer opens the section it
+    uses first.
 - Leaving the editor with unsaved work asks first, on every way out (`src/editor/leaveGuard.ts`).
   `src/editor/route.ts` cancels a refused move in the Navigation API's `navigate` event (every major
   browser since January 2026), so it never happens. A Back or Forward the browser won't let the page
@@ -638,9 +667,33 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
       where the strip beside the flyer is too narrow; the handle and the tag count as details; the words that
       are mine; a generation on its way is still not guarded when leaving; six seconds for a success.
     - Part 2's standalone prompt is `docs/prompts/editor-ux-part-2.md`.
-  - Part 2: the left panel folds away on a desktop, and its sections open and close. A new or AI-made flyer
-    starts fully open; an existing one as the sections were left last time, and before any last time with
-    When · Where · Cost open.
+  - **Part 2 is built: the panel folds, and so do its sections** (2026-10-07, five commits on top of `1139234`
+    and their record). Nothing is pushed.
+    - How it works is in the architecture section above ("The editor's form folds").
+    - Artur's choices in the session: the plan with every *Mine* point kept (the brief's seven and the plan's own
+      eight); folded, the panel is **"A slim rail"**, of three shapes; of two looks shown as pictures, **"Look A
+      and please make it more marked that we are in that session"**, so an open section is a lightly tinted card;
+      the head and the rail **"As drawn"**, with the fold button first.
+    - It is the client alone, on both backends, and the baseline is byte-identical to Part 1's capture.
+    - The form's head now stands above the form in the editor and on the AI page (the plan left `AiPage.tsx`
+      alone): the sticky head with scroll padding scrolled the form to its top when one of its buttons took the
+      focus.
+    - A fresh-context review found no fault in the fold's own logic and two regressions from that move, both
+      fixed with their tests first: the panel widened with a long line in it (473 px, where it is 421), and on a
+      short phone the AI page scrolled as a whole and lost its way back. Also fixed: a refused file opened
+      Photo, "Empty" over a Spanish line that prints, a test that could not fail.
+    - The look ran in the installed Chrome driven by a script, on Node with the fake, at 1440, 1280, 390 and
+      360 px. The pictures he chose from and the screenshots are in `backups/editor-ux-part-2/`, outside git.
+      Not looked at by eye on PHP, and not tried on a real phone.
+    - With the panel folded the warning toast is beside the flyer (0 px over it, where it is 106 px at 1440 wide
+      and 132 px at 1280 with the panel open). On a desktop the flyer is as tall as the stage, so it does not
+      grow; on a phone it does (342 px wide where it was 279, at 390 wide).
+    - **For Artur to decide** (the report has each): the fold button's word ("Hide" / "Form" says its state by
+      its name alone; one word in both states could say it to a screen reader); the words that are mine; on a
+      saved flyer the template and the hostel are in "Flyer", which starts closed; a dropped photo leaves Photo
+      open on every saved flyer until it is closed; "Open all" is the other template's sections too; the cut-off
+      warning marks no section.
+    - Part 3's standalone prompt is `docs/prompts/editor-ux-part-3.md`.
   - Part 3: `[Copy image] [Download ▾]` in the toolbar, a "Share…" entry on phones, and one clipboard helper. It
     starts with a spike. **The phone's silent "Copy text" is fixed here** (Artur saw it on 2026-10-07): the
     button calls `navigator.clipboard.writeText()` directly (`src/editor/share.tsx`), which throws where the
