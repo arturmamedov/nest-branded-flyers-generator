@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { deriveChip, splitBigSub } from '../shared/chips';
 import { ACCEPTED_PHOTO_TYPES } from '../shared/limits';
 import { lintFlyer } from '../shared/copyRules';
@@ -20,7 +20,7 @@ import { PHOTO_MODE_LABEL, PHOTO_UPLOADING } from './photoModes';
 import { preparePhoto, type PhotoLimits } from './photoPrep';
 import { onPage, replaceHash } from './route';
 import { localStorageGet, localStorageSet } from './prefs';
-import { SECTIONS_PREF, flaggedSections, openAtStart, opened, sectionLine, storeOpen, toggled, type SectionId } from './sectionFolds';
+import { SECTIONS, SECTIONS_PREF, allOpen, flaggedSections, openAtStart, opened, sectionLine, storeOpen, toggled, type SectionId } from './sectionFolds';
 import { Preview, copyWarnings, useFitReports } from './Preview';
 import { ShareCopy, ShareFab } from './share';
 import { Toasts, type Warning } from './Toasts';
@@ -158,6 +158,16 @@ export function Editor({
     // Opening a flyer is no "last time": only a change is written.
     if (id != null && openSections !== sectionsAtStart.current) localStorageSet(SECTIONS_PREF, storeOpen(openSections));
   }, [id, openSections]);
+  // The whole form folds away, to a rail on a desktop and up to its head bar on a phone (editor.css). It starts open
+  // on every visit: a form hidden on arrival would look broken, so only the sections are remembered.
+  const [panelOpen, setPanelOpen] = useState(true);
+  const formId = useId();
+  // Folded, the form is not laid out and forgets how far it was scrolled: opened, it gets its place back.
+  const form = useRef<HTMLDivElement>(null);
+  const formPlace = useRef(0);
+  useLayoutEffect(() => {
+    if (panelOpen && form.current) form.current.scrollTop = formPlace.current;
+  }, [panelOpen]);
 
   useEffect(() => {
     if (id == null) return;
@@ -376,6 +386,13 @@ export function Editor({
 
   const t = draft.data.text;
   const chip = (key: ChipKey) => draft.data.chips.find((c) => c.key === key) as Chip;
+  const togglePanel = () => {
+    if (panelOpen) formPlace.current = form.current?.scrollTop ?? 0;
+    setPanelOpen((open) => !open);
+  };
+  // "Open all" until every section on screen is open, then "Close all". Either one is every section's, the other
+  // template's too.
+  const everyOpen = allOpen(openSections, draft.data.template);
   // A closed section says what is inside, and shows a dot while a warning stands for one of its fields.
   const flagged = flaggedSections(
     lints.map((l) => l.field),
@@ -390,184 +407,203 @@ export function Editor({
 
   return (
     <div className="editor">
-      <aside className="panel">
-        {/* The editor has no shared bar (App.tsx): the way back stays at the top of the form. */}
+      <aside className={panelOpen ? 'panel' : 'panel panel-folded'}>
+        {/* The editor has no shared bar (App.tsx): the way back stays at the top of the form, and on what is left of
+            it when the form is folded. The fold button comes first, so it is in the same corner open and folded;
+            it is one button in both states, and keeps the focus. */}
         <div className="panel-head">
+          <button type="button" className="btn btn-quiet" aria-label={panelOpen ? 'Hide the form' : 'Show the form'} aria-controls={formId} onClick={togglePanel}>
+            <svg className="panel-icon" aria-hidden="true" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6">
+              <rect x="2" y="3" width="12" height="10" rx="2.5" />
+              <path d="M6.5 3v10" />
+            </svg>
+            {panelOpen ? 'Hide' : 'Form'}
+          </button>
           <BackToLibrary className="btn btn-quiet" />
+          <span className="spacer" />
+          {panelOpen && (
+            <button type="button" className="btn btn-quiet" onClick={() => setOpenSections(everyOpen ? [] : [...SECTIONS])}>
+              {everyOpen ? 'Close all' : 'Open all'}
+            </button>
+          )}
         </div>
-        <Section title="Flyer" fold={fold('flyer')}>
-          <div className="field">
-            <span className="label">{FIELD.template}</span>
-            <div className="seg" role="group" aria-label={FIELD.template}>
-              {(Object.entries(TEMPLATE_LABEL) as [Template, string][]).map(([key, label]) => (
-                <button key={key} type="button" className={draft.data.template === key ? 'on' : ''} aria-pressed={draft.data.template === key} onClick={() => chooseTemplate(key)}>
-                  {label}
-                </button>
-              ))}
-            </div>
-          </div>
-          <Field
-            label={FIELD.hostel}
-            help={`${hostel?.logoPath && marksFor(true).includes('badge') ? 'Its badge prints at the top. ' : ''}${week ? 'Named in the Spanish title line, and tags the flyer in the library' : 'Prints in the WHERE block and tags the flyer in the library'}`}
-          >
-            <select aria-label={FIELD.hostel} value={draft.hostel ?? ''} onChange={(e) => chooseHostel(e.target.value || null)}>
-              <option value="">All hostels (chain-wide)</option>
-              <HostelOptions hostels={hostels} />
-            </select>
-          </Field>
-          <Field label={FIELD.title} help="Only for finding it again — not printed">
-            <input value={draft.title} placeholder={autoTitle({ ...draft, title: '' }, hostels)} maxLength={TITLE_MAX} onChange={(e) => set({ title: e.target.value })} />
-          </Field>
-        </Section>
-
-        {/* A week flyer's title is the headline's lines: one set, kept across a switch (the owner's call, 2026-09-29). */}
-        <Section title={week ? 'Title' : FIELD.headline} fold={fold('headline')} hint={week ? `The same lines as the ${TEMPLATE_LABEL.activity} headline: switching template keeps them.` : undefined}>
-          <Field label={FIELD.line1} lang="en" help={week ? 'Black' : 'Black. About 18 characters before it starts to shrink'}>
-            <input value={t.headline1} maxLength={40} placeholder={week ? weekDefaults.headline1 : 'Saturday is a'} onChange={(e) => setText('headline1', e.target.value)} />
-          </Field>
-          <Field label={FIELD.line2} lang="en" help={week ? 'Big and teal' : 'Big and teal. About 15 characters'}>
-            <input value={t.headline2} maxLength={40} placeholder={week ? weekDefaults.headline2 : 'pool party.'} onChange={(e) => setText('headline2', e.target.value)} />
-          </Field>
-          <Field
-            label={FIELD.spanishLine}
-            lang="es"
-            optional
-            help={week ? 'Names the place picked above until you change it. Leave empty and it disappears' : 'Leave empty and it disappears'}
-          >
-            <textarea
-              rows={2}
-              value={t.headlineEs}
-              maxLength={140}
-              placeholder={week ? weekDefaults.headlineEs : 'El sábado toca fiesta en la piscina.'}
-              onChange={(e) => setText('headlineEs', e.target.value)}
-            />
-          </Field>
-        </Section>
-
-        {week ? (
-          <Section title={FIELD.weekRows} fold={fold('rows')} hint={`Up to ${WEEK_ROWS_MAX}. Type them, or take one from a saved ${TEMPLATE_LABEL.activity} flyer and change it.`}>
-            <WeekRowsField rows={draft.data.week} onChange={updateWeek} onTake={takeRow} busy={busy !== null} />
-          </Section>
-        ) : (
-          <>
-            <Section title="When · Where · Cost" fold={fold('facts')} hint="Put a · between the big line and the small line.">
-              {(['when', 'where', 'cost'] as const).map((key) => (
-                <ChipField key={key} chip={chip(key)} hostelName={hostel?.name ?? null} onChange={(v) => setChip(key, v)} />
-              ))}
-            </Section>
-
-            <Section title={FIELD.extras} fold={fold('extras')} hint="0–4 short items. The dots are added for you.">
-              <ExtrasField extras={draft.data.extras} onChange={(extras) => setData({ extras })} />
-            </Section>
-          </>
-        )}
-
-        <Section title={FIELD.ask} fold={fold('ask')}>
-          <Field label={FIELD.english} lang="en">
-            <input value={t.askEn} maxLength={60} onChange={(e) => setText('askEn', e.target.value)} />
-          </Field>
-          <Field label={FIELD.spanish} lang="es" optional>
-            <input value={t.askEs} maxLength={70} onChange={(e) => setText('askEs', e.target.value)} />
-          </Field>
-        </Section>
-
-        {!week && (
-          <Section title="Photo" fold={fold('photo')}>
-            <div className="seg">
-              {(Object.entries(PHOTO_MODE_LABEL) as [PhotoMode, string][]).map(([mode, label]) => (
-                <button key={mode} type="button" className={draft.data.photoMode === mode ? 'on' : ''} onClick={() => setData({ photoMode: mode })}>
-                  {label}
-                </button>
-              ))}
-            </div>
-            {draft.data.photoMode !== 'none' && (
-              <>
-                <div className="photo-row">
-                  <button type="button" className="btn" disabled={!!busy} onClick={() => fileInput.current?.click()}>
-                    {busy === 'upload' ? PHOTO_UPLOADING : draft.photo ? 'Replace photo' : 'Choose photo'}
+        {/* Folded, the form is hidden whole, so no field can be reached by Tab, by the pointer or by a screen
+            reader; it stays mounted, as a closed section's content does. */}
+        <div ref={form} id={formId} className="panel-body" hidden={!panelOpen}>
+          <Section title="Flyer" fold={fold('flyer')}>
+            <div className="field">
+              <span className="label">{FIELD.template}</span>
+              <div className="seg" role="group" aria-label={FIELD.template}>
+                {(Object.entries(TEMPLATE_LABEL) as [Template, string][]).map(([key, label]) => (
+                  <button key={key} type="button" className={draft.data.template === key ? 'on' : ''} aria-pressed={draft.data.template === key} onClick={() => chooseTemplate(key)}>
+                    {label}
                   </button>
-                  {draft.photo && (
-                    <button type="button" className="btn btn-quiet" onClick={() => set({ photo: null })}>
-                      Remove
+                ))}
+              </div>
+            </div>
+            <Field
+              label={FIELD.hostel}
+              help={`${hostel?.logoPath && marksFor(true).includes('badge') ? 'Its badge prints at the top. ' : ''}${week ? 'Named in the Spanish title line, and tags the flyer in the library' : 'Prints in the WHERE block and tags the flyer in the library'}`}
+            >
+              <select aria-label={FIELD.hostel} value={draft.hostel ?? ''} onChange={(e) => chooseHostel(e.target.value || null)}>
+                <option value="">All hostels (chain-wide)</option>
+                <HostelOptions hostels={hostels} />
+              </select>
+            </Field>
+            <Field label={FIELD.title} help="Only for finding it again — not printed">
+              <input value={draft.title} placeholder={autoTitle({ ...draft, title: '' }, hostels)} maxLength={TITLE_MAX} onChange={(e) => set({ title: e.target.value })} />
+            </Field>
+          </Section>
+
+          {/* A week flyer's title is the headline's lines: one set, kept across a switch (the owner's call, 2026-09-29). */}
+          <Section title={week ? 'Title' : FIELD.headline} fold={fold('headline')} hint={week ? `The same lines as the ${TEMPLATE_LABEL.activity} headline: switching template keeps them.` : undefined}>
+            <Field label={FIELD.line1} lang="en" help={week ? 'Black' : 'Black. About 18 characters before it starts to shrink'}>
+              <input value={t.headline1} maxLength={40} placeholder={week ? weekDefaults.headline1 : 'Saturday is a'} onChange={(e) => setText('headline1', e.target.value)} />
+            </Field>
+            <Field label={FIELD.line2} lang="en" help={week ? 'Big and teal' : 'Big and teal. About 15 characters'}>
+              <input value={t.headline2} maxLength={40} placeholder={week ? weekDefaults.headline2 : 'pool party.'} onChange={(e) => setText('headline2', e.target.value)} />
+            </Field>
+            <Field
+              label={FIELD.spanishLine}
+              lang="es"
+              optional
+              help={week ? 'Names the place picked above until you change it. Leave empty and it disappears' : 'Leave empty and it disappears'}
+            >
+              <textarea
+                rows={2}
+                value={t.headlineEs}
+                maxLength={140}
+                placeholder={week ? weekDefaults.headlineEs : 'El sábado toca fiesta en la piscina.'}
+                onChange={(e) => setText('headlineEs', e.target.value)}
+              />
+            </Field>
+          </Section>
+
+          {week ? (
+            <Section title={FIELD.weekRows} fold={fold('rows')} hint={`Up to ${WEEK_ROWS_MAX}. Type them, or take one from a saved ${TEMPLATE_LABEL.activity} flyer and change it.`}>
+              <WeekRowsField rows={draft.data.week} onChange={updateWeek} onTake={takeRow} busy={busy !== null} />
+            </Section>
+          ) : (
+            <>
+              <Section title="When · Where · Cost" fold={fold('facts')} hint="Put a · between the big line and the small line.">
+                {(['when', 'where', 'cost'] as const).map((key) => (
+                  <ChipField key={key} chip={chip(key)} hostelName={hostel?.name ?? null} onChange={(v) => setChip(key, v)} />
+                ))}
+              </Section>
+
+              <Section title={FIELD.extras} fold={fold('extras')} hint="0–4 short items. The dots are added for you.">
+                <ExtrasField extras={draft.data.extras} onChange={(extras) => setData({ extras })} />
+              </Section>
+            </>
+          )}
+
+          <Section title={FIELD.ask} fold={fold('ask')}>
+            <Field label={FIELD.english} lang="en">
+              <input value={t.askEn} maxLength={60} onChange={(e) => setText('askEn', e.target.value)} />
+            </Field>
+            <Field label={FIELD.spanish} lang="es" optional>
+              <input value={t.askEs} maxLength={70} onChange={(e) => setText('askEs', e.target.value)} />
+            </Field>
+          </Section>
+
+          {!week && (
+            <Section title="Photo" fold={fold('photo')}>
+              <div className="seg">
+                {(Object.entries(PHOTO_MODE_LABEL) as [PhotoMode, string][]).map(([mode, label]) => (
+                  <button key={mode} type="button" className={draft.data.photoMode === mode ? 'on' : ''} onClick={() => setData({ photoMode: mode })}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+              {draft.data.photoMode !== 'none' && (
+                <>
+                  <div className="photo-row">
+                    <button type="button" className="btn" disabled={!!busy} onClick={() => fileInput.current?.click()}>
+                      {busy === 'upload' ? PHOTO_UPLOADING : draft.photo ? 'Replace photo' : 'Choose photo'}
                     </button>
-                  )}
-                  <input
-                    ref={fileInput}
-                    type="file"
-                    accept={ACCEPTED_PHOTO_TYPES.join(',')}
-                    hidden
-                    onChange={(e) => {
-                      const f = e.target.files?.[0];
-                      if (f) onFile(f);
-                      e.target.value = '';
-                    }}
-                  />
-                </div>
-                <p className="help">
-                  Or drop a photo on the preview. Drag the photo there to move it in any direction; click it and use the arrow keys to nudge
-                  (Shift for bigger steps).
-                </p>
-                {/* After the photo's own help, whose "Or" answers the button above. A new tab: leaving the editor with
-                    unsaved work asks first, and a link must never cost a draft. */}
-                <p className="help">
-                  Need a photo? Search{' '}
-                  <a className="linkish" href={PEXELS_URL} target="_blank" rel="noopener noreferrer">
-                    Pexels
-                  </a>
-                  .
-                </p>
-                {draft.photo && <PhotoControls photo={draft.photo} data={draft.data} canvas={canvas} onCrop={updateCrop} />}
-              </>
+                    {draft.photo && (
+                      <button type="button" className="btn btn-quiet" onClick={() => set({ photo: null })}>
+                        Remove
+                      </button>
+                    )}
+                    <input
+                      ref={fileInput}
+                      type="file"
+                      accept={ACCEPTED_PHOTO_TYPES.join(',')}
+                      hidden
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        if (f) onFile(f);
+                        e.target.value = '';
+                      }}
+                    />
+                  </div>
+                  <p className="help">
+                    Or drop a photo on the preview. Drag the photo there to move it in any direction; click it and use the arrow keys to nudge
+                    (Shift for bigger steps).
+                  </p>
+                  {/* After the photo's own help, whose "Or" answers the button above. A new tab: leaving the editor with
+                      unsaved work asks first, and a link must never cost a draft. */}
+                  <p className="help">
+                    Need a photo? Search{' '}
+                    <a className="linkish" href={PEXELS_URL} target="_blank" rel="noopener noreferrer">
+                      Pexels
+                    </a>
+                    .
+                  </p>
+                  {draft.photo && <PhotoControls photo={draft.photo} data={draft.data} canvas={canvas} onCrop={updateCrop} />}
+                </>
+              )}
+            </Section>
+          )}
+
+          <Section title="Top and tag pill" fold={fold('top')}>
+            <Field label={FIELD.eyebrow}>
+              <input value={t.eyebrow} maxLength={18} onChange={(e) => setText('eyebrow', e.target.value)} />
+            </Field>
+            <label className="check">
+              <input type="checkbox" checked={draft.data.showPill} onChange={(e) => setData({ showPill: e.target.checked })} />
+              Show the tag pill
+            </label>
+            {draft.data.showPill && (
+              <div className="two">
+                <Field label={FIELD.handle}>
+                  <input value={t.handle} maxLength={18} onChange={(e) => setText('handle', e.target.value)} />
+                </Field>
+                <Field label={FIELD.tag}>
+                  <input value={t.tag} maxLength={12} onChange={(e) => setText('tag', e.target.value)} />
+                </Field>
+              </div>
             )}
           </Section>
-        )}
 
-        <Section title="Top and tag pill" fold={fold('top')}>
-          <Field label={FIELD.eyebrow}>
-            <input value={t.eyebrow} maxLength={18} onChange={(e) => setText('eyebrow', e.target.value)} />
-          </Field>
-          <label className="check">
-            <input type="checkbox" checked={draft.data.showPill} onChange={(e) => setData({ showPill: e.target.checked })} />
-            Show the tag pill
-          </label>
-          {draft.data.showPill && (
-            <div className="two">
-              <Field label={FIELD.handle}>
-                <input value={t.handle} maxLength={18} onChange={(e) => setText('handle', e.target.value)} />
-              </Field>
-              <Field label={FIELD.tag}>
-                <input value={t.tag} maxLength={12} onChange={(e) => setText('tag', e.target.value)} />
-              </Field>
-            </div>
-          )}
-        </Section>
-
-        <Section title={FIELD.share} fold={fold('share')} hint="Not printed. The caption to paste when you post or send the flyer.">
-          {ai && (
-            <div className="ai-write">
-              {/* One button in both states: the one that was pressed is there to take the focus back. */}
-              <button ref={aiButton} type="button" className={captionWritten ? 'linkish ai-again' : 'btn'} disabled={!!busy || ai.remaining === 0} onClick={writeShare}>
-                {busy === 'ai' ? 'Writing…' : captionWritten ? 'Write again' : '✨ Write with AI'} <span className="ai-left">({ai.remaining} left today)</span>
-              </button>
-              <AiUsedUp feature={ai.name} limit={ai.limit} left={ai.remaining} />
-            </div>
-          )}
-          <Field label="Caption" optional>
-            <textarea
-              rows={8}
-              value={draft.data.share}
-              readOnly={busy === 'ai'}
-              maxLength={SHARE_MAX}
-              placeholder={`TODAY we have a plan! 🌅\n🕖 19:00 h · 📍 The pool\n\n${SHARE_SPANISH_BREAK}\n\n¡HOY tenemos plan! 🌅`}
-              onChange={(e) => {
-                setData({ share: e.target.value });
-                // Emptied, the caption that was written is gone: what is typed next is the staff member's own.
-                if (!e.target.value.trim()) setCaptionOf(null);
-              }}
-            />
-          </Field>
-          <ShareCopy text={draft.data.share} />
-        </Section>
+          <Section title={FIELD.share} fold={fold('share')} hint="Not printed. The caption to paste when you post or send the flyer.">
+            {ai && (
+              <div className="ai-write">
+                {/* One button in both states: the one that was pressed is there to take the focus back. */}
+                <button ref={aiButton} type="button" className={captionWritten ? 'linkish ai-again' : 'btn'} disabled={!!busy || ai.remaining === 0} onClick={writeShare}>
+                  {busy === 'ai' ? 'Writing…' : captionWritten ? 'Write again' : '✨ Write with AI'} <span className="ai-left">({ai.remaining} left today)</span>
+                </button>
+                <AiUsedUp feature={ai.name} limit={ai.limit} left={ai.remaining} />
+              </div>
+            )}
+            <Field label="Caption" optional>
+              <textarea
+                rows={8}
+                value={draft.data.share}
+                readOnly={busy === 'ai'}
+                maxLength={SHARE_MAX}
+                placeholder={`TODAY we have a plan! 🌅\n🕖 19:00 h · 📍 The pool\n\n${SHARE_SPANISH_BREAK}\n\n¡HOY tenemos plan! 🌅`}
+                onChange={(e) => {
+                  setData({ share: e.target.value });
+                  // Emptied, the caption that was written is gone: what is typed next is the staff member's own.
+                  if (!e.target.value.trim()) setCaptionOf(null);
+                }}
+              />
+            </Field>
+            <ShareCopy text={draft.data.share} />
+          </Section>
+        </div>
       </aside>
 
       <main className="workspace">

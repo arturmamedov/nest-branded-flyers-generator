@@ -16,6 +16,7 @@ import {
   hold,
   libraryCard as card,
   openSection,
+  panelFold,
   rowField as row,
   saveNew,
   status,
@@ -112,12 +113,17 @@ test('the editor has the whole window, and its way back stays at the top of the 
   await expect(backToLibrary(page)).toBeVisible();
   expect((await page.locator('.toolbar').boundingBox())!.y, 'no bar above the toolbar').toBe(0);
 
-  const form = panel(page);
+  // The form scrolls under its head, which is no part of what scrolls.
+  const form = page.locator('.panel-body');
   expect(await form.evaluate((el) => el.scrollHeight - el.clientHeight), 'the form scrolls').toBeGreaterThan(200);
   await form.evaluate((el) => el.scrollTo(0, el.scrollHeight));
   expect(await form.evaluate((el) => el.scrollTop)).toBeGreaterThan(0);
   await expect(backToLibrary(page)).toBeInViewport({ ratio: 1 });
-  expect((await page.locator('.panel-head').boundingBox())!.y, 'the head sits flush with the panel top').toBe((await form.boundingBox())!.y);
+  expect((await page.locator('.panel-head').boundingBox())!.y, 'the head sits flush with the panel top').toBe((await panel(page).boundingBox())!.y);
+  // Folded to its rail, the panel still holds the way back (panel.spec.ts has the rest of the fold).
+  await panelFold(page).click();
+  await expect(form).toBeHidden();
+  await expect(backToLibrary(page)).toBeInViewport({ ratio: 1 });
 });
 
 test('a new flyer starts in the default photo mode, and a photo dropped on No photo lands in it', async ({ page }) => {

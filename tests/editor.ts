@@ -77,6 +77,10 @@ export async function saveNew(page: Page, keep: (id: number) => void): Promise<F
 /** The editor's one way back, "← Library" at the top of its form (it has no top bar). */
 export const backToLibrary = (page: Page) => page.locator('.panel').getByRole('link', { name: 'Library', exact: true });
 
+/** The button at the head of the editor's form that folds the whole form away and opens it again: "Hide the form" or
+    "Show the form". One button in both states, on the desktop's rail and in the phone's head bar. */
+export const panelFold = (page: Page) => page.locator('.panel-head').getByRole('button', { name: /^(Hide|Show) the form$/ });
+
 /** A section's header in the editor's form, by the section's title: a button, pressed to open and close it. */
 export const sectionHead = (page: Page, title: string) =>
   page.locator('.panel .section-head').filter({ has: page.locator('.section-title', { hasText: exactly(title) }) });

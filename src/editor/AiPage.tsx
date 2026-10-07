@@ -329,98 +329,101 @@ export function AiPage({
         <div className="panel-head">
           <BackToLibrary className="btn btn-quiet" />
         </div>
-        {/* Where the steps stand alone they say what the hint would, as in the owner's sketch. */}
-        <Section title="✨ Create with AI" hint={stepping ? undefined : WAY_HINT[way]}>
-          {photo && !stepping && (
-            <div className="seg ai-ways" role="group" aria-label="Start from">
-              {(Object.entries(WAY_LABEL) as [Way, string][]).map(([key, label]) => (
-                <button
-                  key={key}
-                  ref={key === 'photo' ? photoWay : undefined}
-                  type="button"
-                  className={way === key ? 'on' : ''}
-                  aria-pressed={way === key}
-                  disabled={!!busy}
-                  onClick={() => chooseWay(key)}
-                >
-                  {label}
+        {/* The form under the head, which scrolls by itself (editor.css), as the editor's does. */}
+        <div className="panel-body">
+          {/* Where the steps stand alone they say what the hint would, as in the owner's sketch. */}
+          <Section title="✨ Create with AI" hint={stepping ? undefined : WAY_HINT[way]}>
+            {photo && !stepping && (
+              <div className="seg ai-ways" role="group" aria-label="Start from">
+                {(Object.entries(WAY_LABEL) as [Way, string][]).map(([key, label]) => (
+                  <button
+                    key={key}
+                    ref={key === 'photo' ? photoWay : undefined}
+                    type="button"
+                    className={way === key ? 'on' : ''}
+                    aria-pressed={way === key}
+                    disabled={!!busy}
+                    onClick={() => chooseWay(key)}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            )}
+            {/* From the first tap on From a photo (the owner's answer, 2026-10-06): under the switch while a picture is
+                chosen and read, then in its place, with the picture that was read and the way back to choosing one.
+                The last step is for the flyer made from this picture: one from an idea typed in, or from a picture
+                chosen before, leaves this one at its words. */}
+            {(way === 'photo' || stepping) && (
+              <AiSteps at={way === 'photo' ? 1 : result?.picture === picture ? 3 : 2} found={pictureRead && read ? read.found : 'words'} />
+            )}
+            {stepping && (
+              <AiPicture picture={picture} className="ai-picture-read">
+                <button type="button" className="linkish" disabled={!!busy} onClick={changePicture}>
+                  Change the picture
                 </button>
-              ))}
-            </div>
-          )}
-          {/* From the first tap on From a photo (the owner's answer, 2026-10-06): under the switch while a picture is
-              chosen and read, then in its place, with the picture that was read and the way back to choosing one.
-              The last step is for the flyer made from this picture: one from an idea typed in, or from a picture
-              chosen before, leaves this one at its words. */}
-          {(way === 'photo' || stepping) && (
-            <AiSteps at={way === 'photo' ? 1 : result?.picture === picture ? 3 : 2} found={pictureRead && read ? read.found : 'words'} />
-          )}
-          {stepping && (
-            <AiPicture picture={picture} className="ai-picture-read">
-              <button type="button" className="linkish" disabled={!!busy} onClick={changePicture}>
-                Change the picture
-              </button>
-            </AiPicture>
-          )}
-          {way === 'photo' && photo ? (
-            <AiPhoto ai={photo} flyer={ai} picture={picture} busy={!!busy} reading={busy === 'photo'} onPick={pick} onRead={readPicture} />
-          ) : (
-            <>
-              <Field label="Your idea">
-                <textarea
-                  ref={ideaBox}
-                  rows={10}
-                  value={idea}
-                  maxLength={AI_INPUT_MAX}
-                  placeholder={PLACEHOLDER}
-                  aria-describedby={read ? readNoteId : undefined}
-                  onChange={(e) => {
-                    setIdea(e.target.value);
-                    // Emptied, the box holds nothing of a read any more.
-                    if (!e.target.value.trim()) setWordsRead(false);
-                  }}
-                />
-              </Field>
-              {/* Focused when a read lands (above), which is how it is announced: it holds its words from the start. */}
-              {read && (
-                <p ref={readNote} id={readNoteId} tabIndex={-1} className="help ai-read-note">
-                  {READ_NOTE[read.found]}
-                </p>
-              )}
-              <Field label={FIELD.hostel} help="Pick one, or let the AI read it from your text">
-                <select aria-label={FIELD.hostel} value={hostel} onChange={(e) => setHostel(e.target.value)}>
-                  <option value="">Let the AI decide</option>
-                  <HostelOptions hostels={hostels} />
-                </select>
-              </Field>
-              <button type="button" className="btn btn-accent" disabled={!!busy || !idea.trim() || left === 0} onClick={generate}>
-                {busy === 'flyer' ? 'Writing…' : '✨ Generate'} <span className="ai-left">({left} left today)</span>
-              </button>
-              <AiUsedUp feature={ai.name} limit={ai.limit} left={left} />
-            </>
-          )}
-        </Section>
-
-        {result && result.assumptions.length > 0 && (
-          <Section title="The AI assumed…" hint="Your text didn't say these, so the AI picked them. Check each one in the editor.">
-            <ul className="ai-assumptions">
-              {result.assumptions.map((a, i) => (
-                <li key={i}>
-                  <b>{briefFieldLabel(a.field)}:</b> {a.note}
-                </li>
-              ))}
-            </ul>
+              </AiPicture>
+            )}
+            {way === 'photo' && photo ? (
+              <AiPhoto ai={photo} flyer={ai} picture={picture} busy={!!busy} reading={busy === 'photo'} onPick={pick} onRead={readPicture} />
+            ) : (
+              <>
+                <Field label="Your idea">
+                  <textarea
+                    ref={ideaBox}
+                    rows={10}
+                    value={idea}
+                    maxLength={AI_INPUT_MAX}
+                    placeholder={PLACEHOLDER}
+                    aria-describedby={read ? readNoteId : undefined}
+                    onChange={(e) => {
+                      setIdea(e.target.value);
+                      // Emptied, the box holds nothing of a read any more.
+                      if (!e.target.value.trim()) setWordsRead(false);
+                    }}
+                  />
+                </Field>
+                {/* Focused when a read lands (above), which is how it is announced: it holds its words from the start. */}
+                {read && (
+                  <p ref={readNote} id={readNoteId} tabIndex={-1} className="help ai-read-note">
+                    {READ_NOTE[read.found]}
+                  </p>
+                )}
+                <Field label={FIELD.hostel} help="Pick one, or let the AI read it from your text">
+                  <select aria-label={FIELD.hostel} value={hostel} onChange={(e) => setHostel(e.target.value)}>
+                    <option value="">Let the AI decide</option>
+                    <HostelOptions hostels={hostels} />
+                  </select>
+                </Field>
+                <button type="button" className="btn btn-accent" disabled={!!busy || !idea.trim() || left === 0} onClick={generate}>
+                  {busy === 'flyer' ? 'Writing…' : '✨ Generate'} <span className="ai-left">({left} left today)</span>
+                </button>
+                <AiUsedUp feature={ai.name} limit={ai.limit} left={left} />
+              </>
+            )}
           </Section>
-        )}
 
-        {flyer && (
-          <Section title={FIELD.share} hint="Written by the AI: the caption to paste when you post. You can change it in the editor.">
-            <Field label="The AI’s share text">
-              <textarea rows={8} value={flyer.data.share} readOnly />
-            </Field>
-            <ShareCopy text={flyer.data.share} />
-          </Section>
-        )}
+          {result && result.assumptions.length > 0 && (
+            <Section title="The AI assumed…" hint="Your text didn't say these, so the AI picked them. Check each one in the editor.">
+              <ul className="ai-assumptions">
+                {result.assumptions.map((a, i) => (
+                  <li key={i}>
+                    <b>{briefFieldLabel(a.field)}:</b> {a.note}
+                  </li>
+                ))}
+              </ul>
+            </Section>
+          )}
+
+          {flyer && (
+            <Section title={FIELD.share} hint="Written by the AI: the caption to paste when you post. You can change it in the editor.">
+              <Field label="The AI’s share text">
+                <textarea rows={8} value={flyer.data.share} readOnly />
+              </Field>
+              <ShareCopy text={flyer.data.share} />
+            </Section>
+          )}
+        </div>
       </aside>
 
       <main className="workspace">

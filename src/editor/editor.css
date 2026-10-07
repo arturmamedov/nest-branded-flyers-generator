@@ -190,31 +190,83 @@ nest-nav > nav a.ai-entry .ai-count {
   min-height: 0;
 }
 
+/* A focus page's form: its head, and under it the form itself, which scrolls by itself. 420 px: a form 380 wide and
+   20 px each side of it. */
 .panel {
   --panel-head: 48px;
-  flex: 0 0 380px;
-  overflow-y: auto;
+  flex: 0 0 420px;
+  display: flex;
+  flex-direction: column;
   background: var(--paper);
   border-right: 1px solid var(--line);
-  padding: 0 20px 40px;
-  /* A field focused from the keyboard never scrolls under the sticky head. */
-  scroll-padding-top: var(--panel-head);
 }
 
-/* The editor has no top bar (App.tsx), so its way back stays in view while the form scrolls.
-   The panel has no top padding, so top: 0 is flush with its edge. */
+/* A focus page has no top bar (App.tsx), so its way back stays in view while the form scrolls: the head stands
+   above the form and is no part of what scrolls. (It was a sticky bar inside a scrolling panel, with room kept for
+   it by the panel's scroll padding. That counts the bar's own controls as out of sight, so focusing one scrolled the
+   form to its top: nothing to see while the bar held one link, and wrong once it has buttons to press.) */
 .panel-head {
-  position: sticky;
-  top: 0;
-  z-index: 1;
+  flex: 0 0 auto;
   display: flex;
   align-items: center;
+  gap: 6px;
   box-sizing: border-box;
   height: var(--panel-head);
-  margin: 0 -20px;
   padding: 0 10px;
-  background: var(--paper);
   border-bottom: 1px solid var(--line);
+}
+
+.panel-head .spacer {
+  flex: 1 1 auto;
+}
+
+/* The form. In the editor it is hidden whole while the panel is folded (Editor.tsx). A field the keyboard lands on
+   keeps a little air from the form's edges. */
+.panel-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0 20px 40px;
+  scroll-padding: 12px 0;
+}
+
+/* The panel folded on a desktop (the owner's ask, 2026-10-07; a slim rail, his pick of three shapes): what is left
+   of it is its head, standing, with the same two buttons, each with its word under it. The flyer's stage gets the
+   rest. At 860 px and narrower the form is on top, and folded it is its head bar: the block at this file's end. */
+@media (min-width: 861px) {
+  .panel-folded {
+    box-sizing: border-box;
+    flex-basis: 56px;
+  }
+
+  .panel-folded .panel-head {
+    flex-direction: column;
+    height: auto;
+    padding: 8px 0;
+    gap: 4px;
+    border-bottom: 0;
+  }
+
+  .panel-folded .panel-head .btn {
+    flex-direction: column;
+    gap: 3px;
+    width: 48px;
+    padding: 8px 0 6px;
+    border-color: transparent;
+    border-radius: 12px;
+    font-size: 10px;
+    line-height: 1.2;
+  }
+
+  .panel-folded .panel-head .btn:hover {
+    border-color: var(--teal);
+  }
+
+  /* The way back's arrow, at the size of the fold button's picture. */
+  .panel-folded .panel-head .btn > span[aria-hidden] {
+    font-size: 16px;
+    line-height: 1;
+  }
 }
 
 .section {
@@ -249,7 +301,7 @@ nest-nav > nav a.ai-entry .ai-count {
   border-radius: 20px;
 }
 
-.panel-head + .section-fold {
+.section-fold:first-child {
   margin-top: 14px;
 }
 
@@ -1287,6 +1339,16 @@ nest-nav > nav a.ai-entry .ai-count {
     max-height: 45vh;
     border-right: 0;
     border-bottom: 1px solid var(--line);
+  }
+
+  /* Folded, the form is its head bar alone and the flyer gets the screen. The fold button's picture turns with the
+     panel: its strip is on top here. */
+  .panel-folded {
+    border-bottom: 0;
+  }
+
+  .panel-icon {
+    transform: rotate(90deg);
   }
 
   .stage {

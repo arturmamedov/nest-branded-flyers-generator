@@ -1,9 +1,28 @@
 import { readFileSync } from 'node:fs';
 import type { APIRequestContext, Page } from '@playwright/test';
 import { expect, test } from '../browser';
-import { EDITOR_VIEWPORT, POOL_PARTY, apiCall, apiRoute, backToLibrary, dropFile, openSection, rowField, saveNew, sectionHead, status, templateButton, toast, type FilePayload } from '../editor';
+import {
+  EDITOR_VIEWPORT,
+  POOL_PARTY,
+  apiCall,
+  apiRoute,
+  backToLibrary,
+  canvasButton,
+  dropFile,
+  openSection,
+  panelFold,
+  rowField,
+  saveNew,
+  sectionHead,
+  status,
+  templateButton,
+  toast,
+  type FilePayload,
+} from '../editor';
 import { FIELD } from '../../src/editor/fields';
-import { SECTIONS_PREF } from '../../src/editor/sectionFolds';
+import { LEAVE_PROMPT } from '../../src/editor/leaveGuard';
+import { SECTIONS, SECTIONS_PREF } from '../../src/editor/sectionFolds';
+import { CANVAS_IDS } from '../../src/shared/layout';
 import type { FlyerListItem } from '../../src/shared/schema';
 import { WRITE_HEADERS } from '../../src/shared/writeGuard';
 
@@ -261,4 +280,160 @@ test('a dropped photo that is refused opens nothing', async ({ page }) => {
   await dropFile(page, page.locator('.stage'), PHOTO);
   await expect(toast(page, 'error')).toContainText('flyer has no photo');
   expect(await sections(page)).toEqual(allOf(WEEK, WEEK.filter((title) => title !== 'Flyer')));
+});
+
+/* The whole panel folds away to the left on a desktop (the owner's ask; a slim rail, his pick of three shapes), and
+   up to its head bar on a phone. It starts open on every visit: only the sections are remembered. */
+
+const openAll = (page: Page) => page.locator('.panel-head').getByRole('button', { name: /^(Open|Close) all$/ });
+const stageWidth = (page: Page) => page.locator('.stage').evaluate((el) => el.clientWidth);
+const widthOf = async (page: Page, selector: string) => (await page.locator(selector).boundingBox())!.width;
+
+test('the panel folds to a rail and opens again from the keyboard; folded, no field can be reached and the way back stays', async ({ page, request }) => {
+  await openFlyer(page, await sample(request, 'Pool party'));
+  await openSection(page, FIELD.headline);
+  await page.getByLabel('Line 1').fill('Sunday is a');
+  const [stage, panel] = [await stageWidth(page), await widthOf(page, '.panel')];
+
+  const fold = panelFold(page);
+  await expect(fold).toHaveAccessibleName('Hide the form');
+  await fold.focus();
+  await page.keyboard.press('Enter');
+  await expect(fold).toHaveAccessibleName('Show the form');
+  await expect(fold, 'the same button in both states: it keeps the focus').toBeFocused();
+  const rail = await widthOf(page, '.panel');
+  expect(rail, 'a slim rail').toBe(56);
+  await expect.poll(() => stageWidth(page), 'the stage has what the panel gave up').toBe(stage + panel - rail);
+
+  // Nothing of the form can be reached: not by sight, and not by the keyboard, which goes from the rail's two
+  // buttons straight to the toolbar.
+  await expect(page.getByLabel('Line 1')).toBeHidden();
+  await expect(page.locator('.panel .section-head').first()).toBeHidden();
+  await expect(openAll(page)).toBeHidden();
+  await expect(backToLibrary(page)).toBeInViewport({ ratio: 1 });
+  await page.keyboard.press('Tab');
+  await expect(backToLibrary(page)).toBeFocused();
+  await page.keyboard.press('Tab');
+  await expect(canvasButton(page, CANVAS_IDS[0])).toBeFocused();
+  // Folding is how the form is looked at: the draft is what it was.
+  await expect(status(page)).toHaveText('Unsaved changes');
+
+  await fold.focus();
+  await page.keyboard.press('Space');
+  await expect(fold).toHaveAccessibleName('Hide the form');
+  await expect(page.getByLabel('Line 1')).toBeVisible();
+  await expect(page.getByLabel('Line 1')).toHaveValue('Sunday is a');
+  expect(await sections(page), 'the sections as they were').toEqual(allOf(ACTIVITY, [FIELD.headline, FACTS]));
+  await expect.poll(() => stageWidth(page)).toBe(stage);
+});
+
+test('on the rail the way back leaves, and still asks first about unsaved work', async ({ page, request }) => {
+  await openFlyer(page, await sample(request, 'Pool party'));
+  await openSection(page, FIELD.headline);
+  await page.getByLabel('Line 1').fill('Sunday is a');
+  await panelFold(page).click();
+  const asked = new Promise<string>((resolve) =>
+    page.once('dialog', (d) => {
+      resolve(d.message());
+      void d.accept();
+    }),
+  );
+  await backToLibrary(page).click();
+  expect(await asked).toBe(LEAVE_PROMPT);
+  await expect(page.getByRole('heading', { name: 'Flyer library' })).toBeVisible();
+});
+
+test('the panel starts open on every visit, and a fold writes nothing', async ({ page, request }) => {
+  await openFlyer(page, await sample(request, 'Pool party'));
+  await panelFold(page).click();
+  await expect(page.getByLabel('When', { exact: true })).toBeHidden();
+  await expect(status(page)).toHaveText('Saved');
+  expect(await page.evaluate(() => Object.keys(localStorage)), 'nothing is remembered of the fold, nor of the sections').toEqual([]);
+  await page.reload();
+  await expect(panelFold(page)).toHaveAccessibleName('Hide the form');
+  await expect(page.getByLabel('When', { exact: true })).toBeVisible();
+});
+
+test('the form keeps its place when the panel is folded and opened again', async ({ page }) => {
+  await page.goto('/#/new');
+  const form = page.locator('.panel-body');
+  await expect(page.getByLabel('Line 1')).toBeVisible();
+  await form.evaluate((el) => el.scrollTo(0, 400));
+  expect(await form.evaluate((el) => el.scrollTop), 'a new flyer’s form scrolls').toBe(400);
+  await panelFold(page).click();
+  await expect(page.getByLabel('Line 1')).toBeHidden();
+  await panelFold(page).click();
+  await expect(page.getByLabel('Line 1')).toBeVisible();
+  expect(await form.evaluate((el) => el.scrollTop)).toBe(400);
+});
+
+test('the head’s buttons never move the form, and a field focused from the keyboard is never under the head', async ({ page }) => {
+  await page.goto('/#/new');
+  const form = page.locator('.panel-body');
+  await expect(page.getByLabel('Line 1')).toBeVisible();
+  // Found while building the fold (2026-10-07): the head was a sticky bar inside the scrolling panel, with room kept
+  // for it by the panel's scroll padding. That counts the bar's own buttons as out of sight, so focusing one scrolled
+  // the form to its top. The head stands above the form now, and is no part of what scrolls.
+  for (const inHead of [panelFold(page), backToLibrary(page), openAll(page)]) {
+    await form.evaluate((el) => el.scrollTo(0, 400));
+    await inHead.focus();
+    expect(await form.evaluate((el) => el.scrollTop), (await inHead.textContent()) ?? '').toBe(400);
+  }
+
+  // Back from the form's last field, a field at a time: each one the keyboard lands on is below the head.
+  const headBottom = await page.locator('.panel-head').evaluate((el) => el.getBoundingClientRect().bottom);
+  await page.getByLabel('Caption').focus();
+  for (let i = 0; i < 30; i++) {
+    await page.keyboard.press('Shift+Tab');
+    const at = await page.evaluate(() => {
+      const el = document.activeElement!;
+      return { inForm: !!el.closest('.panel-body'), top: el.getBoundingClientRect().top, what: el.getAttribute('aria-label') ?? el.textContent ?? el.tagName };
+    });
+    if (at.inForm) expect(at.top, `focus on "${at.what}"`).toBeGreaterThanOrEqual(headBottom);
+  }
+});
+
+test('"Open all" opens every section and then reads "Close all"; on a saved flyer that is how they were left', async ({ page, request }) => {
+  await page.goto('/#/new');
+  await expect(openAll(page), 'a new flyer is fully open').toHaveText('Close all');
+  await sectionHead(page, 'Photo').click();
+  await expect(openAll(page), 'one section closed').toHaveText('Open all');
+
+  await openFlyer(page, await sample(request, 'Pool party'));
+  await expect(openAll(page)).toHaveText('Open all');
+  await openAll(page).click();
+  expect(await sections(page)).toEqual(allOf(ACTIVITY, ACTIVITY));
+  await expect(openAll(page)).toHaveText('Close all');
+  await expect(openAll(page), 'the same button: it keeps the focus').toBeFocused();
+  expect(await remembered(page), 'every section, the other template’s too').toBe(JSON.stringify(SECTIONS));
+  await openAll(page).click();
+  expect(await sections(page)).toEqual(allOf(ACTIVITY, []));
+  await expect(openAll(page)).toHaveText('Open all');
+  expect(await remembered(page)).toBe('[]');
+  await expect(status(page)).toHaveText('Saved');
+});
+
+test.describe('on a phone', () => {
+  test.use({ viewport: { width: 390, height: 844 } });
+
+  test('the same button folds the form up to its head bar, and the flyer gets the screen', async ({ page, request }) => {
+    await openFlyer(page, await sample(request, 'Pool party'));
+    const box = async (selector: string) => (await page.locator(selector).boundingBox())!;
+    const open = { panel: await box('.panel'), stage: await box('.stage') };
+    expect(open.panel.height, 'the form on top, at most 45% of the screen').toBeGreaterThan(300);
+
+    await panelFold(page).click();
+    await expect(panelFold(page)).toHaveAccessibleName('Show the form');
+    await expect(page.getByLabel('When', { exact: true })).toBeHidden();
+    await expect(backToLibrary(page)).toBeInViewport({ ratio: 1 });
+    const folded = { panel: await box('.panel'), stage: await box('.stage') };
+    expect(folded.panel.height, 'the head bar alone').toBe(48);
+    expect(folded.panel.width, 'still the screen’s width: a bar, no rail').toBe(390);
+    expect(folded.stage.height, 'the flyer’s stage grew').toBeGreaterThan(open.stage.height);
+    expect(folded.stage.y + folded.stage.height, 'and ends on the screen').toBeLessThanOrEqual(844);
+
+    await panelFold(page).click();
+    await expect(page.getByLabel('When', { exact: true })).toBeVisible();
+    expect((await box('.panel')).height).toBe(open.panel.height);
+  });
 });

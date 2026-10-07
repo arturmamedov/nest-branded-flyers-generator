@@ -1754,7 +1754,7 @@ test.describe('From a photo', () => {
         await withLeft(page, { photo: 2, flyer: 2 });
         await page.route(apiRoute('ai/photo'), (route) => route.fulfill({ json: { text: 'Karaoke night 06/10 (today)\nFree event, Medano Nest hostel', remaining: 1 } }));
         await page.route(apiRoute('ai/flyer'), (route) => route.fulfill({ json: { ...example.answer, remaining: 1 } }));
-        const sideways = () => page.evaluate(() => Math.max(...[document.documentElement, document.querySelector('.panel')!].map((el) => el.scrollWidth - el.clientWidth)));
+        const sideways = () => page.evaluate(() => Math.max(...[document.documentElement, document.querySelector('.panel-body')!].map((el) => el.scrollWidth - el.clientWidth)));
         const whole = { ratio: 1 };
         /** The steps as they lie: every name whole on screen, and all three on one line. */
         const onOneLine = async () => {
@@ -1806,7 +1806,7 @@ test.describe('From a photo', () => {
         await route.fulfill({ json: { text: 'Bachata workshop\nToday 20:00', remaining: 1 } });
       });
       /** How far the page, or the form inside it (it scrolls by itself), can be scrolled sideways: not at all. */
-      const sideways = () => page.evaluate(() => Math.max(...[document.documentElement, document.querySelector('.panel')!].map((el) => el.scrollWidth - el.clientWidth)));
+      const sideways = () => page.evaluate(() => Math.max(...[document.documentElement, document.querySelector('.panel-body')!].map((el) => el.scrollWidth - el.clientWidth)));
       const whole = { ratio: 1 };
 
       await page.goto('/#/ai');
