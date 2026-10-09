@@ -5,12 +5,12 @@ import { EXTRA_MAX, EXTRAS_MAX } from './extras.js';
 import { TITLE_MAX } from './names.js';
 import { DEFAULT_CROP, ZOOM_MAX, ZOOM_MIN } from './photo.js';
 import { SHARE_MAX } from './share.js';
+import { TEXT_LIMITS } from './text.js';
 import { WEEK_ROWS_MAX, WEEK_ROW_LIMITS } from './week.js';
 
 /* The flyer.data JSON, one shape for both templates (handoff README §7).
    Field names and the `·` convention are kept from flyer-data.js.
-   Max lengths keep the unfitted, nowrap lines (eyebrow, handle, tag) inside
-   the safe box; fitted lines shrink, so their limits are generous. */
+   The lines of copy take their limits from text.ts. */
 
 export const CHIP_KEYS = ['when', 'where', 'cost'] as const;
 export const ChipKeySchema = z.enum(CHIP_KEYS);
@@ -75,14 +75,14 @@ export const WeekRowSchema = z.object({
 export type WeekRow = z.infer<typeof WeekRowSchema>;
 
 export const TextSchema = z.object({
-  eyebrow: z.string().max(18),
-  headline1: z.string().max(40),
-  headline2: z.string().max(40),
-  headlineEs: z.string().max(140),
-  askEn: z.string().max(60),
-  askEs: z.string().max(70),
-  handle: z.string().max(18),
-  tag: z.string().max(12),
+  eyebrow: z.string().max(TEXT_LIMITS.eyebrow),
+  headline1: z.string().max(TEXT_LIMITS.headline1),
+  headline2: z.string().max(TEXT_LIMITS.headline2),
+  headlineEs: z.string().max(TEXT_LIMITS.headlineEs),
+  askEn: z.string().max(TEXT_LIMITS.askEn),
+  askEs: z.string().max(TEXT_LIMITS.askEs),
+  handle: z.string().max(TEXT_LIMITS.handle),
+  tag: z.string().max(TEXT_LIMITS.tag),
 });
 export type FlyerText = z.infer<typeof TextSchema>;
 

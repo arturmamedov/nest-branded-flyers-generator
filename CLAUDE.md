@@ -49,7 +49,8 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
   sees), `defaults.ts` (tokens, template art, each template's
   defaults and the switch between them, and `EYEBROW_MARKS`, which marks print at the eyebrow's right),
   `chips.ts` (the `·` convention), `week.ts` (the This week rows: their limits, a row taken from a saved flyer,
-  what a row prints — zod-free, so the client imports it and `schema.ts` takes its limits from it), `names.ts`
+  what a row prints — zod-free, so the client imports it and `schema.ts` takes its limits from it), `text.ts` (`TEXT_LIMITS`: each line of copy's limit, read by
+  the schema and the editor's inputs — zod-free), `names.ts`
   (what a flyer is called in the library: an untitled flyer's name, the title's limit, the library's date — also
   zod-free), `share.ts` (the share text's limit and the line between its two languages: a caption saved with the flyer, copied from the panel or the
   button floating by the preview, never printed), `brief.ts` (`flyerFromBrief`: a flyer from its copy alone, the shape the staff-text
@@ -395,6 +396,15 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
     apart), one setting for every flyer and never per flyer; the owner chose `'both'` for a pilot and will settle on
     one after it. A badge that fails to load drops out, and `ready.ts` waits for what takes its place. The marks may
     shrink in their 56 px row, so the widest eyebrow never pushes them past the safe edge.
+
+- The WHEN chip's time and the Spanish line (2026-10-09, Artur's flyer #13 on live):
+  - The time under the day is one line that shrinks (`nowrap`), as a week row's is: his browser broke `09:15-14:00`
+    after the hyphen and the chip clipped `14:00`. Chromium keeps that range whole, so `render.spec.ts` proves it by
+    the day line, which a long time no longer shrinks.
+  - The Spanish line may be 260 characters (was 140): a description of three or four lines. With a photo about 210
+    fit at its floor; past that the editor says it is cut off. The asks keep 60 and 70: one line each in a 760 px
+    column beside the pencil, already at their floor with a phone number. Needs a release: an older one refuses a
+    longer line.
 
 - The AI's copy follows the owner's own flyers (2026-10-06). He corrected flyers #4, #5 and #8 by hand on the live
   site, then asked for the same as rules. The rules are the prompt files in `ai/prompts/`; the two examples in

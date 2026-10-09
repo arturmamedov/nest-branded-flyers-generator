@@ -318,9 +318,11 @@ export function Flyer({ data, canvas, hostel, photo, showSafeZones = false, ref 
                         <div data-fit="46" data-fit-min="0.6" style={{ ...HL, fontWeight: 700, fontSize: 46, lineHeight: 1.1, color: ink }}>{chip.big}</div>
                       )}
                       {chip.sub && when && (
+                        /* The time is one line that shrinks, as a week row's is: left to wrap, a browser could break a
+                           range after its hyphen ("09:15-" over "14:00") and the chip clipped the second line. */
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                           <img src={art('icon-clock')} alt="" style={{ height: 36, width: 'auto', flex: '0 0 auto' }} />
-                          <div data-fit="40" data-fit-min="0.7" style={{ ...HL, fontWeight: 700, fontSize: 40, lineHeight: 1.1, color: ink }}>{chip.sub}</div>
+                          <div data-fit="40" data-fit-min="0.7" style={{ ...HL, fontWeight: 700, fontSize: 40, lineHeight: 1.1, color: ink, whiteSpace: 'nowrap', minWidth: 0 }}>{chip.sub}</div>
                         </div>
                       )}
                       {chip.sub && !when && (

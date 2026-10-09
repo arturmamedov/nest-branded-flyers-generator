@@ -410,6 +410,45 @@ for (const canvas of CANVAS_IDS) {
     for (const line of r.lines) expect(line.px, `${line.text}: at its floor`).toBeCloseTo(line.floor, 2);
   });
 
+  test(`${canvas}: the WHEN chip's time stays on one line and shrinks by itself, never breaking inside a range`, async ({ page, request }) => {
+    const surf = (await samples(request)).find((p) => p.flyer.title === 'Surf lesson')!;
+    const read = async (time: string) => {
+      const payload: FlyerPayload = structuredClone(surf);
+      payload.flyer.data.chips = payload.flyer.data.chips.map((c) => (c.key === 'when' ? { ...c, value: `Every day · ${time}` } : c));
+      await renderPayload(page, payload, canvas);
+      return page.evaluate(() => {
+        const chip = [...document.querySelectorAll<HTMLElement>('[data-fit-box]')].find((b) => b.querySelector('img[src*="icon-calendar"]'))!;
+        const [day, line] = [...chip.querySelectorAll<HTMLElement>('[data-fit]')];
+        const range = document.createRange();
+        range.selectNodeContents(line);
+        return {
+          text: line.textContent,
+          dayPx: parseFloat(day.style.fontSize),
+          px: parseFloat(line.style.fontSize),
+          lines: new Set([...range.getClientRects()].map((rect) => Math.round(rect.top))).size,
+          cut: line.scrollWidth > line.clientWidth + 1,
+          clipped: (window as unknown as { __FLYER_FIT: { clippedBoxes: number } }).__FLYER_FIT.clippedBoxes,
+        };
+      });
+    };
+    const short = await read('15:00');
+    // Artur's flyer (2026-10-09): his browser broke the range after its hyphen, "09:15-" over "14:00", and the chip
+    // clipped the second line. Where a break may fall is each browser's own (this Chromium keeps "09:15-14:00" whole,
+    // breaks the spaced one, and the height pass then shrinks the whole chip until it is one line again), so the
+    // proof is the day line: a time too wide shrinks itself alone, and the day keeps the size a short time leaves it.
+    for (const time of ['09:15-14:00', '09:15 - 14:00']) {
+      const r = await read(time);
+      const label = `${canvas} / ${time}`;
+      expect(r.text, label).toBe(time);
+      expect(r.lines, `${label}: one line`).toBe(1);
+      expect(r.cut, `${label}: not cut at the side`).toBe(false);
+      expect(r.px, `${label}: shrunk, no further than its floor`).toBeLessThan(40);
+      expect(r.px, `${label}: shrunk, no further than its floor`).toBeGreaterThanOrEqual(40 * 0.7 - 0.01);
+      expect(r.dayPx, `${label}: the day line keeps its size`).toBe(short.dayPx);
+      expect(r.clipped, `${label}: no box reported clipped`).toBe(0);
+    }
+  });
+
   test(`${canvas}: a flyer at a hostel with a badge prints the marks as set, in the eyebrow and the safe box, a long eyebrow too`, async ({ page, request }) => {
     const pool = (await samples(request)).find((p) => p.flyer.title === 'Pool party')!;
     const eyebrow = CANVASES[canvas].activity.eyebrow;

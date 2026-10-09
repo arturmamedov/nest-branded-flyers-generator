@@ -325,7 +325,7 @@
                 },
                 "headlineEs": {
                   "type": "string",
-                  "maxLength": 140
+                  "maxLength": 260
                 },
                 "askEn": {
                   "type": "string",

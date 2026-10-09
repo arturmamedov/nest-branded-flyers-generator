@@ -9,6 +9,7 @@ import type { AiFeature, AiFeatureOn } from '../shared/ai';
 import type { Chip, ChipKey, Crop, FlyerData, FlyerInput, FlyerListItem, FlyerText, Hostel, PhotoInfo, Template, WeekRow } from '../shared/schema';
 import { TITLE_MAX, libraryName } from '../shared/names';
 import { SHARE_MAX, SHARE_SPANISH_BREAK, shareDetails } from '../shared/share';
+import { TEXT_LIMITS } from '../shared/text';
 import { WEEK_ROWS_MAX, WEEK_ROW_LIMITS, isPrintable, rowFromActivity } from '../shared/week';
 import { api, ApiError, asSentence } from './api';
 import type { FlyerExporter } from './export';
@@ -459,10 +460,10 @@ export function Editor({
           {/* A week flyer's title is the headline's lines: one set, kept across a switch (the owner's call, 2026-09-29). */}
           <Section title={week ? FIELD.weekTitle : FIELD.headline} fold={fold('headline')} hint={week ? `The same lines as the ${TEMPLATE_LABEL.activity} headline: switching template keeps them.` : undefined}>
             <Field label={FIELD.line1} lang="en" help={week ? 'Black' : 'Black. About 18 characters before it starts to shrink'}>
-              <input value={t.headline1} maxLength={40} placeholder={week ? weekDefaults.headline1 : 'Saturday is a'} onChange={(e) => setText('headline1', e.target.value)} />
+              <input value={t.headline1} maxLength={TEXT_LIMITS.headline1} placeholder={week ? weekDefaults.headline1 : 'Saturday is a'} onChange={(e) => setText('headline1', e.target.value)} />
             </Field>
             <Field label={FIELD.line2} lang="en" help={week ? 'Big and teal' : 'Big and teal. About 15 characters'}>
-              <input value={t.headline2} maxLength={40} placeholder={week ? weekDefaults.headline2 : 'pool party.'} onChange={(e) => setText('headline2', e.target.value)} />
+              <input value={t.headline2} maxLength={TEXT_LIMITS.headline2} placeholder={week ? weekDefaults.headline2 : 'pool party.'} onChange={(e) => setText('headline2', e.target.value)} />
             </Field>
             <Field
               label={FIELD.spanishLine}
@@ -473,7 +474,7 @@ export function Editor({
               <textarea
                 rows={2}
                 value={t.headlineEs}
-                maxLength={140}
+                maxLength={TEXT_LIMITS.headlineEs}
                 placeholder={week ? weekDefaults.headlineEs : 'El sábado toca fiesta en la piscina.'}
                 onChange={(e) => setText('headlineEs', e.target.value)}
               />
@@ -502,10 +503,10 @@ export function Editor({
 
           <Section title={FIELD.ask} fold={fold('ask')}>
             <Field label={FIELD.english} lang="en">
-              <input value={t.askEn} maxLength={60} onChange={(e) => setText('askEn', e.target.value)} />
+              <input value={t.askEn} maxLength={TEXT_LIMITS.askEn} onChange={(e) => setText('askEn', e.target.value)} />
             </Field>
             <Field label={FIELD.spanish} lang="es" optional>
-              <input value={t.askEs} maxLength={70} onChange={(e) => setText('askEs', e.target.value)} />
+              <input value={t.askEs} maxLength={TEXT_LIMITS.askEs} onChange={(e) => setText('askEs', e.target.value)} />
             </Field>
           </Section>
 
@@ -562,7 +563,7 @@ export function Editor({
 
           <Section title={FIELD.top} fold={fold('top')}>
             <Field label={FIELD.eyebrow}>
-              <input value={t.eyebrow} maxLength={18} onChange={(e) => setText('eyebrow', e.target.value)} />
+              <input value={t.eyebrow} maxLength={TEXT_LIMITS.eyebrow} onChange={(e) => setText('eyebrow', e.target.value)} />
             </Field>
             <label className="check">
               <input type="checkbox" checked={draft.data.showPill} onChange={(e) => setData({ showPill: e.target.checked })} />
@@ -571,10 +572,10 @@ export function Editor({
             {draft.data.showPill && (
               <div className="two">
                 <Field label={FIELD.handle}>
-                  <input value={t.handle} maxLength={18} onChange={(e) => setText('handle', e.target.value)} />
+                  <input value={t.handle} maxLength={TEXT_LIMITS.handle} onChange={(e) => setText('handle', e.target.value)} />
                 </Field>
                 <Field label={FIELD.tag}>
-                  <input value={t.tag} maxLength={12} onChange={(e) => setText('tag', e.target.value)} />
+                  <input value={t.tag} maxLength={TEXT_LIMITS.tag} onChange={(e) => setText('tag', e.target.value)} />
                 </Field>
               </div>
             )}

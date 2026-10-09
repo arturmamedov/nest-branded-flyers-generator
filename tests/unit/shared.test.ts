@@ -38,6 +38,7 @@ import { DEFAULT_CROP, clampCrop, coverRect, panCrop, wholePhotoZoom, zoomCrop }
 import { SAMPLE_FLYERS } from '../../src/shared/samples.js';
 import { FlyerDataSchema, type Crop } from '../../src/shared/schema.js';
 import { SHARE_MAX } from '../../src/shared/share.js';
+import { TEXT_LIMITS } from '../../src/shared/text.js';
 import { WEEK_ROWS_MAX } from '../../src/shared/week.js';
 
 const HOSTELS: Record<string, string> = {
@@ -195,7 +196,7 @@ describe('canvases', () => {
         expect(a[box].width, box).toBeGreaterThanOrEqual(story[box].width);
         expect(a[box].height, box).toBeGreaterThanOrEqual(story[box].height);
       }
-      // schema.ts's max lengths keep the unfitted lines (eyebrow, handle, tag) inside a 940 column.
+      // text.ts's limits keep the unfitted lines (eyebrow, handle, tag) inside a 940 column.
       expect(safeBox(canvas).width).toBeGreaterThanOrEqual(940);
     });
   }
@@ -672,6 +673,15 @@ describe('schema', () => {
     expect(FlyerDataSchema.parse(older).share).toBe('');
     expect(FlyerDataSchema.safeParse({ ...newFlyerData(), share: 'x'.repeat(SHARE_MAX) }).success).toBe(true);
     expect(FlyerDataSchema.safeParse({ ...newFlyerData(), share: 'x'.repeat(SHARE_MAX + 1) }).success).toBe(false);
+  });
+
+  it('holds each line of copy to its limit in TEXT_LIMITS, the Spanish line to 260', () => {
+    expect(TEXT_LIMITS.headlineEs).toBe(260);
+    for (const [field, max] of Object.entries(TEXT_LIMITS)) {
+      const at = (n: number) => FlyerDataSchema.safeParse({ ...newFlyerData(), text: { ...newFlyerData().text, [field]: 'x'.repeat(n) } }).success;
+      expect(at(max), `${field} at ${max}`).toBe(true);
+      expect(at(max + 1), `${field} at ${max + 1}`).toBe(false);
+    }
   });
 
   it('keeps the share text across a template switch', () => {
