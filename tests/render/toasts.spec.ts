@@ -96,8 +96,8 @@ test('a closed warning that goes away and comes back shows again', async ({ page
 test('a second warning joins the chip’s count only when it is closed too', async ({ page }) => {
   await page.goto('/#/new');
   await closeToast(needsPhoto(page)).click();
-  await page.getByLabel('Line 1').fill('Book now');
-  const rule = toast(page, 'warn').filter({ hasText: 'Book now' });
+  await page.getByLabel('Line 1').fill('Pool • party');
+  const rule = toast(page, 'warn').filter({ hasText: 'bullets' });
   await expect(rule, 'a new warning opens beside the folded one').toBeVisible();
   await expect(warningsChip(page)).toHaveText('⚠ 1');
   await closeToast(rule).click();
@@ -200,9 +200,9 @@ test('the corner is no wall: beside the chip, the stage under it gets the pointe
 test('the same words on two fields are two warnings: closing one leaves the other', async ({ page }) => {
   // Found in review (2026-10-07): they shared an id, so one close folded both.
   await page.goto('/#/new');
-  await page.getByLabel('Line 1').fill('Book now');
-  await page.getByLabel('Line 2').fill('Book now');
-  const rule = toast(page, 'warn').filter({ hasText: 'Book now' });
+  await page.getByLabel('Line 1').fill('Pool • party');
+  await page.getByLabel('Line 2').fill('Pool • party');
+  const rule = toast(page, 'warn').filter({ hasText: 'bullets' });
   await expect(rule).toHaveCount(2);
   await closeToast(rule.first()).click();
   await expect(rule).toHaveCount(1);

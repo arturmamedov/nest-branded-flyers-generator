@@ -517,13 +517,13 @@ test('the AI page’s notes are toasts too: the flyer keeps the whole stage, and
   // The editor's UX round, Part 1 (tests/render/toasts.spec.ts has the rest, on the editor). Routed both ways, so
   // nothing is spent: a flyer whose copy breaks a rule, so a warning stands beside it.
   await withLeft(page, { flyer: 2 });
-  const broken = { ...brief, text: { ...brief.text, headline1: 'Book now' } };
+  const broken = { ...brief, text: { ...brief.text, headline1: 'Pool • party' } };
   await page.route(apiRoute('ai/flyer'), (route) => route.fulfill({ json: { brief: broken, assumptions: [], remaining: 1 } }));
   await page.goto('/#/ai');
   await idea(page).fill('Yoga tomorrow at 9');
   await generate(page).click();
   await expect(preview(page)).toBeVisible();
-  const rule = toast(page, 'warn').filter({ hasText: 'Book now' });
+  const rule = toast(page, 'warn').filter({ hasText: 'bullets' });
   await expect(rule).toBeVisible();
   // The stage starts where the bar above it ends: no note lies between them.
   await expect

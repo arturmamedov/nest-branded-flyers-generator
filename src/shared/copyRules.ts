@@ -55,9 +55,8 @@ function textFields(d: FlyerData): TextField[] {
   return out;
 }
 
+// No rule against "Book now" or a slash as a separator: Artur found both warnings of no use (2026-10-10).
 const BULLETS = /[•●▪◦‣∙]/;
-// A slash is fine inside a date (19/9); anywhere else it is a separator.
-const SEPARATOR_SLASH = /(?<!\d)\/|\/(?!\d)/;
 
 export function lintFlyer(d: FlyerData): Lint[] {
   const lints: Lint[] = [];
@@ -74,14 +73,8 @@ export function lintFlyer(d: FlyerData): Lint[] {
   }
 
   for (const f of fields) {
-    if (/book[\s-]*now/i.test(f.value)) {
-      warn(f, '"Book now" belongs to the website\'s booking button — never on a flyer.');
-    }
     if (BULLETS.test(f.value)) {
       warn(f, 'Use · or — as separators, never bullets.');
-    }
-    if (SEPARATOR_SLASH.test(f.value)) {
-      warn(f, 'Use · or — as separators, never slashes.');
     }
   }
 

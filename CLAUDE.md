@@ -404,7 +404,9 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
   - The Spanish line may be 260 characters (was 140): a description of three or four lines. With a photo about 210
     fit at its floor; past that the editor says it is cut off. The asks keep 60 and 70: one line each in a 760 px
     column beside the pencil, already at their floor with a phone number. Needs a release: an older one refuses a
-    longer line.
+    longer line. The AI's prompt keeps its rules as they are (Artur, 2026-10-10): only staff get the room.
+  - Two copy warnings are gone (Artur, 2026-10-10: "unusefull for me"): "Book now" and a slash as a separator
+    (`copyRules.ts`). The AI's prompt still asks for neither. Left: bullets, the exclamation budget, sentence case.
 
 - The AI's copy follows the owner's own flyers (2026-10-06). He corrected flyers #4, #5 and #8 by hand on the live
   site, then asked for the same as rules. The rules are the prompt files in `ai/prompts/`; the two examples in

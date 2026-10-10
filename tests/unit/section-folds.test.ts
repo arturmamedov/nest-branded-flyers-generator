@@ -85,7 +85,7 @@ describe('opening and closing', () => {
 
 describe('which section a copy rule’s field is in', () => {
   // A flyer that breaks a rule in every field that prints, so every field a rule can name is here.
-  const BROKEN = 'Book now';
+  const BROKEN = 'Pool • party';
   const text = { eyebrow: BROKEN, headline1: BROKEN, headline2: BROKEN, headlineEs: BROKEN, askEn: BROKEN, askEs: BROKEN, handle: BROKEN, tag: BROKEN };
   const brokenActivity = activity({ text, chips: chips(BROKEN, BROKEN, BROKEN), extras: [BROKEN, BROKEN] });
   const brokenWeek = week({

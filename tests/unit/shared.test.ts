@@ -562,13 +562,11 @@ describe('copy rules', () => {
     expect(warnsOfMarks(d)).toBe(true);
   });
 
-  it('flags book now, bullets and separator slashes, but not dates', () => {
+  it('flags bullets, and never "Book now" or a slash: Artur found them no use (2026-10-10)', () => {
     const d = base();
     d.text.askEn = 'Book now at reception';
     d.extras = ['Towels • drinks', 'Beer/wine'];
-    const fields = lintFlyer(d).map((l) => l.field);
-    expect(fields).toEqual(expect.arrayContaining(['askEn', 'extras.0', 'extras.1']));
-    expect(fields).not.toContain('chip.when');
+    expect(lintFlyer(d).map((l) => l.field)).toEqual(['extras.0']);
   });
 
   it('flags an all-caps headline', () => {
@@ -592,7 +590,7 @@ describe('copy rules', () => {
   it('a week flyer lints its title and rows, never the chips and extras it keeps for switching back', () => {
     expect(lintFlyer(week())).toEqual([]);
     const d = week();
-    d.week[0].cost = '40€/class';
+    d.week[0].cost = '40€ • class';
     d.text.headline2 = 'THIS WEEK.';
     const lints = lintFlyer(d);
     expect(lints.map((l) => l.field).sort()).toEqual(['headline2', 'week.0.cost']);
@@ -601,9 +599,9 @@ describe('copy rules', () => {
 
   it('a row prints its short name when it has one, so that is what is linted', () => {
     const d = week();
-    d.week[1].name = 'Book now: pool/party';
+    d.week[1].name = 'Pool • party, a long name';
     expect(lintFlyer(d)).toEqual([]);
-    d.week[1].shortName = 'Pool/party';
+    d.week[1].shortName = 'Pool • party';
     expect(lintFlyer(d).map((l) => l.field)).toEqual(['week.1.shortName']);
   });
 
@@ -624,12 +622,11 @@ describe('copy rules', () => {
 
   it("a row's day and time are linted, and each warning names its row", () => {
     const d = week();
-    d.week[0].day = 'Mon/Tue';
+    d.week[0].day = 'Mon • Tue';
     d.week[1].time = '15:00 • 17:00';
     const lints = lintFlyer(d);
-    // Row 2's day, Saturday 19/9, still passes: a slash inside a date is allowed.
     expect(lints.map((l) => l.field)).toEqual(['week.0.day', 'week.1.time']);
-    expect(lints[0].message).toMatch(/^Row 1: .*slashes/);
+    expect(lints[0].message).toMatch(/^Row 1: .*bullets/);
     expect(lints[1].message).toMatch(/^Row 2: .*bullets/);
   });
 
