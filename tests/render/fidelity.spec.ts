@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
-import type { APIRequestContext, Browser, Download, Page } from '@playwright/test';
-import { expect, test, withoutKit } from '../browser';
-import { canvasButton } from '../editor';
+import type { APIRequestContext, Download, Page } from '@playwright/test';
+import { expect, test } from '../browser';
+import { canvasButton, clientOnlyEditor, download as downloadFlyer } from '../editor';
 import { PNG } from 'pngjs';
 import sharp from 'sharp';
 import { flyerFilename } from '../../src/shared/filename';
@@ -114,29 +114,10 @@ test.afterAll(async ({ request }) => {
   for (const id of new Set([...cases.values()].map((c) => c.id))) await request.delete(`api/flyers/${id}`, { headers: WRITE_HEADERS });
 });
 
-/** The editor with only the in-browser exporter: Node has both, PHP only this one.
-    Any request to the server renderer is aborted, so a wrong exporter fails loudly. */
-async function clientOnlyEditor(browser: Browser, baseURL: string | undefined, dpr: number) {
-  const context = await browser.newContext({ baseURL, viewport: { width: 1280, height: 800 }, deviceScaleFactor: dpr });
-  await withoutKit(context); // its own context, outside the fixture: tests/browser.ts
-  const page = await context.newPage();
-  let configs = 0;
-  await page.route('**/api/config', async (route) => {
-    configs++;
-    const res = await route.fetch();
-    await route.fulfill({ response: res, json: { ...(await res.json()), exporters: ['client'] } });
-  });
-  await page.route('**/api/render/**', (route) => route.abort());
-  return { context, page, overridden: () => configs > 0 };
-}
-
-async function download(page: Page, button: string): Promise<{ file: Buffer; download: Download }> {
-  const btn = page.getByRole('button', { name: button, exact: true });
-  await expect(btn).toBeEnabled();
-  const [download] = await Promise.all([page.waitForEvent('download'), btn.click()]);
-  const path = await download.path();
-  await expect(btn).toBeEnabled(); // the editor is idle again
-  return { file: readFileSync(path), download };
+/** A download through the editor's toolbar, with the file it brought. */
+async function download(page: Page, format: 'png' | 'jpg'): Promise<{ file: Buffer; download: Download }> {
+  const download = await downloadFlyer(page, format); // it returns once the editor is idle again
+  return { file: readFileSync(await download.path()), download };
 }
 
 const labels = CANVAS_IDS.flatMap((canvas) => [...SAMPLE_FLYERS, highlighterWrapSample()].flatMap((s) => bodiesOf(s.data).map((m) => `${canvas} | ${s.title} / ${m}`)));
@@ -157,8 +138,8 @@ for (const { label, dpr } of runs) {
     try {
       await page.goto(`./#/flyers/${c.id}`);
       await canvasButton(page, c.canvas).click();
-      const png = await download(page, 'Download PNG');
-      const jpg = await download(page, 'JPG');
+      const png = await download(page, 'png');
+      const jpg = await download(page, 'jpg');
       expect(overridden(), 'the editor read the client-only config').toBe(true);
       expect(png.download.suggestedFilename()).toBe(flyerFilename(c.title, c.id, 'png', c.canvas));
       expect(jpg.download.suggestedFilename()).toBe(flyerFilename(c.title, c.id, 'jpg', c.canvas));
@@ -201,7 +182,7 @@ test('the check is not blind: a sliced highlighter fails it', async ({ browser, 
       new MutationObserver(slice).observe(document.body, { subtree: true, childList: true });
       slice();
     });
-    const png = await download(page, 'Download PNG');
+    const png = await download(page, 'png');
     const metrics = compare(c.golden, PNG.sync.read(png.file), c.canvas, c.mode, c.regions);
     expect(metrics.mark!, JSON.stringify(metrics)).toBeGreaterThan(THRESHOLD);
   } finally {

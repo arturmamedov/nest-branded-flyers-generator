@@ -1,6 +1,7 @@
 import { join } from 'node:path';
-import type { Locator, Page, Response as PwResponse } from '@playwright/test';
-import { expect } from './browser';
+import type { Browser, Download, Locator, Page, Response as PwResponse } from '@playwright/test';
+import { expect, withoutKit } from './browser';
+import { entryText, type ExportAction } from '../src/editor/exportActions';
 import { TEMPLATE_LABEL } from '../src/editor/templates';
 import { CANVASES, CANVAS_IDS, type CanvasId } from '../src/shared/layout';
 import { FlyerSavedSchema, type FlyerSaved, type Template } from '../src/shared/schema';
@@ -41,6 +42,23 @@ export async function hold(page: Page, url: (url: URL) => boolean, method = 'GET
   return release;
 }
 
+/** The editor with only the in-browser exporter: Node has both, PHP only this one. Any request to the server
+    renderer is aborted, so a wrong exporter fails loudly. Its own context, outside the fixture (tests/browser.ts),
+    for the caller to close; `overridden()` says the editor did read the changed config. */
+export async function clientOnlyEditor(browser: Browser, baseURL: string | undefined, dpr = 1) {
+  const context = await browser.newContext({ baseURL, viewport: { width: 1280, height: 800 }, deviceScaleFactor: dpr });
+  await withoutKit(context);
+  const page = await context.newPage();
+  let configs = 0;
+  await page.route('**/api/config', async (route) => {
+    configs++;
+    const res = await route.fetch();
+    await route.fulfill({ response: res, json: { ...(await res.json()), exporters: ['client'] } });
+  });
+  await page.route('**/api/render/**', (route) => route.abort());
+  return { context, page, overridden: () => configs > 0 };
+}
+
 /** The fitted font sizes of one flyer, in document order: run in the page (page.evaluate(fitted, selector)). */
 export const fitted = (selector: string) =>
   [...document.querySelectorAll<HTMLElement>(`${selector} [data-fit]`)].map((el) => el.style.fontSize);
@@ -72,6 +90,30 @@ export async function saveNew(page: Page, keep: (id: number) => void): Promise<F
   await expect(page).toHaveURL(new RegExp(`#/flyers/${saved.id}$`));
   await expect(status(page)).toHaveText('Saved');
   return saved;
+}
+
+/** The toolbar's "Download" button, which opens the list of ways to take the flyer out as a picture. By its place,
+    not its words: it reads "Rendering…" while a download is being made. */
+export const downloadMenu = (page: Page) => page.locator('.toolbar .menu > button');
+
+/** An entry of that list, by its action. The list is hidden until the button opens it. */
+export const exportEntry = (page: Page, action: ExportAction) => page.locator('.toolbar .menu').getByRole('menuitem', { name: entryText(action), exact: true });
+
+/** Opens the list if it is closed and picks an entry, without waiting for what the entry does. */
+export async function pickExport(page: Page, action: ExportAction) {
+  const menu = downloadMenu(page);
+  await expect(menu).toBeEnabled();
+  if ((await menu.getAttribute('aria-expanded')) !== 'true') await menu.click();
+  await exportEntry(page, action).click();
+}
+
+/** Downloads the flyer as a staff member does: Download, then the format. It returns once the file has arrived and
+    the editor is idle again. */
+export async function download(page: Page, format: 'png' | 'jpg'): Promise<Download> {
+  const [file] = await Promise.all([page.waitForEvent('download'), pickExport(page, format)]);
+  await file.path();
+  await expect(downloadMenu(page)).toBeEnabled();
+  return file;
 }
 
 /** The editor's one way back, "← Library" at the top of its form (it has no top bar). */

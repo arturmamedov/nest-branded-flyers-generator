@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import type { APIRequestContext, APIResponse, Page } from '@playwright/test';
 import { PNG } from 'pngjs';
 import { expect, test } from '../browser';
-import { EDITOR_VIEWPORT, canvasButton, cutOff, cutOffOn, exportFit, fitted, openSection } from '../editor';
+import { EDITOR_VIEWPORT, canvasButton, cutOff, cutOffOn, download, exportFit, fitted, openSection } from '../editor';
 import { bodiesOf, groupsOf, highlighterWrapSample } from './pixels';
 import sharp from 'sharp';
 import { apiError, type ApiErrorKey } from '../../src/shared/errors';
@@ -674,12 +674,10 @@ test('the editor previews, fits and downloads every canvas, through the server e
     // Preview = export: the render page's fitted sizes for this canvas (a stale fit would keep the other canvas's).
     expect(await page.evaluate(fitted, '.stage-canvas'), `${canvas}: preview fit`).toEqual(want[canvas]);
 
-    for (const [button, format] of [['Download PNG', 'png'], ['JPG', 'jpg']] as const) {
-      const btn = page.getByRole('button', { name: button, exact: true });
-      await expect(btn).toBeEnabled();
-      const [download] = await Promise.all([page.waitForEvent('download'), btn.click()]);
-      expect(download.suggestedFilename()).toBe(flyerFilename(flyer.title, flyer.id, format, canvas));
-      const meta = await sharp(readFileSync(await download.path())).metadata();
+    for (const format of ['png', 'jpg'] as const) {
+      const file = await download(page, format);
+      expect(file.suggestedFilename()).toBe(flyerFilename(flyer.title, flyer.id, format, canvas));
+      const meta = await sharp(readFileSync(await file.path())).metadata();
       expect([meta.format, meta.width, meta.height]).toEqual([format === 'png' ? 'png' : 'jpeg', CANVASES[canvas].width, CANVASES[canvas].height]);
       await expect(page.getByText(`(${CANVASES[canvas].width} × ${CANVASES[canvas].height})`)).toBeVisible();
     }

@@ -11,12 +11,14 @@ import {
   canvasButton,
   cutOff,
   cutOffOn,
+  download,
   dropFile,
   filterLibrary,
   hold,
   libraryCard as card,
   openSection,
   panelFold,
+  pickExport,
   rowField as row,
   saveNew,
   status,
@@ -167,7 +169,7 @@ test('one action at a time: a photo dropped while a download is out is refused, 
   await expect(photoButton).toBeEnabled();
 
   const downloaded = page.waitForEvent('download');
-  await page.getByRole('button', { name: 'Download PNG', exact: true }).click();
+  await pickExport(page, 'png');
   await expect(page.getByRole('button', { name: 'Rendering…', exact: true }), 'the download is out').toBeDisabled();
   await dropFile(page, page.locator('.stage'), PHOTO);
   // Checked now: when the download ends, its own note takes the refusal's place.
@@ -427,9 +429,9 @@ test('a viewer who never chose a canvas gets WhatsApp: the toolbar, the preview 
   await page.getByLabel('Library name').fill(`default canvas ${Date.now()}`);
   await modeButton(page, 'none').click();
   await saveNew(page, keep);
-  const [download] = await Promise.all([page.waitForEvent('download'), button(page, 'Download PNG').click()]);
-  expect(download.suggestedFilename()).toMatch(/-whatsapp\.png$/);
-  const meta = await sharp(readFileSync(await download.path())).metadata();
+  const file = await download(page, 'png');
+  expect(file.suggestedFilename()).toMatch(/-whatsapp\.png$/);
+  const meta = await sharp(readFileSync(await file.path())).metadata();
   expect([meta.width, meta.height]).toEqual([CANVASES.whatsapp.width, CANVASES.whatsapp.height]);
   expect(await stored(), 'a default is not a choice: nothing is stored').toBeNull();
 });
@@ -697,13 +699,9 @@ test('This week: reopened and saved again it is still a week flyer, and it downl
 
   for (const canvas of CANVAS_IDS) {
     await button(page, CANVASES[canvas].label).click();
-    for (const [name, format] of [
-      ['Download PNG', 'png'],
-      ['JPG', 'jpg'],
-    ] as const) {
-      await expect(button(page, name)).toBeEnabled();
-      const [download] = await Promise.all([page.waitForEvent('download'), button(page, name).click()]);
-      const meta = await sharp(readFileSync(await download.path())).metadata();
+    for (const format of ['png', 'jpg'] as const) {
+      const file = await download(page, format);
+      const meta = await sharp(readFileSync(await file.path())).metadata();
       expect([meta.format, meta.width, meta.height], `${canvas} ${format}`).toEqual([format === 'png' ? 'png' : 'jpeg', CANVASES[canvas].width, CANVASES[canvas].height]);
     }
   }
@@ -817,10 +815,7 @@ test('the share text: saved with the flyer, copied as typed from the panel or th
   expect(FlyerPayloadSchema.parse(await (await page.request.get(`/api/flyers/${id}`)).json()).flyer.data.share).toBe(share);
 
   // The same flyer with and without its caption prints the same pixels: it never reaches <Flyer>.
-  const png = async () => {
-    const [download] = await Promise.all([page.waitForEvent('download'), button(page, 'Download PNG').click()]);
-    return readFileSync(await download.path());
-  };
+  const png = async () => readFileSync(await (await download(page, 'png')).path());
   const withShare = await png();
   await page.getByLabel('Caption').fill('');
   await expect(fab).toHaveCount(0);

@@ -2,7 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import type { APIRequestContext, Page, Response as PwResponse } from '@playwright/test';
 import { expect, test } from '../browser';
-import { POOL_PARTY, apiCall, backToLibrary, dropFile, filterLibrary, libraryCard as card, openSection, rowField, saveNew, status, templateButton, toast, type FilePayload } from '../editor';
+import { POOL_PARTY, apiCall, backToLibrary, download, dropFile, filterLibrary, libraryCard as card, openSection, rowField, saveNew, status, templateButton, toast, type FilePayload } from '../editor';
 import sharp from 'sharp';
 import { PHOTO_MODE_LABEL } from '../../src/editor/photoModes';
 import { TEMPLATE_LABEL } from '../../src/editor/templates';
@@ -342,25 +342,22 @@ test('the editor on the PHP backend: create, photos, crop, reopen, library, down
     await expect(page.getByLabel('Line 1')).toHaveValue(COPY.headline1);
 
     const downloads = [
-      ['Download PNG', 'png', 'png'],
-      ['JPG', 'jpg', 'jpeg'],
+      ['png', 'png'],
+      ['jpg', 'jpeg'],
     ] as const;
     for (const canvas of CANVAS_IDS) {
       const { label: canvasLabel, width, height } = CANVASES[canvas];
       await page.getByRole('button', { name: canvasLabel, exact: true }).click();
       await expect(page.locator('.stage-canvas [data-flyer]')).toHaveAttribute('data-canvas', canvas);
-      for (const [label, format, sharpFormat] of downloads) {
-        const button = page.getByRole('button', { name: label, exact: true });
-        await expect(button).toBeEnabled();
-        const [download] = await Promise.all([page.waitForEvent('download'), button.click()]);
+      for (const [format, sharpFormat] of downloads) {
+        const downloaded = await download(page, format); // it returns once the editor is idle again
         const name = flyerFilename(title, id, format, canvas);
-        expect(download.suggestedFilename()).toBe(name);
+        expect(downloaded.suggestedFilename()).toBe(name);
         const file = test.info().outputPath(name);
-        await download.saveAs(file);
+        await downloaded.saveAs(file);
         const meta = await sharp(file).metadata();
         expect([meta.format, meta.width, meta.height], name).toEqual([sharpFormat, width, height]);
         await expect(toast(page, 'ok')).toContainText(`${name} (${width} × ${height})`);
-        await expect(button).toBeEnabled(); // the editor is idle again
       }
     }
     expect(pageErrors, 'uncaught errors in the editor').toEqual([]);
@@ -424,20 +421,17 @@ test('a This week flyer on the PHP backend: made, refused a photo, reopened and 
       const { label: canvasLabel, width, height } = CANVASES[canvas];
       await page.getByRole('button', { name: canvasLabel, exact: true }).click();
       await expect(page.locator('.stage-canvas [data-flyer]')).toHaveAttribute('data-canvas', canvas);
-      for (const [label, format, sharpFormat] of [
-        ['Download PNG', 'png', 'png'],
-        ['JPG', 'jpg', 'jpeg'],
+      for (const [format, sharpFormat] of [
+        ['png', 'png'],
+        ['jpg', 'jpeg'],
       ] as const) {
-        const button = page.getByRole('button', { name: label, exact: true });
-        await expect(button).toBeEnabled();
-        const [download] = await Promise.all([page.waitForEvent('download'), button.click()]);
+        const downloaded = await download(page, format);
         const name = flyerFilename(title, id, format, canvas);
-        expect(download.suggestedFilename()).toBe(name);
+        expect(downloaded.suggestedFilename()).toBe(name);
         const file = test.info().outputPath(name);
-        await download.saveAs(file);
+        await downloaded.saveAs(file);
         const meta = await sharp(file).metadata();
         expect([meta.format, meta.width, meta.height], name).toEqual([sharpFormat, width, height]);
-        await expect(button).toBeEnabled();
       }
     }
     expect(pageErrors, 'uncaught errors in the editor').toEqual([]);

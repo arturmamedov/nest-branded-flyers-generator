@@ -13,10 +13,12 @@ import { TEXT_LIMITS } from '../shared/text';
 import { WEEK_ROWS_MAX, WEEK_ROW_LIMITS, isPrintable, rowFromActivity } from '../shared/week';
 import { api, ApiError, asSentence } from './api';
 import { COPY_FAILED } from './clipboard';
-import type { FlyerExporter } from './export';
+import type { ExportFormat, FlyerExporter } from './export';
+import { DOWNLOAD, EXPORT_ACTION, type ExportAction } from './exportActions';
 import { takeDraft } from './handoff';
 import { useLeaveGuard } from './leaveGuard';
 import { FIELD } from './fields';
+import { Menu } from './Menu';
 import { AiUsedUp, BackToLibrary, Field, HostelOptions, Section, type Fold } from './panel';
 import { PHOTO_MODE_LABEL, PHOTO_UPLOADING } from './photoModes';
 import { preparePhoto, type PhotoLimits } from './photoPrep';
@@ -123,7 +125,7 @@ export function Editor({
   const [canvas, setCanvas] = useState<CanvasId>(savedCanvas);
   const [safe, setSafe] = useState(false);
   const [actualSize, setActualSize] = useState(false);
-  const [busy, setBusy] = useState<null | 'save' | 'png' | 'jpg' | 'upload' | 'row' | 'ai'>(null);
+  const [busy, setBusy] = useState<null | 'save' | 'upload' | 'row' | 'ai' | ExportAction>(null);
   const [message, setMessage] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   // The details the caption on the form was written from: by the AI in this visit, or as the flyer stood when it was
@@ -133,14 +135,15 @@ export function Editor({
   // The staff member has saved the AI's flyer themselves (Save, or a download): the save "Write with AI" makes does
   // not count, or the AI draft warning would leave at the moment the AI wrote one thing more.
   const [ownSave, setOwnSave] = useState(false);
-  // "Write with AI" is greyed while it works, and a greyed button drops the focus: it gets it back when the work is
-  // done, unless the staff member has put it somewhere since.
-  const aiButton = useRef<HTMLButtonElement>(null);
-  const aiPressed = useRef(false);
+  // The control an action started from (run() notes it). Most are greyed while the action works, and a greyed control
+  // drops the focus: it gets it back when the work is done, unless the staff member has put it somewhere since.
+  // Without scrolling to it: on a phone the form is above the flyer, and the flyer is what was being looked at.
+  const pressed = useRef<HTMLElement | null>(null);
   useEffect(() => {
-    if (busy || !aiPressed.current) return;
-    aiPressed.current = false;
-    if (document.activeElement === document.body) aiButton.current?.focus();
+    if (busy) return;
+    const from = pressed.current;
+    pressed.current = null;
+    if (from?.isConnected && document.activeElement === document.body) from.focus({ preventScroll: true });
   }, [busy]);
   // Whether this editor is still the page on screen, for an answer that lands after the staff member has left.
   const here = useRef(true);
@@ -257,6 +260,8 @@ export function Editor({
   }
 
   async function run(kind: NonNullable<typeof busy>, fn: () => Promise<string | void>) {
+    const from = document.activeElement;
+    pressed.current = from instanceof HTMLElement && from !== document.body ? from : null;
     setBusy(kind);
     setMessage(null);
     try {
@@ -276,12 +281,18 @@ export function Editor({
       return 'Saved to the library.';
     });
 
-  const onDownload = (format: 'png' | 'jpg') =>
+  // The flyer as a picture, for every way out of the editor (a download, and what Part 3 of the UX round adds beside
+  // it): saved first, as a download always was, then the canvas on screen when the button was pressed. What you see
+  // is what you get. The export seam is one call on both backends (export/).
+  async function picture(format: ExportFormat) {
+    const savedId = await save();
+    setOwnSave(true);
+    return exporter.export({ id: savedId, format, canvas });
+  }
+
+  const onDownload = (format: ExportFormat) =>
     run(format, async () => {
-      const savedId = await save();
-      setOwnSave(true);
-      // The canvas on screen when the button was pressed: what you see is what you download.
-      const { blob, filename } = await exporter.export({ id: savedId, format, canvas });
+      const { blob, filename } = await picture(format);
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -331,7 +342,6 @@ export function Editor({
     if (!ai) return;
     const cost = ai.remaining === 1 ? 'the last generation' : `one of the ${ai.remaining} generations`;
     if (draft.data.share.trim() && !confirm(`Replace the caption with one the AI writes? It uses ${cost} left today.`)) return;
-    aiPressed.current = document.activeElement === aiButton.current;
     run('ai', async () => {
       const { hostel: slug, data } = latestDraft.current!;
       // The details as they were sent: a field changed while the answer was on its way leaves a caption that is no
@@ -384,6 +394,10 @@ export function Editor({
       : []),
     ...copyWarnings(cutOff, lints),
   ];
+
+  // The ways to take the flyer out as a picture: what each one does, and the ones behind "Download".
+  const act: Record<ExportAction, () => void> = { png: () => onDownload('png'), jpg: () => onDownload('jpg') };
+  const menu: ExportAction[] = ['png', 'jpg'];
 
   const t = draft.data.text;
   const chip = (key: ChipKey) => draft.data.chips.find((c) => c.key === key) as Chip;
@@ -585,8 +599,8 @@ export function Editor({
           <Section title={FIELD.share} fold={fold('share')} hint="Not printed. The caption to paste when you post or send the flyer.">
             {ai && (
               <div className="ai-write">
-                {/* One button in both states: the one that was pressed is there to take the focus back. */}
-                <button ref={aiButton} type="button" className={captionWritten ? 'linkish ai-again' : 'btn'} disabled={!!busy || ai.remaining === 0} onClick={writeShare}>
+                {/* One button in both states: the one that was pressed is there to take the focus back (run()). */}
+                <button type="button" className={captionWritten ? 'linkish ai-again' : 'btn'} disabled={!!busy || ai.remaining === 0} onClick={writeShare}>
                   {busy === 'ai' ? 'Writing…' : captionWritten ? 'Write again' : '✨ Write with AI'} <span className="ai-left">({ai.remaining} left today)</span>
                 </button>
                 <AiUsedUp feature={ai.name} limit={ai.limit} left={ai.remaining} />
@@ -636,17 +650,21 @@ export function Editor({
               1:1
             </button>
           </div>
-          <span className="spacer" />
-          <span className="status">{dirty ? 'Unsaved changes' : flyerId ? 'Saved' : ''}</span>
-          <button type="button" className="btn btn-dark" disabled={!!busy || (!dirty && flyerId != null)} onClick={onSave}>
-            {busy === 'save' ? 'Saving…' : 'Save'}
-          </button>
-          <button type="button" className="btn btn-accent" disabled={!!busy || needsPhoto} onClick={() => onDownload('png')}>
-            {busy === 'png' ? 'Rendering…' : 'Download PNG'}
-          </button>
-          <button type="button" className="btn btn-dark" disabled={!!busy || needsPhoto} onClick={() => onDownload('jpg')} title="Smaller file">
-            {busy === 'jpg' ? 'Rendering…' : 'JPG'}
-          </button>
+          {/* The flyer's own actions are one group at the bar's right end (editor.css): it wraps as a whole, so no
+              button drops alone to the left of a second row, and the menu's list always has room to open. */}
+          <div className="toolbar-actions">
+            <span className="status">{dirty ? 'Unsaved changes' : flyerId ? 'Saved' : ''}</span>
+            <button type="button" className="btn btn-dark" disabled={!!busy || (!dirty && flyerId != null)} onClick={onSave}>
+              {busy === 'save' ? 'Saving…' : 'Save'}
+            </button>
+            {/* While one of its entries works, the button reads what that entry is doing. */}
+            <Menu
+              label={menu.find((action) => action === busy) ? EXPORT_ACTION[busy as ExportAction].busy : DOWNLOAD}
+              className="btn btn-accent"
+              disabled={!!busy || needsPhoto}
+              entries={menu.map((action) => ({ id: action, label: EXPORT_ACTION[action].label, hint: EXPORT_ACTION[action].hint, onPick: act[action] }))}
+            />
+          </div>
         </div>
 
         <Preview

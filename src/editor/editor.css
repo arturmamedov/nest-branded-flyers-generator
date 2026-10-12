@@ -680,6 +680,80 @@ nest-nav > nav a.ai-entry .ai-count {
   font-size: 12px;
 }
 
+/* The flyer's own actions, the editor's right half of the bar: one group that wraps as a whole and stays at the
+   right. Loose in the bar, the last button dropped alone to the left of a second row, and a list opening under it
+   had the window's edge beside it. */
+.toolbar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+}
+
+/* A button that opens a short list of actions (Menu.tsx): "Download ▾". The list hangs under the button's right end,
+   over the stage and out of the flow. Above the toasts (3): the flyer's canvas is positioned and comes later in the
+   page, so without a level of its own the list would be drawn under it. */
+.menu {
+  position: relative;
+  display: inline-flex;
+}
+
+.menu-chev {
+  flex: 0 0 auto;
+}
+
+.menu-list {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  min-width: 100%;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.4);
+}
+
+/* Its own rule: the list sets `display`, which outranks the attribute, and the editor has no reset to lean on (one
+   would leak into the flyer). */
+.menu-list[hidden] {
+  display: none;
+}
+
+.menu-entry {
+  padding: 8px 12px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.menu-entry:hover,
+.menu-entry:focus-visible {
+  background: #efeadc;
+  outline: none;
+}
+
+.menu-entry:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--teal);
+}
+
+.menu-hint {
+  color: var(--muted);
+  font-weight: 500;
+}
+
 /* A tick box in the dark bar (the AI page's "Use this picture as the flyer's photo"): the form's, in the bar's ink. */
 .toolbar .check {
   margin: 0;

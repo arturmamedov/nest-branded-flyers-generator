@@ -1,6 +1,6 @@
 import type { Locator, Page } from '@playwright/test';
 import { expect, test } from '../browser';
-import { EDITOR_VIEWPORT, closeToast, dropFile, saveNew, templateButton, toast, warningsChip, type FilePayload } from '../editor';
+import { EDITOR_VIEWPORT, closeToast, downloadMenu, dropFile, saveNew, templateButton, toast, warningsChip, type FilePayload } from '../editor';
 import { PHOTO_MODE_LABEL } from '../../src/editor/photoModes';
 import { OUTCOME_MS } from '../../src/editor/toastFolds';
 import { TEMPLATE_LABEL } from '../../src/editor/templates';
@@ -23,7 +23,6 @@ test.afterEach(async ({ request }) => {
 
 const stage = (page: Page) => page.locator('.stage');
 const flyer = (page: Page) => page.locator('.stage-canvas');
-const download = (page: Page) => page.getByRole('button', { name: 'Download PNG', exact: true });
 const modeButton = (page: Page, mode: keyof typeof PHOTO_MODE_LABEL) => page.getByRole('button', { name: PHOTO_MODE_LABEL[mode], exact: true });
 /** A new flyer's standing warning: its frame has no photo yet. */
 const needsPhoto = (page: Page) => toast(page, 'warn').filter({ hasText: 'Add a photo' });
@@ -70,7 +69,7 @@ test('a closed warning folds into the chip while its problem stands, and the chi
   await expect(warningsChip(page)).toHaveText('⚠ 1');
   await expect(warningsChip(page)).toHaveAccessibleName('Show 1 warning');
   // The reason Download is grey is one tap away.
-  await expect(download(page)).toBeDisabled();
+  await expect(downloadMenu(page)).toBeDisabled();
 
   // Typing leaves it folded: its words have not changed.
   await page.getByLabel('Line 1').fill('Saturday is a');
