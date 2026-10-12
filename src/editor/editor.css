@@ -870,6 +870,11 @@ nest-nav > nav a.ai-entry .ai-count {
   font-size: 12px;
 }
 
+/* A copy that did not happen, and why (clipboard.ts): a sentence, beside the button, in the ink of an error. */
+.share-status-error {
+  color: var(--err-ink);
+}
+
 /* The reminder beside the preview: over the stage's corner, out of the flow, so the flyer keeps the whole stage. */
 .share-fab {
   position: absolute;

@@ -12,6 +12,7 @@ import { SHARE_MAX, SHARE_SPANISH_BREAK, shareDetails } from '../shared/share';
 import { TEXT_LIMITS } from '../shared/text';
 import { WEEK_ROWS_MAX, WEEK_ROW_LIMITS, isPrintable, rowFromActivity } from '../shared/week';
 import { api, ApiError, asSentence } from './api';
+import { COPY_FAILED } from './clipboard';
 import type { FlyerExporter } from './export';
 import { takeDraft } from './handoff';
 import { useLeaveGuard } from './leaveGuard';
@@ -660,7 +661,7 @@ export function Editor({
           onDropFile={onDrop}
         />
 
-        {draft.data.share.trim() && <ShareFab text={draft.data.share} />}
+        {draft.data.share.trim() && <ShareFab text={draft.data.share} onFail={(why) => setMessage({ kind: 'error', text: COPY_FAILED.text[why] })} />}
         <Toasts outcome={message && { kind: message.kind, body: message.text }} onCloseOutcome={() => setMessage(null)} warnings={warnings} />
       </main>
     </div>

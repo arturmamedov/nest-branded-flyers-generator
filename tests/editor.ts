@@ -115,6 +115,15 @@ export const closeToast = (words: Locator) => words.locator('xpath=..').getByRol
 /** The "⚠ n" chip the closed warnings fold into; a click opens them again. */
 export const warningsChip = (page: Page) => page.locator('.toasts .toast-chip');
 
+/** A page the browser gives no clipboard: what a phone gets over plain http on a LAN address (the spike of the
+    editor's UX round, Part 3: `navigator.clipboard` and `ClipboardItem` are both undefined there). Before the page
+    loads. */
+export const noClipboard = (page: Page) =>
+  page.addInitScript(() => {
+    Object.defineProperty(Navigator.prototype, 'clipboard', { get: () => undefined, configurable: true });
+    delete (window as { ClipboardItem?: unknown }).ClipboardItem;
+  });
+
 /** The editor's warning that copy is cut off, on the canvas on screen or on one fitted offscreen. */
 export const cutOff = (page: Page) => toast(page, 'warn').filter({ hasText: 'is being cut off' });
 
