@@ -434,6 +434,30 @@ A release from before the This week template (2026-09-29) shows a week flyer as 
 and a Save or a Download there turns it into an Activity flyer. Its rows and title are kept:
 reopen it in a newer release and switch it back to This week.
 
+**A line of copy longer than the older release allows.** Two limits were raised, and a flyer saved
+since may use the room:
+
+| The line | Was | Is | Since the release built |
+|---|---|---|---|
+| The Spanish line under the headline | 140 | 260 | after 2026-10-09 |
+| The tag in the pill ("¡TAG US!") | 12 | 24 | after 2026-10-12 |
+
+Going back to a release from before one of them, a flyer whose line is longer than "Was":
+
+- **On the host (the PHP release): it opens, and it cannot be saved.** The library lists it and the
+  editor shows its copy whole. The older editor does not shrink the pill's letters, so a long handle
+  and tag print at full size and can run past the safe margins. Save answers "Some fields are not
+  valid." for that line (`data.text.tag`, `data.text.headlineEs`) until it is shortened, and so does
+  every Download, which saves first.
+- **On a Node machine: it is listed, and it does not open.** The library names it, its picture stays
+  empty, and opening it answers "Something went wrong on the server.", on SQLite and on the JSON
+  store alike. Node checks a flyer against its rules on every read.
+
+Nothing is lost either way: the flyer is in the library as the newer release saved it, and opens
+there again. Both halves are held by tests (`php/tests/BootstrapTest.php`,
+`tests/storage/repositories.contract.ts`). The other way round needs nothing: a newer release reads
+every older flyer.
+
 ## Locked out?
 
 A wrong password hash, a wrong `AuthUserFile` path (every page then answers 500) or a host that

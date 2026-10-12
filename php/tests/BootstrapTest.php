@@ -396,6 +396,37 @@ final class BootstrapTest extends TestCase
         self::assertSame([], $this->ok($app->handle(self::request('GET', '/api/flyers'))));
     }
 
+    /**
+     * What a release meets in a library a newer one wrote, after a limit was raised (the tag went from 12 to 24
+     * characters in the editor's UX round, Part 4; docs/deploy.md, "Rolling back"). A read shapes the flyer and checks
+     * no length, so it opens with its copy whole; a save is held to the limit, so it is refused, by the line's
+     * name, until the line is shortened. The newer release's flyer is stood in for by one past today's limit.
+     */
+    public function testAFlyerStoredWithALineLongerThanItsLimitOpensAndItsSaveIsRefusedUntilTheLineIsShortened(): void
+    {
+        $app = $this->app();
+        $id = $this->ok($app->handle(self::request('POST', '/api/flyers', $this->input())), 201)->id;
+        $limit = Json::decode((string) file_get_contents(Paths::schema('flyer.schema.json')))->properties->data->properties->text->properties->tag->maxLength;
+        $long = str_repeat('W', $limit + 1);
+
+        $file = "$this->dataDir/flyers/$id.json";
+        $stored = Json::decode((string) file_get_contents($file));
+        $stored->data->text->tag = $long;
+        file_put_contents($file, Json::encode($stored));
+
+        $opened = $this->ok($app->handle(self::request('GET', "/api/flyers/$id")));
+        self::assertSame($long, $opened->flyer->data->text->tag);
+        self::assertSame([$id], array_column(array_map(static fn (stdClass $f): array => (array) $f, $this->ok($app->handle(self::request('GET', '/api/flyers')))), 'id'));
+
+        $input = $this->input();
+        $input->data->text->tag = $long;
+        $error = $this->assertError($app->handle(self::request('PUT', "/api/flyers/$id", $input)), 400, 'invalid');
+        self::assertSame(['data.text.tag'], array_keys((array) $error->fields));
+
+        $input->data->text->tag = str_repeat('W', $limit);
+        self::assertSame($input->data->text->tag, $this->ok($app->handle(self::request('PUT', "/api/flyers/$id", $input)))->flyer->data->text->tag);
+    }
+
     public function testTheLibraryOutlivesTheRequest(): void
     {
         $id = $this->ok($this->app()->handle(self::request('POST', '/api/flyers', $this->input())), 201)->id;

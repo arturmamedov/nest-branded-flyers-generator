@@ -5,6 +5,7 @@ import { MissingReferenceError, type Clock, type Repositories } from '../../serv
 import { SAMPLE_FLYERS } from '../../src/shared/samples.js';
 import type { FlyerInput } from '../../src/shared/schema.js';
 import type { StoredAiUsage } from '../../src/shared/storage.js';
+import { TEXT_LIMITS } from '../../src/shared/text.js';
 
 /* One behaviour for every storage driver (Liskov): each driver's test file
    calls describeRepositoryContract with a factory for a fresh, empty store.
@@ -148,6 +149,17 @@ export function describeRepositoryContract(name: string, factory: RepositoryFact
           createdAt: '2026-09-18T10:00:00.000Z',
           updatedAt: '2026-09-18T10:00:00.000Z',
         });
+      });
+
+      it('holds a flyer it reads to the schema: one stored with a line longer than its limit is refused, and still listed', async () => {
+        // What a release meets in a library a newer one wrote, after a limit was raised (the tag went from 12 to 24
+        // characters in the editor's UX round, Part 4; docs/deploy.md, "Rolling back"). Drivers store what they are
+        // given, so the newer release's flyer is stood in for by one past today's limit.
+        const tag = 'W'.repeat(TEXT_LIMITS.tag + 1);
+        const id = await repos.flyers.create(input({ title: 'From a newer release', data: { ...data, text: { ...data.text, tag } } }));
+        await expect(repos.flyers.get(id)).rejects.toThrow(/tag/);
+        // The list reads no flyer's copy, so the library still names it.
+        expect((await repos.flyers.list({})).map((f) => [f.id, f.title])).toEqual([[id, 'From a newer release']]);
       });
 
       it('rejects a hostel or photo that does not exist', async () => {
