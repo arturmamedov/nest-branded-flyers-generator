@@ -2,7 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import type { APIRequestContext, Page, Response as PwResponse } from '@playwright/test';
 import { expect, test } from '../browser';
-import { POOL_PARTY, apiCall, backToLibrary, download, dropFile, filterLibrary, libraryCard as card, openSection, rowField, saveNew, status, templateButton, toast, type FilePayload } from '../editor';
+import { POOL_PARTY, apiCall, backToLibrary, clipboardPng, copyImage, download, dropFile, filterLibrary, grantClipboard, libraryCard as card, openSection, rowField, saveNew, status, templateButton, toast, type FilePayload } from '../editor';
 import sharp from 'sharp';
 import { PHOTO_MODE_LABEL } from '../../src/editor/photoModes';
 import { TEMPLATE_LABEL } from '../../src/editor/templates';
@@ -359,6 +359,26 @@ test('the editor on the PHP backend: create, photos, crop, reopen, library, down
         expect([meta.format, meta.width, meta.height], name).toEqual([sharpFormat, width, height]);
         await expect(toast(page, 'ok')).toContainText(`${name} (${width} × ${height})`);
       }
+    }
+    expect(pageErrors, 'uncaught errors in the editor').toEqual([]);
+  });
+
+  await test.step('9b. copy the picture: the canvas on screen is on the clipboard at its exact size, made by the in-browser exporter', async () => {
+    // A page has a clipboard only over https or on the device itself. A run pointed at a plain-http deployment has
+    // none, and the editor then offers no "Copy image": nothing to press, and the run says why this step was left.
+    if (!(await page.evaluate(() => isSecureContext))) {
+      test.info().annotations.push({ type: 'left out', description: 'step 9b, copy the picture: this deployment is plain http, where a browser gives a page no clipboard' });
+      return;
+    }
+    await grantClipboard(page);
+    for (const canvas of CANVAS_IDS) {
+      const { label: canvasLabel, width, height } = CANVASES[canvas];
+      await page.getByRole('button', { name: canvasLabel, exact: true }).click();
+      await expect(page.locator('.stage-canvas [data-flyer]')).toHaveAttribute('data-canvas', canvas);
+      await copyImage(page).click();
+      await expect(toast(page, 'ok')).toContainText(`Image copied (${width} × ${height}).`);
+      const meta = await sharp(await clipboardPng(page)).metadata();
+      expect([meta.format, meta.width, meta.height], `${canvas}: the copied picture`).toEqual(['png', width, height]);
     }
     expect(pageErrors, 'uncaught errors in the editor').toEqual([]);
   });
