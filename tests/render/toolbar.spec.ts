@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import type { Locator, Page } from '@playwright/test';
 import sharp from 'sharp';
 import { expect, test } from '../browser';
-import { EDITOR_VIEWPORT, POOL_PARTY, apiRoute, copyImage, download, downloadMenu, dropFile, exportEntry, hold, saveNew, status, type FilePayload } from '../editor';
+import { EDITOR_VIEWPORT, POOL_PARTY, apiRoute, copyImage, copyOfSample, download, downloadMenu, dropFile, exportEntry, hold, saveNew, status, type FilePayload } from '../editor';
 import { DOWNLOAD, entryText } from '../../src/editor/exportActions';
 import { PHOTO_MODE_LABEL } from '../../src/editor/photoModes';
 import { CANVASES, DEFAULT_CANVAS } from '../../src/shared/layout';
@@ -153,6 +153,28 @@ test('a photo dropped with the list open closes it: one action at a time', async
   release();
   await expect(downloadMenu(page)).toBeEnabled();
   await expect(list(page), 'and it does not open again by itself').toBeHidden();
+});
+
+test('a saved flyer’s bar is one row at 1280 px wide with the form open, as it was with the two download buttons', async ({ page, request }) => {
+  // Seen in the look (2026-10-12): "Copy image" and "Download ▾" are wider than "Download PNG" and "JPG" were, the
+  // bar broke into two rows, and the flyer under it was 491 px wide where it had been 524.
+  await page.setViewportSize({ width: 1280, height: 800 });
+  const id = await copyOfSample(request, 'Pool party', 'toolbar spec row');
+  keep(id);
+  await page.goto(`/#/flyers/${id}`);
+  await expect(status(page)).toHaveText('Saved');
+  await expect(copyImage(page)).toBeEnabled();
+  // One row: the bar is as tall as one, and its last button stands level with its first control.
+  const middle = async (l: Locator) => {
+    const b = await box(l);
+    return b.y + b.height / 2;
+  };
+  const row = async () => ({
+    height: Math.round((await box(page.locator('.toolbar'))).height),
+    level: Math.abs((await middle(page.getByRole('group', { name: 'Canvas' }))) - (await middle(downloadMenu(page)))) < 2,
+  });
+  await expect.poll(row).toEqual({ height: 54, level: true });
+  await expect.poll(async () => Math.round((await box(page.locator('.stage-canvas'))).width), 'the flyer keeps the size it had').toBe(524);
 });
 
 for (const viewport of [EDITOR_VIEWPORT, { width: 1280, height: 800 }, { width: 390, height: 844 }, { width: 360, height: 800 }]) {

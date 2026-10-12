@@ -688,8 +688,16 @@ nest-nav > nav a.ai-entry .ai-count {
   flex-wrap: wrap;
   justify-content: flex-end;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   margin-left: auto;
+}
+
+/* A little closer than the app's other buttons. "Copy image" and "Download ▾" are some 40 px wider than the two
+   download buttons they took the place of, and at 1280 px wide with the form open the bar of a saved flyer then
+   broke into two rows, where it was one: the flyer was smaller for it (seen in the look, 2026-10-12). */
+.toolbar-actions .btn {
+  padding-left: 12px;
+  padding-right: 12px;
 }
 
 /* A button that opens a short list of actions (Menu.tsx): "Download ▾". The list hangs under the button's right end,
