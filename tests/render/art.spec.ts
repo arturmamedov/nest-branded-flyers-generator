@@ -8,6 +8,7 @@ import { drawPayload, newPayload } from './drawn';
 
 /* The art that follows the copy, and the blobs' inks (Artur, 2026-10-12, from the proof sheets of the fitted pill):
    - the spark off the tag pill's end hangs from the end of the pill, whatever its copy makes its width;
+   - the pencil by the ask hangs from the end of the ask's copy, a little higher than it was;
    - the corner blobs print in each other's ink: teal on the left, yellow on the right, where a long pill carries
      its teal spark.
    None of it is stored: a flyer's doodles are the numbers every flyer has always carried. */
@@ -119,6 +120,92 @@ test.describe('the corner blobs print in each other’s ink', () => {
       // Well inside each blob: 12 px in from its corner of the canvas.
       expect(await inkAt(page, 12, H - 12), 'the left corner').toEqual([10, 120, 143]);
       expect(await inkAt(page, W - 12, H - 12), 'the right corner').toEqual([250, 194, 19]);
+    });
+  }
+});
+
+/** Runs in the page: the ask's block of copy, its lines as printed, and the pencil. */
+const readAsk = () => {
+  const ask = document.querySelector<HTMLElement>('[data-group=ask]');
+  if (!ask) return null;
+  const pencil = ask.querySelector<HTMLElement>('img[data-art]')!;
+  const block = pencil.parentElement!;
+  const box = (r: DOMRect) => ({ left: r.left, right: r.right, top: r.top, bottom: r.bottom });
+  const at = pencil.getBoundingClientRect();
+  const fit = (window as unknown as { __FLYER_FIT: { entries: { text: string; overflowX: boolean }[] } }).__FLYER_FIT;
+  return {
+    blockInAsk: block.parentElement === ask,
+    block: box(block.getBoundingClientRect()),
+    pencil: { ...box(at), x: at.left + at.width / 2, y: at.top + at.height / 2, width: pencil.offsetWidth, height: pencil.offsetHeight },
+    lines: [...ask.querySelectorAll<HTMLElement>('[data-fit]')].map((el) => {
+      const range = document.createRange();
+      range.selectNodeContents(el);
+      return { ...box(range.getBoundingClientRect()), text: el.textContent ?? '', px: parseFloat(getComputedStyle(el).fontSize) };
+    }),
+    cut: fit.entries.filter((e) => e.overflowX).map((e) => e.text),
+  };
+};
+
+/** How far after the end of the copy the pencil starts, and how far above the block's top (Artur's pick of two, 2026-10-12). */
+const PENCIL = { after: 14, above: 10, width: 104 };
+
+const ASKS: [string, Partial<FlyerText>, { enPx?: 'full' | 'shrunk' }][] = [
+  ['the default ask', {}, { enPx: 'full' }],
+  ['a short English line over a longer Spanish one', { askEn: 'Join us!', askEs: 'Apúntate en recepción antes de las 18:00.' }, { enPx: 'full' }],
+  ['an English line that shrank', { askEn: 'Sign up at reception before 18:00.' }, { enPx: 'shrunk' }],
+  ['the English line alone', { askEs: '' }, { enPx: 'full' }],
+  ['the Spanish line alone', { askEn: '' }, {}],
+];
+
+test.describe('the pencil hangs from the end of the ask', () => {
+  for (const canvas of CANVAS_IDS) {
+    for (const template of ['activity', 'week'] as const) {
+      test(`${canvas} / ${template}: after the end of the copy and a little above it, whatever the lines say`, async ({ page }) => {
+        const { width: W, height: H, activity } = CANVASES[canvas];
+        const ends: number[] = [];
+        for (const [name, text, { enPx }] of ASKS) {
+          await drawPayload(page, newPayload(template, text), canvas);
+          const r = (await page.evaluate(readAsk))!;
+          expect(r, `${name}: the ask is drawn`).not.toBeNull();
+          expect(r.blockInAsk, `${name}: the pencil is part of the ask's block of copy`).toBe(true);
+          expect(r.cut, `${name}: nothing is cut off`).toEqual([]);
+          if (enPx === 'full') expect(r.lines[0].px, `${name}: the pencil takes no room from the English line`).toBe(62);
+          if (enPx === 'shrunk') expect(r.lines[0].px, `${name}: the English line shrank`).toBeLessThan(62);
+
+          // The block is as wide as its longer line, so its end is the end of the copy (and of the underline).
+          const copyEnd = Math.max(...r.lines.map((l) => l.right));
+          expect(Math.abs(r.block.right - copyEnd), `${name}: the block ends where its longer line does`).toBeLessThanOrEqual(1.5);
+          if (text.askEn === 'Join us!') expect(r.lines[1].right, `${name}: here the longer line is the Spanish one`).toBeGreaterThan(r.lines[0].right + 100);
+          expect(Math.abs(r.block.top - activity.ask.top), `${name}: the block starts at the ask's top`).toBeLessThanOrEqual(0.5);
+
+          expect(r.pencil.width, `${name}: the pencil's size`).toBe(PENCIL.width);
+          expect(Math.abs(r.pencil.x - r.pencil.width / 2 - r.block.right - PENCIL.after), `${name}: after the end of the copy`).toBeLessThanOrEqual(0.5);
+          expect(Math.abs(r.pencil.y - r.pencil.height / 2 - r.block.top + PENCIL.above), `${name}: above the block's top`).toBeLessThanOrEqual(0.5);
+
+          // It lands on none of the ask's own lines, stays below the row above the ask, and on the canvas.
+          for (const line of r.lines) {
+            const over = r.pencil.left < line.right && line.left < r.pencil.right && r.pencil.top < line.bottom && line.top < r.pencil.bottom;
+            expect(over, `${name}: the pencil over "${line.text}"`).toBe(false);
+          }
+          expect(r.pencil.top, `${name}: below the extras' row`).toBeGreaterThanOrEqual(activity.extras.top + activity.extras.height);
+          expect(r.pencil.left).toBeGreaterThanOrEqual(0);
+          expect(r.pencil.right).toBeLessThanOrEqual(W);
+          expect(r.pencil.bottom).toBeLessThanOrEqual(H);
+          ends.push(r.block.right);
+          await page.goto('about:blank');
+        }
+        // The cases do move the end of the copy: under the short English line it is the Spanish line's, past the
+        // default's; the shrunk line's is further right still; the Spanish line alone ends well left of them all.
+        expect(ends[1]).toBeGreaterThan(ends[0] + 30);
+        expect(ends[2]).toBeGreaterThan(ends[0] + 30);
+        expect(ends[4]).toBeLessThan(ends[0] - 30);
+      });
+    }
+
+    test(`${canvas}: a flyer with no ask draws no pencil`, async ({ page }) => {
+      await drawPayload(page, newPayload('activity', { askEn: '', askEs: '' }), canvas);
+      expect(await page.evaluate(readAsk)).toBeNull();
+      expect(await page.locator('img[src*="doodle-pencil"]').count()).toBe(0);
     });
   }
 });

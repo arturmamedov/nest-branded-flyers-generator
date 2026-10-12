@@ -126,6 +126,11 @@ function Highlight({ children }: { children: ReactNode }) {
     its column by 0.36 px past the safe edge; one pixel less keeps the tilted pill inside it, the zone being a hard limit. */
 const PILL_TILT_ROOM = 1;
 
+/** Where the pencil hangs by the ask: this far after the end of the copy, and this far above the block's top (it was
+    6 px below it). Artur's pick of two shapes from the mock-ups (2026-10-12): "same size, higher". */
+const PENCIL_AFTER = 14;
+const PENCIL_ABOVE = 10;
+
 /** A week row's fixed day column (the prototype's), and the cap on its right-hand time and price. */
 const DAY_WIDTH = 250;
 /** The day's fit box, about three lines at 34 px. The highlighter's stroke reaches past its line boxes, and the height
@@ -376,7 +381,8 @@ export function Flyer({ data, canvas, hostel, photo, showSafeZones = false, ref 
 
       {(t.askEn || t.askEs) && (
         <div data-group="ask" style={{ position: 'absolute', ...across(A.ask, W), top: A.ask.top, height: A.ask.height }}>
-          <div style={{ display: 'inline-block', maxWidth: 760 }}>
+          {/* The block is as wide as the longer of its two lines, and the underline with it. */}
+          <div style={{ position: 'relative', display: 'inline-block', maxWidth: 760 }}>
             {t.askEn && (
               <div data-fit="62" data-fit-min="0.66" style={{ ...HL, fontWeight: 800, fontSize: 62, lineHeight: 1.08, color: ink, whiteSpace: 'nowrap' }}>{t.askEn}</div>
             )}
@@ -384,8 +390,12 @@ export function Flyer({ data, canvas, hostel, photo, showSafeZones = false, ref 
             {t.askEs && (
               <div data-fit="34" data-fit-min="0.8" style={{ ...BODY, fontWeight: 600, fontSize: 34, lineHeight: 1.2, color: MUTED, marginTop: 10, whiteSpace: 'nowrap' }}>{t.askEs}</div>
             )}
+            {/* The pencil hangs from the end of the copy, a little above it (Artur, 2026-10-12; it sat at the column's
+                right edge, wherever the copy ended). From the block's end, not the English line's: the pencil is
+                taller than that line, and under a short one it would lie on a longer Spanish line. It is a child of
+                the block and of neither line, so it takes no room from their fit. */}
+            <img data-art="" src={art('doodle-pencil')} alt="" style={{ position: 'absolute', left: `calc(100% + ${PENCIL_AFTER}px)`, top: -PENCIL_ABOVE, width: 104, transform: 'rotate(-4deg)' }} />
           </div>
-          <img data-art="" src={art('doodle-pencil')} alt="" style={{ position: 'absolute', right: 20, top: 6, width: 104, transform: 'rotate(-4deg)' }} />
         </div>
       )}
 
