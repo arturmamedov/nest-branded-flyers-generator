@@ -26,6 +26,7 @@ import {
   isCanvasId,
   overlaps,
   photoFrame,
+  pillBox,
   placeArt,
   safeBox,
   weekGroups,
@@ -177,6 +178,15 @@ describe('canvases', () => {
       expect(a.photoBleed.top + a.photoBleed.height, 'bleed and band end together: the blocks below are shared').toBe(a.photoBand.top + a.photoBand.height);
       expect(a.eyebrow.height, 'the eyebrow row is 62 px of icon and text').toBeGreaterThanOrEqual(62);
       expect(a.headline.top).toBeGreaterThanOrEqual(a.eyebrow.top + a.eyebrow.height);
+    });
+
+    it(`${canvas}: the pill's box is the safe column, the one both templates draw it in, and the one it fits`, () => {
+      const box = pillBox(canvas);
+      const safeColumn = safeBox(canvas);
+      expect([box.left, box.width], 'the safe column across').toEqual([safeColumn.left, safeColumn.width]);
+      expect([box.top, box.height], 'where the stack puts it').toEqual([a.pill.top, a.pill.height]);
+      for (const mode of MODES) expect(activityGroups(canvas, mode).pill).toEqual(box);
+      expect(weekGroups(canvas).pill).toEqual(box);
     });
 
     it(`${canvas}: every photo frame has the story's aspect, so one crop shows the same picture`, () => {

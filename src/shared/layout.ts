@@ -240,6 +240,10 @@ function sharedGroups(canvas: CanvasId): Pick<Record<GroupId, Rect>, 'eyebrow' |
   return { eyebrow: a.eyebrow, ask: a.ask, pill: columnOf(CANVASES[canvas])(a.pill.top, a.pill.height) };
 }
 
+/** Where the tag pill sits on a canvas, for both templates: the safe column across, at the stack's pill row. The
+    pill is copy on a ground, so it stays inside this width (Flyer.tsx fits the letters to it). */
+export const pillBox = (canvas: CanvasId): Rect => sharedGroups(canvas).pill;
+
 /** The fixed boxes of the Activity template on a canvas, for a photo mode. */
 export function activityGroups(canvas: CanvasId, mode: PhotoMode): Partial<Record<GroupId, Rect>> {
   const a = CANVASES[canvas].activity;

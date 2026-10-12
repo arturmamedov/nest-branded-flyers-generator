@@ -3,7 +3,7 @@ import { deriveChips, DEFAULT_CHIP_ORDER } from '../shared/chips';
 import { BRIGHT_TEAL, MUTED, PHOTO_PLACEHOLDER, marksFor, resolveDoodles, type ArtPlacement } from '../shared/defaults';
 import { printedExtras } from '../shared/extras';
 import { BODY_FONT, HEADLINE_FONT } from '../shared/fonts';
-import { CANVASES, artAnchors, bodyOf, photoFrame, placeArt, safeBox, type ArtAnchor, type ArtPoint, type CanvasId, type Rect, type WeekBoxes } from '../shared/layout';
+import { CANVASES, artAnchors, bodyOf, photoFrame, pillBox, placeArt, safeBox, type ArtAnchor, type ArtPoint, type CanvasId, type Rect, type WeekBoxes } from '../shared/layout';
 import { coverRect } from '../shared/photo';
 import type { FlyerData, FlyerText, Hostel, PhotoInfo } from '../shared/schema';
 import { printedRows, type PrintedRow } from '../shared/week';
@@ -108,6 +108,10 @@ function Highlight({ children }: { children: ReactNode }) {
     </span>
   );
 }
+
+/** How far inside its column the pill's width is held. The pill is tilted -0.6°, which lifts a corner of one as wide as
+    its column by 0.36 px past the safe edge; one pixel less keeps the tilted pill inside it, the zone being a hard limit. */
+const PILL_TILT_ROOM = 1;
 
 /** A week row's fixed day column (the prototype's), and the cap on its right-hand time and price. */
 const DAY_WIDTH = 250;
@@ -371,13 +375,20 @@ export function Flyer({ data, canvas, hostel, photo, showSafeZones = false, ref 
 
       {data.showPill && (t.handle || t.tag) && (
         <div style={{ position: 'absolute', left: 0, right: 0, top: A.pill.top, display: 'flex', justifyContent: 'center' }}>
+          {/* The pill is as wide as its copy up to its column, and the handle and the tag are one fitted line: a pill
+              that fits is drawn as it always was, a wider one shrinks its letters (the editor's UX round, Part 4).
+              The padding, the gaps and the dot keep their size. Past the floor the line is cut at the pill's edge,
+              sideways only (as a week row's time is), so nothing prints outside the safe column, and the width
+              pass reports it for the editor's cut-off note. */}
           <div
             data-group="pill"
-            style={{ display: 'flex', alignItems: 'center', gap: 18, background: accent, borderRadius: 20, padding: '17px 38px 19px', transform: 'rotate(-0.6deg)' }}
+            style={{ display: 'flex', alignItems: 'center', boxSizing: 'border-box', maxWidth: pillBox(canvas).width - PILL_TILT_ROOM, overflowX: 'clip', background: accent, borderRadius: 20, padding: '17px 38px 19px', transform: 'rotate(-0.6deg)' }}
           >
-            {t.handle && <span style={pillText}>{t.handle}</span>}
-            {t.handle && t.tag && <span style={{ width: 14, height: 14, borderRadius: '50%', background: BRIGHT_TEAL }} />}
-            {t.tag && <span style={pillText}>{t.tag}</span>}
+            <div data-fit="34" data-fit-min="0.7" style={{ ...pillText, display: 'flex', alignItems: 'center', gap: 18, minWidth: 0, whiteSpace: 'nowrap' }}>
+              {t.handle && <span>{t.handle}</span>}
+              {t.handle && t.tag && <span style={{ flex: '0 0 auto', width: 14, height: 14, borderRadius: '50%', background: BRIGHT_TEAL }} />}
+              {t.tag && <span>{t.tag}</span>}
+            </div>
           </div>
         </div>
       )}
