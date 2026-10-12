@@ -598,3 +598,241 @@ Left as they are:
 - **What to look at there:** whether the sheet opens at the first tap or asks for "Share now"; whether WhatsApp
   shows the caption under the picture; what Instagram does with it; and an iPhone, if staff have one.
 - **The release** is yours, as before. Part 3 asks nothing new of the host: it comes with the files.
+
+## Part 4: a tag of 24 characters, a pill that fits, and the art that follows the copy (2026-10-12)
+
+Built on `feat/editor-ux-part-3`, by Artur's choice ("I chose to commit Part 4 on it"), in two sessions of the same
+day. The first made the pill a fitted line (`7c42d35`) and drew a proof sheet. He looked at it and asked for the
+art around the pill and the pencil to move. The second session, launched with `docs/prompts/editor-ux-part-4-close.md`,
+settled that art with him from pictures, then landed the limit. Nothing is pushed, no release was built, and the
+live site and the Laragon copy were not touched. No provider was called.
+
+It is the only part that changes what a flyer prints. Stored flyers do not change: no number or slug in
+`DEFAULT_DOODLES` moved, there is no migration, and every change to the art is in the renderer.
+
+### What Artur chose along the way
+
+- **Before the build** (the brief, and the prompt that closed the part): the tag is 24 characters and the handle
+  keeps 18; the pill's floor is 0.7, only the letters shrink, and the pill stays 1 px inside its column; no sample
+  flyer is added; the three typed-twice numbers become constants; the AI never sets the tag; the pill's one free
+  "!" stays.
+- **After the first proof sheet:** "the spark and the blobs should move too and also the same sparks on the image
+  too and the pencil in the signup should stay more upper and maybe follow more the 'Sign up at reception' text."
+- **From the mock-ups** (the real renderer drew each flyer and a script moved the art by hand; nothing was built):
+
+| Asked, with pictures | He chose |
+|---|---|
+| The spark at the pill's end: hang it from the pill? | "Yes, follow the pill" |
+| The blobs on WhatsApp under a long pill: stay, slide out, or shrink into their corners | "A - Stay: maybe we can change the colors of the sparks there?" |
+| The spark in yellow, on both canvases or on WhatsApp alone | "Let's invert the blob colors secondary-yellow and the sparks leave them secondary as the pill" |
+| The blobs with their inks swapped, drawn: is this it? | "Yes, on both canvases" |
+| The sparks on the photo's corners | "Leave them" |
+| The pencil: same size and higher, or smaller with its tip on the underline | "A · Same size, higher" |
+
+- **The plan** as written, its seven *Mine* points kept. One turned out not to be needed (M4, below).
+- **Sheet A**, every sample flyer before and after on both canvases, with its own pill and a long one: "Signed:
+  commit the art". **Sheet B**, the tag at 8, 14 and 24 on the new art: "Signed: land the limit".
+
+### What was built
+
+- **The pill is one fitted line** (`7c42d35`). The handle, the dot and the tag are one `data-fit` row of 34 px with
+  a floor of 0.7. The pill is as wide as its copy up to `pillBox(canvas).width - 1` (939 px on the story, 999 on
+  WhatsApp): its tilt of 0.6° lifts a corner of a full-width pill 0.36 px past the safe edge. The padding, the gaps
+  and the 14 px dot keep their size. Past the floor the line is cut at the pill's edge, sideways only, and the
+  width pass reports it, so the editor's cut-off toast names it.
+- **The spark hangs from the pill's end** (`4724517`). A render-only anchor, `pillEnd`, took the place of `floor`:
+  the right end of the pill at the top of its row. The pill's width is known only once its letters are fitted, so
+  the anchor's canvas point is where the default pill ends (`DEFAULT_PILL_WIDTH`, 585 px, centred), and `Flyer.tsx`
+  draws the piece inside a box that is the pill's own before its tilt, at the same offsets from that box's end.
+  The browser places it: nothing is measured after the fit. It comes before the pill in that box, so the pill is
+  still drawn over it. A flyer that prints no pill keeps the spark on the flyer itself, at the anchor's point,
+  which is the pixels it always had.
+- **The corner blobs print in each other's ink** (`5dedfc4`): teal on the left, yellow on the right. Each keeps its
+  drawing and its place. The untouched template set draws `blob-left-teal` for the stored `blob-yellow` and
+  `blob-right-yellow` for `blob-teal` (`SWAPPED_BLOBS` in `defaults.ts`). The two files are derived by
+  `scripts/art-inks.ts` (`npm run gen:art`): one drawing's shape, the other's colour, read from the art itself.
+  The scans carry a faint haze of pixels well away from the shape, which showed in teal on cream; the derived
+  files keep the shape's soft edge (within 2 px of its ink) and leave the haze out.
+- **The pencil hangs from the end of the ask** (`8076bac`): a child of the ask's block of copy, 14 px after its
+  end and 10 px above its top. The block is as wide as the longer of its two lines, and the underline with it.
+- **The tag may be 24 characters** (`025eb5e`): `TEXT_LIMITS.tag`, and `npm run gen` for the tag's `maxLength` in
+  `schema/flyer.schema.json`, `storage.schema.json` and `ai.json`, and the "Limits" line of the AI's prompt.
+  Nothing else in a generated file moved, and no AI fixture changed.
+- **The editor reads three limits from their one home** (`afacaf5`): the chip's 90 and the extras' 32 and 4.
+- **Going back to an older release** (`a577197`): `docs/deploy.md`, "Rolling back", with a test for each backend.
+
+Measured in the browser, in capitals, which are what staff type into the pill:
+
+| Pill | Width | Letters, story | Letters, WhatsApp |
+|---|---|---|---|
+| The default (`@NESTSHOSTELS · ¡TAG US!`) | 585 px | 34 px | 34 px |
+| The default handle, a tag of 24 | 926 px | 34 px | 34 px |
+| A handle of 18, a tag of 24 | 922 px and 991 px | 29.8 px (88 %) | 32.3 px (95 %) |
+| 18 and 24 of the widest letter (W) | the column | 23.8 px, cut, the editor warns | the same |
+
+### What differs from the plan Artur approved
+
+- **M4 needed no rule.** The plan said the spark would be held on the canvas on WhatsApp. Measured, at the widest
+  pill its ink ends 3.5 px inside the canvas's right edge and 5.6 px above its bottom, so nothing holds it there:
+  a unit test proves it stays on.
+- **The blobs got a fourth answer.** The plan offered three pictures (stay, slide out, shrink). He chose to keep
+  them where they are and swap their inks. That needed two art files, and a script so they are never drawn by hand.
+- **The pencil hangs from the end of the block, not of the English line.** The prompt read his words as "the end
+  of the English line". The pencil is 135 px tall and the English line 67: under a short English line and a
+  longer Spanish one it would lie on the Spanish text. The block's end is the end of the longer line and of the
+  underline. With the default ask the two are the same place.
+- **The two sheets were shown together**, to save him a round: he signed each on its own.
+- **The art went in as three commits**, as promised, though it was built as one change for the sheet. Each
+  commit's state was rebuilt from the signed-off tree, checked alone (typecheck, its unit tests, a build, its
+  browser specs), and the last one was compared, file by file, with the tree he signed.
+- **Both halves of "Rolling back" got a test**, where the plan allowed "read from the code".
+- **The render specs share one helper** that draws a payload (`tests/render/drawn.ts`): `pill.spec.ts` and
+  `render.spec.ts` each had their own copy, and `art.spec.ts` would have been a third.
+
+### The tests
+
+Each written before its change and seen to fail, except where noted.
+
+- **Unit** (`tests/unit/`): `shared.test.ts` holds the `pillEnd` anchor, the spark's offsets from the pill on
+  every canvas, its ink on the canvas at the widest pill, the slugs the template draws and the stored ones as they
+  were, and the pin of the two limits (handle 18, tag 24). `art-inks.test.ts` holds the two committed files to what
+  the script makes, pixel for pixel, and says what that is. `form-limits.test.ts` reads the editor's sources and
+  fails on a limit typed as a number beside an input: it named exactly the three.
+- **Contract, on every backend** (`tests/contract/validation.test.ts`): a tag of 24 is saved and reads back, one
+  of 25 is refused at `data.text.tag`, and every line of copy at its limit and one past it, in code points.
+- **Storage contract, both Node drivers** (`tests/storage/repositories.contract.ts`), and **PHP**
+  (`php/tests/BootstrapTest.php`): what a release does with a stored line longer than its limit. These two pass
+  as written: they record what the code already did.
+- **Browser** (`tests/render/`):
+  - `art.spec.ts`, new, 23 tests on both canvases and both templates (16 before the review, 7 from it): the spark
+    the same distance from the pill's end at five widths, where the design pass put it beside the default pill,
+    and on the flyer itself with no pill; the ink in each bottom corner, and the spark's teal on the yellow; art
+    someone arranged, drawn as stored; the pencil for five asks (the default, a short English line over a longer
+    Spanish one, a line that shrank, each line alone), on none of the ask's lines and on the canvas, with the
+    English line still 62 px, and inking nothing of the block above the ask; no ask, no pencil.
+  - `pill.spec.ts`: its "nothing outside the safe column" shots leave the art out, since the spark is no longer
+    where a flyer with no pill has it.
+  - `render.spec.ts`: on every sample, four pieces on the flyer and one with the pill, each by its file.
+  - `editor.spec.ts`: the Tag field stops at 24 when typed, the pill fits beside the default handle and beside
+    one of 18, the flyer saves and reopens with the closed section's line saying the whole tag, and the cut-off
+    toast shows only past the floor, on both canvases.
+  - `fidelity.spec.ts`: a long-pill record (18 + 24) in every photo mode on both canvases, so the browser's
+    export is held to the server's where the letters shrink.
+
+**The baseline.** A flyer whose pill fitted printed the same pixels after `7c42d35`: the story baseline was
+byte-identical on all 32 cases. It cannot hold after the art: the pencil is on every flyer with an ask. In its
+place he signed Sheet A, and a fresh capture of the new drawing is in the temp folder `nest-ux4-baseline`
+(64 pictures and a manifest, never committed), taken before the limit went in. Checked against it after the limit
+and the tidy: all 32 cases are byte-identical, so neither moved a pixel.
+
+### The gates
+
+Run once more at the last commit of code (`4661763`), all green:
+
+| Gate | Result | At the end of Part 3 |
+|---|---|---|
+| `npm run typecheck` | clean | clean |
+| `npm test` | 690 in 40 files | 676 |
+| `npm run test:contract`, every backend | 381 | 378 |
+| `npm run test:render` | 324, and the opt-in baseline skipped | 283 |
+| `npm run test:php` | 894 | 893 |
+| `npm run test:php-smoke` | 3 | 3 |
+
+Anthropic's first call after an answer's schema changes is the slow one, about 20 s of the 25 s limit. The tag's
+limit is in the flyer answer's schema, so the first "Create with AI" on Anthropic after this release will be
+that slow once. No provider was called here.
+
+### The look
+
+Everything in `backups/editor-ux-part-4/` is outside git: the mock-ups he answered from (`mockups/`), Sheet A
+(`sheet-a/`, with `sheet-a.html` at full size), Sheet B (`sheet-b/`), the look's screenshots (`look/`), and the
+scripts that drew each.
+
+- **The sheets** were drawn by the real renderer through the render page. Sheet A's "before" is a build of
+  `f9dd155` in a temp folder, its "after" this tree: the nine seeded samples and Pool party in a frame, each with
+  its own pill and with a long one, on both canvases, 80 pictures.
+- **The editor**, in the installed Chrome driven by a script, on Node, at 1440, 1280, 390 and 360 px wide:
+  - The Tag field takes 24 characters and stops there: 27 typed, 24 held. On a phone the Handle and the Tag sit
+    side by side, about 150 px each, and a long tag scrolls inside its field as any long value does.
+  - A handle of 18 with a tag of 24 shows no warning. With the widest letter at both limits the toast reads "Some
+    text is at its smallest size and is being cut off on Story 9:16 and WhatsApp 3:4 — shorten it." Back to the
+    long pill that fits, it leaves.
+  - Saved and reopened, the closed "Top and tag pill" line reads "NEXT ACTIVITY · @ADEJENEST.HOSTELS · ¡TAG US
+    FOR A FREE SHOT!" and never wraps: the panel stays 421 px on a desktop. With that much copy it ends in an
+    ellipsis after the handle's first letters, so the tag itself is out of sight until the section is opened.
+  - Downloaded as PNG from the bar at 1440 and 1280: the story at 1080 × 1920 and the WhatsApp image at
+    1080 × 1440, each with the spark at the pill's end, teal on the yellow blob on WhatsApp.
+- **Not looked at by eye on PHP**: the smoke test drives the editor there, and the fidelity spec holds the
+  browser's export to the server's on the long pill. **Not tried on a real phone.**
+
+### What the review found
+
+A fresh-context review of the five commits `f9dd155..afacaf5`, by an agent told to change nothing. It found no
+defect in the renderer, the fit or the schemas: nothing still assumes the spark is the flyer's own child, the new
+boxes change no fitted line's measure, `DEFAULT_DOODLES` is untouched, the spark's ink stays on the canvas at
+every pill width, and five numbers moved in the generated schemas, all the tag's. What it found was in the tests,
+and each is fixed in `4661763`, with the test made able to fail first:
+
+- **The export check could not see the art that follows the copy.** Its "art" boxes are the pieces drawn as
+  backgrounds, and a spark off its pill is 0.36 % of the canvas, under the 0.5 % threshold. The check now reads a
+  "follow" region, the spark with the pill and the pencil in the ask, on every case, and a new test moves the
+  spark in the browser's export and sees the check fail. So the browser's export is now held to the server's on
+  exactly what this part moved: all 59 comparisons agree.
+- **The pencil's test used the wrong bound for a week flyer**, the Activity extras' row, and drew no rows. It now
+  shoots the block above the ask with the pencil and without, an Activity flyer's extras and a week's five rows,
+  and counts the pixels the pencil inks: none. It fails with the pencil 5 px higher.
+- **"A long pill's spark shows on the yellow" read two corner pixels.** It now reads the spark's own box on
+  WhatsApp: yellow ground, the spark's teal on it.
+- **The blob files' test could not tell a lost soft edge.** It now holds every pixel within reach of the ink to
+  the drawing and pins what "ink" and "reach" mean. It fails with the script's reach set to 0.
+- **Hand-arranged art was drawn only by the opt-in baseline.** A test now draws a set that is not the template's:
+  every piece on the flyer, in canvas px, in its stored ink, nothing with the pill.
+- **Smaller:** a check that was arithmetic on itself, a pattern that would have read `extras.length > 0` as a
+  limit, and two comments that were no longer true.
+
+One of its points is not a test's and is in the list below: a long ask reaches the pencil sooner.
+
+### For Artur to decide
+
+- **On a story week flyer with five rows the pencil's top is 4 px under the fifth row's frame.** It was about
+  20 px. The story's rows end 12 px above the ask and the pencil now starts 10 px above it. Nothing touches, a
+  test holds that, and Sheet A's "This week · stress test" shows it. On WhatsApp there are about 20 px. A week
+  flyer could hang the pencil lower than an Activity one if it reads as tight.
+- **An ask a little too long for its column now prints under the pencil's tip.** The pencil starts 774 px into
+  the column, where it started at 816 on the story and 876 on WhatsApp. An English line that is still wider
+  than its 760 px block at its floor, by up to 56 px on the story and 116 on WhatsApp, used to end before the
+  pencil and no longer does. The editor says it is cut off in both cases. It is the smaller face of the long
+  ask below.
+
+- **A long pill's copy does not fit the closed section's line.** The line never wraps, by Part 2's rule, so with
+  a handle of 18 and a tag of 24 it ends in an ellipsis before the tag. Putting the tag first, or leaving the
+  eyebrow out of that line, would show it.
+
+- **The colours no longer cross.** Before, teal and yellow sat on opposite corners: the teal spark on the photo's
+  top left and the teal blob bottom right, yellow the other way. Now teal is on the left, top and bottom, and
+  yellow on the right. It is what the swap gives; Sheet A shows it on every sample.
+- **On WhatsApp a full-width pill's left end lies on the teal blob**, the pill's teal on a slightly lighter teal.
+  Before, its right end did. The blobs stay, by his answer.
+- **The two new blob files are not in the seed's doodles** (`seed/hostels.json`). They are the template's inks,
+  not pieces for a picker. Step 9, the doodle picker, decides whether staff may choose them.
+- **A flyer whose art is not the untouched template set keeps the old inks and the old spark**, by the rule that
+  arranged art is drawn as stored. No editor makes such a flyer today (step 7 is not built); a flyer still
+  carrying the prototype's set would be one.
+- **Older than this round, seen while measuring the pencil: a long ask leaves its column.** An English ask of 60
+  characters, the limit, with a phone number is about 1,420 px wide at its floor, in a 760 px column. Nothing
+  cuts it there: it prints on under the pencil, across the safe margin, to the canvas's edge. The editor does
+  say it is cut off. It was the same before this part, on both canvases (measured on a build of `f9dd155` and on
+  this one); only the pencil it runs under has moved. Not touched: holding the ask to its column is a change to
+  what flyers print, and his to ask for.
+- **The pencil's two numbers are mine**: 14 px after the copy and 10 px above the block's top. He chose the
+  picture they drew.
+
+### Yours to do
+
+- **The release.** `npm run build:php`, upload the release whole, then `npm run deploy:tag -- <the site>`. This
+  part needs one: it brings two art files in `assets/art/` and the new schemas, and PHP reads the schemas on
+  every request.
+- **After it, a tag longer than 12 ties a flyer to the new release.** `docs/deploy.md`, "Rolling back", says what
+  an older release does with one.
+- **The live site** is still without its lock, and the AI's block is still to add: both as before this round.
+- **The phone trial of Part 3**, over https: its steps are in Part 3's section above.

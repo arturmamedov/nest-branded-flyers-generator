@@ -95,6 +95,18 @@ export renderer works in dev too.
 
 Numbers live in `src/shared/layout.ts` (boxes) and `src/shared/defaults.ts` (art).
 
+### The tag pill and the art around it (2026-10-12) — where the app departs from the handoff
+
+- The tag may be **24 characters** (it was 12); the handle keeps 18. The pill is one fitted line: when the handle
+  and the tag are wider than the safe column their letters shrink together, down to 70 %.
+- The bottom spark **hangs from the pill's end** and follows it as the copy grows. 776,1601.7 is where that puts
+  it beside the default pill. A flyer with no pill keeps it there.
+- The corner blobs print **in each other's ink**: teal bottom left, yellow bottom right. The two files are made
+  from the designer's drawings by `npm run gen:art`.
+- The pencil **hangs from the end of the ask**, 14 px after its copy and 10 px above its top (the prototype had
+  it at the column's right edge).
+- None of it is stored: a flyer's doodles are the numbers above, and hand-arranged art is drawn as stored.
+
 ### Editor pass (2026-09-28) — where the app departs from the handoff
 
 - A new flyer starts **In a frame**, and so does a photo dropped while "No photo" is on (`DEFAULT_PHOTO_MODE`

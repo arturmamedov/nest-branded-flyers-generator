@@ -25,6 +25,15 @@ next part's prompt, so he never has to come back here for one.
     2026-10-10 on top (the WHEN chip's time and the Spanish line's 260 characters; two copy warnings dropped). So
     the second line above is no longer true either.
   - For Part 4, see where Part 3's work is and ask him where to branch from if `main` does not hold it.
+- **Part 4 is built** (2026-10-12), and with it the round: its section of the report says what it left.
+  - It is on `feat/editor-ux-part-3` too, by his word, in two sessions. The first made the pill a fitted line.
+    He then asked for the art around the pill and the pencil to move, and the second session, launched with
+    `docs/prompts/editor-ux-part-4-close.md`, settled that with him from pictures and landed the limit.
+  - So Part 4 below is not all that was built: the spark hangs from the pill's end, the corner blobs print in
+    each other's ink, and the pencil hangs from the end of the ask. The report quotes his answers.
+  - "The baseline holds for every flyer whose pill fitted before" (Part 4, *Done when*) held for the fitted pill
+    and ended with the art: he signed a sheet of every sample before and after instead.
+  - There is no next part. Left, his: the release, the live site, and a phone trial of Part 3 over https.
 - Commit each piece as it goes green, as in the flyer from a photo.
 - Before anything else, check git against that: the branch, the last commit, and whether the tree holds work that
   is not yours. Another session may write in the same folder, so stage by path and never check out. If anything

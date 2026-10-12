@@ -16,6 +16,7 @@ npm test               # Vitest: shared logic, shared vectors, the editor's hist
 npm run test:contract  # HTTP contract suite on every backend, php-basic (behind a login), php-access (the lock over
                        # HTTP), cross; CONTRACT_BASE_URL (+ _BASIC_USER/_PASSWORD) in .env targets a deployment
 npm run gen            # regenerate schema/*.json, seed/samples.json, the error table in docs/api-contract.md
+npm run gen:art        # remake the template's two blobs in each other's ink (assets/art/blob-left-teal, -right-yellow)
 npm run test:render    # builds, then Playwright render/export checks + client-export fidelity
 npm run test:php       # PHPUnit (PHP_BIN picks the interpreter; composer test in php/ does the same)
 npm run test:php-smoke # the editor driven against the PHP backend in a browser
@@ -441,6 +442,32 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
     one after it. A badge that fails to load drops out, and `ready.ts` waits for what takes its place. The marks may
     shrink in their 56 px row, so the widest eyebrow never pushes them past the safe edge.
 
+- The tag pill, and the art that follows the copy (2026-10-12, the editor's UX round, Part 4; his answers are
+  quoted in `docs/reports/editor-ux.md`). All of it is in the renderer: **never change a number or a slug in
+  `DEFAULT_DOODLES`**, every stored flyer carries a copy and `sameDoodles()` is how an untouched set is known.
+  - The pill is one fitted line: the handle, the dot and the tag shrink together to fit the safe column, down to
+    0.7. Only the letters shrink. Past the floor the line is cut at the pill's edge and the editor says so. The
+    pill stays 1 px inside its column (`PILL_TILT_ROOM`): its tilt lifts a corner.
+  - The tag may be 24 characters (was 12); the handle keeps 18. Needs a release: an older one refuses a longer
+    tag (`docs/deploy.md`, "Rolling back").
+  - The spark off the pill's end hangs from the pill (`pillEnd` in `artAnchors`; it took the place of `floor`).
+    `Flyer.tsx` draws it inside a box that is the pill's own before its tilt, so the browser places it and nothing
+    is measured. A flyer that prints no pill keeps it where the default pill would end (`DEFAULT_PILL_WIDTH`).
+  - The corner blobs print in each other's ink, teal left and yellow right (`SWAPPED_BLOBS` in `defaults.ts`).
+    His answer to a teal spark lost on the teal blob: the blobs stay under a long pill, and "let's invert the
+    blob colors". The two files are derived by `scripts/art-inks.ts`, never drawn by hand, and are not in the
+    seed's doodles.
+  - The pencil hangs from the end of the ask's block of copy, 14 px after it and 10 px above its top (his pick of
+    two: "same size, higher"). From the block's end, not the English line's: under a short English line it would
+    lie on a longer Spanish one.
+  - The sparks on the photo's corners stay as they were (his answer).
+  - Art someone arranged by hand is drawn as stored, places and inks.
+  - The story's byte-identical baseline ended here: the pencil is on every flyer with an ask. He signed a sheet of
+    every sample before and after instead. Take a capture before the next change that must not move the drawing.
+  - Browser specs: `tests/render/art.spec.ts` (the spark, the inks, the pencil) and `pill.spec.ts`.
+    `tests/render/drawn.ts` draws a payload the API would refuse (`newPayload()`, `drawPayload()`, and the long
+    pill's copy, `HANDLE_18` and `TAG_24`).
+
 - The WHEN chip's time and the Spanish line (2026-10-09, Artur's flyer #13 on live):
   - The time under the day is one line that shrinks (`nowrap`), as a week row's is: his browser broke `09:15-14:00`
     after the hyphen and the chip clipped `14:00`. Chromium keeps that range whole, so `render.spec.ts` proves it by
@@ -694,10 +721,11 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
         the first example's "Free".
     - No release was built. A host needs nothing new for this work: it comes with the files. A host that names
       `photo` names it with `flyer`.
-- In progress: **the editor's UX round** (brief `docs/prompts/editor-ux.md`, four parts, one session each; the
-  report is `docs/reports/editor-ux.md`, one section per part built). Designed with Artur on 2026-10-07: his
-  answers are quoted in the brief, and are not to be reopened. The brief marks the designing session's own
-  suggestions *Mine*: each one is shown to him in the part's plan.
+- Built, all four parts (2026-10-07 to 2026-10-12): **the editor's UX round** (brief `docs/prompts/editor-ux.md`;
+  the report is `docs/reports/editor-ux.md`, one section per part). Designed with Artur on 2026-10-07: his
+  answers are quoted in the brief and the report, and are not to be reopened. Parts 1 and 2 are in `main`, on
+  origin. Parts 3 and 4 are on `feat/editor-ux-part-3`, not pushed. Left, his: the release, the live site, and a
+  phone trial of Part 3 over https.
   - **Part 1 is built: the toasts, and the AI caption that saves itself** (2026-10-07, five commits on top of
     `497186c` and their record). Artur approved the plan with every *Mine* point kept. Nothing is pushed.
     - The toasts: the architecture section above says how they work.
@@ -779,12 +807,37 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
       even when nothing changed, and a save empties the server's picture cache; a toast with a step stays until
       it is used or closed; the words that are mine.
     - Part 4's standalone prompt is `docs/prompts/editor-ux-part-4.md`.
-  - Part 4: the tag may be 24 characters, and the pill becomes a fitted line. Artur signs off a proof sheet
-    before the limit is committed. It needs a release, and an older release refuses a flyer with a longer tag.
-  - Parts 1 and 2 are on `feat/ai-feature-switches`, by his word of 2026-10-07; Part 3 is on its own branch, by
-    his word of 2026-10-12. A commit per piece. Don't start a part unasked: he launches each with its prompt, and
-    each session ends by handing him the next part's standalone prompt (`docs/prompts/editor-ux-part-<n>.md`, and
-    in the chat).
+  - **Part 4 is built: a tag of 24, a pill that fits, and the art that follows the copy** (2026-10-12, on
+    `feat/editor-ux-part-3` by his word, in two sessions; the second was launched with
+    `docs/prompts/editor-ux-part-4-close.md`). The branch is not pushed.
+    - How it prints is in "Design decisions already made" above ("The tag pill, and the art that follows the
+      copy"). It is the only part that changes a flyer's drawing.
+    - The first session made the pill a fitted line (`7c42d35`). He saw its proof sheet and asked for the spark,
+      the blobs and the pencil to move. The second settled that from mock-ups, one question a picture, then built
+      it and landed the limit.
+    - His answers there: the spark follows the pill; the blobs stay and trade inks ("Let's invert the blob
+      colors", on both canvases); the photo's sparks are left; the pencil is "same size, higher". He signed a
+      sheet of every sample before and after, then the sheet of the tag at 8, 14 and 24.
+    - Stored flyers did not change, and there is no migration. A flyer whose art was arranged by hand is drawn
+      as stored.
+    - **It needs a release, uploaded whole.** It brings two art files (`assets/art/blob-left-teal.png`,
+      `blob-right-yellow.png`) and the new schemas. An older release refuses a flyer saved with a tag over 12:
+      `docs/deploy.md`, "Rolling back", says what staff see on each backend, and a test holds each half.
+    - The story's byte-identical baseline ended with this part. A capture of the new drawing is in the temp
+      folder `nest-ux4-baseline`, outside git.
+    - The mock-ups, both signed sheets, the look's screenshots and their scripts are in
+      `backups/editor-ux-part-4/`, outside git.
+    - A fresh-context review found no defect in the renderer, the fit or the schemas. What it found was in the
+      tests, and each is fixed: among it, the export check could not see a spark drawn off its pill (it now
+      compares the spark and the pencil in their own boxes, `follow` in `tests/render/pixels.ts`), and the
+      pencil's test held a week flyer to an Activity flyer's bound.
+    - **For Artur to decide** (the report has each): teal is now on the left top and bottom and yellow on the
+      right, where the two colours crossed; on WhatsApp a full-width pill's left end lies on the teal blob; on a
+      story week flyer with five rows the pencil's top is 4 px under the fifth row's frame; a long pill's copy
+      ends in an ellipsis in the closed section's line; the two new files are not in the seed's doodles; and,
+      older than the round, an ask too long for its 760 px column is not cut there: it prints on under the pencil
+      and, at 60 characters, past the safe margin, with the editor's cut-off warning.
+  - The round is over: there is no next part and no next prompt.
 - Waiting, don't start unasked: **the counts of what is left today confuse the interface a little** ("AI credits
   left", in Artur's words, on his phone, 2026-10-07; "Follow ups will fix in future"). Not designed, and not part
   of the editor's UX round.
@@ -795,8 +848,10 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
 - Waiting, don't start unasked: step 7 (drag/nudge everything on the canvas, sizes, colours, order, reset),
   step 9 (doodle picker + icon uploads). With two canvases and two templates: step 7's stored `overrides`
   (dx/dy) are shared by every canvas, so it must decide how they apply per canvas; step 9, when it stores
-  the render-only anchors (`bottomLeft`, `bottomRight`, `floor`), must add a JSON migration id so an older
-  release refuses the store cleanly.
+  the render-only anchors (`bottomLeft`, `bottomRight`, `pillEnd`), must add a JSON migration id so an older
+  release refuses the store cleanly. A stored `pillEnd` piece would also need the renderer's rule for it (drawn
+  with the pill), which today only the template set reaches, and step 9 decides whether staff may pick the
+  blobs' swapped inks (`blob-left-teal`, `blob-right-yellow`).
 - Next, once Artur supplies its prototype: a second flyer style, chosen in the editor while making a flyer.
   Not designed yet.
 - Done: output canvases, Instagram story 9:16 + WhatsApp 3:4 (branch `feat/output-canvases`, 2026-09-23).
