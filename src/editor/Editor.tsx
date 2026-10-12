@@ -12,9 +12,9 @@ import { SHARE_MAX, SHARE_SPANISH_BREAK, shareDetails } from '../shared/share';
 import { TEXT_LIMITS } from '../shared/text';
 import { WEEK_ROWS_MAX, WEEK_ROW_LIMITS, isPrintable, rowFromActivity } from '../shared/week';
 import { api, ApiError, asSentence } from './api';
-import { COPY_FAILED } from './clipboard';
+import { COPY_FAILED, canCopyImage, copyImage, copyText } from './clipboard';
 import type { ExportFormat, FlyerExporter } from './export';
-import { DOWNLOAD, EXPORT_ACTION, type ExportAction } from './exportActions';
+import { DOWNLOAD, EXPORT_ACTION, exportActions, type ExportAction } from './exportActions';
 import { takeDraft } from './handoff';
 import { useLeaveGuard } from './leaveGuard';
 import { FIELD } from './fields';
@@ -62,6 +62,21 @@ const captionDetails = (d: Draft): string | null => (d.data.share.trim() ? share
 /** What "Write with AI" answers (the editor's UX round, Part 1): it writes the caption and saves the flyer. */
 const CAPTION_SAVED = '✨ The AI wrote the caption and saved the flyer: read it before you post.';
 const captionUnsaved = (reason: string) => `✨ The AI wrote the caption, but the flyer was not saved. ${asSentence(reason)} Press Save to try again.`;
+
+/** What copying the flyer as a picture answers (the editor's UX round, Part 3), and the step its toast then offers.
+    A browser's clipboard holds the picture or the caption, and the app pasted into keeps one of them: two pastes,
+    one tap each. */
+const imageCopied = (canvas: CanvasId) => `Image copied (${CANVASES[canvas].width} × ${CANVASES[canvas].height}).`;
+const COPY_CAPTION = 'Copy the caption';
+const CAPTION_COPIED = 'Caption copied.';
+
+/** What an action came to, as the page holds it: its words, and the next step its toast offers, if any. The step is
+    data here and a button only when it is drawn, with the flyer as it is then. */
+interface Message {
+  kind: 'ok' | 'error';
+  text: string;
+  next?: 'caption';
+}
 
 const EMPTY_ROW: WeekRow = { day: '', name: '', time: '', cost: '' };
 
@@ -126,7 +141,9 @@ export function Editor({
   const [safe, setSafe] = useState(false);
   const [actualSize, setActualSize] = useState(false);
   const [busy, setBusy] = useState<null | 'save' | 'upload' | 'row' | 'ai' | ExportAction>(null);
-  const [message, setMessage] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null);
+  const [message, setMessage] = useState<Message | null>(null);
+  // What this browser can do with the flyer as a picture: asked once, it does not change while the page is open.
+  const [can] = useState(() => ({ copy: canCopyImage() }));
   const fileInput = useRef<HTMLInputElement>(null);
   // The details the caption on the form was written from: by the AI in this visit, or as the flyer stood when it was
   // opened with one. While they are still the flyer's, "Write with AI" steps back to a small "Write again" (the
@@ -259,14 +276,16 @@ export function Editor({
     return res.id;
   }
 
-  async function run(kind: NonNullable<typeof busy>, fn: () => Promise<string | void>) {
+  // One action at a time. `fn` is called here and now, before anything is awaited: what it starts is still inside
+  // the tap that asked for it, which a clipboard write needs (onCopyImage).
+  async function run(kind: NonNullable<typeof busy>, fn: () => Promise<string | Omit<Message, 'kind'> | void>) {
     const from = document.activeElement;
     pressed.current = from instanceof HTMLElement && from !== document.body ? from : null;
     setBusy(kind);
     setMessage(null);
     try {
       const ok = await fn();
-      if (ok) setMessage({ kind: 'ok', text: ok });
+      if (ok) setMessage({ kind: 'ok', ...(typeof ok === 'string' ? { text: ok } : ok) });
     } catch (e) {
       setMessage({ kind: 'error', text: e instanceof Error ? e.message : String(e) });
     } finally {
@@ -301,6 +320,25 @@ export function Editor({
       setTimeout(() => URL.revokeObjectURL(url), 10_000);
       return `Downloaded ${filename} (${CANVASES[canvas].width} × ${CANVASES[canvas].height}).`;
     });
+
+  // The flyer on the clipboard, as a PNG (the only picture a browser's clipboard takes). A browser lets a page write
+  // there only close to the tap that asked: Chrome refuses a write started 6 s after it, and Safari one started
+  // after anything was awaited (the spike, 2026-10-12). A save and a render can take longer than that. So both start
+  // here, inside the tap, and the clipboard is handed a promise for the picture, which it waits for.
+  const onCopyImage = () =>
+    run('copy', async () => {
+      const made = picture('png');
+      const copied = copyImage(made.then((p) => p.blob));
+      // The picture first: a save or a render that failed says so itself, where the clipboard would only say no.
+      await made;
+      const answer = await copied;
+      if (!answer.ok) throw new Error(COPY_FAILED.image[answer.why]);
+      return { text: imageCopied(canvas), next: 'caption' as const };
+    });
+
+  // The step the toast offers after that: the caption as it is now, for a second paste. Inside its own tap.
+  const copyCaption = () =>
+    copyText(draft.data.share).then((copied) => setMessage(copied.ok ? { kind: 'ok', text: CAPTION_COPIED } : { kind: 'error', text: COPY_FAILED.text[copied.why] }));
 
   const onFile = (file: File) =>
     run('upload', async () => {
@@ -395,9 +433,12 @@ export function Editor({
     ...copyWarnings(cutOff, lints),
   ];
 
-  // The ways to take the flyer out as a picture: what each one does, and the ones behind "Download".
-  const act: Record<ExportAction, () => void> = { png: () => onDownload('png'), jpg: () => onDownload('jpg') };
-  const menu: ExportAction[] = ['png', 'jpg'];
+  // The ways to take the flyer out as a picture: what each one does, which one is the first button, and which are
+  // behind "Download" (exportActions.ts).
+  const act: Record<ExportAction, () => void> = { copy: onCopyImage, png: () => onDownload('png'), jpg: () => onDownload('jpg') };
+  const { first, menu } = exportActions(can);
+  // The toast's next step, drawn with the flyer as it is now: a caption emptied since has nothing to copy.
+  const step = message?.next === 'caption' && draft.data.share.trim() ? { label: COPY_CAPTION, onPress: copyCaption } : undefined;
 
   const t = draft.data.text;
   const chip = (key: ChipKey) => draft.data.chips.find((c) => c.key === key) as Chip;
@@ -657,10 +698,16 @@ export function Editor({
             <button type="button" className="btn btn-dark" disabled={!!busy || (!dirty && flyerId != null)} onClick={onSave}>
               {busy === 'save' ? 'Saving…' : 'Save'}
             </button>
+            {/* The first way out is the bar's main button, and Download stands beside it; alone, Download is. */}
+            {first && (
+              <button type="button" className="btn btn-accent" disabled={!!busy || needsPhoto} onClick={act[first]}>
+                {busy === first ? EXPORT_ACTION[first].busy : EXPORT_ACTION[first].label}
+              </button>
+            )}
             {/* While one of its entries works, the button reads what that entry is doing. */}
             <Menu
               label={menu.find((action) => action === busy) ? EXPORT_ACTION[busy as ExportAction].busy : DOWNLOAD}
-              className="btn btn-accent"
+              className={first ? 'btn btn-dark' : 'btn btn-accent'}
               disabled={!!busy || needsPhoto}
               entries={menu.map((action) => ({ id: action, label: EXPORT_ACTION[action].label, hint: EXPORT_ACTION[action].hint, onPick: act[action] }))}
             />
@@ -680,7 +727,7 @@ export function Editor({
         />
 
         {draft.data.share.trim() && <ShareFab text={draft.data.share} onFail={(why) => setMessage({ kind: 'error', text: COPY_FAILED.text[why] })} />}
-        <Toasts outcome={message && { kind: message.kind, body: message.text }} onCloseOutcome={() => setMessage(null)} warnings={warnings} />
+        <Toasts outcome={message && { kind: message.kind, body: message.text, action: step }} onCloseOutcome={() => setMessage(null)} warnings={warnings} />
       </main>
     </div>
   );

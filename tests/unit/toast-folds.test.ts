@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { NO_FOLDS, closeWarning, foldsFor, openAll, warningId, type Folds } from '../../src/editor/toastFolds.js';
+import { NO_FOLDS, closeWarning, foldsFor, leavesByItself, openAll, warningId, type Folds } from '../../src/editor/toastFolds.js';
 
 /* Which of the standing warnings are folded into the "⚠ n" chip (src/editor/toastFolds.ts; the editor's UX round, Part 1).
    A warning is known by its kind and its words, so a closed one stays folded while the staff member types, and one
@@ -53,5 +53,18 @@ describe('the warnings’ folds', () => {
     expect(warningId('lint', 'Too many !')).toBe(warningId('lint', 'Too many !'));
     expect(warningId('lint', 'Too many !')).not.toBe(warningId('lint', 'Too many ?'));
     expect(warningId('lint', 'x')).not.toBe(warningId('cut-off', 'x'));
+  });
+});
+
+describe('what an action came to', () => {
+  it('a success leaves by itself, an error stays until it is closed', () => {
+    expect(leavesByItself('ok', false)).toBe(true);
+    expect(leavesByItself('error', false)).toBe(false);
+  });
+
+  it('a success that offers a next step stays too: the step would leave with it (the editor’s UX round, Part 3)', () => {
+    // "Copy the caption" after a picture is copied: someone pastes the picture elsewhere first, and comes back.
+    expect(leavesByItself('ok', true)).toBe(false);
+    expect(leavesByItself('error', true)).toBe(false);
   });
 });

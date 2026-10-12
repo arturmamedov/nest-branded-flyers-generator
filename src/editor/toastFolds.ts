@@ -8,6 +8,11 @@ export const NARROW_QUERY = '(max-width: 860px)';
 /** A success closes by itself after this long; an error stays until it is closed. */
 export const OUTCOME_MS = 6000;
 
+/** Whether what an action came to leaves by itself. A success does; an error stays until it is closed. So does a
+    success that offers a next step ("Copy the caption" after a picture is copied): the step would leave with it, and
+    six seconds are gone by the time someone has pasted the picture elsewhere and come back. */
+export const leavesByItself = (kind: 'ok' | 'error', offersStep: boolean) => kind === 'ok' && !offersStep;
+
 /** A warning by its kind and its words: the same words are the same warning while the staff member types, and other
     words are another one, which shows again. */
 export const warningId = (kind: string, words: string) => `${kind}:${words}`;

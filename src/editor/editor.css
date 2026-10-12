@@ -858,6 +858,31 @@ nest-nav > nav a.ai-entry .ai-count {
   color: var(--ok-ink);
 }
 
+/* One next step a toast offers (Toasts.tsx): a small button under its words, in the toast's own ink, a finger's
+   height on a phone. */
+.toast-action {
+  display: block;
+  margin-top: 6px;
+  padding: 5px 12px;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.toast-action:hover {
+  background: rgba(0, 0, 0, 0.08);
+}
+
+.toast-action:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+
 /* A finger's size on a phone, in the toast's own ink. */
 .toast-close {
   flex: 0 0 auto;

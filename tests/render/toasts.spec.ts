@@ -1,6 +1,6 @@
 import type { Locator, Page } from '@playwright/test';
 import { expect, test } from '../browser';
-import { EDITOR_VIEWPORT, closeToast, downloadMenu, dropFile, saveNew, templateButton, toast, warningsChip, type FilePayload } from '../editor';
+import { EDITOR_VIEWPORT, closeToast, downloadMenu, dropFile, saveNew, stopClock, templateButton, toast, warningsChip, type FilePayload } from '../editor';
 import { PHOTO_MODE_LABEL } from '../../src/editor/photoModes';
 import { OUTCOME_MS } from '../../src/editor/toastFolds';
 import { TEMPLATE_LABEL } from '../../src/editor/templates';
@@ -105,13 +105,6 @@ test('a second warning joins the chip’s count only when it is closed too', asy
   await warningsChip(page).click();
   await expect(toast(page, 'warn')).toHaveCount(2);
 });
-
-/** The page's clock stands still from here: a toast's own time passes only when the test says so, however slow the
-    machine is. */
-async function stopClock(page: Page) {
-  await page.clock.install();
-  await page.clock.pauseAt(Date.now() + 1000);
-}
 
 test('a success closes by itself after a while, and waits while the pointer or the focus is on it', async ({ page }) => {
   await page.goto('/#/new');

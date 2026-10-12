@@ -1,10 +1,11 @@
 import { join } from 'node:path';
-import type { Browser, Download, Locator, Page, Response as PwResponse } from '@playwright/test';
+import type { APIRequestContext, Browser, Download, Locator, Page, Response as PwResponse } from '@playwright/test';
 import { expect, withoutKit } from './browser';
-import { entryText, type ExportAction } from '../src/editor/exportActions';
+import { EXPORT_ACTION, entryText, type ExportAction } from '../src/editor/exportActions';
 import { TEMPLATE_LABEL } from '../src/editor/templates';
 import { CANVASES, CANVAS_IDS, type CanvasId } from '../src/shared/layout';
-import { FlyerSavedSchema, type FlyerSaved, type Template } from '../src/shared/schema';
+import { FlyerPayloadSchema, FlyerSavedSchema, type FlyerListItem, type FlyerSaved, type Template } from '../src/shared/schema';
+import { WRITE_HEADERS } from '../src/shared/writeGuard';
 
 /* Driving the editor in a browser spec: the Node render suite (tests/render/editor.spec.ts)
    and the PHP smoke test (tests/php-smoke) use the same helpers. Paths stay relative to the
@@ -91,6 +92,50 @@ export async function saveNew(page: Page, keep: (id: number) => void): Promise<F
   await expect(status(page)).toHaveText('Saved');
   return saved;
 }
+
+/** A saved copy of a seeded sample flyer, with its data and its photo, made through the API. A spec that saves works
+    on the copy, so the specs after it find the library as seeded. The caller archives it. */
+export async function copyOfSample(request: APIRequestContext, sample: string, title: string): Promise<number> {
+  const list = (await (await request.get('api/flyers')).json()) as FlyerListItem[];
+  const found = list.find((f) => f.title === sample);
+  if (!found) throw new Error(`No seeded flyer is called “${sample}”.`);
+  const { flyer } = FlyerPayloadSchema.parse(await (await request.get(`api/flyers/${found.id}`)).json());
+  const res = await request.post('api/flyers', {
+    headers: WRITE_HEADERS,
+    data: { title: `${title} ${Date.now()}`, hostel: flyer.hostel, template: flyer.template, data: flyer.data, photoId: flyer.photoId },
+  });
+  return FlyerSavedSchema.parse(await res.json()).id;
+}
+
+/** The page's clock stands still from here: a toast's own time passes only when the test says so
+    (`page.clock.fastForward`), however slow the machine is. */
+export async function stopClock(page: Page) {
+  await page.clock.install();
+  await page.clock.pauseAt(Date.now() + 1000);
+}
+
+/** The toolbar's "Copy image": the first button beside Download where the browser can copy a picture. By its name,
+    so it is not found while it reads "Copying…". */
+export const copyImage = (page: Page) => page.locator('.toolbar').getByRole('button', { name: EXPORT_ACTION.copy.label, exact: true });
+
+/** The clipboard for a spec that reads it back. The test browser refuses every write until its context is granted
+    it (the spike of the editor's UX round, Part 3); a staff member's browser asks for none. */
+export const grantClipboard = (page: Page) => page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
+
+/** The picture on the clipboard, as the page itself reads it back: a PNG. */
+export async function clipboardPng(page: Page): Promise<Buffer> {
+  const base64 = await page.evaluate(async () => {
+    const [item] = await navigator.clipboard.read();
+    const bytes = new Uint8Array(await (await item.getType('image/png')).arrayBuffer());
+    let binary = '';
+    for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+    return btoa(binary);
+  });
+  return Buffer.from(base64, 'base64');
+}
+
+/** The text on the clipboard. On Windows it holds the platform's line breaks (CRLF), which is what a paste expects. */
+export const clipboardText = async (page: Page) => (await page.evaluate(() => navigator.clipboard.readText())).replace(/\r\n/g, '\n');
 
 /** The toolbar's "Download" button, which opens the list of ways to take the flyer out as a picture. By its place,
     not its words: it reads "Rendering…" while a download is being made. */

@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import type { Locator, Page } from '@playwright/test';
 import sharp from 'sharp';
 import { expect, test } from '../browser';
-import { EDITOR_VIEWPORT, POOL_PARTY, apiRoute, download, downloadMenu, dropFile, exportEntry, hold, saveNew, status, type FilePayload } from '../editor';
+import { EDITOR_VIEWPORT, POOL_PARTY, apiRoute, copyImage, download, downloadMenu, dropFile, exportEntry, hold, saveNew, status, type FilePayload } from '../editor';
 import { DOWNLOAD, entryText } from '../../src/editor/exportActions';
 import { PHOTO_MODE_LABEL } from '../../src/editor/photoModes';
 import { CANVASES, DEFAULT_CANVAS } from '../../src/shared/layout';
@@ -53,6 +53,14 @@ test('Download is a menu that holds PNG and JPG: the two download buttons are go
   await menu.click();
   await expect(menu).toHaveAttribute('aria-expanded', 'false');
   await expect(list(page)).toBeHidden();
+});
+
+test('on a desktop the bar reads [Copy image] [Download ▾]: Copy image is the main button, and Download stands beside it', async ({ page }) => {
+  // The owner's "Copy beside Download" (2026-10-07).
+  await newFlyer(page);
+  await expect(page.locator('.toolbar-actions > button, .toolbar-actions > .menu > button')).toHaveText(['Save', 'Copy image', 'Download']);
+  await expect(copyImage(page)).toHaveClass(/btn-accent/);
+  await expect(downloadMenu(page)).toHaveClass(/btn-dark/);
 });
 
 test('the menu from the keyboard: the arrows open it and move through it, Escape hands the focus back, Tab leaves it', async ({ page }) => {

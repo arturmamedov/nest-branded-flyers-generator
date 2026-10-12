@@ -9,6 +9,7 @@ import {
   apiRoute,
   backToLibrary,
   canvasButton,
+  copyOfSample,
   cutOff,
   cutOffOn,
   download,
@@ -58,13 +59,7 @@ test.afterEach(async ({ request }) => {
 
 /** A saved copy of the seeded Pool party, its data and photo, made through the API (and archived afterwards). */
 async function poolPartyCopy(request: APIRequestContext, title: string): Promise<number> {
-  const list = (await (await request.get('/api/flyers?template=activity')).json()) as FlyerListItem[];
-  const pool = FlyerPayloadSchema.parse(await (await request.get(`/api/flyers/${list.find((f) => f.title === 'Pool party')!.id}`)).json());
-  const res = await request.post('/api/flyers', {
-    headers: WRITE_HEADERS,
-    data: { title: `${title} ${Date.now()}`, hostel: pool.flyer.hostel, template: 'activity', data: pool.flyer.data, photoId: pool.flyer.photoId },
-  });
-  const { id } = FlyerSavedSchema.parse(await res.json());
+  const id = await copyOfSample(request, 'Pool party', title);
   keep(id);
   return id;
 }
