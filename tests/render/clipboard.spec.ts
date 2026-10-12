@@ -113,7 +113,7 @@ for (const [why, arrange] of [
   });
 }
 
-test('Copy image puts the canvas on screen on the clipboard at its exact size, and its pixels are the download’s', async ({ page, request }) => {
+test('Copy image puts the canvas on screen on the clipboard at its exact size: pixel for pixel the picture the server made for it', async ({ page, request }) => {
   test.setTimeout(120_000);
   await grantClipboard(page);
   const id = await copyOfSample(request, 'Pool party', 'clipboard spec');
@@ -125,13 +125,19 @@ test('Copy image puts the canvas on screen on the clipboard at its exact size, a
     const { width, height } = CANVASES[canvas];
     await canvasButton(page, canvas).click();
     await expect(page.locator('.stage-canvas [data-flyer]')).toHaveAttribute('data-canvas', canvas);
-    await copyImage(page).click();
+    // The same export a download asks for (POST api/render), with the canvas on screen.
+    const [render] = await Promise.all([page.waitForResponse(apiCall('POST', `render/${id}`)), copyImage(page).click()]);
+    expect(JSON.parse(render.request().postData()!)).toEqual({ format: 'png', canvas });
     await expect(toast(page, 'ok')).toContainText(imageCopied(canvas));
 
-    const copied = await pixels(await clipboardPng(page));
+    // Held to the picture the server made for that copy, asked for again from its cache. Not to a download made
+    // afterwards: every way out saves first, a save empties that cache, and a second render is a second raster,
+    // which can differ by a few pixels (seen once in three runs while this test was written).
+    const made = await request.post(`/api/render/${id}`, { headers: WRITE_HEADERS, data: { format: 'png', canvas } });
+    expect(made.headers()['x-render-cache'], 'the copy’s own picture, not a second render').toBe('hit');
+    const [copied, exported] = [await pixels(await clipboardPng(page)), await pixels(await made.body())];
     expect([copied.info.width, copied.info.height], `${canvas}: the copied picture’s size`).toEqual([width, height]);
-    const downloaded = await pixels(readFileSync(await (await download(page, 'png')).path()));
-    expect(copied.data.equals(downloaded.data), `${canvas}: what is copied is what is downloaded`).toBe(true);
+    expect(copied.data.equals(exported.data), `${canvas}: what is on the clipboard is what was made`).toBe(true);
   }
 });
 
