@@ -1,9 +1,10 @@
 import type { Page } from '@playwright/test';
 import { PNG } from 'pngjs';
 import { expect, test } from '../browser';
-import { resolveDoodles } from '../../src/shared/defaults';
+import { DEFAULT_DOODLES, resolveDoodles } from '../../src/shared/defaults';
 import { CANVASES, CANVAS_IDS, artAnchors, bodyOf, placeArt } from '../../src/shared/layout';
 import type { FlyerText } from '../../src/shared/schema';
+import { WEEK_ROWS_MAX } from '../../src/shared/week';
 import { HANDLE_18, TAG_24, drawPayload, newPayload } from './drawn';
 
 /* The art that follows the copy, and the blobs' inks (Artur, 2026-10-12, from the proof sheets of the fitted pill):
@@ -111,12 +112,76 @@ async function inkAt(page: Page, x: number, y: number): Promise<number[]> {
 
 test.describe('the corner blobs print in each other’s ink', () => {
   for (const canvas of CANVAS_IDS) {
-    test(`${canvas}: teal in the left corner, yellow in the right, and a long pill's spark shows on the yellow`, async ({ page }) => {
+    test(`${canvas}: teal in the left corner, yellow in the right`, async ({ page }) => {
       const { width: W, height: H } = CANVASES[canvas];
       await drawPayload(page, newPayload('activity', { handle: HANDLE_18, tag: TAG_24 }), canvas);
       // Well inside each blob: 12 px in from its corner of the canvas.
       expect(await inkAt(page, 12, H - 12), 'the left corner').toEqual([10, 120, 143]);
       expect(await inkAt(page, W - 12, H - 12), 'the right corner').toEqual([250, 194, 19]);
+    });
+  }
+
+  test('whatsapp: a long pill carries its spark onto the right-hand blob, and its teal shows on the yellow', async ({ page }) => {
+    const { width: W, height: H } = CANVASES.whatsapp;
+    await drawPayload(page, newPayload('activity', { handle: HANDLE_18, tag: TAG_24 }), 'whatsapp');
+    // The spark's own box, from just under the pill down: what is drawn there is the spark's ink and its ground.
+    const clip = await page.evaluate(
+      ([w, h]) => {
+        const pill = document.querySelector<HTMLElement>('[data-group=pill]')!;
+        const spark = pill.parentElement!.querySelector<HTMLElement>(':scope > img[data-art]')!.getBoundingClientRect();
+        const top = Math.ceil(pill.getBoundingClientRect().bottom) + 2;
+        const left = Math.floor(spark.left);
+        return { x: left, y: top, width: Math.floor(Math.min(spark.right, w)) - left, height: Math.floor(Math.min(spark.bottom, h)) - top };
+      },
+      [W, H],
+    );
+    const png = PNG.sync.read(await page.screenshot({ clip }));
+    let teal = 0;
+    let yellow = 0;
+    for (let i = 0; i < png.data.length; i += 4) {
+      const [r, g, b] = png.data.subarray(i, i + 3);
+      if (r > 230 && g > 170 && b < 70) yellow++;
+      else if (r < 60 && g > 90 && g < 140 && b > 110 && b < 165) teal++;
+    }
+    // On the teal blob, as the inks were, this box held no yellow at all and the spark could not be told from it.
+    expect(yellow, `the ground under the spark is the yellow blob (${JSON.stringify(clip)})`).toBeGreaterThan((clip.width * clip.height) / 2);
+    expect(teal, 'the spark’s rays, teal on it').toBeGreaterThan(300);
+  });
+});
+
+test.describe('art someone arranged is drawn as stored', () => {
+  for (const canvas of CANVAS_IDS) {
+    test(`${canvas}: a set that is not the template's keeps every piece on the flyer, at its stored place, in its stored ink`, async ({ page }) => {
+      // The template's own set with its last piece moved by a pixel: no longer the untouched set, so nothing of the
+      // template's rules applies to it. The spark stays in canvas px (on WhatsApp that is below the canvas), the
+      // blobs keep their corners of the story and their first inks, and nothing is drawn with the pill.
+      const arranged = DEFAULT_DOODLES.map((d, i) => (i === DEFAULT_DOODLES.length - 1 ? { ...d, x: d.x + 1 } : { ...d }));
+      const payload = newPayload('activity', { handle: HANDLE_18, tag: TAG_24 }, (data) => {
+        data.doodles = arranged;
+      });
+      await drawPayload(page, payload, canvas);
+      const drawn = await page.evaluate(() => {
+        const root = document.querySelector<HTMLElement>('[data-flyer]')!;
+        const pill = root.querySelector<HTMLElement>('[data-group=pill]')!;
+        return {
+          withPill: pill.parentElement!.querySelectorAll(':scope > img[data-art]').length,
+          onFlyer: [...root.querySelectorAll<HTMLImageElement>(':scope > img[data-art]')].map((el) => ({
+            file: new URL(el.src).pathname.split('/').pop(),
+            left: parseFloat(el.style.left),
+            top: parseFloat(el.style.top),
+            width: parseFloat(el.style.width),
+          })),
+        };
+      });
+      expect(drawn.withPill).toBe(0);
+      const anchors = artAnchors(canvas, bodyOf(payload.flyer.data));
+      expect(drawn.onFlyer.map((a) => a.file)).toEqual(['spark-teal.png', 'spark-yellow.png', 'blob-yellow.png', 'blob-teal.png', 'spark-teal.png']);
+      drawn.onFlyer.forEach((a, i) => {
+        const want = placeArt(arranged[i], anchors);
+        for (const key of ['left', 'top', 'width'] as const) expect(a[key], `piece ${i} ${key}`).toBeCloseTo(want[key], 1);
+      });
+      // The pieces with no anchor of their own are in canvas px, whatever the canvas.
+      expect([drawn.onFlyer[2].left, drawn.onFlyer[3].left, drawn.onFlyer[4].left]).toEqual([-26, 818, 777]);
     });
   }
 });
@@ -179,12 +244,11 @@ test.describe('the pencil hangs from the end of the ask', () => {
           expect(Math.abs(r.pencil.x - r.pencil.width / 2 - r.block.right - PENCIL.after), `${name}: after the end of the copy`).toBeLessThanOrEqual(0.5);
           expect(Math.abs(r.pencil.y - r.pencil.height / 2 - r.block.top + PENCIL.above), `${name}: above the block's top`).toBeLessThanOrEqual(0.5);
 
-          // It lands on none of the ask's own lines, stays below the row above the ask, and on the canvas.
+          // It lands on none of the ask's own lines, and stays on the canvas.
           for (const line of r.lines) {
             const over = r.pencil.left < line.right && line.left < r.pencil.right && r.pencil.top < line.bottom && line.top < r.pencil.bottom;
             expect(over, `${name}: the pencil over "${line.text}"`).toBe(false);
           }
-          expect(r.pencil.top, `${name}: below the extras' row`).toBeGreaterThanOrEqual(activity.extras.top + activity.extras.height);
           expect(r.pencil.left).toBeGreaterThanOrEqual(0);
           expect(r.pencil.right).toBeLessThanOrEqual(W);
           expect(r.pencil.bottom).toBeLessThanOrEqual(H);
@@ -196,6 +260,42 @@ test.describe('the pencil hangs from the end of the ask', () => {
         expect(ends[1]).toBeGreaterThan(ends[0] + 30);
         expect(ends[2]).toBeGreaterThan(ends[0] + 30);
         expect(ends[4]).toBeLessThan(ends[0] - 30);
+      });
+    }
+
+    for (const template of ['activity', 'week'] as const) {
+      test(`${canvas} / ${template}: the pencil paints nothing on the block above the ask, at its fullest`, async ({ page }) => {
+        // What sits right above the ask: an Activity flyer's row of extras, a week's five rows (on the story their
+        // last frame ends 12 px above the ask, and the pencil starts 10 px above it, tilted). The pencil's box
+        // may reach up beside them: its ink must not touch them. So the block is shot with the pencil and without.
+        const payload = newPayload(template, {}, (data) => {
+          data.extras = ['Everyone welcome', 'Bring a towel', 'Comfy clothes', 'Free drinks'];
+          data.week = Array.from({ length: WEEK_ROWS_MAX }, (_, i) => ({ day: 'Fridays', name: `Event number ${i + 1}`, time: '15:00', cost: '5€' }));
+        });
+        await drawPayload(page, payload, canvas);
+        const block = page.locator(`[data-group=${template === 'week' ? 'rows' : 'extras'}]`);
+        // Two pixels round the block's box: a row's hand-drawn frame is stroked a little past it.
+        const clip = await block.evaluate((el) => {
+          const r = el.getBoundingClientRect();
+          return { x: Math.floor(r.left) - 2, y: Math.floor(r.top) - 2, width: Math.ceil(r.width) + 4, height: Math.ceil(r.height) + 4 };
+        });
+        const pencil = await page.locator('[data-group=ask] img[data-art]').evaluate((el) => {
+          const r = el.getBoundingClientRect();
+          return { left: r.left, right: r.right, top: r.top };
+        });
+        // The case is a real one: the pencil's box is under the block, sideways, and reaches near its bottom edge.
+        expect(pencil.left).toBeGreaterThan(clip.x);
+        expect(pencil.right).toBeLessThan(clip.x + clip.width);
+        const withPencil = PNG.sync.read(await page.screenshot({ clip })).data;
+        await page.addStyleTag({ content: '[data-group=ask] img[data-art] { visibility: hidden !important; }' });
+        const without = PNG.sync.read(await page.screenshot({ clip })).data;
+        // Ink, not the scan's haze: the drawing's first rows are a few faint pixels that move a colour by 27 of 255
+        // at most, and its ink starts under them. On the story's week that is 4 px below the fifth row's frame.
+        let inked = 0;
+        for (let i = 0; i < withPencil.length; i += 4) {
+          if (Math.max(Math.abs(withPencil[i] - without[i]), Math.abs(withPencil[i + 1] - without[i + 1]), Math.abs(withPencil[i + 2] - without[i + 2])) > 40) inked++;
+        }
+        expect(inked, `pixels of the block the pencil inks (its box starts at y ${pencil.top.toFixed(1)}, the block ends at ${clip.y + clip.height - 2})`).toBe(0);
       });
     }
 

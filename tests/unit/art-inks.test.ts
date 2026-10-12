@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { PNG } from 'pngjs';
 import { describe, expect, it } from 'vitest';
-import { ART_DIR, INK_ALPHA, derive, inkOf, nearInk } from '../../scripts/art-inks.js';
+import { ART_DIR, EDGE, INK_ALPHA, derive, inkOf, nearInk } from '../../scripts/art-inks.js';
 import { ROOT } from '../../scripts/gen-shared.js';
 import { SWAPPED_BLOBS } from '../../src/shared/defaults.js';
 
@@ -33,6 +33,7 @@ describe('the blobs in each other’s ink', () => {
       const colour = inkOf(read(ink));
       const problems: string[] = [];
       let inkPixels = 0;
+      let edgeKept = 0;
       let hazeDropped = 0;
       for (let y = 0; y < made.height; y++)
         for (let x = 0; x < made.width; x++) {
@@ -44,16 +45,30 @@ describe('the blobs in each other’s ink', () => {
           if (was >= INK_ALPHA && is !== was) problems.push(`${x},${y}: ink lost`);
           if (is !== 0 && is !== was) problems.push(`${x},${y}: a pixel the drawing never had`);
           if (is !== 0 && !nearInk(from, x, y)) problems.push(`${x},${y}: haze kept`);
+          // The soft edge: every pixel within reach of the ink is as solid as the drawing has it.
+          if (nearInk(from, x, y) && is !== was) problems.push(`${x},${y}: soft edge lost`);
+          if (was > 0 && was < INK_ALPHA && is === was) edgeKept++;
           if (is === 0 && was !== 0) hazeDropped++;
           if (is !== 0 && (made.data[i] !== colour[0] || made.data[i + 1] !== colour[1] || made.data[i + 2] !== colour[2])) problems.push(`${x},${y}: another colour`);
         }
       expect(problems.slice(0, 5)).toEqual([]);
       expect(inkPixels).toBeGreaterThan(10_000);
+      // A shape this size has a soft edge of several hundred pixels: it is there.
+      expect(edgeKept).toBeGreaterThan(400);
       // The haze is a small part of the scan, and it is all that was dropped: nothing within reach of the ink.
       expect(hazeDropped).toBeGreaterThan(500);
       expect(hazeDropped).toBeLessThan(2_500);
     });
   }
+
+  it('what counts as ink, and how far its soft edge reaches, are pinned here: half solid, two pixels', () => {
+    // The tests above ask the script what is near the ink. These two numbers are what that means.
+    expect([INK_ALPHA, EDGE]).toEqual([128, 2]);
+    const dot = new PNG({ width: 9, height: 1 });
+    dot.data.fill(0);
+    dot.data[4 * 4 + 3] = 128;
+    expect(Array.from({ length: 9 }, (_, x) => nearInk(dot, x, 0))).toEqual([false, false, true, true, true, true, true, false, false]);
+  });
 
   it('the two inks are the art’s own teal and yellow, read from the drawings', () => {
     expect(inkOf(read('blob-teal'))).toEqual([10, 120, 143]);

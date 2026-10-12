@@ -487,10 +487,11 @@ describe('template art', () => {
       expect(end).toEqual({ x: width / 2 + DEFAULT_PILL_WIDTH / 2, y: activity.pill.top, scale: 1 });
       // Its offsets from the pill are what the design pass set, on every canvas: 776, 1601.7 on the story.
       expect([spark.x, spark.y, spark.w]).toEqual([776 - 832.5, 1601.7 - 1544, 92]);
+      // So beside the default pill it lands on the same canvas column on every canvas, 57.7 px below its row's top.
       const at = placeArt(spark, artAnchors(canvas, 'band'));
-      expect(at.left - end.x).toBe(spark.x);
-      expect(at.top - end.y).toBeCloseTo(spark.y, 9);
-      expect(at.width, 'the pill does not shrink, so neither does its spark').toBe(spark.w);
+      expect(at.left).toBe(776);
+      expect(at.top).toBeCloseTo({ story: 1601.7, whatsapp: 1381.7 }[canvas], 9);
+      expect(at.width, 'the pill does not shrink, so neither does its spark').toBe(92);
     });
 
     it(`${canvas}: hung from the widest pill, the spark's ink is still on the canvas`, () => {

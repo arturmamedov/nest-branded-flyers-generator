@@ -29,6 +29,10 @@ export interface Regions {
   /** Line boxes of the WHEN highlighter: clone only shows when it wraps. */
   markLines: number;
   art: Rect[];
+  /** The art placed from the copy, not from the canvas: the spark drawn with the pill and the pencil in the ask. The
+      browser puts each one a set distance after its block's end, so a copy of the page that lost the block's own
+      box would draw it somewhere else. Each is small beside the whole canvas: its own boxes are what can show it. */
+  follow: Rect[];
   mark: Rect[];
   wonky: Rect[];
   text: Rect[];
@@ -38,6 +42,7 @@ export interface Metrics {
   outside: number;
   inside: number | null;
   art: number | null;
+  follow: number | null;
   mark: number | null;
   wonky: number | null;
   text: number | null;
@@ -73,6 +78,8 @@ export function readRegions(): Regions {
     groups: [...root.querySelectorAll<HTMLElement>('[data-group]')].map((el) => ({ name: el.dataset.group!, ...rel(el.getBoundingClientRect()) })),
     markLines: marks.reduce((n, el) => n + el.getClientRects().length, 0),
     art: styled.filter((el) => !el.style.backgroundImage.includes('mark-yellow')).map((el) => rel(el.getBoundingClientRect())),
+    // Every drawn piece but the ones hung straight on the flyer: those are placed in canvas px.
+    follow: [...root.querySelectorAll<HTMLElement>('img[data-art]')].filter((el) => el.parentElement !== root).map((el) => rel(el.getBoundingClientRect())),
     mark: marks.flatMap((el) => [...el.getClientRects()].map(rel)),
     wonky: [...root.querySelectorAll('svg')].map((el) => rel(el.getBoundingClientRect())),
     text: ['headline', 'title', 'rows', 'extras', 'ask', 'pill'].flatMap((g) =>
@@ -155,6 +162,7 @@ export function compare(golden: PNG, candidate: PNG, canvas: CanvasId, body: Bod
     outside: (100 * outBad) / outT,
     inside: inT ? (100 * inBad) / inT : null,
     art: regionPct(diff, photo, W, H, regions.art),
+    follow: regionPct(diff, photo, W, H, regions.follow),
     mark: regionPct(diff, photo, W, H, regions.mark),
     // A ring along the frame edge: the 5px stroke, not the chip text inside.
     wonky: regionPct(diff, photo, W, H, regions.wonky, { out: 6, in: 30 }),

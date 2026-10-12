@@ -8,9 +8,10 @@ import { HANDLE_18, TAG_24, drawPayload as draw, newPayload } from './drawn';
 /* The tag pill is a fitted line (the editor's UX round, Part 4): the handle and the tag shrink together, down to
    their floor, when they are wider than the safe column. A pill that fits is drawn exactly as it always was.
 
-   The render page takes any payload and never validates it, so these specs draw copy past the limits the API holds
-   today: they prove the drawing, whatever the limit is. The cases are in the editor's own terms: capitals, which are
-   what staff type into the pill, and the widest letter (W) for the worst case. */
+   The render page takes any payload and never validates it, so these specs prove the drawing whatever the API
+   allows: they were written when the tag's limit was 12, and their copy is at today's limits (a handle of 18, a
+   tag of 24). The cases are in the editor's own terms: capitals, which are what staff type into the pill, and the
+   widest letter (W) for the worst case. */
 
 const FLOOR = 0.7;
 const BASE_PX = 34;

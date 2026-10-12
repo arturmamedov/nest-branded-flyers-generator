@@ -193,3 +193,29 @@ test('the check is not blind: a sliced highlighter fails it', async ({ browser, 
     await context.close();
   }
 });
+
+test('the check is not blind: a spark off its pill fails it', async ({ browser, baseURL }) => {
+  test.setTimeout(120_000);
+  const c = cases.get('whatsapp | Long pill / band')!;
+  expect(c.regions.follow.length, 'the golden drew the spark with its pill, and the pencil in the ask').toBe(2);
+  const { context, page } = await clientOnlyEditor(browser, baseURL, 1);
+  try {
+    await page.goto(`./#/flyers/${c.id}`);
+    await canvasButton(page, c.canvas).click();
+    // What a clone that lost the pill's own box would draw: the spark placed from somewhere else. An inline style,
+    // on every flyer mounted from now on, the exporter's offscreen one included (as the highlighter's test does).
+    await page.evaluate(() => {
+      const shift = () =>
+        document.querySelectorAll<HTMLElement>('[data-flyer] [data-group=pill]').forEach((pill) => {
+          for (const el of pill.parentElement!.querySelectorAll<HTMLElement>(':scope > img[data-art]')) if (el.style.marginLeft !== '-70px') el.style.marginLeft = '-70px';
+        });
+      new MutationObserver(shift).observe(document.body, { subtree: true, childList: true });
+      shift();
+    });
+    const png = await download(page, 'png');
+    const metrics = compare(c.golden, PNG.sync.read(png.file), c.canvas, c.mode, c.regions);
+    expect(metrics.follow!, JSON.stringify(metrics)).toBeGreaterThan(THRESHOLD);
+  } finally {
+    await context.close();
+  }
+});

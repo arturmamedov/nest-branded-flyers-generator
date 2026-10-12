@@ -19,7 +19,8 @@ describe('the form’s limits', () => {
   });
 
   it('the editor counts its extras against EXTRAS_MAX, not a number', () => {
-    const typed = sources.flatMap(({ file, text }) => [...text.matchAll(/extras\.length\s*(<|<=|>=|>|===)\s*\d+/g)].map((m) => `${file}: ${m[0]}`));
+    // Against 0 or 1 it is asking whether there are any, which is no limit.
+    const typed = sources.flatMap(({ file, text }) => [...text.matchAll(/extras\.length\s*(<|<=|>=|>|===)\s*(?:[2-9]|\d{2,})/g)].map((m) => `${file}: ${m[0]}`));
     expect(typed).toEqual([]);
   });
 });

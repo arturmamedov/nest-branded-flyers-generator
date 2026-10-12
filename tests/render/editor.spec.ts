@@ -512,7 +512,8 @@ test('the tag takes 24 characters: typed, saved and reopened, and the pill is ca
   expect([flyer.data.text.handle, flyer.data.text.tag]).toEqual([HANDLE_18, TAG_24]);
   await page.goto(`/#/flyers/${id}`);
   await page.reload();
-  // A saved flyer opens with the section closed: its one line says the pill's copy, the whole tag included.
+  // A saved flyer opens with the section closed: its one line carries the pill's copy. This much of it ends in an
+  // ellipsis on screen, since the line never wraps (panel.spec.ts): what is read here is the line's own text.
   await expect(sectionHead(page, 'Top and tag pill').locator('.section-line')).toContainText(`${HANDLE_18} · ${TAG_24}`);
   await openSection(page, 'Top and tag pill');
   await expect(page.getByLabel('Tag', { exact: true })).toHaveValue(TAG_24);
