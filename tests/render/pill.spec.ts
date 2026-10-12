@@ -3,7 +3,7 @@ import { PNG } from 'pngjs';
 import { expect, test } from '../browser';
 import { CANVASES, CANVAS_IDS, safeBox, type CanvasId } from '../../src/shared/layout';
 import type { FlyerPayload, FlyerText, Template } from '../../src/shared/schema';
-import { drawPayload as draw, newPayload } from './drawn';
+import { HANDLE_18, TAG_24, drawPayload as draw, newPayload } from './drawn';
 
 /* The tag pill is a fitted line (the editor's UX round, Part 4): the handle and the tag shrink together, down to
    their floor, when they are wider than the safe column. A pill that fits is drawn exactly as it always was.
@@ -15,8 +15,6 @@ import { drawPayload as draw, newPayload } from './drawn';
 const FLOOR = 0.7;
 const BASE_PX = 34;
 
-const HANDLE_18 = '@NESTSHOSTELSADEJE';
-const TAG_24 = '¡COME JOIN US TONIGHT!!!';
 /** The widest letter the face has, at the widest length the pill will ever take. */
 const WIDEST = { handle: '@' + 'W'.repeat(17), tag: 'W'.repeat(24) };
 

@@ -4,7 +4,7 @@ import { expect, test } from '../browser';
 import { resolveDoodles } from '../../src/shared/defaults';
 import { CANVASES, CANVAS_IDS, artAnchors, bodyOf, placeArt } from '../../src/shared/layout';
 import type { FlyerText } from '../../src/shared/schema';
-import { drawPayload, newPayload } from './drawn';
+import { HANDLE_18, TAG_24, drawPayload, newPayload } from './drawn';
 
 /* The art that follows the copy, and the blobs' inks (Artur, 2026-10-12, from the proof sheets of the fitted pill):
    - the spark off the tag pill's end hangs from the end of the pill, whatever its copy makes its width;
@@ -12,9 +12,6 @@ import { drawPayload, newPayload } from './drawn';
    - the corner blobs print in each other's ink: teal on the left, yellow on the right, where a long pill carries
      its teal spark.
    None of it is stored: a flyer's doodles are the numbers every flyer has always carried. */
-
-const HANDLE_18 = '@NESTSHOSTELSADEJE';
-const TAG_24 = '¡COME JOIN US TONIGHT!!!';
 
 /** Pills from the narrowest staff can make to the widest the column takes. */
 const PILLS: [string, Partial<FlyerText>][] = [

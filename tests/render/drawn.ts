@@ -7,6 +7,11 @@ import type { FlyerData, FlyerPayload, FlyerText, Template } from '../../src/sha
 /* A flyer drawn by the render page from a payload a spec hands it. The page takes any payload and never validates
    it, so a spec can draw copy the API would refuse: the drawing is proved whatever the limits are. */
 
+/** A pill at its limits, in capitals, which are what staff type into it: a handle of 18 and a tag of 24. Together
+    they are wider than the safe column on both canvases, so the letters shrink, and they fit. */
+export const HANDLE_18 = '@NESTSHOSTELSADEJE';
+export const TAG_24 = '¡COME JOIN US TONIGHT!!!';
+
 /** A new flyer of a template that was never saved, with these lines of copy changed. */
 export function newPayload(template: Template, text: Partial<FlyerText> = {}, change: (data: FlyerData) => void = () => {}): FlyerPayload {
   const data = newFlyerData(template);

@@ -9,7 +9,7 @@ import { CANVASES, CANVAS_IDS, type Body, type CanvasId } from '../../src/shared
 import { SAMPLE_FLYERS } from '../../src/shared/samples';
 import type { FlyerListItem, FlyerPayload, FlyerSaved } from '../../src/shared/schema';
 import { WRITE_HEADERS } from '../../src/shared/writeGuard';
-import { THRESHOLD, bodiesOf, compare, failures, groupsOf, highlighterWrapSample, jpegQuality, readRegions, type Regions } from './pixels';
+import { THRESHOLD, bodiesOf, compare, failures, groupsOf, highlighterWrapSample, jpegQuality, longPillSample, readRegions, type Regions } from './pixels';
 
 /* The permanent export-fidelity check (brief Phase 2, from the approved spike):
    every Activity sample in every photo mode, and every This week sample once
@@ -34,6 +34,10 @@ const RETINA = new Set([
   ...CANVAS_IDS.filter((c) => c !== 'story').map((c) => `${c} | Long copy · stress test / bleed`),
 ]);
 const FULL = !!process.env.FIDELITY_FULL;
+
+/** What is compared: every seeded sample, and two records that draw what no sample does: a WHEN line that wraps,
+    and a pill at its limits, whose letters shrink (the editor's UX round, Part 4). */
+const DRAWN = [...SAMPLE_FLYERS, highlighterWrapSample(), longPillSample()];
 
 interface Case {
   label: string;
@@ -74,7 +78,7 @@ async function seed(request: APIRequestContext, page: Page) {
   // Samples without a photo borrow one in bleed and band, as the spike did.
   const borrowed = [...payloads.values()].find((p) => p.photo)!.photo!.id;
 
-  for (const s of [...SAMPLE_FLYERS, highlighterWrapSample()]) {
+  for (const s of DRAWN) {
     const source = payloads.get(s.title);
     for (const mode of bodiesOf(s.data)) {
       const label = `${s.title} / ${mode}`;
@@ -103,7 +107,7 @@ async function seed(request: APIRequestContext, page: Page) {
 }
 
 test.beforeAll(async ({ request, browser }) => {
-  // 24 flyers (7 Activity samples × 3 photo modes, 3 week samples), a server render and a region read per canvas.
+  // 27 flyers (8 Activity records × 3 photo modes, 3 week samples), a server render and a region read per canvas.
   test.setTimeout(280_000 * CANVAS_IDS.length);
   const page = await browser.newPage();
   await seed(request, page);
@@ -120,7 +124,7 @@ async function download(page: Page, format: 'png' | 'jpg'): Promise<{ file: Buff
   return { file: readFileSync(await download.path()), download };
 }
 
-const labels = CANVAS_IDS.flatMap((canvas) => [...SAMPLE_FLYERS, highlighterWrapSample()].flatMap((s) => bodiesOf(s.data).map((m) => `${canvas} | ${s.title} / ${m}`)));
+const labels = CANVAS_IDS.flatMap((canvas) => DRAWN.flatMap((s) => bodiesOf(s.data).map((m) => `${canvas} | ${s.title} / ${m}`)));
 for (const l of RETINA) if (!labels.includes(l)) throw new Error(`Retina case "${l}" is not a fidelity case`);
 const runs = labels.flatMap((label) => [1, ...(FULL || RETINA.has(label) ? [2] : [])].map((dpr) => ({ label, dpr })));
 

@@ -709,8 +709,10 @@ describe('schema', () => {
     expect(FlyerDataSchema.safeParse({ ...newFlyerData(), share: 'x'.repeat(SHARE_MAX + 1) }).success).toBe(false);
   });
 
-  it('holds each line of copy to its limit in TEXT_LIMITS, the Spanish line to 260', () => {
+  it('holds each line of copy to its limit in TEXT_LIMITS, the Spanish line to 260, the tag to 24 beside a handle of 18', () => {
     expect(TEXT_LIMITS.headlineEs).toBe(260);
+    // The pill is a fitted line, so the tag has room for "¡Come with us!" and more (Artur, 2026-10-07: "24 characters").
+    expect([TEXT_LIMITS.handle, TEXT_LIMITS.tag]).toEqual([18, 24]);
     for (const [field, max] of Object.entries(TEXT_LIMITS)) {
       const at = (n: number) => FlyerDataSchema.safeParse({ ...newFlyerData(), text: { ...newFlyerData().text, [field]: 'x'.repeat(n) } }).success;
       expect(at(max), `${field} at ${max}`).toBe(true);

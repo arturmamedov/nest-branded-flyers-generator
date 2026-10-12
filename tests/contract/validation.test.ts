@@ -2,6 +2,7 @@ import { afterAll, describe, expect, it } from 'vitest';
 import { newFlyerData } from '../../src/shared/defaults.js';
 import { FlyerPayloadSchema, FlyerSavedSchema } from '../../src/shared/schema.js';
 import { SHARE_MAX } from '../../src/shared/share.js';
+import { TEXT_LIMITS } from '../../src/shared/text.js';
 import { fails, flyerInput, flyers, ok, send } from './client.js';
 
 /* What every backend does to a flyer body: zod's rules (src/shared/schema.ts,
@@ -118,6 +119,24 @@ describe('validation', () => {
     // Counted in code points, as every other limit: a long caption of emoji fits exactly.
     expect((await mine.create(flyerInput({ data: { ...d, share: '🌅'.repeat(SHARE_MAX) } }))).flyer.data.share).toBe('🌅'.repeat(SHARE_MAX));
     expect(await invalidFields(flyerInput({ data: { ...d, share: '🌅'.repeat(SHARE_MAX + 1) } }))).toEqual(['data.share']);
+  });
+
+  it('holds each line of copy to its limit, and names the line: a tag of 24 is saved, one of 25 refused', async () => {
+    const withText = (text: Partial<typeof d.text>) => flyerInput({ data: { ...d, text: { ...d.text, ...text } } });
+    // The pill's two lines, as the editor's UX round left them (Part 4): the tag doubled, the handle as it was.
+    expect([TEXT_LIMITS.handle, TEXT_LIMITS.tag]).toEqual([18, 24]);
+    const tag = '¡TAG US FOR A FREE SHOT!';
+    expect([...tag].length).toBe(24);
+    const { id, flyer } = await mine.create(withText({ tag }));
+    expect(flyer.data.text.tag).toBe(tag);
+    expect((await ok(send('GET', `api/flyers/${id}`), FlyerPayloadSchema)).flyer.data.text.tag, 'and it reads back').toBe(tag);
+    expect(await invalidFields(withText({ tag: `${tag}!` }))).toEqual(['data.text.tag']);
+    // Every line, at its limit and one past it, counted in code points.
+    for (const [line, max] of Object.entries(TEXT_LIMITS)) {
+      const kept = await mine.create(withText({ [line]: '🌅'.repeat(max) }));
+      expect(kept.flyer.data.text[line as keyof typeof d.text], `${line} at ${max}`).toBe('🌅'.repeat(max));
+      expect(await invalidFields(withText({ [line]: '🌅'.repeat(max + 1) })), `${line} at ${max + 1}`).toEqual([`data.text.${line}`]);
+    }
   });
 
   it('reports every bad field at once', async () => {

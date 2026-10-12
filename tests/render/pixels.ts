@@ -3,6 +3,7 @@ import { PNG } from 'pngjs';
 import { CANVASES, activityGroups, weekGroups, type Body, type CanvasId, type PhotoMode, type Rect } from '../../src/shared/layout';
 import { SAMPLE_FLYERS, type SampleFlyer } from '../../src/shared/samples';
 import type { FlyerData } from '../../src/shared/schema';
+import { HANDLE_18, TAG_24 } from './drawn';
 
 /** What the render suites draw a flyer as: an Activity flyer in each photo mode, a week flyer once, as its rows
     (it has no photo, whatever its photo mode says). */
@@ -49,6 +50,15 @@ export function highlighterWrapSample(): SampleFlyer {
   const s = structuredClone(SAMPLE_FLYERS.find((f) => f.title.startsWith('Long copy'))!);
   s.title = 'Highlighter wrap';
   s.data.chips = s.data.chips.map((c) => (c.key === 'when' ? { ...c, value: 'Sat 27/9 & Sun 28/9 · 05:30' } : c));
+  return s;
+}
+
+/** No sample's pill is wider than its column. This record's is: a handle of 18 and a tag of 24, the longest the API
+    takes, so its letters shrink and its spark hangs at the column's end, over the right-hand blob on WhatsApp. */
+export function longPillSample(): SampleFlyer {
+  const s = structuredClone(SAMPLE_FLYERS.find((f) => f.title === 'Pool party')!);
+  s.title = 'Long pill';
+  Object.assign(s.data.text, { handle: HANDLE_18, tag: TAG_24 });
   return s;
 }
 

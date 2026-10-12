@@ -116,7 +116,7 @@
             },
             "tag": {
               "type": "string",
-              "maxLength": 12
+              "maxLength": 24
             }
           },
           "required": [

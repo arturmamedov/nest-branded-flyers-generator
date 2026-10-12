@@ -17,11 +17,13 @@ import {
   filterLibrary,
   hold,
   libraryCard as card,
+  newFlyerNoPhoto,
   openSection,
   panelFold,
   pickExport,
   rowField as row,
   saveNew,
+  sectionHead,
   status,
   templateButton,
   toast,
@@ -35,6 +37,7 @@ import { CANVASES, CANVAS_IDS, DEFAULT_CANVAS, type PhotoMode } from '../../src/
 import { FlyerPayloadSchema, FlyerSavedSchema, type FlyerListItem } from '../../src/shared/schema';
 import { WEEK_ROWS_MAX } from '../../src/shared/week';
 import { WRITE_HEADERS } from '../../src/shared/writeGuard';
+import { HANDLE_18, TAG_24 } from './drawn';
 
 /* The editor is a focus page (App.tsx, Editor.tsx): the whole window, no shared bar, one way
    back at the top of its form, and every way out with unsaved work asks first (leaveGuard.ts,
@@ -483,6 +486,44 @@ test('This week: the cut-off note names only the canvas that clips', async ({ pa
   expect(atFloor, `"${word}" at the name's floor, in px`).toBeLessThanOrEqual(370);
   await expect(cutOff(page)).toContainText(cutOffOn('story'));
   await row(page, 1, 'event').fill('Surf');
+  await expect(cutOff(page)).toHaveCount(0);
+});
+
+test('the tag takes 24 characters: typed, saved and reopened, and the pill is called cut off only past its floor', async ({ page }) => {
+  await newFlyerNoPhoto(page, { title: `tag spec ${Date.now()}` });
+  const handle = page.getByLabel('Handle', { exact: true });
+  const tag = page.getByLabel('Tag', { exact: true });
+  const pill = page.locator('.stage-canvas [data-group=pill]');
+  await expect(handle).toHaveAttribute('maxlength', '18');
+  await expect(tag).toHaveAttribute('maxlength', '24');
+
+  // Typed, as staff do: the field stops at its limit.
+  await tag.fill('');
+  await tag.pressSequentially(`${TAG_24}XX`);
+  await expect(tag).toHaveValue(TAG_24);
+  await expect(pill).toContainText(TAG_24);
+  // 24 capitals beside the default handle fit at full size, and beside a handle of 18 they shrink and still fit.
+  await expect(cutOff(page)).toHaveCount(0);
+  await handle.fill(HANDLE_18);
+  await expect(pill).toContainText(HANDLE_18);
+  await expect(cutOff(page)).toHaveCount(0);
+
+  const { id, flyer } = await saveNew(page, keep);
+  expect([flyer.data.text.handle, flyer.data.text.tag]).toEqual([HANDLE_18, TAG_24]);
+  await page.goto(`/#/flyers/${id}`);
+  await page.reload();
+  // A saved flyer opens with the section closed: its one line says the pill's copy, the whole tag included.
+  await expect(sectionHead(page, 'Top and tag pill').locator('.section-line')).toContainText(`${HANDLE_18} · ${TAG_24}`);
+  await openSection(page, 'Top and tag pill');
+  await expect(page.getByLabel('Tag', { exact: true })).toHaveValue(TAG_24);
+  await expect(cutOff(page)).toHaveCount(0);
+
+  // Past the floor: the widest letter at both limits is cut at the pill's edge, on every canvas, and the editor says so.
+  await page.getByLabel('Handle', { exact: true }).fill(`@${'W'.repeat(17)}`);
+  await page.getByLabel('Tag', { exact: true }).fill('W'.repeat(24));
+  await expect(cutOff(page)).toContainText(cutOffOn(...CANVAS_IDS));
+  await page.getByLabel('Tag', { exact: true }).fill(TAG_24);
+  await page.getByLabel('Handle', { exact: true }).fill(HANDLE_18);
   await expect(cutOff(page)).toHaveCount(0);
 });
 
