@@ -312,3 +312,289 @@ Left as they are:
 - **The cut-off warning marks no section**: it names no field.
 - **The toast over the flyer's corner** (Part 1's point) is gone with the panel folded and unchanged with it open.
   The numbers are in the table above.
+
+## Part 3: copy the picture, share it, and one clipboard (2026-10-12)
+
+Built on `feat/editor-ux-part-3`, cut from `main` at `4e86083`. The brief said to stay on `feat/ai-feature-switches`;
+Artur's message of the day replaced that: "Work in a new branch from main". Eight commits and their record, each as
+it went green. Nothing is pushed, no release was built, and the live site and the Laragon copy were not touched. No
+provider was called.
+
+It is the client alone: `src/editor/` and the tests. No route, schema, generated file, PHP class or `src/shared/`
+file changed. The flyer prints the same: the story baseline is byte-identical to the capture of before the round
+(32 cases).
+
+### What Artur chose along the way
+
+- The plan as written: the brief's six *Mine* points (M1 to M6) and the session's own (N1 to N14), none struck.
+- **The iPhone stays a risk, not a change** (N9): every phone's sheet gets the picture and the caption, as he
+  decided in the brief.
+- On Part 1's open point, in the message that started this part: "the toast like this is perfect, is opening
+  closing correctly and now not disturbing users they can decide if see it or not". So the toast over the flyer's
+  corner stays as it is, and warnings do not start folded on a desktop.
+
+### The spike
+
+A throwaway probe, run headless on this PC before the plan and kept nowhere: one page, real clicks, in Chrome 143,
+Edge 155, the test browser (Chromium 153) and Playwright's WebKit build. Its clipboard writes carried a promise that
+fails on purpose, so nothing was written.
+
+| Asked | Chrome 143 and Edge 155 |
+|---|---|
+| A write started inside the tap, the picture 8 s later | Accepted, and the browser waited the 8 s |
+| A write started 3 s after the tap | Allowed |
+| A write started 6 s after the tap | Refused ("Write permission denied") |
+| Does the tap still count after 4 s / after 6 s | Yes / no: the window is 5 s |
+| Can the device share a file | Yes, on Windows too |
+| A JPG on the clipboard | No: PNG only |
+| A page on plain http at a LAN address | No clipboard, no share sheet: the call throws before there is a promise |
+
+- So a copy works with one tap only if the clipboard is asked inside the tap, with a promise for the picture. Made
+  the plain way (render, then copy) it would fail without a word on any render slower than 5 s.
+- The share sheet has no such promise, and the same 5 s: a slow render needs a second tap.
+- The phone's silence at "Copy text" was this: over plain http there is no clipboard, and the code threw.
+- The test browser refuses every clipboard write until its context is granted it, and has no share sheet.
+- **Not measured:** Firefox and Safari. Their documentation says the same: the write inside the tap, a promise for
+  the picture (Firefox 127 and later, Safari 13.1 and later). Playwright's WebKit build on Windows says it cannot
+  hold a PNG, so it proves nothing about Safari. No phone was tried.
+
+### What was built
+
+**The toolbar** (`Editor.tsx`, the rule in `src/editor/exportActions.ts`, the menu in `src/editor/Menu.tsx`)
+
+- It reads `[Copy image] [Download ▾]`. Download opens a list: "PNG · sharpest", "JPG · smaller file". A download
+  is two clicks where it was one.
+- On a phone it reads `[Share…] [Download ▾]`, and Copy image is the list's third entry. "A phone" is a finger as
+  the main pointer, the signal "Take a photo" goes by, not the window's width.
+- On a desktop whose browser can share a file (Chrome and Edge on Windows can) "Share…" is the list's last entry.
+- Each shows only where the browser can do it. With no clipboard and no share sheet the bar is `[Download ▾]`
+  alone.
+- The first button is the teal one. Alone, Download is.
+- All of them are greyed while a frame has no photo, and all save first, as a download always did.
+- The status, Save and these buttons are one group at the bar's right end. It wraps as a whole: no button drops
+  alone to the left of a second row any more (JPG did, at 1280 px wide with "Unsaved changes").
+- The menu is the editor's own, with no dependency. The arrows open it and move through it, Home and End jump,
+  Escape hands the focus back to the button, Tab and a press anywhere else close it. It closes when its button is
+  greyed: a photo dropped with the list open starts an action, and an entry must not start a second one.
+
+**Copy image** (`src/editor/clipboard.ts`)
+
+- One tap puts the canvas on screen on the clipboard, as a PNG. The clipboard is asked inside the tap and waits for
+  the picture.
+- "Image copied (1080 × 1440)." Where the flyer has a caption the toast offers "Copy the caption": two pastes, one
+  tap each. Pressed, it says "Caption copied.".
+- A refused copy says "Couldn’t copy the image: the browser refused. Keep this tab in front and try again, or
+  download it." A save or a render that failed says its own reason.
+
+**The toast's next step** (`Toasts.tsx`, the rule in `toastFolds.ts`)
+
+- A toast can offer one next step, a small button under its words.
+- Such a toast stays until the step is taken or it is closed. A plain success still leaves after six seconds.
+- Taken from the keyboard, the step keeps the focus with its toast: it goes to the close button of the answer,
+  also when the answer is an error, and never to the warnings' chip.
+
+**Share…** (`src/editor/shareSheet.ts`)
+
+- It opens the system's share sheet with the picture (the same PNG) and the caption as its text.
+- The caption goes on the clipboard at the tap, before the sheet: what an app does with the sheet's text is the
+  app's. After it: "Shared. The caption is on the clipboard too: paste it if the app left it out." With no caption,
+  or a caption the clipboard refused: "Shared."
+- A sheet closed without sharing says nothing.
+- A picture that took longer than its tap allows waits in a toast: "The picture is ready." with "Share now".
+  - "Share now" is a tap of its own, so it copies the caption again: minutes may have passed.
+  - If the flyer or the canvas changed in between, the picture is made again.
+  - Pressed twice, it is one sheet. It is not offered once a frame has no photo, where Share… is greyed too.
+- The editor does not wait for the sheet. Its answer is a toast when it comes, and says nothing once another
+  action has started or the page was left. No sheet opens over another page.
+- A device that says a sheet is already open is told so, "The share sheet is already open.", and the picture is
+  kept, with "Share now".
+
+**One clipboard, and "Copy text"** (`clipboard.ts`, `share.tsx`)
+
+- The share text and the picture go through one helper, which answers "copied" or why not, and never throws.
+- "Copy text" now says so when it could not copy, under the caption, in the editor and on the AI page:
+  - no clipboard: "Couldn’t copy: this browser gives the page no clipboard here. Select the text instead."
+  - refused: "Couldn’t copy: the browser refused. Select the text instead."
+- The pill on the stage keeps its one word, "Couldn’t copy", and its reason is a toast.
+- **This closes the waiting item of 2026-10-07**, the phone's silent "Copy text".
+
+**The focus after an action**
+
+- A button an action greyed gets the focus back when the action is done, without scrolling to it. It was "Write
+  with AI" alone; now it is one rule in `run()`, which the menu needed. A control the action never greyed is left
+  alone: a photo dropped on the preview starts from none.
+
+### What differs from the plan Artur approved
+
+- **The copied picture is compared with the render it was made from, not with a later download.** The plan said
+  "its pixels are the download's". Every way out saves first, a save empties the server's picture cache, and a
+  second render is a second raster: the comparison failed once in three runs. The test now asks the server for
+  the copy's own picture again (a cache hit, which it checks) and compares pixel for pixel.
+- **The bar's buttons stand a little closer** (12 px of padding where the app's buttons have 14, 8 px between
+  them). Found in the look: see below.
+- **Three specs where the plan named one**: `clipboard.spec.ts` (what is copied), `toolbar.spec.ts` (the menu and
+  the bar) and `share.spec.ts` (the sheet).
+- **The real copy did not replace the clipboard for good.** The plan warned it would. Headless Chrome keeps a
+  clipboard of its own, so the check ran in a Chrome window kept off the screen, and the text that was on the
+  clipboard was put back afterwards.
+
+### The look
+
+In the installed Chrome 143 driven by a script, on the Node backend with the fake provider, at 1440 × 900,
+1280 × 800, 390 × 844 and 360 × 800, the two phones with a finger as their pointer. The same script measured a
+build of `main` first. Then once on the staged PHP backend, where the picture is made in the browser. The scripts,
+33 screenshots and the numbers (`notes.txt`) are in `backups/editor-ux-part-3/`, outside git.
+
+**The bar, against `main`**
+
+| Window | State | `main` | Now |
+|---|---|---|---|
+| 1440 × 900 | saved, or unsaved | 1 row, flyer 599 × 798 | the same |
+| 1280 × 800 | saved | 1 row, flyer 524 × 698 | the same |
+| 1280 × 800 | unsaved changes | 2 rows, flyer 491 × 654, JPG alone at the left | 2 rows, flyer 491 × 655, the group at the right |
+| 1280 × 800 | unsaved, form folded | 1 row, flyer 524 × 698 | the same |
+| 390 and 360 wide | saved | 3 rows (140 px) | the same |
+| 390 and 360 wide | unsaved changes | 4 rows (184 px), JPG alone at the left | 4 rows (182 px), Download at the right |
+
+- **The look found one thing, fixed with its test first.** "Copy image" and "Download ▾" are some 40 px wider
+  than "Download PNG" and "JPG" were. At 1280 wide a saved flyer's bar broke into two rows, and the flyer was 491
+  wide where it had been 524. The group's buttons now stand a little closer, and the table above is the result.
+- The last button is 16 px from the bar's right edge in every state. The menu's list opens inside the window at
+  every width, over the flyer.
+
+**A real copy.** In a Chrome window, with no clipboard permission granted: "Image copied (1080 × 1440)." and
+Windows itself held a picture of 1080 × 1440. After "Copy the caption" Windows held the caption.
+
+**How long a picture takes, against the sheet's 5 s**
+
+| Where | From the tap to the picture |
+|---|---|
+| Node, the server's renderer | 0.9 to 1.9 s |
+| PHP, the browser's own renderer, this PC | 0.7 to 0.9 s (1.6 s with a new flyer's first save) |
+| The same, the processor slowed 4 times | 3.2 s: the sheet still opens |
+| The same, slowed 6 times | 5.7 to 5.8 s: the tap no longer counts, so "Share now" |
+
+- The slowing is Chrome's own, a rough stand-in for a phone: four times for a mid-range one, six for a slow one.
+  No real phone was timed.
+
+**Not looked at:** a real phone, Safari, Firefox, an iPhone. The share sheet was a stand-in everywhere, as in the
+tests: a real one is a window of the device's own.
+
+### The tests
+
+- Unit: `tests/unit/clipboard.test.ts` (the helper, with a stand-in browser), `export-actions.test.ts` (the bar's
+  rule), `share-sheet.test.ts` (the sheet's answers), and two more cases in `toast-folds.test.ts` (which toast
+  leaves by itself).
+- Browser, three new specs:
+  - `tests/render/clipboard.spec.ts`: "Copy text" that could not copy; the copied picture at its exact size on
+    both canvases, with the server's exporter and with the browser's; **the clipboard asked inside the tap**; the
+    toast's step by mouse and by keyboard; a refused copy; a failed render; no clipboard at all.
+  - `tests/render/toolbar.spec.ts`: the menu by mouse and by keyboard, the bar's shape and rows, the list inside
+    the window at four widths.
+  - `tests/render/share.spec.ts`: the sheet, against a stand-in, on a touch screen and on a desktop.
+- The PHP smoke test downloads through the new helper, and has a third test: the picture copied on every canvas,
+  read back at its exact size. On PHP the picture is made by the in-browser exporter. A run pointed at a
+  plain-http deployment, where a page has no clipboard, reports that test as skipped, with the reason.
+- `tests/editor.ts` has `download(page, 'png' | 'jpg')`, `downloadMenu()`, `exportEntry()`, `pickExport()`,
+  `copyImage()`, `barActions()`, `grantClipboard()`, `clipboardPng()`, `clipboardText()`, `noClipboard()`,
+  `copyOfSample()` and `newFlyerNoPhoto()`. `stopClock()` and `clientOnlyEditor()` moved there from two specs. The
+  five suites that pressed "Download PNG" and "JPG" by name use `download()`.
+- **Not every test failed first.**
+  - Failed first, run against the build of the step before: the helper's unit tests and "Copy text"; the menu's
+    ten; the bar's rule; the toast's rule; Copy image's ten; the share sheet's twelve; the one-row bar; and each
+    of the review's fixes but those named below.
+  - Could not fail first, because the build before already did the right thing: "with no clipboard there is no
+    Copy image" and "a phone with no share sheet gets Copy image first". They hold the rule from here on. So do
+    four of the review's: Tab out of the menu (Chromium already followed it), a closed list that no role finds,
+    "Share now" after another canvas, and the caption as it is when the step is pressed.
+  - Written with its code: the share sheet's unit test.
+  - Checked by breaking the code on purpose: the write moved behind the save fails "inside the tap"; the list
+    without its level fails "over the flyer" at 390 and 360 px.
+
+### The gates
+
+On the final code: typecheck; 676 unit; 378 contract; 283 in the browser (75 of them the AI project's, 47 in the
+three new specs) and the baseline skipped as always; 3 in the PHP smoke test.
+
+The baseline, run by hand before the review's fixes, is byte-identical to the capture of before the round
+(`nest-ux1-baseline` in the temp folder, 32 cases). The fixes after it changed no file the flyer is drawn from.
+
+### What the review found
+
+A fresh-context review of `4e86083..ffd1e47`, from the code alone. It found no fault in the main paths: the copy
+inside the tap, the menu's own logic, the bar's rule. It found gaps round "Share now", which can stay on screen for
+minutes, and round the focus. Fixed, each with its test first:
+
+- **"Share now" pressed twice asked for a second sheet.** The device's "already open" then took the place of the
+  toast that held the picture.
+- **"Share now" still worked after the flyer was changed to one with an empty frame**, where Share… itself is
+  greyed: it would have saved and shared the blank band.
+- **"Share now" told of a caption on the clipboard from the first tap**, however long ago. It copies the caption
+  again now.
+- **A clipboard that refuses at once never listened for the picture.** A render that then failed was an error on
+  the page with no one to hear it.
+- **A step taken from the keyboard lost its focus**: to the warnings' chip where one stood, and to the page when
+  the answer was an error.
+- **Whatever had the focus when an action started was taken for the control that started it.** A field the caret
+  was in got the focus pulled back after a dropped photo.
+- A test that could not fail (Tab "going past" entries that Tab never visits), and the smoke test's copy, which
+  passed having checked nothing on a plain-http deployment.
+- Not tested until then: a device that says a sheet is already open, and a caption the clipboard refuses at the
+  step.
+
+Fixed without a failing test:
+
+- **Tab out of the menu.** The list was hidden at the key itself, before the browser moved the focus. Chromium
+  follows a focus that sets out from a hidden element; other browsers may not. The list now closes once the focus
+  has left it. The test holds where the focus lands, and passed before the fix too.
+- A menu entry's focus ring was a shadow alone, which a system that paints its own colours over a page drops. It
+  has an outline as well.
+- Leftovers: "is this editor still the page on screen" was written twice, `image/png` three times, one helper
+  only the tests used, and the three new specs each had their own copy of a new flyer.
+
+Left as they are:
+
+- "Share now" on a flyer changed since makes the picture again. From the keyboard, the focus then ends on the
+  page: the toast that held the button is gone.
+- A sheet whose answer never comes leaves "Share now" deaf. Share… in the bar still asks.
+- The sentence for a picture with no clipboard at all is never shown: "Copy image" exists only where the browser
+  can copy one.
+- The specs' clean-up of saved flyers is copied in each, as in the older ones.
+
+### For Artur to decide
+
+- **The iPhone.** Every phone's sheet gets the picture and the caption, as decided. An open WebKit report (bug
+  251500, filed 2023, never answered) says that on an iPhone a sheet given a picture and a text hands WhatsApp
+  the text and drops the picture. Not tried: nobody here has an iPhone. If one shows it, the rule to build is
+  "an iPhone's sheet gets the picture alone", and the caption is already on the clipboard.
+- **A download is two clicks now**, Download and then the format.
+- **Every way out saves first, even when nothing changed**, as a download always did. A save empties the
+  server's picture cache, so a copy made right after a download renders again (about a second on Node). Skipping
+  the save when nothing is unsaved would make the second one instant, and give a slow phone's share sheet more
+  of its 5 s. It would also stop one editor writing its older copy over a newer one from another window.
+- **A toast that offers a step stays until it is used or closed.** With a caption on the flyer, "Image copied"
+  therefore stays in the corner, where a plain success leaves after six seconds.
+- **"Share…" on a desktop** is the list's last entry wherever the browser can share a file. Windows' own sheet is
+  thin: say so if it should go.
+- **The words that are mine:** "Copy image", "Share…", "PNG · sharpest", "JPG · smaller file", "Copying…",
+  "Preparing…", "Image copied (1080 × 1440).", "Copy the caption", "Caption copied.", "Shared.", "Shared. The
+  caption is on the clipboard too: paste it if the app left it out.", "The picture is ready.", "Share now", "The
+  share sheet is already open.", "Couldn’t open the share sheet. Download the picture instead.", and the four
+  "Couldn’t copy" sentences.
+- **Copying text the old way where a page has no clipboard** was left out (N13). It would make "Copy text" work
+  over plain http too, which is the phone test's set-up and no staff member's.
+
+### Yours to do
+
+- **Try it on a phone.** A phone reaches this PC over plain http, where a browser gives a page neither a clipboard
+  nor a share sheet: there the bar is `[Download ▾]` alone, and "Copy text" says why it could not copy. Two ways
+  to try the rest:
+  - After a release, on the live site, which is https: "Share…", then WhatsApp and Instagram, and see what each
+    does with the caption.
+  - Before one, with this PC's server over its own hotspot, as in the photo trials. On the phone, in Chrome, open
+    `chrome://flags/#unsafely-treat-insecure-origin-as-secure`, add `http://192.168.137.1:8787`, set it to
+    Enabled and relaunch. Chrome then treats that one address as https. Turn the flag off afterwards. Not tried
+    here.
+- **What to look at there:** whether the sheet opens at the first tap or asks for "Share now"; whether WhatsApp
+  shows the caption under the picture; what Instagram does with it; and an iPhone, if staff have one.
+- **The release** is yours, as before. Part 3 asks nothing new of the host: it comes with the files.

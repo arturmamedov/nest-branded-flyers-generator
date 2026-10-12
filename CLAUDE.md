@@ -95,7 +95,8 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
     them again. At 860 px and narrower the warnings start folded.
   - The folding rule is `src/editor/toastFolds.ts`, pure and tested by itself. A warning is its kind, its field
     and its words (`warningId`). The file is not called `toasts.ts`: on Windows that is `Toasts.tsx`.
-  - A success closes after `OUTCOME_MS` (6 s) and waits under the pointer or the focus; an error stays.
+  - A success closes after `OUTCOME_MS` (6 s) and waits under the pointer or the focus; an error stays, and so
+    does a success that offers a next step (Part 3, below).
   - The corner hangs from `.toasts-anchor`, a sticky line with no height at the workspace's end: on a phone,
     where the stage ends below the screen, the toasts stay at the screen's bottom edge.
   - An error is `role="alert"`, a success sits in a `role="status"` region that is in the page before its words,
@@ -132,6 +133,49 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
   - Browser specs: `tests/render/panel.spec.ts`. `tests/editor.ts` has `sectionHead(page, title)`,
     `openSection(page, ...titles)` and `panelFold(page)`: a spec that opens a saved flyer opens the section it
     uses first.
+- The flyer leaves the editor as a picture four ways (2026-10-12, the editor's UX round, Part 3; Artur's "Copy
+  beside Download" and "Yes, with copy image"): copied, shared, or downloaded as PNG or JPG.
+  - `picture(format)` in `Editor.tsx` is the one "save, then `exporter.export()`" all four call: the canvas on
+    screen, of the saved flyer. No second renderer, and nothing in `src/editor/export/` knows which way out it is.
+  - The bar's right half is one group (`.toolbar-actions`): the status, Save, one first button and "Download ▾". It
+    wraps as a whole and stays at the right.
+  - `src/editor/exportActions.ts` says which button is first (pure, tested by itself). A desktop gets
+    `[Copy image] [Download ▾]`, a phone `[Share…] [Download ▾]`, and the other one is behind Download with PNG and
+    JPG. A way out shows only where the browser can do it. "A phone" is `(pointer: coarse)`, as for "Take a
+    photo", never the 860 px.
+  - `src/editor/Menu.tsx` is the editor's own menu button, with no dependency: `aria-expanded` over a list that is
+    `hidden`, never unmounted; the arrows, Home, End, Escape, Tab and a press outside. It closes when its button is
+    greyed. Its list has its own `[hidden]` rule and `z-index: 4`, over the flyer's canvas and the toasts.
+  - `src/editor/clipboard.ts` is the one way the editor writes to the clipboard. `copyText()` and `copyImage()`
+    answer "copied" or why not (`unavailable`: plain http, or too old a browser; `refused`), and never throw.
+  - **`copyImage()` is called inside the tap, with a promise for the PNG.** A browser lets a page write to the
+    clipboard only close to the tap that asked: Chrome refused a write started 6 s after it (measured,
+    2026-10-12), and Safari refuses one started after anything was awaited. `run()` calls its `fn` before it
+    awaits anything, for this. `clipboard.spec.ts` wraps `write` and fails if the call moves behind the save.
+  - `src/editor/shareSheet.ts` has `canShareFiles()` and `sharePicture()`. The sheet takes no promise and opens
+    only while its tap counts (5 s), so the picture is made first. When that took too long the toast says "The
+    picture is ready." with "Share now". The caption goes on the clipboard at the tap, before the sheet.
+  - The editor does not wait for the sheet. Its answer is a toast when it comes, and silent once another action
+    has started (`turn`) or the page was left (`onScreen()`).
+  - "Share now" can stay on screen for minutes, so it takes nothing for granted: it copies the caption again in
+    its own tap, makes the picture again if the flyer or the canvas changed, is one sheet when pressed twice
+    (`sheetAsked`), and is not offered once a frame has no photo.
+  - A toast can offer one next step (`Outcome.action` in `Toasts.tsx`): "Copy the caption" after a picture is
+    copied, and "Share now". Such a toast stays until the step is taken or it is closed (`leavesByItself()` in
+    `toastFolds.ts`). A step taken from the keyboard keeps the focus with its toast (`keyboardIn`): on the close
+    button of the answer, also when the answer is an error and so another node, and never on the warnings' chip.
+  - `run()` notes what had the focus when an action started, and a control the action greyed gets the focus back
+    when it is done. Only that: a photo dropped on the preview starts from no control.
+  - Every way out saves first, and a save empties the server's picture cache. Two renders of one flyer can differ
+    by a few pixels, so no test compares a copied picture with a later download.
+  - Browser specs: `clipboard.spec.ts`, `toolbar.spec.ts` and `share.spec.ts`. The test browser has no share sheet
+    (the spec stands one in) and refuses every clipboard write until its context is granted it.
+  - `tests/editor.ts` has `download(page, format)`, `downloadMenu()`, `exportEntry()`, `pickExport()`,
+    `copyImage()`, `barActions()`, `grantClipboard()`, `clipboardPng()`, `clipboardText()`, `noClipboard()`,
+    `copyOfSample()`, `newFlyerNoPhoto()`, `stopClock()` and `clientOnlyEditor()`. No spec presses a download by a
+    button's name.
+  - The menu's Tab closes the list once the focus has left it (`onBlur`), never at the key: hidden at the key, the
+    focus would set out from an element that is gone, which only some browsers follow.
 - Leaving the editor with unsaved work asks first, on every way out (`src/editor/leaveGuard.ts`).
   `src/editor/route.ts` cancels a refused move in the Navigation API's `navigate` event (every major
   browser since January 2026), so it never happens. A Back or Forward the browser won't let the page
@@ -674,10 +718,11 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
       success that never closed while anyone typed, and a toast below the fold on a short phone.
     - The look ran in the installed Chrome driven by a script, on Node with the fake, at 1440, 1280, 390 and
       360 px. The screenshots are in `backups/editor-ux-part-1/`, outside git. Not looked at by eye on PHP.
-    - **For Artur to decide** (the report has each): on a desktop an open toast lies over the flyer's
-      bottom-right corner (about 106 px at 1440 wide, 148 px at 1280), and the fix offered is to start folded
-      where the strip beside the flyer is too narrow; the handle and the tag count as details; the words that
+    - **For Artur to decide** (the report has each): the handle and the tag count as details; the words that
       are mine; a generation on its way is still not guarded when leaving; six seconds for a success.
+    - Answered since (Artur, 2026-10-12): the toast that lies over the flyer's bottom-right corner on a desktop
+      stays as it is. "The toast like this is perfect, is opening closing correctly and now not disturbing
+      users they can decide if see it or not."
     - Part 2's standalone prompt is `docs/prompts/editor-ux-part-2.md`.
   - **Part 2 is built: the panel folds, and so do its sections** (2026-10-07, five commits on top of `1139234`
     and their record). Nothing is pushed.
@@ -706,16 +751,40 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
       open on every saved flyer until it is closed; "Open all" is the other template's sections too; the cut-off
       warning marks no section.
     - Part 3's standalone prompt is `docs/prompts/editor-ux-part-3.md`.
-  - Part 3: `[Copy image] [Download ▾]` in the toolbar, a "Share…" entry on phones, and one clipboard helper. It
-    starts with a spike. **The phone's silent "Copy text" is fixed here** (Artur saw it on 2026-10-07): the
-    button calls `navigator.clipboard.writeText()` directly (`src/editor/share.tsx`), which throws where the
-    browser gives a page no clipboard (plain http on a LAN address, which that test was), so it never says
-    "Couldn’t copy".
+  - **Part 3 is built: copy the picture, share it, and one clipboard** (2026-10-12, on `feat/editor-ux-part-3`,
+    cut from `main` at `4e86083` by Artur's word of that day: "Work in a new branch from main"). The branch is
+    not pushed.
+    - Seen at its start: `main` is on origin at `4e86083`, with Parts 1 and 2 in it and the two commits of
+      2026-10-09 and 2026-10-10 on top (the WHEN chip's time, the two copy warnings dropped).
+    - How it works is in the architecture section above ("The flyer leaves the editor as a picture four ways").
+    - It started with a spike, in real Chrome and Edge: a clipboard write must start inside the tap, and the
+      share sheet opens only within 5 s of it. The report has the table.
+    - Artur approved the plan as written, the brief's six *Mine* points and the plan's own fourteen.
+    - **The phone's silent "Copy text" is fixed** (he saw it on 2026-10-07): it reached the editor over plain
+      http, where a browser gives a page no clipboard, and the call threw. "Copy text" now says so, and why.
+    - It is the client alone, on both backends, and the baseline is byte-identical to the capture of before the
+      round.
+    - A fresh-context review found no fault in the main paths (the copy inside the tap, the menu, the bar's
+      rule). What it found is fixed, each test first: among it, "Share now" pressed twice or after the flyer was
+      changed to one with an empty frame, a caption said to be on the clipboard from minutes before, a picture's
+      failure left unheard where the clipboard refused at once, and where the focus went after a toast's step.
+    - The look ran in the installed Chrome driven by a script, on Node and once on the staged PHP backend, at
+      1440, 1280, 390 and 360 px, against a build of `main`: the bar has the rows it had at every width. One real
+      copy was read back from Windows at 1080 × 1440. The scripts and screenshots are in
+      `backups/editor-ux-part-3/`, outside git.
+    - **Not tried: a real phone, an iPhone, Safari, Firefox.** A phone reaches this PC over plain http, where
+      neither the clipboard nor the share sheet exists. The trial over https is Artur's: the report has the steps.
+    - **For Artur to decide** (the report has each): the iPhone (an open WebKit report says a sheet given a
+      picture and a text hands WhatsApp the text alone); a download is two clicks now; every way out saves first,
+      even when nothing changed, and a save empties the server's picture cache; a toast with a step stays until
+      it is used or closed; the words that are mine.
+    - Part 4's standalone prompt is `docs/prompts/editor-ux-part-4.md`.
   - Part 4: the tag may be 24 characters, and the pill becomes a fitted line. Artur signs off a proof sheet
     before the limit is committed. It needs a release, and an older release refuses a flyer with a longer tag.
-  - All four on `feat/ai-feature-switches`, by his word, a commit per piece. Don't start a part unasked: he
-    launches each with its prompt, and each session ends by handing him the next part's standalone prompt
-    (`docs/prompts/editor-ux-part-<n>.md`, and in the chat).
+  - Parts 1 and 2 are on `feat/ai-feature-switches`, by his word of 2026-10-07; Part 3 is on its own branch, by
+    his word of 2026-10-12. A commit per piece. Don't start a part unasked: he launches each with its prompt, and
+    each session ends by handing him the next part's standalone prompt (`docs/prompts/editor-ux-part-<n>.md`, and
+    in the chat).
 - Waiting, don't start unasked: **the counts of what is left today confuse the interface a little** ("AI credits
   left", in Artur's words, on his phone, 2026-10-07; "Follow ups will fix in future"). Not designed, and not part
   of the editor's UX round.

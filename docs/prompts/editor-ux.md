@@ -17,6 +17,14 @@ next part's prompt, so he never has to come back here for one.
   `docs/prompts/editor-ux-part-2.md` is Part 2's prompt, which replaces the starting point at the end of this file.
 - **Part 2 is built** (2026-10-07): its section of the report says what it left, and
   `docs/prompts/editor-ux-part-3.md` is Part 3's prompt, which replaces the starting point at the end of this file.
+- **Part 3 is built** (2026-10-12): its section of the report says what it left, and
+  `docs/prompts/editor-ux-part-4.md` is Part 4's prompt, which replaces the starting point at the end of this file.
+  - **It is on another branch.** Artur started it with "Work in a new branch from main", which replaced the
+    first line above for that part: `feat/editor-ux-part-3`, cut from `main` at `4e86083`.
+  - Seen then: `main` is on origin at `4e86083`. It holds Parts 1 and 2, and two commits of 2026-10-09 and
+    2026-10-10 on top (the WHEN chip's time and the Spanish line's 260 characters; two copy warnings dropped). So
+    the second line above is no longer true either.
+  - For Part 4, see where Part 3's work is and ask him where to branch from if `main` does not hold it.
 - Commit each piece as it goes green, as in the flyer from a photo.
 - Before anything else, check git against that: the branch, the last commit, and whether the tree holds work that
   is not yours. Another session may write in the same folder, so stage by path and never check out. If anything
