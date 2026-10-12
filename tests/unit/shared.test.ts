@@ -8,6 +8,7 @@ import {
   DEFAULT_PHOTO_MODE,
   DEFAULT_TEXT,
   PROTOTYPE_DOODLES,
+  SWAPPED_BLOBS,
   newFlyerData,
   resolveDoodles,
   sameDoodles,
@@ -431,7 +432,8 @@ describe('template art', () => {
         expect(at.left, `${d.slug} x`).toBe(stored.x);
         expect(at.top, `${d.slug} y`).toBe(stored.y);
         expect(at.width, `${d.slug} w`).toBe(stored.w);
-        expect({ ...d, anchor: undefined, x: stored.x, y: stored.y }).toEqual({ ...stored, anchor: undefined });
+        // The stored piece but for where it hangs from, and for the blobs the ink they print in.
+        expect({ ...d, anchor: undefined, x: stored.x, y: stored.y, slug: stored.slug }).toEqual({ ...stored, anchor: undefined });
       });
     }
   });
@@ -441,6 +443,16 @@ describe('template art', () => {
     const moved = DEFAULT_DOODLES.map((d, i) => (i === 2 ? { ...d, x: d.x + 1 } : d));
     expect(resolveDoodles(moved)).toBe(moved);
     expect(resolveDoodles(newFlyerData().doodles).map((d) => d.anchor)).toEqual(['photoLeft', 'photoRight', 'bottomLeft', 'bottomRight', 'pillEnd']);
+  });
+
+  it('the corner blobs print in each other’s ink, teal on the left and yellow on the right (Artur, 2026-10-12); stored art keeps its slugs', () => {
+    expect(DEFAULT_DOODLES.map((d) => d.slug)).toEqual(['spark-teal', 'spark-yellow', 'blob-yellow', 'blob-teal', 'spark-teal']);
+    expect(resolveDoodles(newFlyerData().doodles).map((d) => d.slug)).toEqual(['spark-teal', 'spark-yellow', 'blob-left-teal', 'blob-right-yellow', 'spark-teal']);
+    // Each new file is one blob's drawing in the other's ink, and the two trade.
+    expect(SWAPPED_BLOBS).toEqual({ 'blob-left-teal': { drawing: 'blob-yellow', ink: 'blob-teal' }, 'blob-right-yellow': { drawing: 'blob-teal', ink: 'blob-yellow' } });
+    // Art someone arranged is drawn as stored, inks included.
+    const moved = DEFAULT_DOODLES.map((d, i) => (i === 4 ? { ...d, x: d.x + 1 } : d));
+    expect(resolveDoodles(moved).map((d) => d.slug)).toEqual(DEFAULT_DOODLES.map((d) => d.slug));
   });
 
   it('the photo-corner sparks land exactly where the design pass put them on the story (band and bleed)', () => {
@@ -495,7 +507,7 @@ describe('template art', () => {
       const { ask } = CANVASES[canvas].activity;
       const art = resolveDoodles(DEFAULT_DOODLES);
       const cells = (d: ArtPlacement) => new Set(inkPoints(d, canvas, 'band').map(([x, y]) => `${Math.floor(x / 2)},${Math.floor(y / 2)}`));
-      // A longer pill carries its spark over the right-hand blob.
+      // A longer pill carries its spark over the right-hand blob, on purpose: teal on yellow (Artur, 2026-10-12).
       const spark = cells(art.find((d) => d.anchor === 'pillEnd')!);
       for (const blob of art.filter((d) => d.anchor === 'bottomLeft' || d.anchor === 'bottomRight')) {
         const onAsk = inkPoints(blob, canvas, 'band').filter(([x, y]) => x >= ask.left && x < ask.left + 760 && y >= ask.top && y < ask.top + ask.height);

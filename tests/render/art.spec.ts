@@ -1,11 +1,15 @@
+import type { Page } from '@playwright/test';
+import { PNG } from 'pngjs';
 import { expect, test } from '../browser';
 import { resolveDoodles } from '../../src/shared/defaults';
 import { CANVASES, CANVAS_IDS, artAnchors, bodyOf, placeArt } from '../../src/shared/layout';
 import type { FlyerText } from '../../src/shared/schema';
 import { drawPayload, newPayload } from './drawn';
 
-/* The art that follows the copy (Artur, 2026-10-12, from the proof sheets of the fitted pill):
-   - the spark off the tag pill's end hangs from the end of the pill, whatever its copy makes its width.
+/* The art that follows the copy, and the blobs' inks (Artur, 2026-10-12, from the proof sheets of the fitted pill):
+   - the spark off the tag pill's end hangs from the end of the pill, whatever its copy makes its width;
+   - the corner blobs print in each other's ink: teal on the left, yellow on the right, where a long pill carries
+     its teal spark.
    None of it is stored: a flyer's doodles are the numbers every flyer has always carried. */
 
 const HANDLE_18 = '@NESTSHOSTELSADEJE';
@@ -56,7 +60,7 @@ test.describe('the spark off the pill’s end hangs from the pill', () => {
           expect(Math.abs(pill.top - CANVASES[canvas].activity.pill.top), `${name}: on the pill's row`).toBeLessThanOrEqual(0.5);
 
           expect(r.withPill.map((a) => a.file), `${name}: one spark, drawn with the pill`).toEqual(['spark-teal.png']);
-          expect(r.onFlyer.map((a) => a.file), `${name}: and not a second time on the flyer`).toEqual(['spark-teal.png', 'spark-yellow.png', 'blob-yellow.png', 'blob-teal.png']);
+          expect(r.onFlyer.map((a) => a.file), `${name}: and not a second time on the flyer`).toEqual(['spark-teal.png', 'spark-yellow.png', 'blob-left-teal.png', 'blob-right-yellow.png']);
           const [drawn] = r.withPill;
           expect(drawn.width, `${name}: its size`).toBe(spark.w);
           expect(Math.abs(drawn.x - drawn.width / 2 - pill.right - spark.x), `${name}: from the pill's end`).toBeLessThanOrEqual(0.5);
@@ -91,12 +95,30 @@ test.describe('the spark off the pill’s end hangs from the pill', () => {
         await drawPayload(page, payload, canvas);
         const r = await page.evaluate(readSpark);
         expect(r.pill).toBeNull();
-        expect(r.onFlyer.map((a) => a.file)).toEqual(['spark-teal.png', 'spark-yellow.png', 'blob-yellow.png', 'blob-teal.png', 'spark-teal.png']);
+        expect(r.onFlyer.map((a) => a.file)).toEqual(['spark-teal.png', 'spark-yellow.png', 'blob-left-teal.png', 'blob-right-yellow.png', 'spark-teal.png']);
         const drawn = r.onFlyer.at(-1)!;
         expect(Math.abs(drawn.x - drawn.width / 2 - at.left)).toBeLessThanOrEqual(0.5);
         expect(Math.abs(drawn.y - drawn.height / 2 - at.top)).toBeLessThanOrEqual(0.5);
         await page.goto('about:blank');
       }
+    });
+  }
+});
+
+/** The ink at a canvas point of the picture on screen. */
+async function inkAt(page: Page, x: number, y: number): Promise<number[]> {
+  const png = PNG.sync.read(await page.screenshot({ clip: { x, y, width: 1, height: 1 } }));
+  return [...png.data.subarray(0, 3)];
+}
+
+test.describe('the corner blobs print in each other’s ink', () => {
+  for (const canvas of CANVAS_IDS) {
+    test(`${canvas}: teal in the left corner, yellow in the right, and a long pill's spark shows on the yellow`, async ({ page }) => {
+      const { width: W, height: H } = CANVASES[canvas];
+      await drawPayload(page, newPayload('activity', { handle: HANDLE_18, tag: TAG_24 }), canvas);
+      // Well inside each blob: 12 px in from its corner of the canvas.
+      expect(await inkAt(page, 12, H - 12), 'the left corner').toEqual([10, 120, 143]);
+      expect(await inkAt(page, W - 12, H - 12), 'the right corner').toEqual([250, 194, 19]);
     });
   }
 });

@@ -34,7 +34,7 @@ export function marksFor(hasBadge: boolean, marks: EyebrowMarks = EYEBROW_MARKS)
    prototype's right/bottom anchoring, converted to top-left with each PNG's
    natural aspect ratio.
 
-   These numbers are what every stored flyer carries: never change
+   These numbers and slugs are what every stored flyer carries: never change
    them (sameDoodles is how an untouched set is known). What the template
    prints from them today is decided below, in the renderer's own terms. */
 export const DEFAULT_DOODLES: DoodlePlacement[] = [
@@ -77,18 +77,31 @@ export interface ArtPlacement extends Omit<DoodlePlacement, 'anchor'> {
    and an older release still reads it). */
 const FOLLOWS: Record<string, ArtAnchor> = { 'blob-yellow': 'bottomLeft', 'blob-teal': 'bottomRight', 'spark-teal': 'pillEnd' };
 
+/** The corner blobs print in each other's ink (Artur, 2026-10-12): teal in the left corner, yellow in the right,
+    where a long pill carries its spark. The spark is teal, as the pill it hangs from, and was lost on the teal blob.
+    Each blob keeps its drawing and its place. The file drawn → the drawing it keeps and the blob whose ink it
+    takes: scripts/art-inks.ts makes the files from this (npm run gen:art). */
+export const SWAPPED_BLOBS = {
+  'blob-left-teal': { drawing: 'blob-yellow', ink: 'blob-teal' },
+  'blob-right-yellow': { drawing: 'blob-teal', ink: 'blob-yellow' },
+} as const;
+
+/** The file the template draws for a stored slug: the blobs' swapped inks, and every other piece its own. */
+const DRAWN: Record<string, string> = Object.fromEntries(Object.entries(SWAPPED_BLOBS).map(([file, { drawing }]) => [drawing, file]));
+
 /** DEFAULT_DOODLES re-expressed from the story's anchor points. Derived, and
     exact: x − p + p is x again for these numbers (shared.test.ts checks it). */
 const TEMPLATE_ART: ArtPlacement[] = DEFAULT_DOODLES.map((d) => {
   if (d.anchor) return d;
   const anchor = FOLLOWS[d.slug];
   const p = artAnchors('story', 'band')[anchor];
-  return { ...d, anchor, x: d.x - p.x, y: d.y - p.y };
+  return { ...d, slug: DRAWN[d.slug] ?? d.slug, anchor, x: d.x - p.x, y: d.y - p.y };
 });
 
 /** The art to draw. An untouched template set follows the template onto every
-    canvas; art someone arranged keeps the anchors they gave it (canvas px, or
-    the photo's corners, as artAnchors defines them). */
+    canvas, in the inks the template prints today; art someone arranged keeps
+    the anchors they gave it (canvas px, or the photo's corners, as artAnchors
+    defines them) and the drawings it names. */
 export function resolveDoodles(doodles: DoodlePlacement[]): ArtPlacement[] {
   return sameDoodles(doodles, DEFAULT_DOODLES) ? TEMPLATE_ART : doodles;
 }
