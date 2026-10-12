@@ -1,5 +1,6 @@
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { deriveChip, splitBigSub } from '../shared/chips';
+import { CHIP_VALUE_MAX, deriveChip, splitBigSub } from '../shared/chips';
+import { EXTRA_MAX, EXTRAS_MAX } from '../shared/extras';
 import { ACCEPTED_PHOTO_TYPES } from '../shared/limits';
 import { lintFlyer } from '../shared/copyRules';
 import { followHostel, marksFor, newFlyerData, switchTemplate, weekTitle, withPhoto } from '../shared/defaults';
@@ -876,7 +877,7 @@ function ChipField({ chip, hostelName, onChange }: { chip: Chip; hostelName: str
   return (
     <div className="field">
       <span className="label">{chip.label}</span>
-      <DotInput label={chip.label} value={chip.value} maxLength={90} placeholder={placeholder} onChange={onChange} />
+      <DotInput label={chip.label} value={chip.value} maxLength={CHIP_VALUE_MAX} placeholder={placeholder} onChange={onChange} />
       <span className="help">{help}</span>
       <Split big={derived.big} sub={derived.sub} empty="Empty — this block is hidden" />
     </div>
@@ -1090,7 +1091,7 @@ function ExtrasField({ extras, onChange }: { extras: string[]; onChange: (v: str
           <input
             value={x}
             aria-label={`${FIELD.extras} ${i + 1}`}
-            maxLength={32}
+            maxLength={EXTRA_MAX}
             placeholder="Everyone welcome"
             onChange={(e) => onChange(extras.map((y, j) => (j === i ? e.target.value : y)))}
           />
@@ -1099,7 +1100,7 @@ function ExtrasField({ extras, onChange }: { extras: string[]; onChange: (v: str
           </button>
         </div>
       ))}
-      {extras.length < 4 && (
+      {extras.length < EXTRAS_MAX && (
         <button type="button" className="btn btn-quiet" onClick={() => onChange([...extras, ''])}>
           + Add item
         </button>
