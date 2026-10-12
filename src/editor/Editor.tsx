@@ -14,7 +14,7 @@ import { WEEK_ROWS_MAX, WEEK_ROW_LIMITS, isPrintable, rowFromActivity } from '..
 import { api, ApiError, asSentence } from './api';
 import { COPY_FAILED, canCopyImage, copyImage, copyText } from './clipboard';
 import type { ExportFormat, FlyerExporter } from './export';
-import { DOWNLOAD, EXPORT_ACTION, exportActions, type ExportAction } from './exportActions';
+import { DOWNLOAD, EXPORT_ACTION, TOUCH_QUERY, exportActions, type ExportAction } from './exportActions';
 import { takeDraft } from './handoff';
 import { useLeaveGuard } from './leaveGuard';
 import { FIELD } from './fields';
@@ -27,9 +27,11 @@ import { localStorageGet, localStorageSet } from './prefs';
 import { SECTIONS, SECTIONS_PREF, allOpen, flaggedSections, openAtStart, opened, sectionLine, sectionsOf, storeOpen, toggled, type SectionId } from './sectionFolds';
 import { Preview, copyWarnings, useFitReports } from './Preview';
 import { ShareCopy, ShareFab } from './share';
+import { canShareFiles, sharePicture } from './shareSheet';
 import { Toasts, type Warning } from './Toasts';
 import { warningId } from './toastFolds';
 import { TEMPLATE_LABEL } from './templates';
+import { useMedia } from './useMedia';
 
 /** A flyer as the editor holds it. The AI page hands one over whole (handoff.ts). */
 export interface Draft {
@@ -70,12 +72,32 @@ const imageCopied = (canvas: CanvasId) => `Image copied (${CANVASES[canvas].widt
 const COPY_CAPTION = 'Copy the caption';
 const CAPTION_COPIED = 'Caption copied.';
 
+/** What the system's share sheet answers (shareSheet.ts). It is handed the picture and the caption, and what an app
+    does with the caption is the app's: the caption is on the clipboard too, and the toast says so when it is. */
+const SHARED = 'Shared.';
+const SHARED_WITH_CAPTION = 'Shared. The caption is on the clipboard too: paste it if the app left it out.';
+/** The sheet opens only inside a tap, and the picture took longer to make than a tap counts for: a second tap. */
+const PICTURE_READY = 'The picture is ready.';
+const SHARE_NOW = 'Share now';
+const SHEET_OPEN = 'The share sheet is already open.';
+const SHEET_FAILED = 'Couldn’t open the share sheet. Download the picture instead.';
+
+/** A picture made for the share sheet, with what goes beside it: kept while the toast offers "Share now". */
+interface Ready {
+  picture: File;
+  caption: string;
+  /** Whether the caption's own copy, made at the tap, said it was copied. */
+  captionCopied: boolean;
+  canvas: CanvasId;
+}
+
 /** What an action came to, as the page holds it: its words, and the next step its toast offers, if any. The step is
-    data here and a button only when it is drawn, with the flyer as it is then. */
+    data here and a button only when it is drawn, with the flyer as it is then: the caption to copy after a picture
+    was copied, or a picture that is ready for its sheet. */
 interface Message {
   kind: 'ok' | 'error';
   text: string;
-  next?: 'caption';
+  next?: 'caption' | Ready;
 }
 
 const EMPTY_ROW: WeekRow = { day: '', name: '', time: '', cost: '' };
@@ -143,7 +165,12 @@ export function Editor({
   const [busy, setBusy] = useState<null | 'save' | 'upload' | 'row' | 'ai' | ExportAction>(null);
   const [message, setMessage] = useState<Message | null>(null);
   // What this browser can do with the flyer as a picture: asked once, it does not change while the page is open.
-  const [can] = useState(() => ({ copy: canCopyImage() }));
+  const [can] = useState(() => ({ copy: canCopyImage(), share: canShareFiles() }));
+  // A finger as the main pointer: there the share sheet is the first way out (exportActions.ts).
+  const touch = useMedia(TOUCH_QUERY);
+  // Which action is in hand, counted: an answer that lands after its own action is over (the share sheet's) knows by
+  // it that another has started since.
+  const turn = useRef(0);
   const fileInput = useRef<HTMLInputElement>(null);
   // The details the caption on the form was written from: by the AI in this visit, or as the flyer stood when it was
   // opened with one. While they are still the flyer's, "Write with AI" steps back to a small "Write again" (the
@@ -281,6 +308,7 @@ export function Editor({
   async function run(kind: NonNullable<typeof busy>, fn: () => Promise<string | Omit<Message, 'kind'> | void>) {
     const from = document.activeElement;
     pressed.current = from instanceof HTMLElement && from !== document.body ? from : null;
+    turn.current += 1;
     setBusy(kind);
     setMessage(null);
     try {
@@ -339,6 +367,45 @@ export function Editor({
   // The step the toast offers after that: the caption as it is now, for a second paste. Inside its own tap.
   const copyCaption = () =>
     copyText(draft.data.share).then((copied) => setMessage(copied.ok ? { kind: 'ok', text: CAPTION_COPIED } : { kind: 'error', text: COPY_FAILED.text[copied.why] }));
+
+  // Asks the device for its share sheet, with a picture that is made. Call it inside a tap. The editor does not wait
+  // for the answer: a sheet stays open for as long as the staff member likes, and one that never answers must not
+  // leave the editor greyed. What it answers is a toast when it comes, unless another action has started since, or
+  // this editor is no longer the page on screen.
+  const openSheet = (ready: Ready, secondTap: boolean) => {
+    const mine = turn.current;
+    void sharePicture(ready.picture, ready.caption).then((answer) => {
+      if (!here.current || turn.current !== mine) return;
+      if (answer === 'shared') setMessage({ kind: 'ok', text: ready.captionCopied ? SHARED_WITH_CAPTION : SHARED });
+      // The tap had run out by the time the picture was made: it waits in the toast for a tap of its own.
+      else if (answer === 'blocked' && !secondTap) setMessage({ kind: 'ok', text: PICTURE_READY, next: ready });
+      else if (answer === 'open') setMessage({ kind: 'error', text: SHEET_OPEN });
+      // Closed without sharing is the staff member's own choice, and says nothing.
+      else if (answer !== 'closed') setMessage({ kind: 'error', text: SHEET_FAILED });
+    });
+  };
+
+  // The system's share sheet, with the picture and the caption (the owner's "Yes, with copy image", 2026-10-07): how
+  // a phone hands a flyer to WhatsApp or Instagram. Unlike the clipboard, the sheet takes no promise for a picture
+  // still being made, and opens only while its tap counts (5 s, measured). So the picture is made first, and when
+  // that took too long the toast offers "Share now".
+  const onShare = () =>
+    run('share', async () => {
+      // The caption goes on the clipboard first, inside the tap: what an app does with the sheet's text is the app's
+      // (one shows it under the picture, another drops it), and a paste is then one tap away.
+      const caption = draft.data.share;
+      const captionCopied = caption.trim() ? copyText(caption) : null;
+      const { blob, filename } = await picture('png');
+      const ready: Ready = { picture: new File([blob], filename, { type: 'image/png' }), caption, captionCopied: (await captionCopied)?.ok ?? false, canvas };
+      // The staff member left while the picture was being made: no sheet opens over another page. Both checks, as
+      // writeShare has them.
+      if (!(onPage('new') || onPage('edit')) || !here.current) return;
+      openSheet(ready, false);
+    });
+
+  // The toast's "Share now", a tap of its own. A flyer or a canvas changed since the picture was made is shared as
+  // it is now: the picture is made again, which may need its own second tap.
+  const shareNow = (ready: Ready) => (dirty || ready.canvas !== canvas ? void onShare() : openSheet(ready, true));
 
   const onFile = (file: File) =>
     run('upload', async () => {
@@ -435,10 +502,16 @@ export function Editor({
 
   // The ways to take the flyer out as a picture: what each one does, which one is the first button, and which are
   // behind "Download" (exportActions.ts).
-  const act: Record<ExportAction, () => void> = { copy: onCopyImage, png: () => onDownload('png'), jpg: () => onDownload('jpg') };
-  const { first, menu } = exportActions(can);
+  const act: Record<ExportAction, () => void> = { copy: onCopyImage, share: onShare, png: () => onDownload('png'), jpg: () => onDownload('jpg') };
+  const { first, menu } = exportActions(can, touch);
   // The toast's next step, drawn with the flyer as it is now: a caption emptied since has nothing to copy.
-  const step = message?.next === 'caption' && draft.data.share.trim() ? { label: COPY_CAPTION, onPress: copyCaption } : undefined;
+  const next = message?.next;
+  const step =
+    next === 'caption'
+      ? draft.data.share.trim()
+        ? { label: COPY_CAPTION, onPress: copyCaption }
+        : undefined
+      : next && { label: SHARE_NOW, onPress: () => shareNow(next) };
 
   const t = draft.data.text;
   const chip = (key: ChipKey) => draft.data.chips.find((c) => c.key === key) as Chip;
