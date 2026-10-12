@@ -44,9 +44,22 @@ export function WonkyBox({ fill, stroke }: { fill: string; stroke: string }) {
 const HL: CSSProperties = { fontFamily: HEADLINE_FONT };
 const BODY: CSSProperties = { fontFamily: BODY_FONT };
 
-function doodleStyle(d: ArtPlacement, anchors: Record<ArtAnchor, ArtPoint>): CSSProperties {
+/** How a piece is turned and flipped about its own centre, and how solid it is: the same wherever it hangs. */
+function doodleLook(d: ArtPlacement): CSSProperties {
   const t = [d.flipX ? 'scaleX(-1)' : '', d.rot ? `rotate(${d.rot}deg)` : ''].filter(Boolean).join(' ');
-  return { position: 'absolute', ...placeArt(d, anchors), transform: t || undefined, opacity: d.opacity };
+  return { position: 'absolute', transform: t || undefined, opacity: d.opacity };
+}
+
+function doodleStyle(d: ArtPlacement, anchors: Record<ArtAnchor, ArtPoint>): CSSProperties {
+  return { ...doodleLook(d), ...placeArt(d, anchors) };
+}
+
+/** A piece that hangs from the pill's end (artAnchors, pillEnd), placed from the box of the pill it is drawn with:
+    its offsets are from that box's right end and top. The pill's width is its copy's, known only once the letters are
+    fitted, so the browser places the piece: nothing is measured, and the spark follows the pill as its copy grows
+    (Artur, 2026-10-12). At the widest pill its ink is still on the canvas (shared.test.ts). */
+function pillArtStyle(d: ArtPlacement): CSSProperties {
+  return { ...doodleLook(d), left: `calc(100% + ${d.x}px)`, top: d.y, width: d.w };
 }
 
 /** A mark at the eyebrow's right: 56 px tall, the Nests wordmark's size. A long eyebrow leaves the marks less room than
@@ -224,6 +237,11 @@ export function Flyer({ data, canvas, hostel, photo, showSafeZones = false, ref 
   // Behind a zoomed-out photo the flyer ground shows; the beige is only for an empty slot.
   const photoGround = img ? bg : PHOTO_PLACEHOLDER;
   const pillText: CSSProperties = { ...HL, fontWeight: 700, fontSize: 34, letterSpacing: '0.04em', color: '#ffffff', lineHeight: 1 };
+  const pillPrints = data.showPill && !!(t.handle || t.tag);
+  // The art that hangs from the pill's end is drawn with the pill. A flyer that prints no pill keeps it on the
+  // flyer itself, where the default pill would end.
+  const pieces = resolveDoodles(data.doodles);
+  const pillArt = pillPrints ? pieces.filter((d) => d.anchor === 'pillEnd') : [];
 
   return (
     <div
@@ -250,9 +268,7 @@ export function Flyer({ data, canvas, hostel, photo, showSafeZones = false, ref 
         boxSizing: 'content-box',
       }}
     >
-      {resolveDoodles(data.doodles).map((d, i) => (
-        <img key={i} data-art="" src={art(d.slug)} alt="" style={doodleStyle(d, anchors)} />
-      ))}
+      {pieces.map((d, i) => (pillArt.includes(d) ? null : <img key={i} data-art="" src={art(d.slug)} alt="" style={doodleStyle(d, anchors)} />))}
 
       <div
         data-group="eyebrow"
@@ -373,21 +389,28 @@ export function Flyer({ data, canvas, hostel, photo, showSafeZones = false, ref 
         </div>
       )}
 
-      {data.showPill && (t.handle || t.tag) && (
+      {pillPrints && (
         <div style={{ position: 'absolute', left: 0, right: 0, top: A.pill.top, display: 'flex', justifyContent: 'center' }}>
-          {/* The pill is as wide as its copy up to its column, and the handle and the tag are one fitted line: a pill
-              that fits is drawn as it always was, a wider one shrinks its letters (the editor's UX round, Part 4).
-              The padding, the gaps and the dot keep their size. Past the floor the line is cut at the pill's edge,
-              sideways only (as a week row's time is), so nothing prints outside the safe column, and the width
-              pass reports it for the editor's cut-off note. */}
-          <div
-            data-group="pill"
-            style={{ display: 'flex', alignItems: 'center', boxSizing: 'border-box', maxWidth: pillBox(canvas).width - PILL_TILT_ROOM, overflowX: 'clip', background: accent, borderRadius: 20, padding: '17px 38px 19px', transform: 'rotate(-0.6deg)' }}
-          >
-            <div data-fit="34" data-fit-min="0.7" style={{ ...pillText, display: 'flex', alignItems: 'center', gap: 18, minWidth: 0, whiteSpace: 'nowrap' }}>
-              {t.handle && <span>{t.handle}</span>}
-              {t.handle && t.tag && <span style={{ flex: '0 0 auto', width: 14, height: 14, borderRadius: '50%', background: BRIGHT_TEAL }} />}
-              {t.tag && <span>{t.tag}</span>}
+          {/* The pill's own box, before its tilt: what the art off its end hangs from. The art comes first, so the
+              pill is drawn over it, as it was over the art on the flyer. */}
+          <div style={{ position: 'relative', display: 'flex' }}>
+            {pillArt.map((d, i) => (
+              <img key={i} data-art="" src={art(d.slug)} alt="" style={pillArtStyle(d)} />
+            ))}
+            {/* The pill is as wide as its copy up to its column, and the handle and the tag are one fitted line: a pill
+                that fits is drawn as it always was, a wider one shrinks its letters (the editor's UX round, Part 4).
+                The padding, the gaps and the dot keep their size. Past the floor the line is cut at the pill's edge,
+                sideways only (as a week row's time is), so nothing prints outside the safe column, and the width
+                pass reports it for the editor's cut-off note. */}
+            <div
+              data-group="pill"
+              style={{ display: 'flex', alignItems: 'center', boxSizing: 'border-box', maxWidth: pillBox(canvas).width - PILL_TILT_ROOM, overflowX: 'clip', background: accent, borderRadius: 20, padding: '17px 38px 19px', transform: 'rotate(-0.6deg)' }}
+            >
+              <div data-fit="34" data-fit-min="0.7" style={{ ...pillText, display: 'flex', alignItems: 'center', gap: 18, minWidth: 0, whiteSpace: 'nowrap' }}>
+                {t.handle && <span>{t.handle}</span>}
+                {t.handle && t.tag && <span style={{ flex: '0 0 auto', width: 14, height: 14, borderRadius: '50%', background: BRIGHT_TEAL }} />}
+                {t.tag && <span>{t.tag}</span>}
+              </div>
             </div>
           </div>
         </div>

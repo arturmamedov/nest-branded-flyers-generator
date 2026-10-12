@@ -1,8 +1,9 @@
 import { readFileSync } from 'node:fs';
-import type { APIRequestContext, APIResponse, Page } from '@playwright/test';
+import type { APIRequestContext, APIResponse } from '@playwright/test';
 import { PNG } from 'pngjs';
 import { expect, test } from '../browser';
 import { EDITOR_VIEWPORT, canvasButton, cutOff, cutOffOn, download, exportFit, fitted, openSection } from '../editor';
+import { drawPayload as renderPayload } from './drawn';
 import { bodiesOf, groupsOf, highlighterWrapSample } from './pixels';
 import sharp from 'sharp';
 import { apiError, type ApiErrorKey } from '../../src/shared/errors';
@@ -26,17 +27,6 @@ const SAMPLE_TITLES = new Set(SAMPLE_FLYERS.map((s) => s.title));
 async function samples(request: APIRequestContext): Promise<FlyerPayload[]> {
   const list = ((await (await request.get('/api/flyers')).json()) as FlyerListItem[]).filter((f) => SAMPLE_TITLES.has(f.title));
   return Promise.all(list.map(async (f) => (await (await request.get(`/api/flyers/${f.id}`)).json()) as FlyerPayload));
-}
-
-async function renderPayload(page: Page, payload: FlyerPayload, canvas: CanvasId) {
-  await page.setViewportSize({ width: CANVASES[canvas].width, height: CANVASES[canvas].height });
-  await page.addInitScript((p) => ((window as unknown as { __FLYER_PAYLOAD: unknown }).__FLYER_PAYLOAD = p), payload);
-  await page.goto(`/render.html?canvas=${canvas}`);
-  await page.waitForFunction(() => {
-    const w = window as unknown as { __FLYER_READY?: boolean; __FLYER_ERROR?: string };
-    return w.__FLYER_READY || w.__FLYER_ERROR;
-  });
-  expect(await page.evaluate(() => (window as unknown as { __FLYER_ERROR?: string }).__FLYER_ERROR)).toBeUndefined();
 }
 
 /** Runs in the page: the eyebrow's marks, left to right, and where its text (the calendar and the words) ends. */
@@ -133,13 +123,29 @@ for (const canvas of CANVAS_IDS) {
               right: img.getBoundingClientRect().right,
             }));
             // The flyer's own art (the pencil in the ask box is part of the block, not a doodle).
+            const file = (el: HTMLElement) => new URL((el as HTMLImageElement).src).pathname.split('/').pop();
             const art = [...document.querySelectorAll<HTMLElement>('[data-flyer] > img[data-art]')].map((el) => ({
               left: parseFloat(el.style.left),
               top: parseFloat(el.style.top),
               width: parseFloat(el.style.width),
+              file: file(el),
             }));
+            // The art that hangs from the pill is drawn beside it: where its box starts, from the right end of the
+            // pill's own box and the top of its row. A turned piece keeps its centre, so that is what is measured.
+            const pill = document.querySelector<HTMLElement>('[data-group=pill]');
+            const pillArt = [...(pill?.parentElement!.querySelectorAll<HTMLElement>(':scope > img[data-art]') ?? [])].map((el) => {
+              const from = pill!.parentElement!.getBoundingClientRect();
+              const at = el.getBoundingClientRect();
+              return {
+                x: at.left + at.width / 2 - el.offsetWidth / 2 - from.right,
+                y: at.top + at.height / 2 - el.offsetHeight / 2 - from.top,
+                width: el.offsetWidth,
+                file: file(el),
+              };
+            });
             return {
               art,
+              pillArt,
               clips,
               drawn: document.querySelector<HTMLElement>('[data-flyer]')!.dataset.canvas,
               groups,
@@ -184,12 +190,22 @@ for (const canvas of CANVAS_IDS) {
           for (const m of r.logos) expect(m.right, `${label}: the ${m.logo} mark ends inside the safe box`).toBeLessThanOrEqual(safe.left + safe.width + 0.5);
 
           // The art where the registry hangs it, from data that went through the store: the template set
-          // is recognised and follows the canvas (the blobs to its corners, the spark to the pill).
-          const want = resolveDoodles(payload.flyer.data.doodles).map((d) => placeArt(d, artAnchors(canvas, body)));
-          expect(r.art.length, `${label}: art pieces`).toBe(want.length);
+          // is recognised and follows the canvas (the blobs to its corners, in each other's ink).
+          const pieces = resolveDoodles(payload.flyer.data.doodles);
+          const onPill = pieces.filter((d) => d.anchor === 'pillEnd');
+          expect(onPill.length, `${label}: the template's spark hangs from the pill`).toBe(1);
+          const want = pieces.filter((d) => !onPill.includes(d)).map((d) => ({ ...placeArt(d, artAnchors(canvas, body)), file: `${d.slug}.png` }));
+          expect(r.art.map((a) => a.file), `${label}: art pieces`).toEqual(want.map((a) => a.file));
           // The style reads back rounded to two decimals, so to the nearest 0.05 px.
           r.art.forEach((a, i) => {
             for (const key of ['left', 'top', 'width'] as const) expect(a[key], `${label}: art ${i} ${key}`).toBeCloseTo(want[i][key], 1);
+          });
+          // The spark off the pill's end is drawn with the pill, at its offsets from the end of this pill.
+          expect(r.pillArt.map((a) => a.file), `${label}: the pill's art`).toEqual(onPill.map((d) => `${d.slug}.png`));
+          r.pillArt.forEach((a, i) => {
+            expect(Math.abs(a.x - onPill[i].x), `${label}: the pill's spark, from the pill's end`).toBeLessThanOrEqual(0.5);
+            expect(Math.abs(a.y - onPill[i].y), `${label}: the pill's spark, from the top of the pill's row`).toBeLessThanOrEqual(0.5);
+            expect(a.width, `${label}: the pill's spark, its width`).toBe(onPill[i].w);
           });
 
           for (const g of r.groups) {

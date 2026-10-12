@@ -32,7 +32,11 @@ export function marksFor(hasBadge: boolean, marks: EyebrowMarks = EYEBROW_MARKS)
    975,658; on a week flyer the first row's corners, artAnchors), the bottom
    spark sits off the tag pill's end, the clock is gone. The blobs keep the
    prototype's right/bottom anchoring, converted to top-left with each PNG's
-   natural aspect ratio. */
+   natural aspect ratio.
+
+   These numbers are what every stored flyer carries: never change
+   them (sameDoodles is how an untouched set is known). What the template
+   prints from them today is decided below, in the renderer's own terms. */
 export const DEFAULT_DOODLES: DoodlePlacement[] = [
   { slug: 'spark-teal', anchor: 'photoLeft', x: -46, y: -55, w: 104, rot: -8 },
   { slug: 'spark-yellow', anchor: 'photoRight', x: -35, y: -54, w: 88, rot: 9 },
@@ -65,11 +69,13 @@ export interface ArtPlacement extends Omit<DoodlePlacement, 'anchor'> {
 }
 
 /* What the canvas-anchored pieces of DEFAULT_DOODLES follow from canvas to
-   canvas: the blobs the bottom corners, the spark off the tag pill the stack's
-   floor (the two sparks on the photo carry their anchors already). Only the
-   renderer uses these anchors, so the stored data stays DEFAULT_DOODLES as
-   every flyer has it (no migration, and an older release still reads it). */
-const FOLLOWS: Record<string, ArtAnchor> = { 'blob-yellow': 'bottomLeft', 'blob-teal': 'bottomRight', 'spark-teal': 'floor' };
+   canvas: the blobs the bottom corners, the spark off the tag pill the pill's
+   own end, so it moves as the pill's copy grows (Artur, 2026-10-12; it hung
+   from the stack's floor, and a long pill covered it). The two sparks on the
+   photo carry their anchors already. Only the renderer uses these anchors, so
+   the stored data stays DEFAULT_DOODLES as every flyer has it (no migration,
+   and an older release still reads it). */
+const FOLLOWS: Record<string, ArtAnchor> = { 'blob-yellow': 'bottomLeft', 'blob-teal': 'bottomRight', 'spark-teal': 'pillEnd' };
 
 /** DEFAULT_DOODLES re-expressed from the story's anchor points. Derived, and
     exact: x − p + p is x again for these numbers (shared.test.ts checks it). */

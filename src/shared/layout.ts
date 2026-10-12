@@ -123,7 +123,8 @@ const weekBoxes = (inner: Column, titleTop: number, rowsTop: number, artDrop: nu
    the headline block sits at 345 (was 382) to clear the sparks on the photo's
    top corners, so the eyebrow box ends at 345 (was 104 tall; its content is
    62px, so nothing moves). The blobs sit in the bottom corners and the last
-   spark off the pill's end; the sparks on the photo sit right on its corners. */
+   spark off the pill's end, which it follows as the pill's copy grows
+   (2026-10-12); the sparks on the photo sit right on its corners. */
 const STORY = defineCanvas(
   {
     label: 'Story 9:16',
@@ -178,11 +179,12 @@ const STORY = defineCanvas(
 
    The sparks come 14 px in from the band's corners: at the 40 px margin the
    yellow one's tip would leave the canvas. The blobs hang from the corners at
-   0.8: full size they reach up behind the Spanish ask line and the pencil,
-   and the teal one runs into the pill's spark, because the 300 px margin they
-   fill on the story is 40 here (the designer's 1080 × 1350 version drew its
-   corner blobs at 0.78 for the same reason). Scaled about the corner, the
-   same share of each shows. The pill's spark keeps its size and its place. */
+   0.8: full size they reach up behind the Spanish ask line, and the
+   right-hand one runs into the default pill's spark, because the 300 px
+   margin they fill on the story is 40 here (the designer's 1080 × 1350
+   version drew its corner blobs at 0.78 for the same reason). Scaled about
+   the corner, the same share of each shows. The pill's spark keeps its size,
+   and hangs from the pill's end as on the story. */
 const WHATSAPP = defineCanvas(
   {
     label: 'WhatsApp 3:4',
@@ -293,8 +295,12 @@ export function inside(inner: Rect, outer: Rect, tolerance = 0): boolean {
   );
 }
 
+/** How wide the tag pill is with the copy every flyer starts with (@NESTSHOSTELS · ¡TAG US!), measured in the
+    browser (pill.spec.ts holds it). The design pass set the spark off the pill's end against this pill. */
+export const DEFAULT_PILL_WIDTH = 585;
+
 /** Stored anchors, plus the ones only the template's own art uses (defaults.ts). */
-export type ArtAnchor = DoodleAnchor | 'bottomLeft' | 'bottomRight' | 'floor';
+export type ArtAnchor = DoodleAnchor | 'bottomLeft' | 'bottomRight' | 'pillEnd';
 
 /** Where art hangs from on a canvas, for a flyer's body. The one statement of
     the rule (schema.ts and defaults.ts point here):
@@ -306,10 +312,13 @@ export type ArtAnchor = DoodleAnchor | 'bottomLeft' | 'bottomRight' | 'floor';
       moved in the same way and down by the week's artDrop (the owner's call,
       2026-09-29: the rows take the photo's place);
     - bottomLeft / bottomRight: the canvas's bottom corners, at its cornerScale;
-    - floor: mid-canvas at the bottom of the safe box, where the stack ends.
+    - pillEnd: the right end of the tag pill, at the top of its row. The pill is as wide as its copy, which is
+      known only once its letters are fitted, so this point is where the default pill ends (it is centred): the
+      renderer hangs the art from the end of the pill it draws, at the same offsets (Flyer.tsx), and a flyer that
+      prints no pill keeps the art here.
     placeArt() puts a piece there. */
 export function artAnchors(canvas: CanvasId, body: Body): Record<ArtAnchor, ArtPoint> {
-  const { width, height, safe, activity: a, week: w, art } = CANVASES[canvas];
+  const { width, height, activity: a, week: w, art } = CANVASES[canvas];
   let photoLeft: ArtPoint;
   let photoRight: ArtPoint;
   if (body === 'none') {
@@ -332,7 +341,7 @@ export function artAnchors(canvas: CanvasId, body: Body): Record<ArtAnchor, ArtP
     photoRight,
     bottomLeft: { x: 0, y: height, scale: art.cornerScale },
     bottomRight: { x: width, y: height, scale: art.cornerScale },
-    floor: { x: width / 2, y: height - safe.bottom, scale: 1 },
+    pillEnd: { x: (width + DEFAULT_PILL_WIDTH) / 2, y: a.pill.top, scale: 1 },
   };
 }
 

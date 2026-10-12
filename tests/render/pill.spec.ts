@@ -1,9 +1,9 @@
 import type { Page } from '@playwright/test';
 import { PNG } from 'pngjs';
 import { expect, test } from '../browser';
-import { newFlyerData } from '../../src/shared/defaults';
 import { CANVASES, CANVAS_IDS, safeBox, type CanvasId } from '../../src/shared/layout';
 import type { FlyerPayload, FlyerText, Template } from '../../src/shared/schema';
+import { drawPayload as draw, newPayload } from './drawn';
 
 /* The tag pill is a fitted line (the editor's UX round, Part 4): the handle and the tag shrink together, down to
    their floor, when they are wider than the safe column. A pill that fits is drawn exactly as it always was.
@@ -20,24 +20,10 @@ const TAG_24 = '¡COME JOIN US TONIGHT!!!';
 /** The widest letter the face has, at the widest length the pill will ever take. */
 const WIDEST = { handle: '@' + 'W'.repeat(17), tag: 'W'.repeat(24) };
 
-const payload = (template: Template, text: Partial<FlyerText>, showPill = true): FlyerPayload => {
-  const data = newFlyerData(template);
-  Object.assign(data.text, text);
-  data.showPill = showPill;
-  const stamp = '2026-10-12T00:00:00.000Z';
-  return { flyer: { id: 1, hostel: null, template, title: 'Pill', data, photoId: null, createdAt: stamp, updatedAt: stamp }, hostel: null, photo: null };
-};
-
-async function draw(page: Page, p: FlyerPayload, canvas: CanvasId) {
-  await page.setViewportSize({ width: CANVASES[canvas].width, height: CANVASES[canvas].height });
-  await page.addInitScript((value) => ((window as unknown as { __FLYER_PAYLOAD: unknown }).__FLYER_PAYLOAD = value), p);
-  await page.goto(`/render.html?canvas=${canvas}`);
-  await page.waitForFunction(() => {
-    const w = window as unknown as { __FLYER_READY?: boolean; __FLYER_ERROR?: string };
-    return w.__FLYER_READY || w.__FLYER_ERROR;
+const payload = (template: Template, text: Partial<FlyerText>, showPill = true): FlyerPayload =>
+  newPayload(template, text, (data) => {
+    data.showPill = showPill;
   });
-  expect(await page.evaluate(() => (window as unknown as { __FLYER_ERROR?: string }).__FLYER_ERROR)).toBeUndefined();
-}
 
 interface PillRead {
   left: number;
@@ -148,14 +134,18 @@ test.describe('a pill still too wide at its floor', () => {
       expect(p.right).toBeLessThanOrEqual(box.left + box.width);
 
       // Outside the column, over the pill's own rows, the flyer is what it is with no pill at all (2 px clear of the
-      // column's edge, for the anti-aliasing of the tilt).
+      // column's edge, for the anti-aliasing of the tilt). The art is left out of both shots: it may enter the
+      // margins, and the spark hangs from the pill's end, so it is not where a flyer with no pill has it.
       const { width: W } = CANVASES[canvas];
       const band = { y: Math.floor(p.top) - 4, height: Math.ceil(p.bottom - p.top) + 8 };
       const strips = [
         { x: 0, y: band.y, width: box.left - 2, height: band.height },
         { x: box.left + box.width + 2, y: band.y, width: W - (box.left + box.width + 2), height: band.height },
       ];
-      const shoot = async () => Promise.all(strips.map(async (clip) => PNG.sync.read(await page.screenshot({ clip })).data));
+      const shoot = async () => {
+        await page.addStyleTag({ content: 'img[data-art] { visibility: hidden !important; }' });
+        return Promise.all(strips.map(async (clip) => PNG.sync.read(await page.screenshot({ clip })).data));
+      };
       const withPill = await shoot();
       await page.goto('about:blank');
       await draw(page, payload('activity', WIDEST, false), canvas);

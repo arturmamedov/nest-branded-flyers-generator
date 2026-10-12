@@ -19,6 +19,7 @@ import {
   CANVASES,
   CANVAS_IDS,
   DEFAULT_CANVAS,
+  DEFAULT_PILL_WIDTH,
   activityGroups,
   artAnchors,
   bodyOf,
@@ -141,7 +142,7 @@ describe('canvases', () => {
       photoRight: { x: 1010, y: 712, scale: 1 },
       bottomLeft: { x: 0, y: 1920, scale: 1 },
       bottomRight: { x: 1080, y: 1920, scale: 1 },
-      floor: { x: 540, y: 1620, scale: 1 },
+      pillEnd: { x: 832.5, y: 1544, scale: 1 },
     });
     expect(artAnchors('story', 'band')).toEqual(artAnchors('story', 'bleed'));
     expect(artAnchors('story', 'none')).toMatchObject({ photoLeft: { x: 240, y: 900, scale: 1 }, photoRight: { x: 840, y: 900, scale: 1 } });
@@ -439,7 +440,7 @@ describe('template art', () => {
     expect(resolveDoodles(PROTOTYPE_DOODLES)).toBe(PROTOTYPE_DOODLES);
     const moved = DEFAULT_DOODLES.map((d, i) => (i === 2 ? { ...d, x: d.x + 1 } : d));
     expect(resolveDoodles(moved)).toBe(moved);
-    expect(resolveDoodles(newFlyerData().doodles).map((d) => d.anchor)).toEqual(['photoLeft', 'photoRight', 'bottomLeft', 'bottomRight', 'floor']);
+    expect(resolveDoodles(newFlyerData().doodles).map((d) => d.anchor)).toEqual(['photoLeft', 'photoRight', 'bottomLeft', 'bottomRight', 'pillEnd']);
   });
 
   it('the photo-corner sparks land exactly where the design pass put them on the story (band and bleed)', () => {
@@ -465,23 +466,37 @@ describe('template art', () => {
       expect(none.photoRight.x).toBe(activity.noPhotoRule.left + activity.noPhotoRule.width);
     });
 
-    it(`${canvas}: the last spark keeps the story's place at the pill's end`, () => {
+    it(`${canvas}: the last spark hangs from the pill's end, and where the default pill ends it is where the design pass put it`, () => {
       const spark = resolveDoodles(DEFAULT_DOODLES).at(-1)!;
-      expect(spark.anchor).toBe('floor');
-      const pillBottom = (c: CanvasId) => CANVASES[c].activity.pill.top + CANVASES[c].activity.pill.height;
-      const at = (c: CanvasId) => placeArt(spark, artAnchors(c, 'band'));
-      // Its offset from the pill, not from the canvas edge, is what the design pass set: 776, 1601.7 on the story.
-      expect(at(canvas).top - pillBottom(canvas)).toBeCloseTo(at('story').top - pillBottom('story'), 9);
-      expect(at(canvas).left - CANVASES[canvas].width / 2).toBe(at('story').left - CANVASES.story.width / 2);
-      expect(at(canvas).width, 'the pill does not shrink, so neither does its spark').toBe(spark.w);
+      expect(spark.anchor).toBe('pillEnd');
+      const { activity, width } = CANVASES[canvas];
+      const end = artAnchors(canvas, 'band').pillEnd;
+      // The anchor: the right end of the default pill, which is centred, at the top of the pill's row.
+      expect(end).toEqual({ x: width / 2 + DEFAULT_PILL_WIDTH / 2, y: activity.pill.top, scale: 1 });
+      // Its offsets from the pill are what the design pass set, on every canvas: 776, 1601.7 on the story.
+      expect([spark.x, spark.y, spark.w]).toEqual([776 - 832.5, 1601.7 - 1544, 92]);
+      const at = placeArt(spark, artAnchors(canvas, 'band'));
+      expect(at.left - end.x).toBe(spark.x);
+      expect(at.top - end.y).toBeCloseTo(spark.y, 9);
+      expect(at.width, 'the pill does not shrink, so neither does its spark').toBe(spark.w);
     });
 
-    it(`${canvas}: the corner blobs keep off the ask's lines and the pill's spark`, () => {
+    it(`${canvas}: hung from the widest pill, the spark's ink is still on the canvas`, () => {
+      const spark = resolveDoodles(DEFAULT_DOODLES).at(-1)!;
+      const { width, height } = CANVASES[canvas];
+      // The widest pill fills its column (Flyer.tsx holds it a pixel inside): its end is as far as the spark goes.
+      const grow = (pillBox(canvas).width - DEFAULT_PILL_WIDTH) / 2;
+      const off = inkPoints(spark, canvas, 'band').filter(([x, y]) => x + grow < 0 || x + grow >= width || y < 0 || y >= height);
+      expect(off.length).toBe(0);
+    });
+
+    it(`${canvas}: the corner blobs keep off the ask's lines and the default pill's spark`, () => {
       // The ask's copy is at most 760 wide (Flyer.tsx), from the column's left edge.
       const { ask } = CANVASES[canvas].activity;
       const art = resolveDoodles(DEFAULT_DOODLES);
       const cells = (d: ArtPlacement) => new Set(inkPoints(d, canvas, 'band').map(([x, y]) => `${Math.floor(x / 2)},${Math.floor(y / 2)}`));
-      const spark = cells(art.find((d) => d.anchor === 'floor')!);
+      // A longer pill carries its spark over the right-hand blob.
+      const spark = cells(art.find((d) => d.anchor === 'pillEnd')!);
       for (const blob of art.filter((d) => d.anchor === 'bottomLeft' || d.anchor === 'bottomRight')) {
         const onAsk = inkPoints(blob, canvas, 'band').filter(([x, y]) => x >= ask.left && x < ask.left + 760 && y >= ask.top && y < ask.top + ask.height);
         expect(onAsk.length, `${blob.slug} ink on the ask's lines`).toBe(0);
