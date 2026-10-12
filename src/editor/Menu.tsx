@@ -50,7 +50,11 @@ export function Menu({ label, entries, disabled = false, className }: { label: s
     setLand(at);
   };
 
+  // Tab was pressed on an entry: the focus is about to move on, and the list closes once it has (onBlur).
+  const leaving = useRef(false);
+
   const onKeyDown = (e: KeyboardEvent) => {
+    leaving.current = open && e.key === 'Tab';
     const all = items();
     const at = all.indexOf(document.activeElement as HTMLButtonElement);
     const go = (to: number) => {
@@ -74,8 +78,15 @@ export function Menu({ label, entries, disabled = false, className }: { label: s
       setOpen(false);
       button.current?.focus();
     }
-    // Tab moves on as it always does, from the entry it is on, and the list closes behind it.
-    else if (e.key === 'Tab') setOpen(false);
+  };
+
+  // Tab moves on as it always does, from the entry it is on, and the list closes behind it. Behind it: hidden at the
+  // key itself, the list would be gone before the browser moved the focus, which would then set out from an element
+  // that is no longer there, and not every browser follows that.
+  const onBlur = () => {
+    if (!leaving.current) return;
+    leaving.current = false;
+    setOpen(false);
   };
 
   // The focus goes back to the button before the entry does its work: the action then starts from the button, which
@@ -88,7 +99,7 @@ export function Menu({ label, entries, disabled = false, className }: { label: s
   };
 
   return (
-    <div ref={root} className="menu" onKeyDown={onKeyDown}>
+    <div ref={root} className="menu" onKeyDown={onKeyDown} onBlur={onBlur}>
       <button
         ref={button}
         id={buttonId}

@@ -121,6 +121,12 @@ describe('copying the flyer as a picture', () => {
     expect(await copyImage(Promise.reject(new Error('Export failed')), browser({ Item: Strict }).host)).toEqual({ ok: false, why: 'refused' });
   });
 
+  it('a clipboard that refuses without waiting for the picture leaves the picture’s own failure nobody’s unhandled error', async () => {
+    // Found in review (2026-10-12): the write was refused at once, the promise it was handed was never listened to,
+    // and a render that then failed was an error on the page with no one to hear it.
+    expect(await copyImage(Promise.reject(new Error('Export failed')), browser({ write: refusal }).host)).toEqual({ ok: false, why: 'refused' });
+  });
+
   it('a picture that failed to be made is a failed copy here: the editor says the render’s own reason', async () => {
     expect(await copyImage(Promise.reject(new Error('Export failed')), browser().host)).toEqual({ ok: false, why: 'refused' });
   });

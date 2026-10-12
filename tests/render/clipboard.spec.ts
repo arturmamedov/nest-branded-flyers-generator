@@ -16,13 +16,14 @@ import {
   download,
   downloadMenu,
   grantClipboard,
+  newFlyerNoPhoto,
   noClipboard,
   status,
   stopClock,
   toast,
+  warningsChip,
 } from '../editor';
 import { COPY_FAILED } from '../../src/editor/clipboard';
-import { PHOTO_MODE_LABEL } from '../../src/editor/photoModes';
 import { OUTCOME_MS } from '../../src/editor/toastFolds';
 import { CANVASES, CANVAS_IDS, type CanvasId } from '../../src/shared/layout';
 import { FlyerSavedSchema } from '../../src/shared/schema';
@@ -72,13 +73,7 @@ function thrown(page: Page): string[] {
 
 /** A new flyer with nothing missing (no photo band), named, and with a caption or none. Its first save is the
     caller's action. */
-async function newFlyer(page: Page, caption = '') {
-  await page.goto('/#/new');
-  await page.getByRole('button', { name: PHOTO_MODE_LABEL.none, exact: true }).click();
-  await page.getByLabel('Library name').fill(`clipboard spec ${Date.now()}`);
-  if (caption) await page.getByLabel('Caption').fill(caption);
-  await expect(downloadMenu(page)).toBeEnabled();
-}
+const newFlyer = (page: Page, caption = '') => newFlyerNoPhoto(page, { title: `clipboard spec ${Date.now()}`, caption });
 
 /** Presses Copy image on a new flyer: the copy saves it first, and the flyer is archived after the test. */
 async function copyNew(page: Page): Promise<number> {
@@ -266,6 +261,68 @@ test('a flyer with no caption offers no step, and its toast leaves by itself; a 
   await expect(done).toHaveText(imageCopied('whatsapp'));
   await page.clock.fastForward(OUTCOME_MS + 100);
   await expect(done).toHaveCount(0);
+});
+
+test('the step copies the caption as it is when it is pressed, not as it was when the picture was copied', async ({ page }) => {
+  await grantClipboard(page);
+  await newFlyer(page, CAPTION);
+  await copyNew(page);
+  await expect(copyTheCaption(page)).toBeVisible();
+  await page.getByLabel('Caption').fill(`${CAPTION}\nBring a towel.`);
+  await expect(copyTheCaption(page), 'a caption changed, not emptied, keeps its step').toBeVisible();
+  await copyTheCaption(page).click();
+  await expect(toast(page, 'ok')).toHaveText('Caption copied.');
+  expect(await clipboardText(page)).toBe(`${CAPTION}\nBring a towel.`);
+});
+
+test('a caption the clipboard refuses says so in the step’s place, and the keyboard’s focus goes with it', async ({ page }) => {
+  // Found in review (2026-10-12): the error is said from another region than the success, so it is another node, and
+  // the focus that had been handed to the first toast fell to the page with it.
+  await refusingText(page);
+  await grantClipboard(page);
+  await newFlyer(page, CAPTION);
+  await copyNew(page);
+  await copyTheCaption(page).focus();
+  await page.keyboard.press('Enter');
+  const failed = toast(page, 'error');
+  await expect(failed).toHaveText(COPY_FAILED.text.refused);
+  await expect(toast(page, 'ok')).toHaveCount(0);
+  await expect(closeToast(failed)).toBeFocused();
+});
+
+test.describe('where the warnings start folded into the chip', () => {
+  test.use({ viewport: { width: 390, height: 844 } });
+
+  test('the step taken from the keyboard keeps the focus with its toast, not on the warnings’ chip', async ({ page }) => {
+    // Found in review (2026-10-12): the focus was handed on as a closed toast hands it, chip first, so with a
+    // warning folded it landed on "⚠ 1" and left the answer behind.
+    await grantClipboard(page);
+    await newFlyer(page, CAPTION);
+    await page.getByLabel('Line 1').fill('Pool • party');
+    await expect(warningsChip(page)).toHaveText('⚠ 1');
+    await copyNew(page);
+    await copyTheCaption(page).focus();
+    await page.keyboard.press('Enter');
+    const done = toast(page, 'ok');
+    await expect(done).toHaveText('Caption copied.');
+    await expect(closeToast(done)).toBeFocused();
+    await expect(warningsChip(page)).toHaveText('⚠ 1');
+  });
+});
+
+test('a picture that fails after the clipboard has already refused is heard once, by the editor: nothing is thrown on the page', async ({ page }) => {
+  // Found in review (2026-10-12): a clipboard that refuses at once never listens to the promise it was handed.
+  await refusingPicture(page);
+  const errors = thrown(page);
+  await page.route(
+    (url) => /\/api\/render\/\d+$/.test(url.pathname),
+    (route) => route.fulfill({ status: 500, json: { error: { key: 'render_failed', message: 'The renderer is down.' } } }),
+  );
+  await newFlyer(page);
+  await copyNew(page);
+  await expect(toast(page, 'error')).toHaveText('The renderer is down.');
+  await expect(copyImage(page)).toBeEnabled();
+  expect(errors).toEqual([]);
 });
 
 test('a refused copy says so, and why, and the flyer is saved all the same', async ({ page }) => {

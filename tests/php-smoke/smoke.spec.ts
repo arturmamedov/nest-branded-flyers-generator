@@ -363,32 +363,40 @@ test('the editor on the PHP backend: create, photos, crop, reopen, library, down
     expect(pageErrors, 'uncaught errors in the editor').toEqual([]);
   });
 
-  await test.step('9b. copy the picture: the canvas on screen is on the clipboard at its exact size, made by the in-browser exporter', async () => {
-    // A page has a clipboard only over https or on the device itself. A run pointed at a plain-http deployment has
-    // none, and the editor then offers no "Copy image": nothing to press, and the run says why this step was left.
-    if (!(await page.evaluate(() => isSecureContext))) {
-      test.info().annotations.push({ type: 'left out', description: 'step 9b, copy the picture: this deployment is plain http, where a browser gives a page no clipboard' });
-      return;
-    }
-    await grantClipboard(page);
-    for (const canvas of CANVAS_IDS) {
-      const { label: canvasLabel, width, height } = CANVASES[canvas];
-      await page.getByRole('button', { name: canvasLabel, exact: true }).click();
-      await expect(page.locator('.stage-canvas [data-flyer]')).toHaveAttribute('data-canvas', canvas);
-      await copyImage(page).click();
-      await expect(toast(page, 'ok')).toContainText(`Image copied (${width} × ${height}).`);
-      const meta = await sharp(await clipboardPng(page)).metadata();
-      expect([meta.format, meta.width, meta.height], `${canvas}: the copied picture`).toEqual(['png', width, height]);
-    }
-    expect(pageErrors, 'uncaught errors in the editor').toEqual([]);
-  });
-
   await test.step('10. clean up: archive the flyer through the API', async () => {
     const res = await request.delete(`api/flyers/${id}`, { headers: WRITE_HEADERS });
     expect(res.status(), await res.text()).toBe(204);
     leftovers.delete(id);
     expect((await request.get(`api/flyers/${id}`)).status()).toBe(404);
   });
+});
+
+test('the picture copied on the PHP backend: the canvas on screen is on the clipboard at its exact size, made by the in-browser exporter', async ({ page }) => {
+  const pageErrors: string[] = [];
+  page.on('pageerror', (e) => pageErrors.push(e.message));
+  await page.goto('./#/new');
+  // A page has a clipboard only over https or on the device itself. A run pointed at a plain-http deployment has
+  // none, and the editor then offers no "Copy image". A test of its own, so such a run reports it as skipped, with
+  // the reason, where a step left out would have passed having checked nothing (found in review, 2026-10-12).
+  test.skip(!(await page.evaluate(() => isSecureContext)), 'this deployment is plain http, where a browser gives a page no clipboard: there is no “Copy image” to press');
+  await grantClipboard(page);
+  await page.getByRole('button', { name: PHOTO_MODE_LABEL.none, exact: true }).click();
+  await page.getByLabel('Library name').fill(`smoke copy ${Date.now().toString(36)}`);
+  await page.getByLabel('Line 1').fill(COPY.headline1);
+
+  // The first copy saves the new flyer, as a download does: its id is kept for the clean-up.
+  const created = page.waitForResponse(apiCall('POST', 'flyers'));
+  for (const canvas of CANVAS_IDS) {
+    const { label: canvasLabel, width, height } = CANVASES[canvas];
+    await page.getByRole('button', { name: canvasLabel, exact: true }).click();
+    await expect(page.locator('.stage-canvas [data-flyer]')).toHaveAttribute('data-canvas', canvas);
+    await copyImage(page).click();
+    await expect(toast(page, 'ok')).toContainText(`Image copied (${width} × ${height}).`);
+    leftovers.add(FlyerSavedSchema.parse(await (await created).json()).id);
+    const meta = await sharp(await clipboardPng(page)).metadata();
+    expect([meta.format, meta.width, meta.height], `${canvas}: the copied picture`).toEqual(['png', width, height]);
+  }
+  expect(pageErrors, 'uncaught errors in the editor').toEqual([]);
 });
 
 test('a This week flyer on the PHP backend: made, refused a photo, reopened and saved again, downloaded on every canvas', async ({ page, request }) => {

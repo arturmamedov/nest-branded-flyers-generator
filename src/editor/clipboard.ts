@@ -2,6 +2,8 @@
    picture. Both answer the same way, "copied" or why not, and neither ever throws. No React here, and the browser
    comes in as a parameter, so the rule is tested without one (tests/unit/clipboard.test.ts). */
 
+import { PICTURE_TYPE } from './exportActions';
+
 /** Why a copy did not happen. `unavailable`: the browser gives this page no clipboard at all (only https and the
     device itself get one, so a phone on a LAN address over http has none; or the browser is too old). `refused`: it
     has one and said no (no tap close enough behind the call, the tab not in front, a permission). */
@@ -24,7 +26,6 @@ export interface ClipboardHost {
   };
 }
 
-const PNG = 'image/png';
 const COPIED: Copied = { ok: true };
 const no = (why: CopyFailure): Copied => ({ ok: false, why });
 
@@ -58,26 +59,25 @@ export function copyText(text: string, host: ClipboardHost = window): Promise<Co
 
 /** Whether this browser can put a picture on the clipboard: a PNG, the one picture type browsers take. */
 export const canCopyImage = (host: ClipboardHost = window): boolean =>
-  typeof host.navigator.clipboard?.write === 'function' && typeof host.ClipboardItem === 'function' && (host.ClipboardItem.supports?.(PNG) ?? true);
+  typeof host.navigator.clipboard?.write === 'function' && typeof host.ClipboardItem === 'function' && (host.ClipboardItem.supports?.(PICTURE_TYPE) ?? true);
 
 /** Copies a picture that is still being made. Call it inside the tap that asked for it, with a promise for the PNG:
     a browser lets a page write only close to that tap (within 5 s in Chrome 143, measured; at once in Safari), and a
     render can take longer. The clipboard is asked now and waits for the picture. A picture that fails to be made is
     a failed copy here; its own reason is the caller's to say. */
 export function copyImage(png: Promise<Blob>, host: ClipboardHost = window): Promise<Copied> {
-  // Whoever is not handed the promise must not leave its failure unheard: the caller hears it from its own.
-  const unheard = (answer: Copied) => {
-    png.catch(() => {});
-    return Promise.resolve(answer);
-  };
-  if (!canCopyImage(host)) return unheard(no('unavailable'));
+  // The picture's failure is always heard here, whoever else listens: a clipboard that is not there, or that
+  // refuses at once, never waits for the promise it was handed, and a render that then failed would be an error on
+  // the page with no one to hear it. The caller hears the failure from its own promise.
+  png.catch(() => {});
+  if (!canCopyImage(host)) return Promise.resolve(no('unavailable'));
   try {
-    return host.navigator.clipboard!.write!([new host.ClipboardItem!({ [PNG]: png })]).then(
+    return host.navigator.clipboard!.write!([new host.ClipboardItem!({ [PICTURE_TYPE]: png })]).then(
       () => COPIED,
       () => no('refused'),
     );
   } catch {
     // An older browser's ClipboardItem that takes no promise.
-    return unheard(no('refused'));
+    return Promise.resolve(no('refused'));
   }
 }

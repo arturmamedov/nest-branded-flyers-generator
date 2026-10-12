@@ -15,11 +15,8 @@ export const EXPORT_ACTION: Record<ExportAction, { label: string; busy: string; 
 /** The button that opens the list of ways out: a download is one of them, picked there. */
 export const DOWNLOAD = 'Download';
 
-/** What a menu entry reads: its name, and its hint where it has one. */
-export const entryText = (action: ExportAction) => {
-  const { label, hint } = EXPORT_ACTION[action];
-  return hint ? `${label} · ${hint}` : label;
-};
+/** The picture a copy and a share hand over: a PNG, the one picture type a browser's clipboard takes. */
+export const PICTURE_TYPE = 'image/png';
 
 /** "A phone": a finger as the main pointer, the signal "Take a photo" already goes by (editor.css). Not the width at
     which the form sits on top: a narrow desktop window is no phone, and a tablet lying wide is one. */

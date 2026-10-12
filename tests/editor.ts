@@ -1,7 +1,8 @@
 import { join } from 'node:path';
 import type { APIRequestContext, Browser, Download, Locator, Page, Response as PwResponse } from '@playwright/test';
 import { expect, withoutKit } from './browser';
-import { EXPORT_ACTION, entryText, type ExportAction } from '../src/editor/exportActions';
+import { EXPORT_ACTION, type ExportAction } from '../src/editor/exportActions';
+import { PHOTO_MODE_LABEL } from '../src/editor/photoModes';
 import { TEMPLATE_LABEL } from '../src/editor/templates';
 import { CANVASES, CANVAS_IDS, type CanvasId } from '../src/shared/layout';
 import { FlyerPayloadSchema, FlyerSavedSchema, type FlyerListItem, type FlyerSaved, type Template } from '../src/shared/schema';
@@ -141,8 +142,24 @@ export const clipboardText = async (page: Page) => (await page.evaluate(() => na
     not its words: it reads "Rendering…" while a download is being made. */
 export const downloadMenu = (page: Page) => page.locator('.toolbar .menu > button');
 
-/** An entry of that list, by its action. The list is hidden until the button opens it. */
-export const exportEntry = (page: Page, action: ExportAction) => page.locator('.toolbar .menu').getByRole('menuitem', { name: entryText(action), exact: true });
+/** An entry of that list, by its action's name, whatever hint the entry adds after it ("PNG · sharpest"). The list
+    is hidden until the button opens it. */
+export const exportEntry = (page: Page, action: ExportAction) =>
+  page.locator('.toolbar .menu').getByRole('menuitem', { name: new RegExp(`^${EXPORT_ACTION[action].label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}( · |$)`) });
+
+/** The flyer's own actions at the bar's right end, in the order the bar shows them: Save, the first way out, and
+    Download. */
+export const barActions = (page: Page) => page.locator('.toolbar-actions > button, .toolbar-actions > .menu > button');
+
+/** A new flyer with nothing missing (no photo band, so it can be taken out as it is), with a name and a caption
+    where the test gives them. It is not saved: its first save is the caller's action. */
+export async function newFlyerNoPhoto(page: Page, { title = '', caption = '' }: { title?: string; caption?: string } = {}) {
+  await page.goto('./#/new');
+  await page.getByRole('button', { name: PHOTO_MODE_LABEL.none, exact: true }).click();
+  if (title) await page.getByLabel('Library name').fill(title);
+  if (caption) await page.getByLabel('Caption').fill(caption);
+  await expect(downloadMenu(page)).toBeEnabled();
+}
 
 /** Opens the list if it is closed and picks an entry, without waiting for what the entry does. */
 export async function pickExport(page: Page, action: ExportAction) {

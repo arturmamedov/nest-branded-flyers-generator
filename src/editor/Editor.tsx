@@ -12,9 +12,9 @@ import { SHARE_MAX, SHARE_SPANISH_BREAK, shareDetails } from '../shared/share';
 import { TEXT_LIMITS } from '../shared/text';
 import { WEEK_ROWS_MAX, WEEK_ROW_LIMITS, isPrintable, rowFromActivity } from '../shared/week';
 import { api, ApiError, asSentence } from './api';
-import { COPY_FAILED, canCopyImage, copyImage, copyText } from './clipboard';
+import { COPY_FAILED, canCopyImage, copyImage, copyText, type Copied } from './clipboard';
 import type { ExportFormat, FlyerExporter } from './export';
-import { DOWNLOAD, EXPORT_ACTION, TOUCH_QUERY, exportActions, type ExportAction } from './exportActions';
+import { DOWNLOAD, EXPORT_ACTION, PICTURE_TYPE, TOUCH_QUERY, exportActions, type ExportAction } from './exportActions';
 import { takeDraft } from './handoff';
 import { useLeaveGuard } from './leaveGuard';
 import { FIELD } from './fields';
@@ -82,12 +82,11 @@ const SHARE_NOW = 'Share now';
 const SHEET_OPEN = 'The share sheet is already open.';
 const SHEET_FAILED = 'Couldn’t open the share sheet. Download the picture instead.';
 
-/** A picture made for the share sheet, with what goes beside it: kept while the toast offers "Share now". */
+/** A picture made for the share sheet, with the caption that goes beside it and the canvas it is of: kept while the
+    toast offers "Share now". */
 interface Ready {
   picture: File;
   caption: string;
-  /** Whether the caption's own copy, made at the tap, said it was copied. */
-  captionCopied: boolean;
   canvas: CanvasId;
 }
 
@@ -179,17 +178,24 @@ export function Editor({
   // The staff member has saved the AI's flyer themselves (Save, or a download): the save "Write with AI" makes does
   // not count, or the AI draft warning would leave at the moment the AI wrote one thing more.
   const [ownSave, setOwnSave] = useState(false);
-  // The control an action started from (run() notes it). Most are greyed while the action works, and a greyed control
-  // drops the focus: it gets it back when the work is done, unless the staff member has put it somewhere since.
-  // Without scrolling to it: on a phone the form is above the flyer, and the flyer is what was being looked at.
+  // A control an action greyed. The button that starts an action is greyed while it works, and a greyed control drops
+  // the focus: it gets it back when the work is done, unless the staff member has put it somewhere since. Without
+  // scrolling to it: on a phone the form is above the flyer, and the flyer is what was being looked at.
+  // run() notes what had the focus when the action started, and only what the action then greyed is kept: a photo
+  // dropped on the preview starts from no control, and a field the caret was in must not pull the focus back.
   const pressed = useRef<HTMLElement | null>(null);
   useEffect(() => {
-    if (busy) return;
     const from = pressed.current;
+    if (busy) {
+      if (from && !from.matches(':disabled')) pressed.current = null;
+      return;
+    }
     pressed.current = null;
     if (from?.isConnected && document.activeElement === document.body) from.focus({ preventScroll: true });
   }, [busy]);
-  // Whether this editor is still the page on screen, for an answer that lands after the staff member has left.
+  // Whether this editor is still the page on screen, for an answer that lands after the staff member has left. It
+  // takes both checks: the URL says so at once, where React unmounts a page a few tasks after the move; the page
+  // itself says so when they have since opened another flyer, which is the same kind of URL and another editor.
   const here = useRef(true);
   useEffect(() => {
     here.current = true;
@@ -197,6 +203,9 @@ export function Editor({
       here.current = false;
     };
   }, []);
+  const onScreen = () => (onPage('new') || onPage('edit')) && here.current;
+  // A share sheet this editor asked for and has no answer from yet: one at a time.
+  const sheetAsked = useRef(false);
 
   // The sections open in this editor (sectionFolds.ts): all of a new flyer's and of an AI-made one's, a saved flyer's
   // as they were left last time. Only an editor that opened a saved flyer remembers them. `id` is this editor's for
@@ -372,18 +381,27 @@ export function Editor({
   // for the answer: a sheet stays open for as long as the staff member likes, and one that never answers must not
   // leave the editor greyed. What it answers is a toast when it comes, unless another action has started since, or
   // this editor is no longer the page on screen.
-  const openSheet = (ready: Ready, secondTap: boolean) => {
+  // `captionCopied` is the caption's own copy, started in the same tap: the toast says the caption is on the
+  // clipboard only when that copy said so.
+  const openSheet = (ready: Ready, captionCopied: Promise<Copied> | null, secondTap: boolean) => {
     const mine = turn.current;
-    void sharePicture(ready.picture, ready.caption).then((answer) => {
-      if (!here.current || turn.current !== mine) return;
-      if (answer === 'shared') setMessage({ kind: 'ok', text: ready.captionCopied ? SHARED_WITH_CAPTION : SHARED });
+    sheetAsked.current = true;
+    void Promise.all([sharePicture(ready.picture, ready.caption), captionCopied]).then(([answer, copied]) => {
+      sheetAsked.current = false;
+      if (!onScreen() || turn.current !== mine) return;
+      if (answer === 'shared') setMessage({ kind: 'ok', text: copied?.ok ? SHARED_WITH_CAPTION : SHARED });
       // The tap had run out by the time the picture was made: it waits in the toast for a tap of its own.
       else if (answer === 'blocked' && !secondTap) setMessage({ kind: 'ok', text: PICTURE_READY, next: ready });
-      else if (answer === 'open') setMessage({ kind: 'error', text: SHEET_OPEN });
+      // The device says a sheet of this page's is open. The picture is kept for when it is not.
+      else if (answer === 'open') setMessage({ kind: 'error', text: SHEET_OPEN, next: ready });
       // Closed without sharing is the staff member's own choice, and says nothing.
       else if (answer !== 'closed') setMessage({ kind: 'error', text: SHEET_FAILED });
     });
   };
+
+  // The caption on the clipboard, for a tap that opens the sheet. What an app does with the sheet's text is the app's
+  // (one shows it under the picture, another drops it), and a paste is then one tap away.
+  const captionFor = (caption: string) => (caption.trim() ? copyText(caption) : null);
 
   // The system's share sheet, with the picture and the caption (the owner's "Yes, with copy image", 2026-10-07): how
   // a phone hands a flyer to WhatsApp or Instagram. Unlike the clipboard, the sheet takes no promise for a picture
@@ -391,21 +409,26 @@ export function Editor({
   // that took too long the toast offers "Share now".
   const onShare = () =>
     run('share', async () => {
-      // The caption goes on the clipboard first, inside the tap: what an app does with the sheet's text is the app's
-      // (one shows it under the picture, another drops it), and a paste is then one tap away.
+      // The caption goes on the clipboard first, inside the tap, before the picture is made.
       const caption = draft.data.share;
-      const captionCopied = caption.trim() ? copyText(caption) : null;
+      const captionCopied = captionFor(caption);
       const { blob, filename } = await picture('png');
-      const ready: Ready = { picture: new File([blob], filename, { type: 'image/png' }), caption, captionCopied: (await captionCopied)?.ok ?? false, canvas };
-      // The staff member left while the picture was being made: no sheet opens over another page. Both checks, as
-      // writeShare has them.
-      if (!(onPage('new') || onPage('edit')) || !here.current) return;
-      openSheet(ready, false);
+      // The staff member left while the picture was being made: no sheet opens over another page.
+      if (!onScreen()) return;
+      openSheet({ picture: new File([blob], filename, { type: PICTURE_TYPE }), caption, canvas }, captionCopied, false);
     });
 
-  // The toast's "Share now", a tap of its own. A flyer or a canvas changed since the picture was made is shared as
-  // it is now: the picture is made again, which may need its own second tap.
-  const shareNow = (ready: Ready) => (dirty || ready.canvas !== canvas ? void onShare() : openSheet(ready, true));
+  // The toast's "Share now", a tap of its own, so the caption is copied again in it: minutes may have passed, and the
+  // clipboard may hold something else by now. A flyer or a canvas changed since the picture was made is shared as it
+  // is now: the picture is made again, which may need its own second tap.
+  const shareNow = (ready: Ready) => {
+    // Pressed twice, it is one sheet: the second press, with the first sheet still open, would only be told so by
+    // the device, and that answer would take the place of the toast that holds the picture. (Share… in the bar
+    // still asks: a sheet whose answer never came must not end sharing for good.)
+    if (sheetAsked.current) return;
+    if (dirty || ready.canvas !== canvas) return void onShare();
+    openSheet(ready, captionFor(ready.caption), true);
+  };
 
   const onFile = (file: File) =>
     run('upload', async () => {
@@ -458,10 +481,9 @@ export function Editor({
       });
       onRemaining(ai.name, r.remaining);
       // The staff member left while it was on its way, on a yes to the leave question where there was unsaved work:
-      // nothing of this flyer is written behind their back. It takes both checks, as on the AI page: the URL says so
-      // at once, where React unmounts a page a few tasks after the move; the page itself says so when they have since
-      // opened another flyer, which is the same kind of URL and another editor.
-      if (!(onPage('new') || onPage('edit')) || !here.current) return;
+      // nothing of this flyer is written behind their back (onScreen() says why it takes two checks, as on the AI
+      // page).
+      if (!onScreen()) return;
       setData({ share: r.share });
       setCaptionOf(sent);
       // The draft as it is now, with the caption: save() by itself would write the draft of the render this action
@@ -505,13 +527,16 @@ export function Editor({
   const act: Record<ExportAction, () => void> = { copy: onCopyImage, share: onShare, png: () => onDownload('png'), jpg: () => onDownload('jpg') };
   const { first, menu } = exportActions(can, touch);
   // The toast's next step, drawn with the flyer as it is now: a caption emptied since has nothing to copy.
+  // Nor is a picture offered for its sheet once a frame has no photo: Share… itself is greyed then.
   const next = message?.next;
   const step =
     next === 'caption'
       ? draft.data.share.trim()
         ? { label: COPY_CAPTION, onPress: copyCaption }
         : undefined
-      : next && { label: SHARE_NOW, onPress: () => shareNow(next) };
+      : next && !needsPhoto
+        ? { label: SHARE_NOW, onPress: () => shareNow(next) }
+        : undefined;
 
   const t = draft.data.text;
   const chip = (key: ChipKey) => draft.data.chips.find((c) => c.key === key) as Chip;

@@ -750,10 +750,13 @@ nest-nav > nav a.ai-entry .ai-count {
 .menu-entry:hover,
 .menu-entry:focus-visible {
   background: #efeadc;
-  outline: none;
 }
 
+/* The ring is drawn inside the entry. The outline is there too, with no colour of its own: where the system paints
+   its own colours over a page's (forced colours), shadows are dropped and this is what shows. */
 .menu-entry:focus-visible {
+  outline: 2px solid transparent;
+  outline-offset: -2px;
   box-shadow: inset 0 0 0 2px var(--teal);
 }
 

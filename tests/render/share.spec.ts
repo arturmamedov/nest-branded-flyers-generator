@@ -1,7 +1,23 @@
 import type { Page } from '@playwright/test';
 import { expect, test } from '../browser';
-import { EDITOR_VIEWPORT, apiCall, backToLibrary, copyImage, download, downloadMenu, exportEntry, grantClipboard, hold, pickExport, status, stopClock, toast } from '../editor';
-import { entryText } from '../../src/editor/exportActions';
+import {
+  EDITOR_VIEWPORT,
+  apiCall,
+  backToLibrary,
+  barActions as actions,
+  canvasButton,
+  copyImage,
+  download,
+  downloadMenu,
+  exportEntry,
+  grantClipboard,
+  hold,
+  newFlyerNoPhoto,
+  pickExport,
+  status,
+  stopClock,
+  toast,
+} from '../editor';
 import { PHOTO_MODE_LABEL } from '../../src/editor/photoModes';
 import { OUTCOME_MS } from '../../src/editor/toastFolds';
 import { flyerFilename } from '../../src/shared/filename';
@@ -25,7 +41,7 @@ const CAPTION = 'TODAY we have a sunset plan! 🌅';
 const SHARED = 'Shared.';
 const SHARED_WITH_CAPTION = 'Shared. The caption is on the clipboard too: paste it if the app left it out.';
 
-type Answer = 'shared' | 'closed' | 'blocked' | 'held';
+type Answer = 'shared' | 'closed' | 'blocked' | 'open' | 'held';
 
 interface Handed {
   name: string;
@@ -45,11 +61,12 @@ const withSheet = (page: Page, ...answers: Answer[]) =>
   page.addInitScript((answers: Answer[]) => {
     const handed: unknown[] = [];
     let release = () => {};
-    Object.assign(window, { handed, sheetAnswers: () => release() });
+    Object.assign(window, { handed, sheetAsked: 0, sheetAnswers: () => release() });
     Object.defineProperty(Navigator.prototype, 'canShare', { configurable: true, value: (data?: ShareData) => !!data?.files?.length });
     Object.defineProperty(Navigator.prototype, 'share', {
       configurable: true,
       async value(data: ShareData) {
+        (window as unknown as { sheetAsked: number }).sheetAsked += 1;
         const [file] = data.files ?? [];
         const picture = await createImageBitmap(file);
         const clipboard = await navigator.clipboard.readText().catch(() => 'unreadable');
@@ -57,26 +74,26 @@ const withSheet = (page: Page, ...answers: Answer[]) =>
         const answer = answers.shift() ?? 'shared';
         if (answer === 'closed') throw new DOMException('Share canceled', 'AbortError');
         if (answer === 'blocked') throw new DOMException('Must be handling a user gesture to perform a share request.', 'NotAllowedError');
+        if (answer === 'open') throw new DOMException('An earlier share has not yet completed.', 'InvalidStateError');
         if (answer === 'held') await new Promise<void>((resolve) => (release = resolve));
       },
     });
   }, answers);
 
 const handed = (page: Page) => page.evaluate(() => (window as unknown as { handed: Handed[] }).handed);
+/** How often the sheet was asked for, counted at the call itself. */
+const asked = (page: Page) => page.evaluate(() => (window as unknown as { sheetAsked: number }).sheetAsked);
 const share = (page: Page) => page.locator('.toolbar').getByRole('button', { name: 'Share…', exact: true });
-const shareNow = (page: Page) => toast(page, 'ok').getByRole('button', { name: 'Share now', exact: true });
-/** The flyer's own actions, in the order the bar shows them. */
-const actions = (page: Page) => page.locator('.toolbar-actions > button, .toolbar-actions > .menu > button');
+/** The step a toast offers for a picture that is made and waits for a tap of its own. */
+const shareNow = (page: Page) => page.locator('.toasts').getByRole('button', { name: 'Share now', exact: true });
+/** What the list's entries read. */
+const ENTRY = { png: 'PNG · sharpest', jpg: 'JPG · smaller file', copy: 'Copy image', share: 'Share…' } as const;
 
 /** A new flyer with nothing missing (no photo band), named, and with a caption or none. Its first save is the
     caller's action; the name it is saved under comes back. */
 async function newFlyer(page: Page, caption = ''): Promise<string> {
   const title = `share spec ${Date.now()}`;
-  await page.goto('/#/new');
-  await page.getByRole('button', { name: PHOTO_MODE_LABEL.none, exact: true }).click();
-  await page.getByLabel('Library name').fill(title);
-  if (caption) await page.getByLabel('Caption').fill(caption);
-  await expect(downloadMenu(page)).toBeEnabled();
+  await newFlyerNoPhoto(page, { title, caption });
   return title;
 }
 
@@ -97,7 +114,7 @@ test.describe('on a phone: a finger as the main pointer', () => {
     await expect(actions(page)).toHaveText(['Save', 'Share…', 'Download']);
     await expect(share(page)).toHaveClass(/btn-accent/);
     await downloadMenu(page).click();
-    await expect(page.locator('.toolbar .menu').getByRole('menuitem')).toHaveText([entryText('png'), entryText('jpg'), entryText('copy')]);
+    await expect(page.locator('.toolbar .menu').getByRole('menuitem')).toHaveText([ENTRY.png, ENTRY.jpg, ENTRY.copy]);
   });
 
   test('Share… hands the sheet the picture of the canvas on screen and the caption, with the caption already on the clipboard', async ({ page }) => {
@@ -187,6 +204,74 @@ test.describe('on a phone: a finger as the main pointer', () => {
     await expect(status(page)).toHaveText('Saved');
   });
 
+  test('“Share now” after another canvas was chosen makes the picture again, of the canvas on screen', async ({ page }) => {
+    await withSheet(page, 'blocked', 'shared');
+    await grantClipboard(page);
+    const title = await newFlyer(page);
+    const id = await shareNew(page);
+    await expect(shareNow(page)).toBeVisible();
+    await canvasButton(page, 'story').click();
+    await expect(page.locator('.stage-canvas [data-flyer]')).toHaveAttribute('data-canvas', 'story');
+    await shareNow(page).click();
+    await expect(toast(page, 'ok')).toHaveText(SHARED);
+    expect((await handed(page)).map((h) => [h.name, h.width, h.height])).toEqual([
+      [flyerFilename(title, id, 'png', 'whatsapp'), CANVASES.whatsapp.width, CANVASES.whatsapp.height],
+      [flyerFilename(title, id, 'png', 'story'), CANVASES.story.width, CANVASES.story.height],
+    ]);
+  });
+
+  // The three below were found in review (2026-10-12): "Share now" stays on screen for as long as the staff member
+  // likes, and nothing held what had changed by the time it is pressed.
+  test('“Share now” pressed twice is one sheet, and the picture is still there when that sheet is closed', async ({ page }) => {
+    await withSheet(page, 'blocked', 'held', 'shared');
+    await grantClipboard(page);
+    await newFlyer(page, CAPTION);
+    await shareNew(page);
+    await shareNow(page).click();
+    await expect.poll(() => asked(page), 'the first sheet, refused, and the second, open').toBe(2);
+    await shareNow(page).click();
+    expect(await asked(page), 'the press with a sheet open asks for no other').toBe(2);
+    await expect(toast(page, 'error'), 'and nothing says a sheet is "already open"').toHaveCount(0);
+    await expect(shareNow(page)).toBeVisible();
+  });
+
+  test('“Share now” copies the caption again, in its own tap: the clipboard may hold something else by then', async ({ page }) => {
+    await withSheet(page, 'blocked', 'shared');
+    await grantClipboard(page);
+    await newFlyer(page, CAPTION);
+    await shareNew(page);
+    await expect(shareNow(page)).toBeVisible();
+    await page.evaluate(() => navigator.clipboard.writeText('something copied since'));
+    await shareNow(page).click();
+    await expect(toast(page, 'ok')).toHaveText(SHARED_WITH_CAPTION);
+    expect((await handed(page)).map((h) => h.clipboard), 'the clipboard at each call of the sheet').toEqual([CAPTION, CAPTION]);
+  });
+
+  test('a picture is not offered for its sheet once a frame has no photo: Share… is greyed, and so is its second tap', async ({ page }) => {
+    await withSheet(page, 'blocked');
+    await grantClipboard(page);
+    await newFlyer(page);
+    await shareNew(page);
+    await expect(shareNow(page)).toBeVisible();
+    // The flyer is changed to one that cannot be taken out: a frame, and no photo in it.
+    await page.getByRole('button', { name: PHOTO_MODE_LABEL.band, exact: true }).click();
+    await expect(share(page)).toBeDisabled();
+    await expect(shareNow(page)).toHaveCount(0);
+    expect(await asked(page), 'the sheet was asked once, for the picture that was made').toBe(1);
+  });
+
+  test('a device that says a sheet is already open is told so, and the picture is kept for when it is not', async ({ page }) => {
+    await withSheet(page, 'open', 'shared');
+    await grantClipboard(page);
+    await newFlyer(page, CAPTION);
+    await shareNew(page);
+    const told = toast(page, 'error');
+    await expect(told).toContainText('The share sheet is already open.');
+    await told.getByRole('button', { name: 'Share now', exact: true }).click();
+    await expect(toast(page, 'ok')).toHaveText(SHARED_WITH_CAPTION);
+    expect(await asked(page)).toBe(2);
+  });
+
   test('a second tap the device refuses too is an error, with what to do instead', async ({ page }) => {
     await withSheet(page, 'blocked', 'blocked');
     await grantClipboard(page);
@@ -243,7 +328,7 @@ test.describe('on a phone: a finger as the main pointer', () => {
     await newFlyer(page);
     await expect(actions(page)).toHaveText(['Save', 'Copy image', 'Download']);
     await downloadMenu(page).click();
-    await expect(page.locator('.toolbar .menu').getByRole('menuitem')).toHaveText([entryText('png'), entryText('jpg')]);
+    await expect(page.locator('.toolbar .menu').getByRole('menuitem')).toHaveText([ENTRY.png, ENTRY.jpg]);
   });
 });
 
@@ -257,7 +342,7 @@ test.describe('on a desktop whose browser can share a file (Chrome and Edge on W
     await expect(actions(page)).toHaveText(['Save', 'Copy image', 'Download']);
     await expect(copyImage(page)).toHaveClass(/btn-accent/);
     await downloadMenu(page).click();
-    await expect(page.locator('.toolbar .menu').getByRole('menuitem')).toHaveText([entryText('png'), entryText('jpg'), entryText('share')]);
+    await expect(page.locator('.toolbar .menu').getByRole('menuitem')).toHaveText([ENTRY.png, ENTRY.jpg, ENTRY.share]);
 
     const [created] = await Promise.all([page.waitForResponse(apiCall('POST', 'flyers')), exportEntry(page, 'share').click()]);
     const { id } = FlyerSavedSchema.parse(await created.json());

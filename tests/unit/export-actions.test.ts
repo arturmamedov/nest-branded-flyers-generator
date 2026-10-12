@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { EXPORT_ACTION, TOUCH_QUERY, entryText, exportActions } from '../../src/editor/exportActions.js';
+import { EXPORT_ACTION, PICTURE_TYPE, TOUCH_QUERY, exportActions } from '../../src/editor/exportActions.js';
 
 /* What the editor's toolbar offers for the flyer as a picture (src/editor/exportActions.ts; the editor's UX round,
    Part 3): one first button, and the entries behind "Download". The owner chose "Copy beside Download", and "Yes,
@@ -41,14 +41,16 @@ describe('the toolbar’s ways out', () => {
     expect(TOUCH_QUERY).toBe('(pointer: coarse)');
   });
 
-  it('every action has a name and a word for while it works, and an entry reads its name and its hint', () => {
+  it('every action has a name and a word for while it works; the two formats say what tells them apart', () => {
     for (const { label, busy } of Object.values(EXPORT_ACTION)) {
       expect(label).not.toBe('');
       expect(busy.endsWith('…')).toBe(true);
     }
-    expect(entryText('png')).toBe('PNG · sharpest');
-    expect(entryText('jpg')).toBe('JPG · smaller file');
-    expect(entryText('copy')).toBe('Copy image');
-    expect(entryText('share')).toBe('Share…');
+    expect([EXPORT_ACTION.png.hint, EXPORT_ACTION.jpg.hint]).toEqual(['sharpest', 'smaller file']);
+    expect([EXPORT_ACTION.copy.hint, EXPORT_ACTION.share.hint]).toEqual([undefined, undefined]);
+  });
+
+  it('a copy and a share hand over a PNG, the one picture type a clipboard takes', () => {
+    expect(PICTURE_TYPE).toBe('image/png');
   });
 });

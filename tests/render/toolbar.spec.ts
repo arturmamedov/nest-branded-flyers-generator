@@ -2,9 +2,28 @@ import { readFileSync } from 'node:fs';
 import type { Locator, Page } from '@playwright/test';
 import sharp from 'sharp';
 import { expect, test } from '../browser';
-import { EDITOR_VIEWPORT, POOL_PARTY, apiRoute, copyImage, copyOfSample, download, downloadMenu, dropFile, exportEntry, hold, saveNew, status, type FilePayload } from '../editor';
-import { DOWNLOAD, entryText } from '../../src/editor/exportActions';
-import { PHOTO_MODE_LABEL } from '../../src/editor/photoModes';
+import {
+  EDITOR_VIEWPORT,
+  POOL_PARTY,
+  apiCall,
+  apiRoute,
+  barActions,
+  copyImage,
+  copyOfSample,
+  download,
+  downloadMenu,
+  dropFile,
+  exportEntry,
+  grantClipboard,
+  hold,
+  newFlyerNoPhoto as newFlyer,
+  saveNew,
+  status,
+  toast,
+  type FilePayload,
+} from '../editor';
+import { DOWNLOAD } from '../../src/editor/exportActions';
+import { FlyerSavedSchema } from '../../src/shared/schema';
 import { CANVASES, DEFAULT_CANVAS } from '../../src/shared/layout';
 import { WRITE_HEADERS } from '../../src/shared/writeGuard';
 
@@ -27,12 +46,8 @@ test.afterEach(async ({ request }) => {
 const list = (page: Page) => page.locator('.toolbar .menu [role="menu"]');
 const box = async (l: Locator) => (await l.boundingBox())!;
 
-/** A new flyer that can be taken out as it is: with no photo band, nothing is missing. */
-async function newFlyer(page: Page) {
-  await page.goto('/#/new');
-  await page.getByRole('button', { name: PHOTO_MODE_LABEL.none, exact: true }).click();
-  await expect(downloadMenu(page)).toBeEnabled();
-}
+/** What the list's entries read, in their order, on a desktop whose browser has no share sheet (the test browser). */
+const ENTRIES = { png: 'PNG · sharpest', jpg: 'JPG · smaller file' } as const;
 
 test('Download is a menu that holds PNG and JPG: the two download buttons are gone', async ({ page }) => {
   await newFlyer(page);
@@ -48,7 +63,7 @@ test('Download is a menu that holds PNG and JPG: the two download buttons are go
   await expect(menu).toHaveAttribute('aria-expanded', 'true');
   await expect(list(page)).toBeVisible();
   expect(await menu.getAttribute('aria-controls'), 'the button names the list it opens').toBe(await list(page).getAttribute('id'));
-  await expect(list(page).getByRole('menuitem')).toHaveText([entryText('png'), entryText('jpg')]);
+  await expect(list(page).getByRole('menuitem')).toHaveText([ENTRIES.png, ENTRIES.jpg]);
 
   await menu.click();
   await expect(menu).toHaveAttribute('aria-expanded', 'false');
@@ -58,13 +73,14 @@ test('Download is a menu that holds PNG and JPG: the two download buttons are go
 test('on a desktop the bar reads [Copy image] [Download ▾]: Copy image is the main button, and Download stands beside it', async ({ page }) => {
   // The owner's "Copy beside Download" (2026-10-07).
   await newFlyer(page);
-  await expect(page.locator('.toolbar-actions > button, .toolbar-actions > .menu > button')).toHaveText(['Save', 'Copy image', 'Download']);
+  await expect(barActions(page)).toHaveText(['Save', 'Copy image', 'Download']);
   await expect(copyImage(page)).toHaveClass(/btn-accent/);
   await expect(downloadMenu(page)).toHaveClass(/btn-dark/);
 });
 
 test('the menu from the keyboard: the arrows open it and move through it, Escape hands the focus back, Tab leaves it', async ({ page }) => {
-  await newFlyer(page);
+  // With a caption, the pill on the stage is the next control after the menu: where Tab has to land.
+  await newFlyer(page, { caption: 'TODAY we have a plan!' });
   const menu = downloadMenu(page);
   const [png, jpg] = [exportEntry(page, 'png'), exportEntry(page, 'jpg')];
 
@@ -88,23 +104,31 @@ test('the menu from the keyboard: the arrows open it and move through it, Escape
 
   await page.keyboard.press('ArrowUp');
   await expect(jpg, 'opened upwards: the last entry').toBeFocused();
+  // Tab moves on from the entry it is on, to the control after the menu, and the list closes behind it. (Found in
+  // review, 2026-10-12: the list was hidden at the key itself, so the focus set out from an element that was no
+  // longer there, which only some browsers follow; and this test then accepted the focus anywhere, the page too.)
   await page.keyboard.press('Tab');
-  await expect(list(page), 'Tab leaves the menu, and closes it').toBeHidden();
-  expect(await page.evaluate(() => document.activeElement?.closest('.menu') === null), 'the focus has moved on').toBe(true);
+  await expect(page.getByRole('button', { name: 'Copy the share text', exact: true }), 'the next control after the menu').toBeFocused();
+  await expect(list(page), 'and the list closed behind it').toBeHidden();
 
   await menu.focus();
   await page.keyboard.press('Enter');
   await expect(png, 'Enter opens it as a click does').toBeFocused();
+  // Shift+Tab leaves the list the other way: back to the button, and the list closes behind it too.
+  await page.keyboard.press('Shift+Tab');
+  await expect(menu).toBeFocused();
+  await expect(list(page)).toBeHidden();
 });
 
-test('a closed menu’s entries cannot be reached, and a click anywhere else closes an open one', async ({ page }) => {
+test('a closed menu’s entries are there for no one, and a click anywhere else closes an open one', async ({ page }) => {
   await newFlyer(page);
   const menu = downloadMenu(page);
-  await menu.focus();
-  await page.keyboard.press('Tab');
-  expect(await page.evaluate(() => document.activeElement?.getAttribute('role')), 'Tab goes past the hidden entries').not.toBe('menuitem');
+  // Hidden, not just out of sight: no role finds an entry, so no screen reader does, and no pointer reaches one.
+  await expect(page.locator('.toolbar .menu').getByRole('menuitem')).toHaveCount(0);
+  await expect(page.locator('.toolbar .menu [role="menuitem"]').first()).toBeHidden();
 
   await menu.click();
+  await expect(page.locator('.toolbar .menu').getByRole('menuitem')).toHaveCount(2);
   await expect(list(page)).toBeVisible();
   await page.locator('.stage').click({ position: { x: 20, y: 20 } });
   await expect(list(page)).toBeHidden();
@@ -155,6 +179,29 @@ test('a photo dropped with the list open closes it: one action at a time', async
   await expect(list(page), 'and it does not open again by itself').toBeHidden();
 });
 
+test('a button an action greyed has the focus back when the action is done; a field the action never greyed is left alone', async ({ page }) => {
+  await grantClipboard(page);
+  await newFlyer(page, { title: `toolbar spec focus ${Date.now()}` });
+  // Copy image is greyed while it works, and a greyed button drops the focus.
+  const [created] = await Promise.all([page.waitForResponse(apiCall('POST', 'flyers')), copyImage(page).click()]);
+  keep(FlyerSavedSchema.parse(await created.json()).id);
+  await expect(toast(page, 'ok')).toContainText('Image copied');
+  await expect(copyImage(page)).toBeFocused();
+
+  // A dropped photo starts from no control. The caret was in a field, and the staff member clicked the stage while
+  // the photo went up: the focus is theirs to have put there. (Found in review, 2026-10-12: whatever had the focus
+  // when an action started was taken for the control that started it, and got the focus back.)
+  const release = await hold(page, apiRoute('photos'), 'POST');
+  await page.getByLabel('Line 1').focus();
+  await dropFile(page, page.locator('.stage'), PHOTO);
+  await expect(downloadMenu(page)).toBeDisabled();
+  await page.locator('.stage').click({ position: { x: 20, y: 20 } });
+  expect(await page.evaluate(() => document.activeElement === document.body), 'the click took the focus off the field').toBe(true);
+  release();
+  await expect(downloadMenu(page)).toBeEnabled();
+  expect(await page.evaluate(() => document.activeElement?.tagName), 'and it is not pulled back in').toBe('BODY');
+});
+
 test('a saved flyer’s bar is one row at 1280 px wide with the form open, as it was with the two download buttons', async ({ page, request }) => {
   // Seen in the look (2026-10-12): "Copy image" and "Download ▾" are wider than "Download PNG" and "JPG" were, the
   // bar broke into two rows, and the flyer under it was 491 px wide where it had been 524.
@@ -195,7 +242,7 @@ for (const viewport of [EDITOR_VIEWPORT, { width: 1280, height: 800 }, { width: 
     for (const action of ['png', 'jpg'] as const) {
       const entry = await box(exportEntry(page, action));
       const reached = await page.evaluate(([x, y]) => document.elementFromPoint(x, y)?.closest('[role="menuitem"]')?.textContent, [entry.x + entry.width / 2, entry.y + entry.height / 2]);
-      expect(reached, 'a click there reaches the entry, not what is under it').toBe(entryText(action));
+      expect(reached, 'a click there reaches the entry, not what is under it').toBe(ENTRIES[action]);
     }
   });
 }

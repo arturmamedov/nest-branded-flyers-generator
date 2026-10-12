@@ -3,6 +3,8 @@
    or Instagram. No React here, and the browser comes in as a parameter, so the rule is tested without one
    (tests/unit/share-sheet.test.ts). */
 
+import { PICTURE_TYPE } from './exportActions';
+
 /** What this needs of a browser: `window` is one. */
 export interface ShareHost {
   navigator: {
@@ -29,7 +31,7 @@ export function canShareFiles(host: ShareHost = window): boolean {
   const { navigator } = host;
   if (typeof navigator.share !== 'function' || typeof navigator.canShare !== 'function') return false;
   try {
-    return navigator.canShare({ files: [new File([], 'flyer.png', { type: 'image/png' })] });
+    return navigator.canShare({ files: [new File([], 'flyer.png', { type: PICTURE_TYPE })] });
   } catch {
     return false;
   }

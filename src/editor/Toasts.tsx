@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type FocusEvent, type ReactNode } from 'react';
 import { NARROW_QUERY, NO_FOLDS, OUTCOME_MS, closeWarning, foldsFor, leavesByItself, openAll } from './toastFolds';
 import { useMedia } from './useMedia';
 
@@ -65,9 +65,20 @@ export function Toasts({ outcome, onCloseOutcome, warnings }: { outcome: Outcome
   // when nothing changed: the AI page's body is a new node on every render.)
   const slot = useRef<HTMLDivElement>(null);
   const stood = useRef(kind);
+  // Whether the keyboard is at work in the slot's toast: its focus came there by the keyboard, or a step was pressed
+  // from it. A pointer does not count: under a pointer nothing needs the focus back, and a toast that kept it would
+  // wait for a blur that may never come.
+  const keyboardIn = useRef(false);
   useEffect(() => {
     const sameToast = kind !== undefined && stood.current === kind;
     stood.current = kind;
+    // The keyboard's focus stays with the slot. A step that is taken goes with its button, and an answer of another
+    // kind is another node (an error is said from its own region): either way the focus falls to the page. It goes
+    // to the toast that took the place, on its close button. Not to the chip, which is the warnings' own. Only a
+    // focus that fell: one the staff member has put elsewhere since is theirs.
+    const fell = !document.activeElement || document.activeElement === document.body;
+    if (keyboardIn.current && fell) slot.current?.querySelector<HTMLElement>('.toast-close')?.focus();
+    if (!slot.current?.contains(document.activeElement)) keyboardIn.current = false;
     const focus = !!slot.current?.contains(document.activeElement);
     setHolds((h) => {
       const pointer = sameToast && h.pointer;
@@ -88,21 +99,35 @@ export function Toasts({ outcome, onCloseOutcome, warnings }: { outcome: Outcome
     if (hadFocus) setRefocus((n) => n + 1);
   };
 
-  const hold = {
+  const pointer = {
     onPointerEnter: () => setHolds((h) => ({ ...h, pointer: true })),
     onPointerLeave: () => setHolds((h) => ({ ...h, pointer: false })),
-    onFocus: () => setHolds((h) => ({ ...h, focus: true })),
+  };
+  const focus = {
+    onFocus: (e: FocusEvent<HTMLDivElement>) => {
+      keyboardIn.current = e.target.matches(':focus-visible');
+      setHolds((h) => ({ ...h, focus: true }));
+    },
+    // The keyboard's part is not ended here: a blur may be told for a button that goes with its step, and the look
+    // at where the focus fell (above) is what ends it.
     onBlur: () => setHolds((h) => ({ ...h, focus: false })),
   };
   const outcomeToast = (o: Outcome) => (
-    <div ref={slot} className={`toast toast-${o.kind}`} {...(o.kind === 'ok' ? hold : {})}>
+    <div ref={slot} className={`toast toast-${o.kind}`} {...focus} {...(o.kind === 'ok' ? pointer : {})}>
       <div className="toast-body">
         {o.body}
-        {/* The step is taken once, and its button goes with it. Pressed from the keyboard (a click with no pointer
-            behind it), the focus is handed on as a closed toast hands it; under a pointer nothing needs it, and the
-            step's answer is then free to leave by itself. */}
+        {/* The page decides what becomes of the toast once its step is pressed: "Copy the caption" is answered by
+            another toast, "Share now" stays while its sheet is open. Where the button goes, the keyboard's focus
+            follows the slot (above): a press with no pointer behind it is the keyboard's. */}
         {o.action && (
-          <button type="button" className="toast-action" onClick={(e) => closing(e.detail === 0, o.action!.onPress)}>
+          <button
+            type="button"
+            className="toast-action"
+            onClick={(e) => {
+              if (e.detail === 0) keyboardIn.current = true;
+              o.action!.onPress();
+            }}
+          >
             {o.action.label}
           </button>
         )}
