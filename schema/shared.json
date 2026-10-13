@@ -252,5 +252,65 @@
         "noWords": 14
       }
     }
+  },
+  "labels": {
+    "list": [
+      {
+        "slug": "dinners",
+        "name": "Dinners"
+      },
+      {
+        "slug": "stretching",
+        "name": "Stretching"
+      },
+      {
+        "slug": "masca",
+        "name": "Masca"
+      },
+      {
+        "slug": "teide",
+        "name": "Teide"
+      },
+      {
+        "slug": "excursions",
+        "name": "Excursions"
+      },
+      {
+        "slug": "tenerife-tours",
+        "name": "Tenerife Tours"
+      },
+      {
+        "slug": "shows",
+        "name": "Shows"
+      },
+      {
+        "slug": "movie-nights",
+        "name": "Movie nights"
+      },
+      {
+        "slug": "beach",
+        "name": "Beach"
+      },
+      {
+        "slug": "games",
+        "name": "Games"
+      },
+      {
+        "slug": "dance",
+        "name": "Dance"
+      },
+      {
+        "slug": "workshops",
+        "name": "Workshops"
+      },
+      {
+        "slug": "whats-on",
+        "name": "What’s on"
+      }
+    ],
+    "max": 8,
+    "slugMax": 40,
+    "slug": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+    "none": "none"
   }
 }

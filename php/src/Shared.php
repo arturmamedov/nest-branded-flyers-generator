@@ -112,4 +112,15 @@ final class Shared
     {
         return $this->data['ai'];
     }
+
+    /**
+     * A flyer's labels (src/shared/labels.ts): the list in the order every screen shows it, the most a flyer
+     * carries, a slug's longest and its shape, and the filter's word for a flyer that carries none.
+     *
+     * @return array{list:list<array{slug:string, name:string}>, max:int, slugMax:int, slug:string, none:string}
+     */
+    public function labels(): array
+    {
+        return $this->data['labels'];
+    }
 }

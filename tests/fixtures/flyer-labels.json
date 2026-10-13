@@ -1,0 +1,37 @@
+{
+  "_note": "The rules for a flyer's labels (src/shared/labels.ts, php/src/Domain/FlyerLabels.php), replayed by Vitest and PHPUnit. The list here is the fixture's own, so the vectors outlive every change of the real list.",
+  "list": ["dinners", "masca", "teide", "excursions"],
+  "none": "none",
+  "tidy": [
+    { "why": "no labels", "labels": [], "out": [] },
+    { "why": "the list's order, not the order picked", "labels": ["excursions", "masca"], "out": ["masca", "excursions"] },
+    { "why": "once each", "labels": ["masca", "masca", "excursions", "masca"], "out": ["masca", "excursions"] },
+    { "why": "a label off the list is kept, after the listed ones", "labels": ["old-one", "teide"], "out": ["teide", "old-one"] },
+    { "why": "labels off the list keep the order they were stored in, once each", "labels": ["zebra", "apple", "zebra"], "out": ["zebra", "apple"] },
+    { "why": "both kinds together", "labels": ["apple", "excursions", "zebra", "dinners"], "out": ["dinners", "excursions", "apple", "zebra"] },
+    { "why": "already tidy: nothing moves", "labels": ["dinners", "teide", "old-one"], "out": ["dinners", "teide", "old-one"] }
+  ],
+  "known": [
+    { "why": "the listed ones, in the list's order", "labels": ["old-one", "teide", "dinners"], "out": ["dinners", "teide"] },
+    { "why": "a label off the list is on no screen", "labels": ["old-one"], "out": [] },
+    { "why": "once each", "labels": ["teide", "teide"], "out": ["teide"] },
+    { "why": "none", "labels": [], "out": [] }
+  ],
+  "matches": [
+    { "why": "it carries the label", "labels": ["masca", "excursions"], "wanted": "masca", "out": true },
+    { "why": "it carries another", "labels": ["masca", "excursions"], "wanted": "teide", "out": false },
+    { "why": "no labels is 'none'", "labels": [], "wanted": "none", "out": true },
+    { "why": "a listed label is not 'none'", "labels": ["masca"], "wanted": "none", "out": false },
+    { "why": "only a label off the list: staff see none, so it is 'none'", "labels": ["old-one"], "wanted": "none", "out": true },
+    { "why": "a label off the list is still found by its own slug", "labels": ["old-one"], "wanted": "old-one", "out": true },
+    { "why": "a slug no flyer carries", "labels": ["masca"], "wanted": "no-such", "out": false }
+  ],
+  "stored": [
+    { "why": "a flyer saved before labels has no key", "data": { "share": "" }, "out": [] },
+    { "why": "as saved", "data": { "labels": ["teide", "old-one"] }, "out": ["teide", "old-one"] },
+    { "why": "a file edited by hand: not a list", "data": { "labels": "teide" }, "out": [] },
+    { "why": "a file edited by hand: a list of other things", "data": { "labels": ["teide", 7, null, { "slug": "masca" }, "masca"] }, "out": ["teide", "masca"] },
+    { "why": "null", "data": { "labels": null }, "out": [] },
+    { "why": "no data at all", "data": null, "out": [] }
+  ]
+}
