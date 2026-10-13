@@ -69,8 +69,9 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
 - Each library card shows its flyer (`src/editor/FlyerThumb.tsx`, 2026-10-06): the same `<Flyer>`, on
   `DEFAULT_CANVAS` at its true size, scaled by a transform and prepared with `prepareFlyer()`. Never a stored
   thumbnail.
-  - Each card asks `GET api/flyers/:id` for its own flyer when it nears the screen, so the list's contract did
-    not change and nothing was added to either backend.
+  - Each card asks `GET api/flyers/:id` for its own flyer when it nears the screen (`useNearFlyer`, called by
+    `LibraryCard.tsx`), so the list's contract did not change and nothing was added to either backend. `FlyerThumb`
+    draws the flyer it is given.
   - The box is the same size waiting, shown or failed. Its width on screen is `--thumb-w` in `editor.css`; the
     flyer's size comes from the registry.
   - It is decoration inside the card's link: `aria-hidden` and `inert`. `tests/render/library.spec.ts` holds
@@ -83,6 +84,56 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
   - It is not a flyer of the list: no card, never filtered, shown with an empty library too. A dedicated page
     (instructions, versions, styles) is his later ask and is not designed. Specs: the last two of
     `tests/render/library.spec.ts`.
+- The library is a list or a grid, shows a flyer large, and has the editor's ways out on every flyer (2026-10-13,
+  the library's views; Artur's asks, and his picks from mock-ups: the magnifier, "Ways out only, rest in a menu",
+  "Two columns, small buttons", the lightbox as drawn). The client alone, on both backends. How a viewer looks at the
+  library, never flyer data.
+  - **One fetch per card.** The card's one answer serves its picture, its lightbox and its ways out, so the caption
+    is in hand at the tap, which a clipboard write needs. Until it is here the card's buttons and its zoom wait
+    greyed; a flyer that cannot load leaves them so, and the card still opens it. Never add the caption to the
+    list: that is a contract change an older release refuses.
+  - **The view** is `src/editor/libraryView.ts`, pure and tested by itself: list for someone who never chose,
+    stored as `library.view`, and a stored value that is neither view is ignored. The switch is a `.seg` beside
+    the filters, two buttons with `aria-pressed`.
+  - The picture's width on screen is `--thumb-w`, set on `.card` (not on the picture: the zoom button is placed
+    by it too): 120 in the list, 96 on a phone, 252 in the grid, 136 in a phone's grid. The grid's columns have the
+    card's own width (278 px, three to a row in the 900 px column with a scrollbar beside it; 154 px, two to a row
+    at 360 px), because the picture is scaled by a number, not by the room it is given.
+  - **The ways out are the editor's own.** `src/editor/pictureActions.ts` holds copy, share, download, "Share
+    now" and "Copy the caption", with their words, for a page that comes in as a parameter (`PictureHost`): the
+    editor's picture is "save, then export", the library's is the export alone, since its flyers are saved (no
+    save, so no cache emptied). `src/editor/oneAction.ts` is a page's one action at a time (`run`, `busy`, the
+    message, `turn`, the focus back to a greyed button). `src/editor/WaysOut.tsx` draws the first button and
+    "Download ▾" in the editor's bar, on a card and in the lightbox. Never copy any of it into a page.
+  - `needsPhoto()` in `exportActions.ts` is the one rule for "a frame with no photo is not made into a picture":
+    the editor's warning, and the library's greyed buttons with `NO_PHOTO` beside them. `savedCanvas()` in
+    `prefs.ts` is the viewer's canvas.
+  - **The canvas**: the ways out and the lightbox make the canvas the viewer last chose in the editor
+    (`editor.canvas`), else `DEFAULT_CANVAS`: the picture the editor's Download gives. The lightbox names it. The
+    cards' own pictures stay `DEFAULT_CANVAS`. The library has no canvas switch.
+  - A card's buttons: the first way out (`exportActions()`: Copy image on a desktop, Share… on a phone), "Copy
+    text" (greyed with no caption), "Download ▾", and "More ▾" with Open, Duplicate and Archive. One action at a
+    time across the cards and the lightbox (`Busy`: whose, and which). Duplicate and Archive run through the same
+    `run`, so a failure is a toast; the red banner is for a list that cannot load.
+  - **The toasts** are the editor's `Toasts`, with no warnings: after the library, so in the window's bottom-right
+    corner, and inside the lightbox while it is open (a modal dialog is over everything else), in its top-left
+    corner. `owner` is the flyer the message is about: a toast's next step is that flyer's. It is noted when the
+    message lands, never when its action starts, and opening a lightbox clears the toast (both found in review).
+  - **The zoom button** (`.card-zoom`) is a real button, a sibling of the card's link inside `.card-head`, laid
+    over the picture's top-right corner: 44 px to hit, drawn as a 30 px disc, always shown. It comes after the link
+    in the page, and waits greyed while an action is in hand (a duplicate that lands leaves the page). The picture is still inert decoration inside the link, and its click still opens the editor.
+  - **The lightbox** (`src/editor/Lightbox.tsx`) is the browser's modal `<dialog>`, opened with `showModal()`: the
+    focus goes in and stays in, the page behind is inert, Escape closes it, and the focus goes back to the zoom
+    button. The dialog fills the window and is its own backdrop; a press on it or on the room around the flyer
+    closes it, and the flyer has a box of its own so a press on it (it is inert) closes nothing. It draws the same
+    `FlyerThumb`, at the width a `ResizeObserver` fits to the room the bar leaves. Its menu opens upwards.
+    Behind it `.library-held` stops the library's scroll. No previous / next.
+  - Browser specs: `library-views.spec.ts` (the views, the zoom button, the lightbox) and
+    `library-actions.spec.ts` (the ways out, on the fake share sheet and the real clipboard); the unit tests are
+    `library-view.test.ts` and `picture-actions.test.ts`. `tests/editor.ts` has `zoomButton(card)`,
+    `lightbox(page)`, `waysMenu(within)`, `pickWay(within, action)`, `moreMenu(card)` and
+    `cardMore(card, entry)`. A spec never imports a constant from a component file: that pulls the flyer's CSS
+    into the test runner (`NO_PHOTO` is in `exportActions.ts` for this).
 - The library's top bar is `<nest-nav tool="flyers">` (`App.tsx`), the bar every Nests tool shares.
   - It is loaded `async` from `https://nestpass.ai/kit/nest-nav.js`. That file lives in the
     `nestpass-tools` repo (`A:\serverpath\laragon\nestpass-tools`), with the list of tools and the
@@ -874,6 +925,31 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
       on under the pencil and, at 60 characters, past the safe margin, with the editor's cut-off warning.
     - Answered since (2026-10-13): the two inks cross again, by the photo's sparks trading theirs.
   - The round is over: there is no next part and no next prompt.
+- Built: **the library's views, a lightbox, and the ways out on every flyer** (2026-10-13, branch
+  `feat/library-views`, cut from `feat/main-flyer-library` at `fcfaf06`; brief
+  `docs/prompts/library-views-lightbox-actions.md`, report `docs/reports/library-views.md`). Three commits, not
+  pushed; `main` has neither this nor the reception flyer.
+  - How it works is in the architecture section above ("The library is a list or a grid…").
+  - Artur approved the plan with every *Mine* point kept, then chose from mock-ups drawn by the real library: the
+    **magnifier**; **"Ways out only, rest in a menu"** (Duplicate and Archive behind More, over my advice to keep
+    them in a row); **"Two columns, small buttons"** for a phone's grid; the lightbox **as drawn**. Not to be
+    reopened.
+  - It is the client alone, on both backends, and the baseline is byte-identical (32 cases, against
+    `nest-ux4c-baseline`).
+  - Three assertions of `library.spec.ts` changed, by his second answer: the card is one link (Open is in More),
+    Tab from it reaches the zoom button, and Archive is pressed through More. The PHP smoke test too.
+  - A fresh-context review found the editor's refactor equivalent and the clipboard still asked inside the tap.
+    What it found is fixed, each test first: among it, a toast's step that could copy another flyer's caption, a
+    toast over the lightbox's close button on a phone, and a menu off a phone's left edge.
+  - The gates on `75bea4c`: 704 unit, 381 contract, 352 in the browser, 3 in the PHP smoke test.
+  - The look ran in Playwright's Chromium on Node, by a script, at 1440, 1280, 390 and 360 px
+    (`backups/library-views/`, outside git, with the mock-ups he chose from). **Not done: the installed Chrome by
+    hand, PHP by eye, a real phone, Safari, Firefox.**
+  - **For Artur to decide** (the report has each): Open is in More and is the card's click; the library's toast
+    lies over the lowest card's buttons at 1280 px and on a phone; a flyer that cannot load greys its buttons
+    with no word of why; the library makes the editor's last canvas and has no switch of its own; Safari on a Mac
+    may not hand the focus back to the zoom button.
+  - Left, his: the release (nothing new on the host), and a phone trial over https, as for Part 3.
 - Waiting, don't start unasked: **the counts of what is left today confuse the interface a little** ("AI credits
   left", in Artur's words, on his phone, 2026-10-07; "Follow ups will fix in future"). Not designed, and not part
   of the editor's UX round.
