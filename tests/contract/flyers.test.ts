@@ -1,5 +1,6 @@
 import { afterAll, describe, expect, it } from 'vitest';
 import { z } from 'zod';
+import { LABEL_SLUGS, NO_LABEL } from '../../src/shared/labels.js';
 import { SAMPLE_FLYERS } from '../../src/shared/samples.js';
 import { FlyerListItemSchema, FlyerPayloadSchema, FlyerSavedSchema } from '../../src/shared/schema.js';
 import { fails, flyerInput, flyers, hostelName, ok, send } from './client.js';
@@ -51,6 +52,36 @@ describe('flyers', () => {
     // A name given twice, or with brackets, filters nothing on either backend.
     expect((await listed(ids, '?hostel=duque-nest&hostel=flamingo-nest')).map((f) => f.id)).toEqual([c, b, a]);
     expect((await listed(ids, '?hostel[]=duque-nest')).map((f) => f.id)).toEqual([c, b, a]);
+  });
+
+  it('lists each flyer’s labels, and filters by label: a slug, "none", and with the other filters', async () => {
+    const [first, second] = LABEL_SLUGS;
+    const d = flyerInput().data;
+    const both = (await mine.create(flyerInput({ hostel: 'duque-nest', data: { ...d, labels: [second, first] } }))).id;
+    const one = (await mine.create(flyerInput({ data: { ...d, labels: [second] } }))).id;
+    const bare = (await mine.create(flyerInput())).id;
+    const ids = [both, one, bare];
+    // As saved: in the list's order, whatever order they were sent in.
+    expect((await listed(ids)).map((f) => [f.id, f.labels])).toEqual([
+      [bare, []],
+      [one, [second]],
+      [both, [first, second]],
+    ]);
+    expect((await listed(ids, `?label=${first}`)).map((f) => f.id)).toEqual([both]);
+    expect((await listed(ids, `?label=${second}`)).map((f) => f.id)).toEqual([one, both]);
+    expect((await listed(ids, `?label=${NO_LABEL}`)).map((f) => f.id)).toEqual([bare]);
+    expect(await listed(ids, '?label=no-such-label')).toEqual([]);
+    expect((await listed(ids, '?label=')).map((f) => f.id)).toEqual([bare, one, both]);
+    expect((await listed(ids, `?hostel=duque-nest&label=${second}`)).map((f) => f.id)).toEqual([both]);
+    expect((await listed(ids, `?hostel=none&label=${second}`)).map((f) => f.id)).toEqual([one]);
+    expect((await listed(ids, `?template=activity&label=${second}`)).map((f) => f.id)).toEqual([one, both]);
+    expect(await listed(ids, `?template=week&label=${second}`)).toEqual([]);
+    // A name given twice filters nothing, as for the other two filters.
+    expect((await listed(ids, `?label=${first}&label=${second}`)).map((f) => f.id)).toEqual([bare, one, both]);
+    // A label taken off: the flyer is among the ones with none again.
+    await ok(send('PUT', `api/flyers/${one}`, flyerInput({ data: { ...d, labels: [] } })), FlyerSavedSchema);
+    expect((await listed(ids, `?label=${NO_LABEL}`)).map((f) => f.id).sort((x, y) => x - y)).toEqual([one, bare]);
+    expect((await listed(ids, `?label=${second}`)).map((f) => f.id)).toEqual([both]);
   });
 
   it('a This week flyer round-trips: created, read, its rows reordered, and listed by template, alone and with a hostel', async () => {

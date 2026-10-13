@@ -21,11 +21,15 @@ interface FlyerRepository
     public function get(int $id): ?array;
 
     /**
-     * Not archived, newest first (updatedAt, then id, both descending), with the hostel's current name.
+     * Not archived, newest first (updatedAt, then id, both descending), with the hostel's current name and the
+     * flyer's labels as stored, read loosely (FlyerLabels::stored): a flyer whose data cannot be read is still
+     * listed, with none.
      * $hostel: a slug, 'none' for chain-wide, null or '' for all. $template: null or '' for all.
-     * @return list<array{id:int, title:string, template:string, hostel:?string, hostelName:?string, updatedAt:string}>
+     * $label: a label's slug, or the filter's word for the flyers on which staff see none (FlyerLabels::matches);
+     * null or '' for all.
+     * @return list<array{id:int, title:string, template:string, hostel:?string, hostelName:?string, updatedAt:string, labels:list<string>}>
      */
-    public function list(?string $hostel, ?string $template): array;
+    public function list(?string $hostel, ?string $template, ?string $label = null): array;
 
     /**
      * createdAt = updatedAt = now. Throws MissingReference for an unknown hostel slug or photo id.

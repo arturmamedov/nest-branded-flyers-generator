@@ -211,6 +211,39 @@ final class JsonRepositoriesTest extends RepositoryContractTestCase
         self::assertSame([], $this->readFile('flyerIndex'));
     }
 
+    public function testAFlyerWhoseFileCannotBeReadIsListedWithNoLabels(): void
+    {
+        // The list read the index alone until it carried each flyer's labels (2026-10-14); a row whose file is gone,
+        // damaged or no flyer at all was listed then, and still is.
+        [$first] = self::labelSlugs();
+        $none = $this->shared->labels()['none'];
+        $create = fn (string $title): int => $this->repos->flyers->create(self::input(['title' => $title, 'data' => self::labelled([$first])]));
+        $file = fn (int $id): string => "$this->dir/flyers/$id.json";
+        $create('good');
+        unlink($file($create('missing')));
+        file_put_contents($file($create('damaged')), '{ damaged');
+        file_put_contents($file($create('a list')), '[]');
+        $noData = $create('no data');
+        $stored = $this->readJson("flyers/$noData.json");
+        $stored->data = null;
+        file_put_contents($file($noData), Json::encode($stored, true));
+        $edited = $create('edited by hand');
+        $stored = $this->readJson("flyers/$edited.json");
+        $stored->data->labels = $first;
+        file_put_contents($file($edited), Json::encode($stored, true));
+
+        $titles = function (?string $label): array {
+            $titles = array_column($this->repos->flyers->list(null, null, $label), 'title');
+            sort($titles);
+            return $titles;
+        };
+        $labels = array_column($this->repos->flyers->list(null, null), 'labels', 'title');
+        ksort($labels);
+        self::assertSame(['a list' => [], 'damaged' => [], 'edited by hand' => [], 'good' => [$first], 'missing' => [], 'no data' => []], $labels);
+        self::assertSame(['good'], $titles($first));
+        self::assertSame(['a list', 'damaged', 'edited by hand', 'missing', 'no data'], $titles($none));
+    }
+
     public function testEverythingSurvivesReopeningTheStore(): void
     {
         $this->addHostels();

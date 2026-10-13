@@ -6,6 +6,7 @@ namespace NestFlyers\Storage\Json;
 
 use Closure;
 use NestFlyers\Domain\Clock;
+use NestFlyers\Domain\FlyerLabels;
 use NestFlyers\Domain\FlyerRepository;
 use NestFlyers\Domain\HostelRepository;
 use NestFlyers\Domain\JsonFiles;
@@ -13,11 +14,14 @@ use NestFlyers\Domain\Lock;
 use NestFlyers\Domain\MissingReference;
 use NestFlyers\Domain\PhotoRepository;
 use stdClass;
+use Throwable;
 
 /**
  * Flyers: one file per flyer (<flyerDir>/<id>.json, $defs.flyer) plus
- * flyers/index.json ($defs.flyerIndex), which the library lists from without
- * opening every flyer. The flyer's file is the truth; the index is written
+ * flyers/index.json ($defs.flyerIndex), which says what the library lists:
+ * which flyers, their names, and what the hostel and template filters ask.
+ * Each listed flyer's own file is opened for one thing, its labels (since
+ * 2026-10-14). The flyer's file is the truth; the index is written
  * after it, so a crash in between leaves the index one save behind (a stale or
  * missing list entry, put right by the flyer's next save), never an entry
  * pointing at a flyer that isn't there.
@@ -31,6 +35,7 @@ final class JsonFlyerRepository implements FlyerRepository
      * @param callable(stdClass): stdClass $normalizeData applied to `data` on every read, as Node's
      *        FlyerDataSchema.parse is: a flyer saved by an older build gains today's defaults and loses dropped keys
      * @param string $flyerDir the folder of the flyer files, relative to the store (Shared::storageFiles()['flyerDir'])
+     * @param FlyerLabels $labels the rule the list's filter by label asks
      */
     public function __construct(
         private readonly JsonFiles $files,
@@ -41,6 +46,7 @@ final class JsonFlyerRepository implements FlyerRepository
         private readonly PhotoRepository $photos,
         callable $normalizeData,
         private readonly string $flyerDir,
+        private readonly FlyerLabels $labels,
     ) {
         $this->normalizeData = Closure::fromCallable($normalizeData);
     }
@@ -63,12 +69,21 @@ final class JsonFlyerRepository implements FlyerRepository
         ];
     }
 
-    public function list(?string $hostel, ?string $template): array
+    public function list(?string $hostel, ?string $template, ?string $label = null): array
     {
-        [$entries, $hostelNames] = $this->lock->shared(fn (): array => [$this->index->read(), $this->hostelNames()]);
+        // The index says which flyers are listed; each one's labels are in its own file, read under the same lock.
+        // The index is not given them: a release from before labels rewrites every row to its six keys at its next
+        // save.
+        [$listed, $hostelNames, $labels] = $this->lock->shared(function () use ($hostel, $template): array {
+            $listed = array_values(array_filter(
+                $this->index->read(),
+                static fn (stdClass $entry): bool => !$entry->archived && self::matches($entry, $hostel, $template),
+            ));
+            return [$listed, $this->hostelNames(), array_map(fn (stdClass $entry): array => $this->labelsOf($entry->id), $listed)];
+        });
         $items = [];
-        foreach ($entries as $entry) {
-            if ($entry->archived || !self::matches($entry, $hostel, $template)) {
+        foreach ($listed as $i => $entry) {
+            if ($label !== null && $label !== '' && !$this->labels->matches($labels[$i], $label)) {
                 continue;
             }
             $items[] = [
@@ -79,6 +94,7 @@ final class JsonFlyerRepository implements FlyerRepository
                 // Joined now, never stored in the index: renaming a hostel shows up in the library at once.
                 'hostelName' => $entry->hostel === null ? null : ($hostelNames[$entry->hostel] ?? null),
                 'updatedAt' => $entry->updatedAt,
+                'labels' => $labels[$i],
             ];
         }
         // Timestamps are fixed-width UTC, so strcmp orders them by time.
@@ -172,6 +188,22 @@ final class JsonFlyerRepository implements FlyerRepository
         }
         $flyer = $this->files->read($this->path($id));
         return $flyer instanceof stdClass && $flyer->archived === false ? $flyer : null;
+    }
+
+    /**
+     * A listed flyer's labels, whatever its file holds: one that is missing, damaged or no flyer at all has none,
+     * so the list answers wherever it answered before it read any file.
+     *
+     * @return list<string>
+     */
+    private function labelsOf(int $id): array
+    {
+        try {
+            $flyer = $this->files->read($this->path($id));
+        } catch (Throwable) {
+            return [];
+        }
+        return $flyer instanceof stdClass ? FlyerLabels::stored($flyer->data ?? null) : [];
     }
 
     private function path(int $id): string

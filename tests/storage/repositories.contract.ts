@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { SEED_FILE } from '../../server/paths.js';
 import { applySeedFile } from '../../server/storage/seed.js';
-import { MissingReferenceError, type Clock, type Repositories } from '../../server/storage/types.js';
+import { MissingReferenceError, type Clock, type FlyerFilter, type Repositories } from '../../server/storage/types.js';
+import { LABEL_SLUGS, NO_LABEL } from '../../src/shared/labels.js';
 import { SAMPLE_FLYERS } from '../../src/shared/samples.js';
 import type { FlyerInput } from '../../src/shared/schema.js';
 import type { StoredAiUsage } from '../../src/shared/storage.js';
@@ -219,9 +220,9 @@ export function describeRepositoryContract(name: string, factory: RepositoryFact
         await repos.flyers.update(a, input({ title: 'a2', hostel: 'duque-nest' }));
         await repos.hostels.upsert(hostel('duque-nest', 'Duque Nest Hostel'));
         expect(await repos.flyers.list({})).toEqual([
-          { id: a, title: 'a2', template: 'activity', hostel: 'duque-nest', hostelName: 'Duque Nest Hostel', updatedAt: '2026-09-18T10:00:02.000Z' },
-          { id: c, title: 'c', template: 'activity', hostel: 'flamingo-nest', hostelName: 'Flamingo Nest', updatedAt: '2026-09-18T10:00:01.000Z' },
-          { id: b, title: 'b', template: 'activity', hostel: null, hostelName: null, updatedAt: '2026-09-18T10:00:00.000Z' },
+          { id: a, title: 'a2', template: 'activity', hostel: 'duque-nest', hostelName: 'Duque Nest Hostel', updatedAt: '2026-09-18T10:00:02.000Z', labels: [] },
+          { id: c, title: 'c', template: 'activity', hostel: 'flamingo-nest', hostelName: 'Flamingo Nest', updatedAt: '2026-09-18T10:00:01.000Z', labels: [] },
+          { id: b, title: 'b', template: 'activity', hostel: null, hostelName: null, updatedAt: '2026-09-18T10:00:00.000Z', labels: [] },
         ]);
       });
 
@@ -248,6 +249,42 @@ export function describeRepositoryContract(name: string, factory: RepositoryFact
         expect(await ids({ hostel: 'none', template: 'activity' })).toEqual([chain]);
         expect(await ids({ hostel: 'duque-nest', template: 'week' })).toEqual([]);
         expect(await ids({ hostel: '', template: '' })).toEqual([duque, chain, week].sort());
+      });
+
+      it('list carries each flyer’s labels as stored, and none for a flyer saved before labels', async () => {
+        const [first, second] = LABEL_SLUGS;
+        const two = await repos.flyers.create(input({ title: 'two', data: { ...data, labels: [first, second] } }));
+        const hidden = await repos.flyers.create(input({ title: 'hidden', data: { ...data, labels: ['off-the-list'] } }));
+        const bare = await repos.flyers.create(input({ title: 'bare' }));
+        // As a release from before labels stored it: with no such key at all.
+        const { labels: _, ...older } = data;
+        const at = '2026-01-01T00:00:00.000Z';
+        await repos.flyers.put({ id: 40, hostel: null, template: 'activity', title: 'older', data: older as typeof data, photoId: null, createdAt: at, updatedAt: at, archived: false });
+        expect(Object.fromEntries((await repos.flyers.list({})).map((f) => [f.id, f.labels]))).toEqual({ [two]: [first, second], [hidden]: ['off-the-list'], [bare]: [], 40: [] });
+      });
+
+      it('list filters by label: a slug, "none" for a flyer on which staff see none, and with the other filters', async () => {
+        const [first, second] = LABEL_SLUGS;
+        const labelled = (labels: string[]) => ({ ...data, labels });
+        const both = await repos.flyers.create(input({ title: 'both', hostel: 'duque-nest', data: labelled([first, second]) }));
+        const one = await repos.flyers.create(input({ title: 'one', data: labelled([second]) }));
+        const bare = await repos.flyers.create(input({ title: 'bare' }));
+        const hidden = await repos.flyers.create(input({ title: 'hidden', data: labelled(['off-the-list']) }));
+        const week = await repos.flyers.create(input({ title: 'week', template: 'week', data: { ...labelled([second]), template: 'week' } }));
+        const ids = async (f: FlyerFilter) => (await repos.flyers.list(f)).map((x) => x.id).sort((x, y) => x - y);
+        expect(await ids({ label: first })).toEqual([both]);
+        expect(await ids({ label: second })).toEqual([both, one, week]);
+        // A label off the list is on no screen, so its flyer is among the ones with none; its own slug still finds it.
+        expect(await ids({ label: NO_LABEL })).toEqual([bare, hidden]);
+        expect(await ids({ label: 'off-the-list' })).toEqual([hidden]);
+        expect(await ids({ label: 'no-such-label' })).toEqual([]);
+        expect(await ids({ label: '' })).toEqual([both, one, bare, hidden, week]);
+        // With the other filters, as the library asks when more than one is set.
+        expect(await ids({ hostel: 'duque-nest', label: second })).toEqual([both]);
+        expect(await ids({ hostel: 'none', label: second })).toEqual([one, week]);
+        expect(await ids({ template: 'week', label: second })).toEqual([week]);
+        expect(await ids({ hostel: 'none', template: 'activity', label: NO_LABEL })).toEqual([bare, hidden]);
+        expect(await ids({ hostel: 'duque-nest', label: NO_LABEL })).toEqual([]);
       });
 
       it('all() and put() round-trip ids, timestamps and archived; new ids continue above them', async () => {

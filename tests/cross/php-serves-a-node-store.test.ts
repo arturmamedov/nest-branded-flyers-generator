@@ -12,6 +12,7 @@ import { createRepositories } from '../../server/composition.js';
 import { FIXTURE_PHOTOS_DIR, SEED_FILE, dataPaths } from '../../server/paths.js';
 import { applySeedFile } from '../../server/storage/seed.js';
 import type { Clock, Repositories } from '../../server/storage/types.js';
+import { LABEL_SLUGS, NO_LABEL } from '../../src/shared/labels.js';
 import { ApiConfigSchema, FlyerSavedSchema, PhotoInfoSchema, type FlyerInput, type PhotoInfo } from '../../src/shared/schema.js';
 import { SAMPLE_FLYERS } from '../../src/shared/samples.js';
 import {
@@ -69,6 +70,8 @@ interface Answers {
   chainWide: Json;
   byTemplate: Json;
   byWeek: Json;
+  byLabel: Json;
+  noLabel: Json;
   /** Every flyer id that was created, the archived one included (both backends must 404 it the same way). */
   payloads: Record<string, Json>;
   /** Photo URL → `<status> <sha256>`: the same bytes must come back from DATA_DIR/uploads (Node) and <app root>/uploads (PHP). */
@@ -165,6 +168,13 @@ describe('PHP serves a store the Node JSON driver wrote', () => {
     expect(phpAnswers.byTemplate).toEqual(nodeAnswers.byTemplate);
     expect(phpAnswers.byWeek).toEqual(nodeAnswers.byWeek);
     expect((nodeAnswers.byWeek.body as unknown[]).length, 'the week samples are listed as week flyers').toBeGreaterThan(0);
+    // The labels are read from each flyer's own file, by each backend's own reader: the same lists, labels included.
+    expect(phpAnswers.byLabel).toEqual(nodeAnswers.byLabel);
+    expect(phpAnswers.noLabel).toEqual(nodeAnswers.noLabel);
+    const labelled = nodeAnswers.byLabel.body as { labels: string[] }[];
+    expect(labelled.length, 'some samples carry the first label').toBeGreaterThan(0);
+    expect(labelled.every((f) => f.labels.includes(LABEL_SLUGS[0]))).toBe(true);
+    expect((nodeAnswers.noLabel.body as { labels: string[] }[]).map((f) => f.labels), 'and some carry none').toContainEqual([]);
     // The fixture is worth having: every flyer shares one updatedAt, so both backends had to tie-break on id.
     const list = nodeAnswers.flyers.body as { id: number; updatedAt: string }[];
     expect(list.length).toBeGreaterThan(1);
@@ -268,13 +278,14 @@ async function withNodeApp<T>(run: (baseUrl: string, repos: Repositories) => Pro
 async function seedSamples(baseUrl: string): Promise<{ ids: number[]; photos: PhotoInfo[] }> {
   const photos = new Map<string, PhotoInfo>();
   const ids: number[] = [];
-  for (const sample of SAMPLE_FLYERS) {
+  for (const [i, sample] of SAMPLE_FLYERS.entries()) {
     if (sample.photo && !photos.has(sample.photo)) photos.set(sample.photo, await uploadPhoto(baseUrl, sample.photo));
     const saved = await createFlyer(baseUrl, {
       title: sample.title,
       hostel: sample.hostel,
       template: sample.data.template,
-      data: structuredClone(sample.data),
+      // None, one or two labels, sample by sample: the list's filter by label has something to tell apart.
+      data: { ...structuredClone(sample.data), labels: LABEL_SLUGS.slice(0, i % 3) },
       photoId: sample.photo ? photos.get(sample.photo)!.id : null,
     });
     ids.push(saved.id);
@@ -331,6 +342,8 @@ async function readEverything(baseUrl: string, flyerIds: number[], photoUrls: st
     chainWide: await json(baseUrl, 'api/flyers?hostel=none'),
     byTemplate: await json(baseUrl, 'api/flyers?template=activity'),
     byWeek: await json(baseUrl, 'api/flyers?template=week'),
+    byLabel: await json(baseUrl, `api/flyers?label=${LABEL_SLUGS[0]}`),
+    noLabel: await json(baseUrl, `api/flyers?label=${NO_LABEL}`),
     payloads: {},
     photos: {},
   };

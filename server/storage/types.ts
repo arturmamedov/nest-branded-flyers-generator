@@ -48,12 +48,17 @@ export interface FlyerFilter {
   /** A hostel slug, or 'none' for chain-wide flyers. Empty means all. */
   hostel?: string;
   template?: string;
+  /** A label's slug, or NO_LABEL for the flyers on which staff see none (matchesLabel in src/shared/labels.ts).
+      Empty means all. */
+  label?: string;
 }
 
 export interface FlyerRepository {
   /** null when missing or archived. */
   get(id: number): Promise<FlyerRecord | null>;
-  /** Not archived, newest first: updatedAt then id, both descending. Hostel names are the current ones. */
+  /** Not archived, newest first: updatedAt then id, both descending. Hostel names are the current ones. Each item
+      carries its flyer's labels as stored, read loosely (storedLabels): a flyer whose data cannot be read is still
+      listed, with none, as it was before the list read anything of a flyer's data. */
   list(filter: FlyerFilter): Promise<FlyerListItem[]>;
   /** Stores the input as given (already normalised); createdAt = updatedAt = now. */
   create(input: FlyerInput): Promise<number>;

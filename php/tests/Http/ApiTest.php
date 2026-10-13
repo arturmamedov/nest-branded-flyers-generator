@@ -67,7 +67,7 @@ final class ApiTest extends TestCase
     /** @var HostelRepository&object{hostels: list<array<string, mixed>>} */
     private HostelRepository $hostels;
     private PhotoRepository $photos;
-    /** @var FlyerRepository&object{records: array<int, array<string, mixed>>, inputs: list<array<string, mixed>>, lists: list<array{?string, ?string}>} */
+    /** @var FlyerRepository&object{records: array<int, array<string, mixed>>, inputs: list<array<string, mixed>>, lists: list<array{?string, ?string, ?string}>} */
     private FlyerRepository $flyers;
     private ?Closure $processor = null;
     /** @var (Closure(): ?AiService)|null the AI the routes get; null: off, as with no `ai` block */
@@ -114,7 +114,13 @@ final class ApiTest extends TestCase
         self::assertSame('[]', $this->send('GET', 'api/flyers')->body);
         $this->send('GET', 'api/flyers', null, ['hostel' => 'none', 'template' => 'week']);
         $this->send('GET', 'api/flyers', null, ['hostel' => '', 'template' => '']);
-        self::assertSame([[null, null], ['none', 'week'], ['', '']], $this->flyers->lists);
+        $this->send('GET', 'api/flyers', null, ['label' => 'masca']);
+        $this->send('GET', 'api/flyers', null, ['hostel' => 'none', 'template' => 'week', 'label' => 'none']);
+        $this->send('GET', 'api/flyers', null, ['label' => '']);
+        self::assertSame(
+            [[null, null, null], ['none', 'week', null], ['', '', null], [null, null, 'masca'], ['none', 'week', 'none'], [null, null, '']],
+            $this->flyers->lists,
+        );
     }
 
     public function testCreateAnswers201WithTheSavedFlyer(): void
@@ -598,7 +604,7 @@ final class ApiTest extends TestCase
             private array $archived = [];
             /** @var list<array<string, mixed>> */
             public array $inputs = [];
-            /** @var list<array{?string, ?string}> */
+            /** @var list<array{?string, ?string, ?string}> */
             public array $lists = [];
 
             public function __construct(private readonly HostelRepository $hostels, private readonly PhotoRepository $photos)
@@ -610,9 +616,9 @@ final class ApiTest extends TestCase
                 return isset($this->records[$id]) && !isset($this->archived[$id]) ? $this->records[$id] : null;
             }
 
-            public function list(?string $hostel, ?string $template): array
+            public function list(?string $hostel, ?string $template, ?string $label = null): array
             {
-                $this->lists[] = [$hostel, $template];
+                $this->lists[] = [$hostel, $template, $label];
                 return [];
             }
 

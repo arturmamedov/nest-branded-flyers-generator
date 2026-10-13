@@ -97,7 +97,7 @@ errors. The catalogue is `src/shared/errors.ts`, which PHP reads from `schema/sh
 | `GET api/config` | 200 `ApiConfig` | — |
 | `GET api/hostels` | 200 `Hostel[]` | — |
 | `GET api/doodles` | 200 `Doodle[]` | — |
-| `GET api/flyers?hostel=&template=` | 200 `FlyerListItem[]` | — |
+| `GET api/flyers?hostel=&template=&label=` | 200 `FlyerListItem[]` | — |
 | `POST api/flyers` | **201** `{id, flyer}` | `malformed`, `forbidden`, `invalid`, `unknown_hostel`, `unknown_photo` |
 | `GET api/flyers/:id` | 200 `{flyer, hostel, photo}` | `no_such_flyer` |
 | `PUT api/flyers/:id` | 200 `{id, flyer}` | `malformed`, `forbidden`, `no_such_flyer` (bad id, checked before the body is validated), `invalid`, `unknown_hostel`, `unknown_photo`, `no_such_flyer` (missing or archived) |
@@ -155,12 +155,18 @@ path, is 404 `no_such_endpoint`.
 ### Flyers
 
 - **The list** holds non-archived flyers, newest first: `updatedAt` descending, then `id` descending. Items are
-  `{id, title, template, hostel, hostelName, updatedAt}`. `hostelName` is the hostel's current name, or null for a
-  chain-wide flyer.
+  `{id, title, template, hostel, hostelName, updatedAt, labels}`. `hostelName` is the hostel's current name, or null
+  for a chain-wide flyer.
+  - `labels` is the flyer's labels as stored (`data.labels`), the one thing of a flyer's data the list carries. It
+    is read loosely: a flyer saved before labels has `[]`, and so has one whose data cannot be read, which is still
+    listed.
   - `hostel=<slug>` filters to that hostel. An unknown slug gives `[]`.
   - `hostel=none` gives chain-wide flyers only.
   - `template=<t>` filters by template.
-  - An empty parameter means no filter.
+  - `label=<slug>` filters to the flyers that carry that label. A slug no flyer carries gives `[]`.
+  - `label=none` gives the flyers that carry no label of the list (`src/shared/labels.ts`): the ones on which staff
+    see none. No label's slug may be `none`.
+  - An empty parameter means no filter, and so does one given twice.
 - **A flyer record** is `{id, hostel (slug or null), template, title, data, photoId, createdAt, updatedAt}`.
   `GET api/flyers/:id` adds the resolved `hostel` (full object or null) and `photo` (`{id, url, width, height}` or null).
 - **Create** sets `createdAt = updatedAt`. **Update** keeps `createdAt` and bumps `updatedAt`. It replaces every other
@@ -179,12 +185,15 @@ live in `src/shared/schema.ts`. How a backend applies them:
 2. **Validate.** String lengths count code points: 21 emoji fit a 40-character line. Numbers must be finite, so a JSON
    `1e400` is invalid at its path.
 3. **Normalise.**
-   - Missing defaulted keys are filled (`data.v`, `photoCrop`, `showPill`, `week`, `overrides`, `share`, override
-     `dx`/`dy`/`scale`, doodle `rot`). `data.share` is the share text: saved with the flyer and never printed
-     (`src/shared/share.ts`).
+   - Missing defaulted keys are filled (`data.v`, `photoCrop`, `showPill`, `week`, `overrides`, `share`, `labels`,
+     override `dx`/`dy`/`scale`, doodle `rot`). `data.share` is the share text: saved with the flyer and never printed
+     (`src/shared/share.ts`). `data.labels` is the flyer's labels, never printed either (`src/shared/labels.ts`): at
+     most 8, each a slug (lower-case words and numbers joined by single hyphens, at most 40 characters). A label is
+     checked by that shape, never against the list: one that is off the list is saved, and is on no screen.
    - Unknown keys are dropped at every level, except inside `data.overrides`, which is a record keyed by block.
-   - Then `src/shared/normalize.ts` applies: an empty `hostel` means chain-wide (null), and the `template` column wins
-     over `data.template`.
+   - Then `src/shared/normalize.ts` applies: an empty `hostel` means chain-wide (null), the `template` column wins
+     over `data.template`, and `data.labels` is saved in the list's order, once each, with any label off the list
+     after the listed ones (`tests/fixtures/flyer-labels.json` holds both backends to it).
 4. **Check references.** A `hostel` slug that doesn't exist gives `unknown_hostel`. A `photoId` that doesn't exist
    gives `unknown_photo`. The hostel is checked before the photo.
 

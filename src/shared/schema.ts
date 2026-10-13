@@ -308,6 +308,9 @@ export const FlyerListItemSchema = z.strictObject({
   hostel: z.string().nullable(),
   hostelName: z.string().nullable(),
   updatedAt: TimestampSchema,
+  /* The flyer's labels as stored (labels.ts): the one thing of a flyer's data the list carries, so a card shows them
+     with its name and the library can ask for one label's flyers. A release from before them sends none. */
+  labels: z.array(z.string()),
 });
 export type FlyerListItem = z.infer<typeof FlyerListItemSchema>;
 

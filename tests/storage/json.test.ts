@@ -10,6 +10,7 @@ import { createJsonRepositories } from '../../server/storage/json/index.js';
 import { StoreLock } from '../../server/storage/json/lock.js';
 import type { Repositories } from '../../server/storage/types.js';
 import { API_ERRORS } from '../../src/shared/errors.js';
+import { LABEL_SLUGS, NO_LABEL } from '../../src/shared/labels.js';
 import { SAMPLE_FLYERS } from '../../src/shared/samples.js';
 import type { FlyerInput } from '../../src/shared/schema.js';
 import {
@@ -299,6 +300,35 @@ describe('the JSON store on disk', () => {
     rmSync(join(dir, STORAGE_FILES.flyerDir, `${id}.json`));
     expect(await repos.flyers.update(id, input())).toBe(false);
     expect(json(dir, STORAGE_FILES.flyerIndex)).toEqual([]);
+  });
+
+  it('lists a flyer whose file cannot be read, with no labels: the list never fails where it did not before labels', async () => {
+    // The list read the index alone until it carried each flyer's labels (2026-10-14); a row whose file is gone,
+    // damaged or no flyer at all was listed then, and still is.
+    const { dir, repos } = fresh();
+    const [first] = LABEL_SLUGS;
+    const labelled = { ...data, labels: [first] };
+    const file = (id: number) => join(dir, STORAGE_FILES.flyerDir, `${id}.json`);
+    await repos.flyers.create(input({ title: 'good', data: labelled }));
+    rmSync(file(await repos.flyers.create(input({ title: 'missing', data: labelled }))));
+    writeFileSync(file(await repos.flyers.create(input({ title: 'damaged', data: labelled }))), '{ damaged', 'utf8');
+    writeFileSync(file(await repos.flyers.create(input({ title: 'a list', data: labelled }))), '[]', 'utf8');
+    const noData = await repos.flyers.create(input({ title: 'no data', data: labelled }));
+    put(dir, `${STORAGE_FILES.flyerDir}/${noData}.json`, { ...(json(dir, `${STORAGE_FILES.flyerDir}/${noData}.json`) as object), data: null });
+    const edited = await repos.flyers.create(input({ title: 'edited by hand', data: labelled }));
+    put(dir, `${STORAGE_FILES.flyerDir}/${edited}.json`, { ...(json(dir, `${STORAGE_FILES.flyerDir}/${edited}.json`) as object), data: { ...labelled, labels: first } });
+
+    const titles = async (label?: string) => (await repos.flyers.list({ label })).map((f) => f.title).sort();
+    expect(Object.fromEntries((await repos.flyers.list({})).map((f) => [f.title, f.labels]))).toEqual({
+      good: [first],
+      missing: [],
+      damaged: [],
+      'a list': [],
+      'no data': [],
+      'edited by hand': [],
+    });
+    expect(await titles(first)).toEqual(['good']);
+    expect(await titles(NO_LABEL)).toEqual(['a list', 'damaged', 'edited by hand', 'missing', 'no data']);
   });
 
   it('lists flyers the index lost, because the flyer files are the truth', async () => {

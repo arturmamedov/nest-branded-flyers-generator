@@ -1,4 +1,4 @@
-import type { z } from 'zod';
+import { z } from 'zod';
 import { ErrorEnvelopeSchema } from '../src/shared/schema.js';
 import { WRITE_HEADERS } from '../src/shared/writeGuard.js';
 import { basicAuthHeader, type RemoteSite } from './env.js';
@@ -22,6 +22,12 @@ export class SiteError extends Error {
 }
 
 export type SiteCall = <S extends z.ZodType>(method: string, path: string, schema: S, body?: unknown) => Promise<z.infer<S>>;
+
+/** A flyer of a site's list, as far as a script reads it. Loosely, where the shared FlyerListItemSchema is strict:
+    the site may run another release than this checkout, whose list carries more fields or fewer (a release from
+    before labels sends none). */
+export const SiteFlyerSchema = z.object({ id: z.number().int().positive(), title: z.string(), hostel: z.string().nullable(), updatedAt: z.string() });
+export type SiteFlyer = z.infer<typeof SiteFlyerSchema>;
 
 /** What failed a schema (an answer, or a file a script was given), each bad field by its dotted path, as the API names them. */
 export const issues = (e: z.ZodError): string => e.issues.map((i) => `${i.path.join('.') || '_'}: ${i.message}`).join('; ');

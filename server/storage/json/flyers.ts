@@ -1,3 +1,4 @@
+import { matchesLabel, storedLabels } from '../../../src/shared/labels.js';
 import { FlyerDataSchema, type FlyerInput, type FlyerListItem, type FlyerRecord, type Template } from '../../../src/shared/schema.js';
 import type { FlyerIndexEntry, StoredFlyer } from '../../../src/shared/storage.js';
 import { MissingReferenceError, type Clock, type FlyerFilter, type FlyerRepository, type HostelRepository, type PhotoRepository } from '../types.js';
@@ -8,8 +9,10 @@ import type { JsonStore } from './store.js';
 
 /**
  * Flyers: one file per flyer (<flyerDir>/<id>.json, $defs.flyer) plus
- * flyers/index.json ($defs.flyerIndex), which the library lists from without
- * opening every flyer. The flyer's file is the truth; the index is written
+ * flyers/index.json ($defs.flyerIndex), which says what the library lists:
+ * which flyers, their names, and what the hostel and template filters ask.
+ * Each listed flyer's own file is opened for one thing, its labels (since
+ * 2026-10-14). The flyer's file is the truth; the index is written
  * after it, so a crash in between leaves the index one save behind (a stale or
  * missing list entry, put right by the flyer's next save), never an entry
  * pointing at a flyer that isn't there.
@@ -48,10 +51,14 @@ export class JsonFlyerRepository implements FlyerRepository {
   }
 
   async list(filter: FlyerFilter): Promise<FlyerListItem[]> {
-    const { entries, names } = await this.store.run(async () => ({ entries: await this.index.read(), names: await this.hostelNames() }));
-    return entries
-      .filter((entry) => !entry.archived && matches(entry, filter))
-      .map((entry) => ({
+    // The index says which flyers are listed; each one's labels are in its own file, read under the same lock. The
+    // index is not given them: a release from before labels rewrites every row to its six keys at its next save.
+    const { listed, names, labels } = await this.store.run(async () => {
+      const listed = (await this.index.read()).filter((entry) => !entry.archived && matches(entry, filter));
+      return { listed, names: await this.hostelNames(), labels: await Promise.all(listed.map((entry) => this.labelsOf(entry.id))) };
+    });
+    return listed
+      .map((entry, i) => ({
         id: entry.id,
         title: entry.title,
         template: entry.template,
@@ -59,7 +66,9 @@ export class JsonFlyerRepository implements FlyerRepository {
         // Joined now, never stored in the index: renaming a hostel shows up in the library at once.
         hostelName: entry.hostel === null ? null : (names.get(entry.hostel) ?? null),
         updatedAt: entry.updatedAt,
+        labels: labels[i],
       }))
+      .filter((item) => !filter.label || matchesLabel(item.labels, filter.label))
       // Timestamps are fixed-width UTC, so text order is time order.
       .sort((a, b) => byText(b.updatedAt, a.updatedAt) || b.id - a.id);
   }
@@ -142,6 +151,16 @@ export class JsonFlyerRepository implements FlyerRepository {
     if (raw === null) return null;
     if (typeof raw !== 'object' || Array.isArray(raw)) throw new Error(`${this.path(id)} is damaged: expected a flyer object.`);
     return raw as FlyerFile;
+  }
+
+  /** A listed flyer's labels, whatever its file holds: one that is missing, damaged or no flyer at all has none, so
+      the list answers wherever it answered before it read any file. */
+  private async labelsOf(id: number): Promise<string[]> {
+    try {
+      return storedLabels((await this.read(id))?.data);
+    } catch {
+      return [];
+    }
   }
 
   private path(id: number): string {

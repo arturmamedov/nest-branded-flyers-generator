@@ -140,7 +140,8 @@ export function createApp(deps: AppDeps) {
   api.get('/flyers', async (req, res) => {
     const hostel = typeof req.query.hostel === 'string' ? req.query.hostel : undefined;
     const template = typeof req.query.template === 'string' ? req.query.template : undefined;
-    res.json(await repos.flyers.list({ hostel, template }));
+    const label = typeof req.query.label === 'string' ? req.query.label : undefined;
+    res.json(await repos.flyers.list({ hostel, template, label }));
   });
 
   const parseInput = async (body: unknown): Promise<FlyerInput> => {

@@ -8,6 +8,7 @@ use NestFlyers\Domain\Clock;
 use NestFlyers\Domain\MissingReference;
 use NestFlyers\Domain\Repositories;
 use NestFlyers\Json;
+use NestFlyers\Shared;
 use NestFlyers\Tests\Support\FakeClock;
 use NestFlyers\Tests\Support\Paths;
 use PHPUnit\Framework\TestCase;
@@ -252,9 +253,9 @@ abstract class RepositoryContractTestCase extends TestCase
         $this->repos->hostels->upsert(self::hostel('duque-nest', 'Duque Nest Hostel'));
 
         self::assertSame([
-            ['id' => $a, 'title' => 'a2', 'template' => 'activity', 'hostel' => 'duque-nest', 'hostelName' => 'Duque Nest Hostel', 'updatedAt' => '2026-09-18T10:00:02.000Z'],
-            ['id' => $c, 'title' => 'c', 'template' => 'activity', 'hostel' => 'flamingo-nest', 'hostelName' => 'Flamingo Nest', 'updatedAt' => '2026-09-18T10:00:01.000Z'],
-            ['id' => $b, 'title' => 'b', 'template' => 'activity', 'hostel' => null, 'hostelName' => null, 'updatedAt' => '2026-09-18T10:00:00.000Z'],
+            ['id' => $a, 'title' => 'a2', 'template' => 'activity', 'hostel' => 'duque-nest', 'hostelName' => 'Duque Nest Hostel', 'updatedAt' => '2026-09-18T10:00:02.000Z', 'labels' => []],
+            ['id' => $c, 'title' => 'c', 'template' => 'activity', 'hostel' => 'flamingo-nest', 'hostelName' => 'Flamingo Nest', 'updatedAt' => '2026-09-18T10:00:01.000Z', 'labels' => []],
+            ['id' => $b, 'title' => 'b', 'template' => 'activity', 'hostel' => null, 'hostelName' => null, 'updatedAt' => '2026-09-18T10:00:00.000Z', 'labels' => []],
         ], $this->repos->flyers->list(null, null));
     }
 
@@ -291,6 +292,58 @@ abstract class RepositoryContractTestCase extends TestCase
         self::assertSame([$duque, $chain, $weekly], $ids('', ''));
         self::assertSame([$duque, $chain, $weekly], $ids(null, null));
         self::assertSame([$chain], $ids('none', 'activity'));
+    }
+
+    public function testFlyerListCarriesEachFlyersLabelsAsStored(): void
+    {
+        [$first, $second] = self::labelSlugs();
+        $two = $this->repos->flyers->create(self::input(['title' => 'two', 'data' => self::labelled([$first, $second])]));
+        $hidden = $this->repos->flyers->create(self::input(['title' => 'hidden', 'data' => self::labelled(['off-the-list'])]));
+        $bare = $this->repos->flyers->create(self::input(['title' => 'bare']));
+        // As a release from before labels stored it: with no such key at all.
+        $older = self::sampleData();
+        unset($older->labels);
+        $old = $this->repos->flyers->create(self::input(['title' => 'older', 'data' => $older]));
+
+        $labels = array_column($this->repos->flyers->list(null, null), 'labels', 'id');
+        ksort($labels);
+        self::assertSame([$two => [$first, $second], $hidden => ['off-the-list'], $bare => [], $old => []], $labels);
+        // The same keys in the same order as before, and the labels last.
+        self::assertSame(['id', 'title', 'template', 'hostel', 'hostelName', 'updatedAt', 'labels'], array_keys($this->repos->flyers->list(null, null)[0]));
+    }
+
+    public function testFlyerListFiltersByLabelASlugNoneAndWithTheOtherFilters(): void
+    {
+        $this->addHostels();
+        [$first, $second] = self::labelSlugs();
+        $none = Shared::fromFile(Paths::schema('shared.json'))->labels()['none'];
+        $week = self::labelled([$second]);
+        $week->template = 'week';
+        $both = $this->repos->flyers->create(self::input(['title' => 'both', 'hostel' => 'duque-nest', 'data' => self::labelled([$first, $second])]));
+        $one = $this->repos->flyers->create(self::input(['title' => 'one', 'data' => self::labelled([$second])]));
+        $bare = $this->repos->flyers->create(self::input(['title' => 'bare']));
+        $hidden = $this->repos->flyers->create(self::input(['title' => 'hidden', 'data' => self::labelled(['off-the-list'])]));
+        $weekly = $this->repos->flyers->create(self::input(['title' => 'week', 'template' => 'week', 'data' => $week]));
+        $ids = function (?string $hostel, ?string $template, ?string $label): array {
+            $ids = array_column($this->repos->flyers->list($hostel, $template, $label), 'id');
+            sort($ids);
+            return $ids;
+        };
+
+        self::assertSame([$both], $ids(null, null, $first));
+        self::assertSame([$both, $one, $weekly], $ids(null, null, $second));
+        // A label off the list is on no screen, so its flyer is among the ones with none; its own slug still finds it.
+        self::assertSame([$bare, $hidden], $ids(null, null, $none));
+        self::assertSame([$hidden], $ids(null, null, 'off-the-list'));
+        self::assertSame([], $ids(null, null, 'no-such-label'));
+        self::assertSame([$both, $one, $bare, $hidden, $weekly], $ids(null, null, ''));
+        self::assertSame([$both, $one, $bare, $hidden, $weekly], $ids(null, null, null));
+        // With the other filters, as the library asks when more than one is set.
+        self::assertSame([$both], $ids('duque-nest', null, $second));
+        self::assertSame([$one, $weekly], $ids('none', null, $second));
+        self::assertSame([$weekly], $ids(null, 'week', $second));
+        self::assertSame([$bare, $hidden], $ids('none', 'activity', $none));
+        self::assertSame([], $ids('duque-nest', null, $none));
     }
 
     // ---- the AI ledger ----
@@ -376,6 +429,20 @@ abstract class RepositoryContractTestCase extends TestCase
     protected static function input(array $over = []): array
     {
         return $over + ['title' => 'A flyer', 'hostel' => null, 'template' => 'activity', 'data' => self::sampleData(), 'photoId' => null];
+    }
+
+    /** The real list's slugs, in its order (schema/shared.json). */
+    protected static function labelSlugs(): array
+    {
+        return array_column(Shared::fromFile(Paths::schema('shared.json'))->labels()['list'], 'slug');
+    }
+
+    /** The first sample's data with these labels. @param list<string> $labels */
+    protected static function labelled(array $labels): stdClass
+    {
+        $data = self::sampleData();
+        $data->labels = $labels;
+        return $data;
     }
 
     protected function addHostels(): void

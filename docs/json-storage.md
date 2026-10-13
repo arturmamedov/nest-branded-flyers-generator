@@ -60,6 +60,21 @@ moves between machines. The API hands the same string out as the photo's `url`.
 - **Order of writes.** A flyer's own file is written before `flyers/index.json`, so a crash in between can only leave
   the index one save behind. The next `update()` or `archive()` of that flyer repairs the row.
 
+## What the list reads
+
+The library's list comes from `flyers/index.json`: which flyers, their names, and what the hostel and template
+filters ask. Since 2026-10-14 it also opens each listed flyer's own file, for one thing: its labels (`data.labels`),
+which every list item carries and the filter by label asks.
+
+- The index was not given the labels. A release from before them rewrites every index row to its six keys at its
+  next save, so the labels would be lost from the whole index by one save there, and the store would need its first
+  migration to put them back.
+- The files are read under the lock the index is read under, loosely: a file that is missing, damaged or no flyer
+  at all gives no labels, and its flyer is still listed.
+- Measured on 2026-10-14 on the development PC, the median of 25 requests on the PHP backend: 16 flyers (the live
+  library that day) about 12 ms over a request that reads one small file, 160 flyers about 30 ms, 1,600 flyers about
+  150 ms. A shared host's disk is slower, and was not measured.
+
 ## meta.json
 
 ```json

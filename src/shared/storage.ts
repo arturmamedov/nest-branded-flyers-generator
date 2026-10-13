@@ -64,7 +64,9 @@ export type StoredPhoto = z.infer<typeof StoredPhotoSchema>;
 export const StoredFlyerSchema = FlyerRecordSchema.extend({ archived: z.boolean() });
 export type StoredFlyer = z.infer<typeof StoredFlyerSchema>;
 
-/** One row of `flyers/index.json`: what the library lists without opening every flyer. No hostel name: it is joined at read time. */
+/** One row of `flyers/index.json`: what the library lists, and what its hostel and template filters ask. No hostel
+    name: it is joined at read time. No labels either: they are read from each listed flyer's own file, because a
+    release from before them rewrites every row to these six keys at its next save. */
 export const FlyerIndexEntrySchema = z.strictObject({
   id: Id,
   title: z.string(),

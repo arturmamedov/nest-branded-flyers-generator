@@ -4,9 +4,9 @@ import { parseArgs } from 'node:util';
 import { z } from 'zod';
 import { flyerFromBrief } from '../../src/shared/brief.js';
 import { lintFlyer } from '../../src/shared/copyRules.js';
-import { AiExampleSchema, FlyerInputSchema, FlyerListItemSchema, FlyerSavedSchema, HostelSchema, type AiExample } from '../../src/shared/schema.js';
+import { AiExampleSchema, FlyerInputSchema, FlyerSavedSchema, HostelSchema, type AiExample } from '../../src/shared/schema.js';
 import { flyersTarget, type RemoteSite } from '../env.js';
-import { issues, siteCaller } from '../site.js';
+import { SiteFlyerSchema, issues, siteCaller } from '../site.js';
 
 /* npm run flyers:post -- <example files or folders…> [--to <app root>] [--dry-run]
 
@@ -54,7 +54,7 @@ async function main() {
   const call = siteCaller(target);
 
   const hostels = await call('GET', 'api/hostels', z.array(HostelSchema));
-  const onSite = await call('GET', 'api/flyers', z.array(FlyerListItemSchema));
+  const onSite = await call('GET', 'api/flyers', z.array(SiteFlyerSchema));
   // A release older than the share text drops it without a word (unknown keys are stripped), so ask a saved flyer
   // first: every read fills today's defaults, so a site that knows the field returns it on any flyer.
   const keepsShare = onSite.length === 0 ? null : 'share' in (await call('GET', `api/flyers/${onSite[0].id}`, RawPayloadSchema)).flyer.data;
@@ -91,7 +91,7 @@ async function main() {
         continue;
       }
       const saved = await call('POST', 'api/flyers', FlyerSavedSchema, input);
-      onSite.push({ id: saved.id, title: saved.flyer.title, template: saved.flyer.template, hostel: saved.flyer.hostel, hostelName: hostel?.name ?? null, updatedAt: saved.flyer.updatedAt });
+      onSite.push({ id: saved.id, title: saved.flyer.title, hostel: saved.flyer.hostel, updatedAt: saved.flyer.updatedAt });
       console.log(`✓ ${label}: saved “${saved.flyer.title}” as #${saved.id} — ${target.baseUrl}#/flyers/${saved.id}`);
       if (remote) {
         const posted = [...(example.posted ?? []), { site: target.baseUrl, id: saved.id, at: saved.flyer.createdAt }];

@@ -1,3 +1,4 @@
+import { matchesLabel, storedLabels } from '../../../src/shared/labels.js';
 import { FlyerDataSchema, type FlyerInput, type FlyerListItem, type FlyerRecord, type Template } from '../../../src/shared/schema.js';
 import type { StoredFlyer } from '../../../src/shared/storage.js';
 import type { DB } from '../../db/open.js';
@@ -74,21 +75,28 @@ export class SqliteFlyerRepository implements FlyerRepository {
       where.push('f.template = ?');
       params.push(filter.template);
     }
+    // The labels alone are read of a flyer's data, and only where they are a list in data that parses: a row edited
+    // by hand never fails the whole list, which read no data at all before labels.
     const rows = this.db
       .prepare(
-        `SELECT f.id, f.title, f.template, f.updated_at, h.slug AS hostel_slug, h.name AS hostel_name
+        `SELECT f.id, f.title, f.template, f.updated_at, h.slug AS hostel_slug, h.name AS hostel_name,
+                CASE WHEN json_valid(f.data) AND json_type(f.data, '$.labels') = 'array' THEN json_extract(f.data, '$.labels') END AS labels
          FROM flyer f LEFT JOIN hostel h ON h.id = f.hostel_id
          WHERE ${where.join(' AND ')} ORDER BY f.updated_at DESC, f.id DESC`,
       )
-      .all(...params) as { id: number; title: string; template: Template; updated_at: string; hostel_slug: string | null; hostel_name: string | null }[];
-    return rows.map((r) => ({
-      id: r.id,
-      title: r.title,
-      template: r.template,
-      hostel: r.hostel_slug,
-      hostelName: r.hostel_name,
-      updatedAt: r.updated_at,
-    }));
+      .all(...params) as { id: number; title: string; template: Template; updated_at: string; hostel_slug: string | null; hostel_name: string | null; labels: string | null }[];
+    return rows
+      .map((r) => ({
+        id: r.id,
+        title: r.title,
+        template: r.template,
+        hostel: r.hostel_slug,
+        hostelName: r.hostel_name,
+        updatedAt: r.updated_at,
+        labels: storedLabels({ labels: r.labels === null ? null : (JSON.parse(r.labels) as unknown) }),
+      }))
+      // One rule for every driver and for PHP (matchesLabel), so it is asked here and not in SQL.
+      .filter((item) => !filter.label || matchesLabel(item.labels, filter.label));
   }
 
   async create(input: FlyerInput) {

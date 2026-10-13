@@ -103,7 +103,7 @@ final class Api
     {
         // One value per name, or none: Request::parseQuery drops a repeated name,
         // and a bracketed one ("hostel[]") never matches, exactly as Express leaves them.
-        return Response::json($this->flyers->list($request->query['hostel'] ?? null, $request->query['template'] ?? null));
+        return Response::json($this->flyers->list($request->query['hostel'] ?? null, $request->query['template'] ?? null, $request->query['label'] ?? null));
     }
 
     private function createFlyer(Request $request, array $params, mixed $body): Response

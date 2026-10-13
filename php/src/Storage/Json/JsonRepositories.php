@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NestFlyers\Storage\Json;
 
 use NestFlyers\Domain\Clock;
+use NestFlyers\Domain\FlyerLabels;
 use NestFlyers\Domain\Repositories;
 use NestFlyers\Http\ErrorCatalog;
 use NestFlyers\Shared;
@@ -59,6 +60,7 @@ final class JsonRepositories
                 $photos,
                 $normalizeData ?? static fn (stdClass $data): stdClass => $data,
                 $names['flyerDir'],
+                FlyerLabels::fromShared($shared),
             ),
             aiUsage: new JsonAiUsageRepository($files, $lock, $names['aiUsageDir']),
             seedState: $store,
