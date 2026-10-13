@@ -1,6 +1,9 @@
 /* What the editor's toolbar offers for the flyer as a picture (the editor's UX round, Part 3). No React and no DOM
    here, so the rule is tested by itself (tests/unit/export-actions.test.ts). */
 
+import { bodyOf, photoFrame, type CanvasId } from '../shared/layout';
+import type { FlyerData } from '../shared/schema';
+
 /** One way to take the flyer out of the editor as a picture of the canvas on screen. */
 export type ExportAction = 'copy' | 'share' | 'png' | 'jpg';
 
@@ -45,3 +48,8 @@ export function exportActions(can: Can, touch: boolean): Offer {
   const [first = null, ...rest] = (touch ? (['share', 'copy'] as const) : (['copy', 'share'] as const)).filter((action) => can[action]);
   return { first, menu: ['png', 'jpg', ...rest] };
 }
+
+/** A frame with no photo in it would print as a blank strip, so such a flyer is not made into a picture: the editor
+    and the library both grey its ways out by this. A week flyer has no frame at all. */
+export const needsPhoto = (canvas: CanvasId, data: Pick<FlyerData, 'template' | 'photoMode'>, photo: object | null): boolean =>
+  photoFrame(canvas, bodyOf(data)) !== null && !photo;
