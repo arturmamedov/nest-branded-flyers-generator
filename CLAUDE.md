@@ -75,6 +75,14 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
     flyer's size comes from the registry.
   - It is decoration inside the card's link: `aria-hidden` and `inert`. `tests/render/library.spec.ts` holds
     all of it, and the fitted sizes to the export's.
+- The library ends with the main reception flyer (2026-10-13, Artur's ask): the printed poster whose QR leads to the
+  experience page, shown whole and centred under the cards, with "Download PNG" and "Download PDF".
+  - The two files are `assets/main-flyers/V7-check.png` and `Simple QR flyer for Nest V7.pdf`, served like any asset
+    on both backends and shipped by the release's `assets/` copy. `MAIN_FLYER` at the top of `Library.tsx` names
+    them and the names they download under: a newer version is those two paths.
+  - It is not a flyer of the list: no card, never filtered, shown with an empty library too. A dedicated page
+    (instructions, versions, styles) is his later ask and is not designed. Specs: the last two of
+    `tests/render/library.spec.ts`.
 - The library's top bar is `<nest-nav tool="flyers">` (`App.tsx`), the bar every Nests tool shares.
   - It is loaded `async` from `https://nestpass.ai/kit/nest-nav.js`. That file lives in the
     `nestpass-tools` repo (`A:\serverpath\laragon\nestpass-tools`), with the list of tools and the

@@ -1437,6 +1437,44 @@ nest-nav > nav a.ai-entry .ai-count {
   color: var(--muted);
 }
 
+/* The reception poster under the library's flyers: shown whole at its own proportions, centred, with its two
+   downloads. Not a flyer of the list, so it has no card. */
+.main-flyer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  margin-top: 36px;
+  padding-top: 28px;
+  border-top: 1px solid var(--line);
+  text-align: center;
+}
+
+.main-flyer h2 {
+  margin: 0;
+  font-size: 20px;
+}
+
+.main-flyer p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.main-flyer img {
+  display: block;
+  width: min(100%, 420px);
+  height: auto;
+  border-radius: 14px;
+  box-shadow: 0 0 0 1px var(--line);
+}
+
+.main-flyer-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+}
+
 .banner {
   padding: 10px 20px;
 }

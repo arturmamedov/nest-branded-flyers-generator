@@ -2,10 +2,18 @@ import { useEffect, useRef, useState } from 'react';
 import { copyTitle, libraryDate } from '../shared/names';
 import type { FlyerListItem, Hostel, Template } from '../shared/schema';
 import { api } from './api';
+import { assetUrl } from '../flyer/urls';
 import { FlyerThumb } from './FlyerThumb';
 import { go, onPage } from './route';
 import { localStorageGet, localStorageSet } from './prefs';
 import { TEMPLATE_LABEL, isTemplate } from './templates';
+
+/* The poster over every reception (its QR leads to the experience page). Two files in assets/main-flyers/: a newer
+   version is these two paths, and the names the files download under. */
+const MAIN_FLYER = {
+  png: { path: 'assets/main-flyers/V7-check.png', name: 'Nest QR flyer V7.png' },
+  pdf: { path: 'assets/main-flyers/Simple QR flyer for Nest V7.pdf', name: 'Nest QR flyer V7.pdf' },
+};
 
 const savedTemplate = (): Template | '' => {
   const v = localStorageGet('library.template');
@@ -145,6 +153,23 @@ export function Library({ hostels }: { hostels: Hostel[] }) {
           ))}
         </ul>
       )}
+      <section className="main-flyer" aria-labelledby="main-flyer-title">
+        <h2 id="main-flyer-title">Main reception flyer</h2>
+        <p>The poster over every reception. Its QR code leads guests to our experience page.</p>
+        <img
+          src={assetUrl(MAIN_FLYER.png.path)}
+          alt="The main Nest flyer: Live Nest at maximum. Scan the QR code and book your next adventure."
+          loading="lazy"
+        />
+        <div className="main-flyer-actions">
+          <a className="btn btn-accent" href={assetUrl(MAIN_FLYER.png.path)} download={MAIN_FLYER.png.name}>
+            Download PNG
+          </a>
+          <a className="btn" href={assetUrl(MAIN_FLYER.pdf.path)} download={MAIN_FLYER.pdf.name}>
+            Download PDF
+          </a>
+        </div>
+      </section>
     </div>
   );
 }

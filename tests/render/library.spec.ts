@@ -249,3 +249,50 @@ test('on a phone the picture is smaller, the card fits the screen, and nothing s
     expect(box.x + box.width, 'inside the screen, right').toBeLessThanOrEqual(390);
   }
 });
+
+/* The reception poster under the flyers (Library.tsx, MAIN_FLYER): the two files in assets/main-flyers/, shown whole
+   and centred, each with its download. */
+test('the main reception flyer sits under the flyers, whole and centred, with a PNG and a PDF to download', async ({ page, request }) => {
+  await page.goto('/');
+  const section = page.getByRole('region', { name: 'Main reception flyer' });
+  const img = section.getByRole('img');
+  await expect(img).toBeVisible();
+  await expect.poll(() => img.evaluate((el) => (el as HTMLImageElement).complete && (el as HTMLImageElement).naturalWidth), 'the picture loads').toBe(1588);
+  await section.scrollIntoViewIfNeeded();
+
+  // Whole: shown at its own proportions, not cropped to a box; centred in the library; below the last card.
+  const box = (await img.boundingBox())!;
+  expect(box.height / box.width, 'its own proportions').toBeCloseTo(2246 / 1588, 2);
+  const lib = (await page.locator('.library').boundingBox())!;
+  expect(Math.abs(box.x + box.width / 2 - (lib.x + lib.width / 2)), 'centred').toBeLessThanOrEqual(2);
+  const cards = page.locator('li.card');
+  if ((await cards.count()) > 0) {
+    const last = (await cards.last().boundingBox())!;
+    expect(box.y, 'under the last flyer').toBeGreaterThan(last.y + last.height);
+  }
+
+  // Each button downloads its file, and the file is there.
+  for (const [label, type, name] of [
+    ['Download PNG', 'image/png', 'Nest QR flyer V7.png'],
+    ['Download PDF', 'application/pdf', 'Nest QR flyer V7.pdf'],
+  ] as const) {
+    const link = section.getByRole('link', { name: label, exact: true });
+    await expect(link).toHaveAttribute('download', name);
+    const res = await request.get((await link.getAttribute('href'))!);
+    expect(res.status(), label).toBe(200);
+    expect(res.headers()['content-type'], label).toContain(type);
+  }
+});
+
+test('on a phone the main reception flyer fits the screen, with both downloads in view', async ({ page }) => {
+  await page.setViewportSize({ width: 360, height: 740 });
+  await page.goto('/');
+  const section = page.getByRole('region', { name: 'Main reception flyer' });
+  await section.scrollIntoViewIfNeeded();
+  for (const part of [section.getByRole('img'), section.getByRole('link', { name: 'Download PNG' }), section.getByRole('link', { name: 'Download PDF' })]) {
+    const box = (await part.boundingBox())!;
+    expect(box.x).toBeGreaterThanOrEqual(0);
+    expect(box.x + box.width).toBeLessThanOrEqual(360);
+  }
+  expect(await page.locator('.library').evaluate((el) => el.scrollWidth <= el.clientWidth), 'no sideways scroll').toBe(true);
+});
