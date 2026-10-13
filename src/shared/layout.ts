@@ -315,7 +315,7 @@ export type ArtAnchor = DoodleAnchor | 'bottomLeft' | 'bottomRight' | 'pillEnd';
     - pillEnd: the right end of the tag pill, at the top of its row. The pill is as wide as its copy, which is
       known only once its letters are fitted, so this point is where the default pill ends (it is centred): the
       renderer hangs the art from the end of the pill it draws, at the same offsets (Flyer.tsx), and a flyer that
-      prints no pill keeps the art here.
+      prints no pill prints none of this art (2026-10-13).
     placeArt() puts a piece there. */
 export function artAnchors(canvas: CanvasId, body: Body): Record<ArtAnchor, ArtPoint> {
   const { width, height, activity: a, week: w, art } = CANVASES[canvas];

@@ -8,7 +8,8 @@ import { WEEK_ROWS_MAX } from '../../src/shared/week';
 import { HANDLE_18, TAG_24, drawPayload, newPayload } from './drawn';
 
 /* The art that follows the copy, and the blobs' inks (Artur, 2026-10-12, from the proof sheets of the fitted pill):
-   - the spark off the tag pill's end hangs from the end of the pill, whatever its copy makes its width;
+   - the spark off the tag pill's end hangs from the end of the pill, whatever its copy makes its width, and a flyer
+     that prints no pill prints no such spark (2026-10-13);
    - the pencil by the ask hangs from the end of the ask's copy, a little higher than it was;
    - the corner blobs print in each other's ink: teal on the left, yellow on the right, where a long pill carries
      its teal spark.
@@ -84,20 +85,27 @@ test.describe('the spark off the pill’s end hangs from the pill', () => {
       expect(Math.abs(drawn.y - drawn.height / 2 - at.top)).toBeLessThanOrEqual(1);
     });
 
-    test(`${canvas}: a flyer that prints no pill keeps the spark where the default pill would end`, async ({ page }) => {
-      const hidden = newPayload('activity', {}, (data) => {
+    // Artur, 2026-10-13: "The toggle show pill should also remove the sparks under it or it look wired". It was kept
+    // where the default pill would end, off the end of nothing.
+    test(`${canvas}: a flyer that prints no pill prints no spark for it either`, async ({ page }) => {
+      const hide = (data: { showPill: boolean }) => {
         data.showPill = false;
-      });
-      for (const payload of [hidden, newPayload('activity', { handle: '', tag: '' })]) {
-        const spark = resolveDoodles(payload.flyer.data.doodles).find((d) => d.anchor === 'pillEnd')!;
-        const at = placeArt(spark, artAnchors(canvas, bodyOf(payload.flyer.data)));
+      };
+      const NO_PILL = [
+        ['the switch off', newPayload('activity', {}, hide)],
+        ['the switch off, a pill of 18 and 24 waiting', newPayload('activity', { handle: HANDLE_18, tag: TAG_24 }, hide)],
+        ['the switch on, and no copy for it', newPayload('activity', { handle: '', tag: '' })],
+        ['a week flyer, the switch off', newPayload('week', {}, hide)],
+      ] as const;
+      for (const [name, payload] of NO_PILL) {
+        // The untouched set still names the piece: it is the renderer that leaves it out.
+        expect(resolveDoodles(payload.flyer.data.doodles).filter((d) => d.anchor === 'pillEnd'), name).toHaveLength(1);
         await drawPayload(page, payload, canvas);
         const r = await page.evaluate(readSpark);
-        expect(r.pill).toBeNull();
-        expect(r.onFlyer.map((a) => a.file)).toEqual(['spark-teal.png', 'spark-yellow.png', 'blob-left-teal.png', 'blob-right-yellow.png', 'spark-teal.png']);
-        const drawn = r.onFlyer.at(-1)!;
-        expect(Math.abs(drawn.x - drawn.width / 2 - at.left)).toBeLessThanOrEqual(0.5);
-        expect(Math.abs(drawn.y - drawn.height / 2 - at.top)).toBeLessThanOrEqual(0.5);
+        expect(r.pill, name).toBeNull();
+        expect(r.onFlyer.map((a) => a.file), `${name}: the photo's two sparks and the two blobs`).toEqual(['spark-teal.png', 'spark-yellow.png', 'blob-left-teal.png', 'blob-right-yellow.png']);
+        // And it is nowhere else: with the pencil by the ask, that is all the art there is.
+        expect(await page.locator('[data-flyer] img[data-art]').count(), name).toBe(5);
         await page.goto('about:blank');
       }
     });

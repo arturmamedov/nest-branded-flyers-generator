@@ -134,7 +134,7 @@ test.describe('a pill still too wide at its floor', () => {
 
       // Outside the column, over the pill's own rows, the flyer is what it is with no pill at all (2 px clear of the
       // column's edge, for the anti-aliasing of the tilt). The art is left out of both shots: it may enter the
-      // margins, and the spark hangs from the pill's end, so it is not where a flyer with no pill has it.
+      // margins, and the spark hangs from the pill's end, which a flyer with no pill does not print at all.
       const { width: W } = CANVASES[canvas];
       const band = { y: Math.floor(p.top) - 4, height: Math.ceil(p.bottom - p.top) + 8 };
       const strips = [

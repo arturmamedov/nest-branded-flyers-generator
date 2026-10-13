@@ -243,10 +243,10 @@ export function Flyer({ data, canvas, hostel, photo, showSafeZones = false, ref 
   const photoGround = img ? bg : PHOTO_PLACEHOLDER;
   const pillText: CSSProperties = { ...HL, fontWeight: 700, fontSize: 34, letterSpacing: '0.04em', color: '#ffffff', lineHeight: 1 };
   const pillPrints = data.showPill && !!(t.handle || t.tag);
-  // The art that hangs from the pill's end is drawn with the pill. A flyer that prints no pill keeps it on the
-  // flyer itself, where the default pill would end.
+  // The art that hangs from the pill's end is drawn with the pill, and only with it: a flyer that prints no pill
+  // prints no spark off the end of nothing (Artur, 2026-10-13; it was kept where the default pill would end).
   const pieces = resolveDoodles(data.doodles);
-  const pillArt = pillPrints ? pieces.filter((d) => d.anchor === 'pillEnd') : [];
+  const pillArt = pieces.filter((d) => d.anchor === 'pillEnd');
 
   return (
     <div
