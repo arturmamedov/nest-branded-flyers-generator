@@ -8,8 +8,10 @@ import { TEMPLATE_LABEL } from './templates';
    UX round, Part 2). No React and no DOM here, so the rule is tested by itself (tests/unit/section-folds.test.ts).
    Types only from schema.ts: this is in the editor's bundle. */
 
-/** The editor's sections, in the panel's order. A template shows its own (sectionsOf). */
-export const SECTIONS = ['flyer', 'headline', 'facts', 'extras', 'rows', 'ask', 'photo', 'top', 'share'] as const;
+/** The editor's sections, in the panel's order: the order a flyer is made in, and so the flyer's own from top to
+    bottom (Artur, 2026-10-13; the photo came after the ask, and the eyebrow shared a section with the tag pill, last).
+    A template shows its own (sectionsOf). */
+export const SECTIONS = ['flyer', 'headline', 'photo', 'facts', 'extras', 'rows', 'ask', 'pill', 'share'] as const;
 export type SectionId = (typeof SECTIONS)[number];
 
 /** The sections only one template has: the rest are in both. */
@@ -56,14 +58,14 @@ export const allOpen = (open: readonly SectionId[], template: Template): boolean
 /** The lines of text a copy rule can name (copyRules.ts), each with the section its field is in. A Map, never a plain
     object: "constructor" read off an object is a function. */
 const TEXT_SECTION: ReadonlyMap<string, SectionId> = new Map([
-  ['eyebrow', 'top'],
-  ['handle', 'top'],
-  ['tag', 'top'],
+  ['eyebrow', 'headline'],
   ['headline1', 'headline'],
   ['headline2', 'headline'],
   ['headlineEs', 'headline'],
   ['askEn', 'ask'],
   ['askEs', 'ask'],
+  ['handle', 'pill'],
+  ['tag', 'pill'],
 ]);
 
 /** The section a copy rule's field is in (Lint.field), or null for a rule about the whole flyer. */
@@ -97,7 +99,8 @@ export function sectionLine(id: SectionId, { data, hostelName, hasPhoto }: { dat
     case 'flyer':
       return dotted([TEMPLATE_LABEL[data.template], hostelName ?? 'All hostels']);
     case 'headline':
-      // With no English line, the Spanish one is what the section holds.
+      // The headline's own lines: the eyebrow above them is a field of the section, and no part of its line. With no
+      // English line, the Spanish one is what the section holds.
       return [t.headline1, t.headline2].map((line) => line.trim()).filter(Boolean).join(' ') || t.headlineEs.trim() || EMPTY;
     case 'facts':
       // Each block's big line, as it prints: the hostel in WHERE, and no block that is hidden.
@@ -116,8 +119,8 @@ export function sectionLine(id: SectionId, { data, hostelName, hasPhoto }: { dat
     case 'photo':
       // A photo kept for switching back prints nothing on "No photo".
       return data.photoMode === 'none' ? PHOTO_MODE_LABEL.none : dotted([PHOTO_MODE_LABEL[data.photoMode], hasPhoto ? 'photo set' : 'no photo yet']);
-    case 'top':
-      return dotted(data.showPill ? [t.eyebrow, t.handle, t.tag] : [t.eyebrow, 'no tag pill']) || EMPTY;
+    case 'pill':
+      return data.showPill ? dotted([t.handle, t.tag]) || EMPTY : 'Not shown';
     case 'share':
       return data.share.trim() ? 'Caption written' : 'No caption yet';
   }

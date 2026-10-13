@@ -57,9 +57,16 @@ describe('which sections start open', () => {
     expect(openAtStart(SAVED, '["photo","__proto__","later-section",7,null,"flyer","photo"]')).toEqual(['flyer', 'photo']);
   });
 
+  it('a section an older release had is dropped the same way: "Top and tag pill" is the Tag pill and the Headline now', () => {
+    expect(openAtStart(SAVED, '["top","share"]')).toEqual(['share']);
+    expect(openAtStart(SAVED, '["top","pill"]')).toEqual(['pill']);
+  });
+
+  // The order a flyer is made in, top to bottom (Artur, 2026-10-13): the photo right after the headline, the pill last
+  // of what prints.
   it('a template shows its own sections, in the panel’s order', () => {
-    expect(sectionsOf('activity')).toEqual(['flyer', 'headline', 'facts', 'extras', 'ask', 'photo', 'top', 'share']);
-    expect(sectionsOf('week')).toEqual(['flyer', 'headline', 'rows', 'ask', 'top', 'share']);
+    expect(sectionsOf('activity')).toEqual(['flyer', 'headline', 'photo', 'facts', 'extras', 'ask', 'pill', 'share']);
+    expect(sectionsOf('week')).toEqual(['flyer', 'headline', 'rows', 'ask', 'pill', 'share']);
   });
 });
 
@@ -72,7 +79,7 @@ describe('opening and closing', () => {
   it('opening an open section answers the same list, so nothing is written or drawn again', () => {
     const open: SectionId[] = ['photo'];
     expect(opened(open, 'photo')).toBe(open);
-    expect(opened(open, 'ask')).toEqual(['ask', 'photo']);
+    expect(opened(open, 'ask')).toEqual(['photo', 'ask']);
   });
 
   it('"all open" is about the sections the template shows', () => {
@@ -101,14 +108,19 @@ describe('which section a copy rule’s field is in', () => {
     const fields = fieldsOf(brokenActivity);
     expect(fields.length, 'eight lines of text, three blocks, two items').toBe(13);
     for (const field of fields) expect(sectionsOf('activity'), field).toContain(sectionOfField(field));
-    expect(new Set(fields.map(sectionOfField))).toEqual(new Set(['top', 'headline', 'ask', 'facts', 'extras']));
+    expect(new Set(fields.map(sectionOfField))).toEqual(new Set(['pill', 'headline', 'ask', 'facts', 'extras']));
   });
 
   it('every field of a This week flyer is in one of its sections', () => {
     const fields = fieldsOf(brokenWeek);
     expect(fields.length, 'eight lines of text and four cells of two rows').toBe(16);
     for (const field of fields) expect(sectionsOf('week'), field).toContain(sectionOfField(field));
-    expect(new Set(fields.map(sectionOfField))).toEqual(new Set(['top', 'headline', 'ask', 'rows']));
+    expect(new Set(fields.map(sectionOfField))).toEqual(new Set(['pill', 'headline', 'ask', 'rows']));
+  });
+
+  it('the eyebrow is in the Headline, above its lines, and the pill’s two words in the Tag pill', () => {
+    expect(['eyebrow', 'headline1', 'headline2', 'headlineEs'].map(sectionOfField)).toEqual(['headline', 'headline', 'headline', 'headline']);
+    expect(['handle', 'tag'].map(sectionOfField)).toEqual(['pill', 'pill']);
   });
 
   it('a rule about the whole flyer, and a field nobody has, are in none', () => {
@@ -119,6 +131,7 @@ describe('which section a copy rule’s field is in', () => {
 
   it('a section is flagged by a warning in one of its fields, and the Photo section by a frame with no photo', () => {
     expect(flaggedSections(['headline1', 'text', 'chip.cost', 'headline2'], false)).toEqual(['headline', 'facts']);
+    expect(flaggedSections(['tag', 'eyebrow'], true), 'in the panel’s order').toEqual(['headline', 'photo', 'pill']);
     expect(flaggedSections([], true)).toEqual(['photo']);
     expect(flaggedSections([], false)).toEqual([]);
   });
@@ -143,6 +156,8 @@ describe('a closed section’s line', () => {
     // Found in review (2026-10-07): with no English line, a Spanish line that prints is what the section holds.
     expect(line('headline', withText(activity(), { headlineEs: 'El sábado toca fiesta.' }))).toBe('El sábado toca fiesta.');
     expect(line('headline', activity())).toBe('Empty');
+    // The eyebrow is one of the section's fields, and its line is still the headline's own.
+    expect(line('headline', withText(pool, { eyebrow: 'TONIGHT' }))).toBe('Saturday is a pool party.');
   });
 
   it('When · Where · Cost: each block’s big line, as it prints', () => {
@@ -187,10 +202,11 @@ describe('a closed section’s line', () => {
     expect(line('photo', { ...pool, photoMode: 'none' }, { hasPhoto: true })).toBe('No photo');
   });
 
-  it('Top and tag pill: the eyebrow, and the pill’s two words or that there is none', () => {
-    expect(line('top', pool)).toBe('NEXT ACTIVITY · @NESTSHOSTELS · ¡TAG US!');
-    expect(line('top', { ...pool, showPill: false })).toBe('NEXT ACTIVITY · no tag pill');
-    expect(line('top', withText(pool, { eyebrow: '', handle: '', tag: '' }))).toBe('Empty');
+  it('Tag pill: its two words, or that it is not shown', () => {
+    expect(line('pill', pool)).toBe('@NESTSHOSTELS · ¡TAG US!');
+    expect(line('pill', withText(pool, { handle: ' ' }))).toBe('¡TAG US!');
+    expect(line('pill', { ...pool, showPill: false })).toBe('Not shown');
+    expect(line('pill', withText(pool, { handle: '', tag: '' }))).toBe('Empty');
   });
 
   it('Share text: whether there is a caption', () => {

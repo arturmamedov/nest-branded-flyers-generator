@@ -38,8 +38,9 @@ test.use({ viewport: EDITOR_VIEWPORT });
 
 const PHOTO: FilePayload = { name: 'pool-party.png', mimeType: 'image/png', buffer: readFileSync(POOL_PARTY) };
 const FACTS = FIELD.facts;
-const ACTIVITY = [FIELD.flyer, FIELD.headline, FACTS, FIELD.extras, FIELD.ask, FIELD.photo, FIELD.top, FIELD.share];
-const WEEK = [FIELD.flyer, FIELD.weekTitle, FIELD.weekRows, FIELD.ask, FIELD.top, FIELD.share];
+// The order a flyer is made in, top to bottom (Artur, 2026-10-13), by the words on screen.
+const ACTIVITY = ['Flyer', 'Headline', 'Photo', FACTS, 'Nice to know', 'The ask (CTA)', 'Tag pill', 'Share text'];
+const WEEK = ['Flyer', 'Title', FIELD.weekRows, 'The ask (CTA)', 'Tag pill', 'Share text'];
 
 /** Flyers a test saved: archived afterwards, so the specs after this one find the library as seeded. */
 const saved: number[] = [];
@@ -82,6 +83,32 @@ test('a new flyer starts with every section open, on both templates', async ({ p
   await expect.poll(() => sections(page)).toEqual(allOf(ACTIVITY, ACTIVITY));
   await templateButton(page, 'week').click();
   await expect.poll(() => sections(page)).toEqual(allOf(WEEK, WEEK));
+});
+
+test('the eyebrow is typed in the Headline, above its lines, and the tag pill has a section of its own', async ({ page }) => {
+  await page.goto('/#/new');
+  const bodyOf = async (title: string) => page.locator(`[id="${await sectionHead(page, title).getAttribute('aria-controls')}"]`);
+  for (const template of ['activity', 'week'] as const) {
+    await templateButton(page, template).click();
+    // A week flyer's title is the headline's section: the eyebrow is above its lines there too.
+    const headline = await bodyOf(template === 'week' ? 'Title' : 'Headline');
+    const labels = await headline.locator('input, textarea').evaluateAll((boxes) => boxes.map((box) => box.closest('label')?.querySelector('.label')?.textContent?.trim() ?? ''));
+    expect(labels.slice(0, 3), template).toEqual(['Eyebrow', 'Line 1', 'Line 2']);
+    expect(labels[3], template).toContain('Spanish line');
+    expect(labels, template).toHaveLength(4);
+
+    const pill = await bodyOf('Tag pill');
+    await expect(pill.getByLabel('Show the tag pill')).toBeChecked();
+    await expect(pill.getByLabel('Handle', { exact: true })).toHaveValue('@NESTSHOSTELS');
+    await expect(pill.getByLabel('Tag', { exact: true })).toHaveValue('¡TAG US!');
+    await expect(pill.locator('input')).toHaveCount(3);
+  }
+  // Switched off, the pill's two words leave the form, and its closed section says so.
+  const pill = await bodyOf('Tag pill');
+  await pill.getByLabel('Show the tag pill').uncheck();
+  await expect(pill.locator('input')).toHaveCount(1);
+  await sectionHead(page, 'Tag pill').click();
+  await expect(sectionHead(page, 'Tag pill').locator('.section-line')).toHaveText('Not shown');
 });
 
 test('a saved flyer, the first time, opens When · Where · Cost alone, and a This week flyer its rows', async ({ page, request }) => {
@@ -178,7 +205,7 @@ test('what was typed stays in a section that is closed and opened again, and the
   await expect(status(page)).toHaveText('Unsaved changes');
   // Tab goes past the closed section's fields, to the next header.
   await page.keyboard.press('Tab');
-  await expect(sectionHead(page, FACTS)).toBeFocused();
+  await expect(sectionHead(page, 'Photo')).toBeFocused();
 
   await head.focus();
   await page.keyboard.press('Space');
@@ -227,7 +254,7 @@ test('a closed section says in one line what is inside, and the line follows wha
     [FIELD.extras]: 'Everyone welcome · Bring a towel',
     [FIELD.ask]: 'Sign up at reception.',
     Photo: 'Full bleed · photo set',
-    'Top and tag pill': 'NEXT ACTIVITY · @NESTSHOSTELS · ¡TAG US!',
+    'Tag pill': '@NESTSHOSTELS · ¡TAG US!',
     [FIELD.share]: 'No caption yet',
   };
   for (const [title, line] of Object.entries(lines)) await expect(lineOf(page, title), title).toHaveText(line);
@@ -282,7 +309,7 @@ test('a photo dropped on the preview opens the Photo section, and on a saved fly
   expect(res.status(), await res.text()).toBe(201);
   await expect(sectionHead(page, 'Photo')).toHaveAttribute('aria-expanded', 'true');
   await expect(page.getByText(/^Zoom /)).toBeVisible();
-  expect(await remembered(page)).toBe('["facts","rows","photo"]');
+  expect(await remembered(page), 'in the panel’s order').toBe('["photo","facts","rows"]');
   // The sample itself was not saved over: the draft is unsaved, and stays in this page.
   await expect(status(page)).toHaveText('Unsaved changes');
 });

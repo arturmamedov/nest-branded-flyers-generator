@@ -6,6 +6,10 @@ import { TEMPLATE_LABEL } from './templates';
    page names a brief's key with the same words when it lists what the AI assumed. Types only from schema.ts: this is
    in the editor's bundle. */
 
+/** The ask by its plain name, as "The AI assumed…" names its two lines. The section's title adds what marketing
+    calls it (Artur, 2026-10-13). */
+const ASK = 'The ask';
+
 export const FIELD = {
   flyer: 'Flyer',
   template: 'Template',
@@ -19,12 +23,12 @@ export const FIELD = {
   facts: 'When · Where · Cost',
   extras: 'Nice to know',
   weekRows: `${TEMPLATE_LABEL.week}’s rows`,
-  ask: 'The ask',
+  ask: `${ASK} (CTA)`,
   english: 'English',
   spanish: 'Spanish',
   photo: 'Photo',
-  top: 'Top and tag pill',
   eyebrow: 'Eyebrow',
+  pill: 'Tag pill',
   handle: 'Handle',
   tag: 'Tag',
   share: 'Share text',
@@ -52,8 +56,8 @@ const BRIEF_FIELDS: ReadonlyMap<string, string> = new Map([
   ['text.headline1', under(FIELD.headline, FIELD.line1)],
   ['text.headline2', under(FIELD.headline, FIELD.line2)],
   ['text.headlineEs', FIELD.spanishLine],
-  ['text.askEn', `${FIELD.ask} (${FIELD.english})`],
-  ['text.askEs', `${FIELD.ask} (${FIELD.spanish})`],
+  ['text.askEn', `${ASK} (${FIELD.english})`],
+  ['text.askEs', `${ASK} (${FIELD.spanish})`],
   ['text.handle', FIELD.handle],
   ['text.tag', FIELD.tag],
 ]);

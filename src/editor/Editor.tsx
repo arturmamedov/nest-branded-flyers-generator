@@ -614,6 +614,11 @@ export function Editor({
 
           {/* A week flyer's title is the headline's lines: one set, kept across a switch (the owner's call, 2026-09-29). */}
           <Section title={week ? FIELD.weekTitle : FIELD.headline} fold={fold('headline')} hint={week ? `The same lines as the ${TEMPLATE_LABEL.activity} headline: switching template keeps them.` : undefined}>
+            {/* The small line at the flyer's top, over the headline: with it, as it prints (Artur, 2026-10-13; it was in
+                a section of its own with the tag pill, at the form's end). */}
+            <Field label={FIELD.eyebrow}>
+              <input value={t.eyebrow} maxLength={TEXT_LIMITS.eyebrow} onChange={(e) => setText('eyebrow', e.target.value)} />
+            </Field>
             <Field label={FIELD.line1} lang="en" help={week ? 'Black' : 'Black. About 18 characters before it starts to shrink'}>
               <input value={t.headline1} maxLength={TEXT_LIMITS.headline1} placeholder={week ? weekDefaults.headline1 : 'Saturday is a'} onChange={(e) => setText('headline1', e.target.value)} />
             </Field>
@@ -633,35 +638,6 @@ export function Editor({
                 placeholder={week ? weekDefaults.headlineEs : 'El sábado toca fiesta en la piscina.'}
                 onChange={(e) => setText('headlineEs', e.target.value)}
               />
-            </Field>
-          </Section>
-
-          {shown.includes('facts') && (
-            <Section title={FIELD.facts} fold={fold('facts')} hint="Put a · between the big line and the small line.">
-              {(['when', 'where', 'cost'] as const).map((key) => (
-                <ChipField key={key} chip={chip(key)} hostelName={hostel?.name ?? null} onChange={(v) => setChip(key, v)} />
-              ))}
-            </Section>
-          )}
-
-          {shown.includes('extras') && (
-            <Section title={FIELD.extras} fold={fold('extras')} hint="0–4 short items. The dots are added for you.">
-              <ExtrasField extras={draft.data.extras} onChange={(extras) => setData({ extras })} />
-            </Section>
-          )}
-
-          {shown.includes('rows') && (
-            <Section title={FIELD.weekRows} fold={fold('rows')} hint={`Up to ${WEEK_ROWS_MAX}. Type them, or take one from a saved ${TEMPLATE_LABEL.activity} flyer and change it.`}>
-              <WeekRowsField rows={draft.data.week} onChange={updateWeek} onTake={takeRow} busy={busy !== null} />
-            </Section>
-          )}
-
-          <Section title={FIELD.ask} fold={fold('ask')}>
-            <Field label={FIELD.english} lang="en">
-              <input value={t.askEn} maxLength={TEXT_LIMITS.askEn} onChange={(e) => setText('askEn', e.target.value)} />
-            </Field>
-            <Field label={FIELD.spanish} lang="es" optional>
-              <input value={t.askEs} maxLength={TEXT_LIMITS.askEs} onChange={(e) => setText('askEs', e.target.value)} />
             </Field>
           </Section>
 
@@ -716,10 +692,36 @@ export function Editor({
             </Section>
           )}
 
-          <Section title={FIELD.top} fold={fold('top')}>
-            <Field label={FIELD.eyebrow}>
-              <input value={t.eyebrow} maxLength={TEXT_LIMITS.eyebrow} onChange={(e) => setText('eyebrow', e.target.value)} />
+          {shown.includes('facts') && (
+            <Section title={FIELD.facts} fold={fold('facts')} hint="Put a · between the big line and the small line.">
+              {(['when', 'where', 'cost'] as const).map((key) => (
+                <ChipField key={key} chip={chip(key)} hostelName={hostel?.name ?? null} onChange={(v) => setChip(key, v)} />
+              ))}
+            </Section>
+          )}
+
+          {shown.includes('extras') && (
+            <Section title={FIELD.extras} fold={fold('extras')} hint="0–4 short items. The dots are added for you.">
+              <ExtrasField extras={draft.data.extras} onChange={(extras) => setData({ extras })} />
+            </Section>
+          )}
+
+          {shown.includes('rows') && (
+            <Section title={FIELD.weekRows} fold={fold('rows')} hint={`Up to ${WEEK_ROWS_MAX}. Type them, or take one from a saved ${TEMPLATE_LABEL.activity} flyer and change it.`}>
+              <WeekRowsField rows={draft.data.week} onChange={updateWeek} onTake={takeRow} busy={busy !== null} />
+            </Section>
+          )}
+
+          <Section title={FIELD.ask} fold={fold('ask')}>
+            <Field label={FIELD.english} lang="en">
+              <input value={t.askEn} maxLength={TEXT_LIMITS.askEn} onChange={(e) => setText('askEn', e.target.value)} />
             </Field>
+            <Field label={FIELD.spanish} lang="es" optional>
+              <input value={t.askEs} maxLength={TEXT_LIMITS.askEs} onChange={(e) => setText('askEs', e.target.value)} />
+            </Field>
+          </Section>
+
+          <Section title={FIELD.pill} fold={fold('pill')}>
             <label className="check">
               <input type="checkbox" checked={draft.data.showPill} onChange={(e) => setData({ showPill: e.target.checked })} />
               Show the tag pill

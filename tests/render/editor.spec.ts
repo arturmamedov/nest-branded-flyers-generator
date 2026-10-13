@@ -512,10 +512,10 @@ test('the tag takes 24 characters: typed, saved and reopened, and the pill is ca
   expect([flyer.data.text.handle, flyer.data.text.tag]).toEqual([HANDLE_18, TAG_24]);
   await page.goto(`/#/flyers/${id}`);
   await page.reload();
-  // A saved flyer opens with the section closed: its one line carries the pill's copy. This much of it ends in an
-  // ellipsis on screen, since the line never wraps (panel.spec.ts): what is read here is the line's own text.
-  await expect(sectionHead(page, 'Top and tag pill').locator('.section-line')).toContainText(`${HANDLE_18} · ${TAG_24}`);
-  await openSection(page, 'Top and tag pill');
+  // A saved flyer opens with the section closed: its one line is the pill's copy. What is read here is the line's
+  // own text, whatever of it the header has room to show (the line never wraps: panel.spec.ts).
+  await expect(sectionHead(page, 'Tag pill').locator('.section-line')).toHaveText(`${HANDLE_18} · ${TAG_24}`);
+  await openSection(page, 'Tag pill');
   await expect(page.getByLabel('Tag', { exact: true })).toHaveValue(TAG_24);
   await expect(cutOff(page)).toHaveCount(0);
 
@@ -693,7 +693,7 @@ test('This week: a dropped photo is refused with a reason, and an Activity flyer
   await page.goto(`/#/flyers/${id}`);
   await expect(status(page)).toHaveText('Saved');
   // The sections this test reads and drives, closed on a saved flyer.
-  await openSection(page, 'Flyer', 'Headline', 'Photo', 'Top and tag pill');
+  await openSection(page, 'Flyer', 'Headline', 'Photo');
   await templateButton(page, 'week').click();
   // One set of headline lines: the Activity headline becomes the week's title.
   await expect(page.getByLabel('Line 1')).toHaveValue('Saturday is a');
@@ -746,7 +746,7 @@ test('This week: reopened and saved again it is still a week flyer, and it downl
 
 test('English and Spanish fields carry a drawn flag (Windows shows no emoji flags), and every field keeps its name', async ({ page }) => {
   await page.goto('/#/new');
-  const ask = page.locator('section', { has: page.getByRole('heading', { name: 'The ask', exact: true }) });
+  const ask = page.locator('section', { has: page.getByRole('heading', { name: 'The ask (CTA)', exact: true }) });
   const flagOf = (field: Locator) =>
     field.evaluate((el) => {
       const label = el.closest('label')!;
