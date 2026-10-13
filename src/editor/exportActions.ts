@@ -53,3 +53,6 @@ export function exportActions(can: Can, touch: boolean): Offer {
     and the library both grey its ways out by this. A week flyer has no frame at all. */
 export const needsPhoto = (canvas: CanvasId, data: Pick<FlyerData, 'template' | 'photoMode'>, photo: object | null): boolean =>
   photoFrame(canvas, bodyOf(data)) !== null && !photo;
+
+/** What the library reads beside such a flyer, where its ways out are greyed: the editor says it with a warning. */
+export const NO_PHOTO = 'No photo in its frame yet: open it to add one.';

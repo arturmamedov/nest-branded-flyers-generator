@@ -1,12 +1,23 @@
 import { useEffect, useRef, useState } from 'react';
-import { copyTitle, libraryDate } from '../shared/names';
+import { copyTitle } from '../shared/names';
 import type { FlyerListItem, Hostel, Template } from '../shared/schema';
 import { api } from './api';
 import { assetUrl } from '../flyer/urls';
-import { FlyerThumb } from './FlyerThumb';
+import { canCopyImage } from './clipboard';
+import type { FlyerExporter } from './export';
+import { NO_PHOTO, TOUCH_QUERY, exportActions, type ExportAction } from './exportActions';
+import { LibraryCard, lacksPhoto, type Busy, type CardAction, type Target } from './LibraryCard';
+import { LIBRARY_VIEWS, VIEW_LABEL, VIEW_PREF, viewFrom, type LibraryView } from './libraryView';
+import { Lightbox } from './Lightbox';
+import { useOneAction } from './oneAction';
+import { pictureActions, type Answer } from './pictureActions';
 import { go, onPage } from './route';
-import { localStorageGet, localStorageSet } from './prefs';
+import { localStorageGet, localStorageSet, savedCanvas } from './prefs';
+import { canShareFiles } from './shareSheet';
 import { TEMPLATE_LABEL, isTemplate } from './templates';
+import { Toasts } from './Toasts';
+import { useMedia } from './useMedia';
+import { WaysOut } from './WaysOut';
 
 /* The poster over every reception (its QR leads to the experience page). Two files in assets/main-flyers/: a newer
    version is these two paths, and the names the files download under. */
@@ -20,16 +31,63 @@ const savedTemplate = (): Template | '' => {
   return isTemplate(v) ? v : '';
 };
 
-const when = (iso: string) => libraryDate(new Date(iso), true);
+const NO_WARNINGS: never[] = [];
 
-export function Library({ hostels }: { hostels: Hostel[] }) {
+function ViewIcon({ view }: { view: LibraryView }) {
+  return (
+    <svg aria-hidden="true" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round">
+      {view === 'list' ? (
+        <path d="M2 3.5h10M2 7h10M2 10.5h10" />
+      ) : (
+        <>
+          <rect x="2" y="2" width="4" height="4" rx="1" />
+          <rect x="8" y="2" width="4" height="4" rx="1" />
+          <rect x="2" y="8" width="4" height="4" rx="1" />
+          <rect x="8" y="8" width="4" height="4" rx="1" />
+        </>
+      )}
+    </svg>
+  );
+}
+
+export function Library({ hostels, exporter }: { hostels: Hostel[]; exporter: FlyerExporter }) {
   const [filter, setFilter] = useState<string>(() => localStorageGet('library.hostel') ?? '');
   const [template, setTemplate] = useState<Template | ''>(savedTemplate);
+  // The flyers as a list or as a grid: how this viewer looks at them (libraryView.ts).
+  const [view, setView] = useState<LibraryView>(() => viewFrom(localStorageGet(VIEW_PREF)));
   const [items, setItems] = useState<FlyerListItem[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [busyId, setBusyId] = useState<number | null>(null);
-  // The library scrolls inside itself (editor.css): each card's picture measures its nearness against this.
+  // The library scrolls inside itself (editor.css): each card's nearness is measured against this.
   const scroller = useRef<HTMLDivElement>(null);
+
+  // A flyer leaves the library as a picture the ways it leaves the editor (pictureActions.ts), one action at a time,
+  // and what an action came to is the editor's toast. The picture is of the canvas this viewer last chose in the
+  // editor, the one its Download gives; the cards' own pictures are always the default canvas.
+  const [canvas] = useState(savedCanvas);
+  const [can] = useState(() => ({ copy: canCopyImage(), share: canShareFiles() }));
+  const offer = exportActions(can, useMedia(TOUCH_QUERY));
+  const { busy, message, setMessage, run, turn } = useOneAction<Busy>();
+  // Whose action the message is about: its next step ("Share now", "Copy the caption") is that flyer's. Noted when
+  // the message lands, never when its action starts: another card's "Copy text" may be pressed in between.
+  const [owner, setOwner] = useState<Target | null>(null);
+  const sheetAsked = useRef(false);
+  // The flyer shown large (Lightbox.tsx).
+  const [zoomed, setZoomed] = useState<Target | null>(null);
+  // Whether this library is still the page on screen, for an answer that lands after the staff member has left: the
+  // URL says so at once, and the page itself when they have left and come back (Editor.tsx, onScreen()).
+  const here = useRef(true);
+  useEffect(() => {
+    here.current = true;
+    return () => {
+      here.current = false;
+    };
+  }, []);
+  const onScreen = () => onPage('library') && here.current;
+  // A toast that stands is about the flyer it came from: another flyer's lightbox opens without it.
+  const zoom = (target: Target) => {
+    setMessage(null);
+    setZoomed(target);
+  };
 
   // Answers can come back out of order (a slow host, two quick changes of filter): only the latest load's answer is
   // applied, or an earlier filter's list would show under the later choice.
@@ -55,10 +113,39 @@ export function Library({ hostels }: { hostels: Hostel[] }) {
     load();
   }, [filter, template]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  async function duplicate(id: number) {
-    setBusyId(id);
-    try {
-      const p = await api.flyer(id);
+  const chooseView = (v: LibraryView) => {
+    setView(v);
+    localStorageSet(VIEW_PREF, v);
+  };
+
+  // A flyer's ways out. It is saved, so its picture is the export alone: no save first, as the editor's needs.
+  const waysOf = (target: Target) => {
+    const { id } = target.item;
+    const start = (kind: ExportAction | CardAction, fn: () => Promise<Answer>) =>
+      void run({ id, kind }, async () => {
+        const answer = await fn();
+        setOwner(target);
+        return answer;
+      });
+    return pictureActions({
+      run: start,
+      say: (m) => {
+        setOwner(target);
+        setMessage(m);
+      },
+      picture: (format) => exporter.export({ id, format, canvas }),
+      caption: target.payload.flyer.data.share,
+      canvas,
+      onScreen,
+      turn,
+      sheet: sheetAsked,
+      stale: false,
+    });
+  };
+
+  const duplicate = (item: FlyerListItem) =>
+    void run({ id: item.id, kind: 'duplicate' }, async () => {
+      const p = await api.flyer(item.id);
       const { id: newId } = await api.create({
         title: copyTitle(p.flyer.title),
         hostel: p.flyer.hostel,
@@ -66,110 +153,115 @@ export function Library({ hostels }: { hostels: Hostel[] }) {
         data: p.flyer.data,
         photoId: p.flyer.photoId,
       });
-      if (onPage('library')) go(`#/flyers/${newId}`); // saved either way; it opens only if the user is still here
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
-      setBusyId(null);
-    }
-  }
+      if (onScreen()) go(`#/flyers/${newId}`); // saved either way; it opens only if the user is still here
+    });
 
-  async function archive(item: FlyerListItem) {
+  const archive = (item: FlyerListItem) => {
     if (!confirm(`Archive "${item.title}"? It disappears from the library.`)) return;
-    setBusyId(item.id);
-    try {
+    void run({ id: item.id, kind: 'archive' }, async () => {
       await api.archive(item.id);
       await load();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setBusyId(null);
-    }
-  }
+    });
+  };
+
+  // The toast's next step is its own flyer's, drawn as the flyer is.
+  const step = owner && message?.next ? waysOf(owner).step(message.next, lacksPhoto(canvas, owner.payload)) : undefined;
+  const toasts = <Toasts outcome={message && { kind: message.kind, body: message.text, action: step }} onCloseOutcome={() => setMessage(null)} warnings={NO_WARNINGS} />;
+  const large = zoomed && waysOf(zoomed);
+  const largeNoPhoto = zoomed !== null && lacksPhoto(canvas, zoomed.payload);
 
   return (
-    <div className="library" ref={scroller}>
-      <div className="library-head">
-        <h1>Flyer library</h1>
-        <label className="filter">
-          <span>Hostel</span>
-          <select value={filter} onChange={(e) => setFilter(e.target.value)}>
-            <option value="">All flyers</option>
-            <option value="none">Chain-wide only</option>
-            {hostels.map((h) => (
-              <option key={h.slug} value={h.slug}>
-                {h.name}
-              </option>
+    <>
+      {/* Behind the lightbox the library keeps its place: it does not scroll (editor.css). */}
+      <div className={'library' + (zoomed ? ' library-held' : '')} ref={scroller}>
+        <div className="library-head">
+          <h1>Flyer library</h1>
+          <label className="filter">
+            <span>Hostel</span>
+            <select value={filter} onChange={(e) => setFilter(e.target.value)}>
+              <option value="">All flyers</option>
+              <option value="none">Chain-wide only</option>
+              {hostels.map((h) => (
+                <option key={h.slug} value={h.slug}>
+                  {h.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="filter">
+            <span>Template</span>
+            <select value={template} onChange={(e) => setTemplate(isTemplate(e.target.value) ? e.target.value : '')}>
+              <option value="">All templates</option>
+              {(Object.entries(TEMPLATE_LABEL) as [Template, string][]).map(([key, label]) => (
+                <option key={key} value={key}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <div className="seg view-switch" role="group" aria-label="View">
+            {LIBRARY_VIEWS.map((v) => (
+              <button key={v} type="button" className={view === v ? 'on' : ''} aria-pressed={view === v} onClick={() => chooseView(v)}>
+                <ViewIcon view={v} />
+                {VIEW_LABEL[v]}
+              </button>
             ))}
-          </select>
-        </label>
-        <label className="filter">
-          <span>Template</span>
-          <select value={template} onChange={(e) => setTemplate(isTemplate(e.target.value) ? e.target.value : '')}>
-            <option value="">All templates</option>
-            {(Object.entries(TEMPLATE_LABEL) as [Template, string][]).map(([key, label]) => (
-              <option key={key} value={key}>
-                {label}
-              </option>
+          </div>
+        </div>
+        {error && <div className="banner banner-error">{error}</div>}
+        {!items && !error && <div className="loading">Loading…</div>}
+        {items && items.length === 0 && (
+          <div className="empty">
+            <p>No flyers here yet.</p>
+            <a className="btn btn-accent" href="#/new">
+              Make the first one
+            </a>
+          </div>
+        )}
+        {items && items.length > 0 && (
+          <ul className={`cards cards-${view}`}>
+            {items.map((f) => (
+              <LibraryCard key={f.id} item={f} scroller={scroller} canvas={canvas} offer={offer} busy={busy} ways={waysOf} onZoom={zoom} onDuplicate={duplicate} onArchive={archive} />
             ))}
-          </select>
-        </label>
+          </ul>
+        )}
+        <section className="main-flyer" aria-labelledby="main-flyer-title">
+          <h2 id="main-flyer-title">Main reception flyer</h2>
+          <p>The poster over every reception. Its QR code leads guests to our experience page.</p>
+          <img
+            src={assetUrl(MAIN_FLYER.png.path)}
+            alt="The main Nest flyer: Live Nest at maximum. Scan the QR code and book your next adventure."
+            loading="lazy"
+          />
+          <div className="main-flyer-actions">
+            <a className="btn btn-accent" href={assetUrl(MAIN_FLYER.png.path)} download={MAIN_FLYER.png.name}>
+              Download PNG
+            </a>
+            <a className="btn" href={assetUrl(MAIN_FLYER.pdf.path)} download={MAIN_FLYER.pdf.name}>
+              Download PDF
+            </a>
+          </div>
+        </section>
       </div>
-      {error && <div className="banner banner-error">{error}</div>}
-      {!items && !error && <div className="loading">Loading…</div>}
-      {items && items.length === 0 && (
-        <div className="empty">
-          <p>No flyers here yet.</p>
-          <a className="btn btn-accent" href="#/new">
-            Make the first one
-          </a>
-        </div>
+      {zoomed && large ? (
+        <Lightbox title={zoomed.item.title} payload={zoomed.payload} canvas={canvas} onClose={() => setZoomed(null)}>
+          {largeNoPhoto && <div className="lightbox-note">{NO_PHOTO}</div>}
+          <div className="lightbox-actions">
+            <WaysOut offer={offer} act={large.act} busy={busy?.id === zoomed.item.id ? busy.kind : null} disabled={busy !== null || largeNoPhoto}>
+              <button type="button" className="btn" disabled={!zoomed.payload.flyer.data.share.trim()} onClick={large.copyCaption}>
+                Copy text
+              </button>
+            </WaysOut>
+            <a className="btn" href={`#/flyers/${zoomed.item.id}`}>
+              Open in editor
+            </a>
+          </div>
+          {/* The dialog is over everything else on the page: what an action answers is said inside it. */}
+          {toasts}
+        </Lightbox>
+      ) : (
+        toasts
       )}
-      {items && items.length > 0 && (
-        <ul className="cards">
-          {items.map((f) => (
-            <li key={f.id} className="card">
-              {/* The picture is inside the link and hidden from its name (FlyerThumb): the card is still its title. */}
-              <a className="card-main" href={`#/flyers/${f.id}`}>
-                <FlyerThumb id={f.id} version={f.updatedAt} scroller={scroller} />
-                <span className="card-text">
-                  <span className="card-title">{f.title}</span>
-                  <span className="card-meta">
-                    {f.hostelName ?? 'All hostels'} · {TEMPLATE_LABEL[f.template]} · {when(f.updatedAt)}
-                  </span>
-                </span>
-              </a>
-              <div className="card-actions">
-                <a className="btn btn-quiet" href={`#/flyers/${f.id}`}>
-                  Open
-                </a>
-                <button type="button" className="btn btn-quiet" disabled={busyId === f.id} onClick={() => duplicate(f.id)}>
-                  Duplicate
-                </button>
-                <button type="button" className="btn btn-quiet" disabled={busyId === f.id} onClick={() => archive(f)}>
-                  Archive
-                </button>
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
-      <section className="main-flyer" aria-labelledby="main-flyer-title">
-        <h2 id="main-flyer-title">Main reception flyer</h2>
-        <p>The poster over every reception. Its QR code leads guests to our experience page.</p>
-        <img
-          src={assetUrl(MAIN_FLYER.png.path)}
-          alt="The main Nest flyer: Live Nest at maximum. Scan the QR code and book your next adventure."
-          loading="lazy"
-        />
-        <div className="main-flyer-actions">
-          <a className="btn btn-accent" href={assetUrl(MAIN_FLYER.png.path)} download={MAIN_FLYER.png.name}>
-            Download PNG
-          </a>
-          <a className="btn" href={assetUrl(MAIN_FLYER.pdf.path)} download={MAIN_FLYER.pdf.name}>
-            Download PDF
-          </a>
-        </div>
-      </section>
-    </div>
+    </>
   );
 }

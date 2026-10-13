@@ -2,7 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import type { APIRequestContext, Page, Response as PwResponse } from '@playwright/test';
 import { expect, test } from '../browser';
-import { POOL_PARTY, apiCall, backToLibrary, clipboardPng, copyImage, download, dropFile, filterLibrary, grantClipboard, libraryCard as card, openSection, rowField, saveNew, status, templateButton, toast, type FilePayload } from '../editor';
+import { POOL_PARTY, apiCall, backToLibrary, cardMore, clipboardPng, copyImage, download, dropFile, filterLibrary, grantClipboard, libraryCard as card, openSection, rowField, saveNew, status, templateButton, toast, type FilePayload } from '../editor';
 import sharp from 'sharp';
 import { PHOTO_MODE_LABEL } from '../../src/editor/photoModes';
 import { TEMPLATE_LABEL } from '../../src/editor/templates';
@@ -301,7 +301,7 @@ test('the editor on the PHP backend: create, photos, crop, reopen, library, down
     const original = await payload(request, id);
     const [created] = await Promise.all([
       page.waitForResponse(apiCall('POST', 'flyers')),
-      mine.getByRole('button', { name: 'Duplicate', exact: true }).click(),
+      cardMore(mine, 'Duplicate'),
     ]);
     expect(created.status(), await created.text()).toBe(201);
     const copyId = FlyerSavedSchema.parse(await created.json()).id;
@@ -324,7 +324,7 @@ test('the editor on the PHP backend: create, photos, crop, reopen, library, down
     });
     const [archived] = await Promise.all([
       page.waitForResponse(apiCall('DELETE', `flyers/${copyId}`)),
-      copyCard.getByRole('button', { name: 'Archive', exact: true }).click(),
+      cardMore(copyCard, 'Archive'),
     ]);
     // Status only: the library reloads right after, and a navigated-away response has no readable body.
     expect(archived.status()).toBe(204);
@@ -337,7 +337,7 @@ test('the editor on the PHP backend: create, photos, crop, reopen, library, down
   });
 
   await test.step('9. download PNG and JPG of every canvas through the editor, each at its exact size', async () => {
-    await card(page, title).getByRole('link', { name: 'Open', exact: true }).click();
+    await cardMore(card(page, title), 'Open');
     await expect(page).toHaveURL(new RegExp(`#/flyers/${id}$`));
     await expect(page.getByLabel('Line 1')).toHaveValue(COPY.headline1);
 

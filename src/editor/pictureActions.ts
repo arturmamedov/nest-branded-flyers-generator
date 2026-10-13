@@ -176,5 +176,5 @@ export function pictureActions(host: PictureHost) {
         ? { label: SHARE_NOW, onPress: () => shareNow(next) }
         : undefined;
 
-  return { act, step };
+  return { act, step, copyCaption };
 }

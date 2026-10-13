@@ -15,11 +15,10 @@ import { WEEK_ROWS_MAX, WEEK_ROW_LIMITS, isPrintable, rowFromActivity } from '..
 import { api, ApiError, asSentence } from './api';
 import { COPY_FAILED, canCopyImage } from './clipboard';
 import type { ExportFormat, FlyerExporter } from './export';
-import { DOWNLOAD, EXPORT_ACTION, TOUCH_QUERY, exportActions, needsPhoto as frameNeedsPhoto, type ExportAction } from './exportActions';
+import { TOUCH_QUERY, exportActions, needsPhoto as frameNeedsPhoto, type ExportAction } from './exportActions';
 import { takeDraft } from './handoff';
 import { useLeaveGuard } from './leaveGuard';
 import { FIELD } from './fields';
-import { Menu } from './Menu';
 import { useOneAction } from './oneAction';
 import { AiUsedUp, BackToLibrary, Field, HostelOptions, Section, type Fold } from './panel';
 import { PHOTO_MODE_LABEL, PHOTO_UPLOADING } from './photoModes';
@@ -33,6 +32,7 @@ import { ShareCopy, ShareFab } from './share';
 import { canShareFiles } from './shareSheet';
 import { Toasts, type Warning } from './Toasts';
 import { warningId } from './toastFolds';
+import { WaysOut } from './WaysOut';
 import { TEMPLATE_LABEL } from './templates';
 import { useMedia } from './useMedia';
 
@@ -369,7 +369,7 @@ export function Editor({
   ];
 
   // Which way out is the first button, and which are behind "Download" (exportActions.ts).
-  const { first, menu } = exportActions(can, touch);
+  const offer = exportActions(can, touch);
   // The toast's next step, drawn with the flyer as it is now.
   const step = stepFor(message?.next, needsPhoto);
 
@@ -633,19 +633,7 @@ export function Editor({
             <button type="button" className="btn btn-dark" disabled={!!busy || (!dirty && flyerId != null)} onClick={onSave}>
               {busy === 'save' ? 'Saving…' : 'Save'}
             </button>
-            {/* The first way out is the bar's main button, and Download stands beside it; alone, Download is. */}
-            {first && (
-              <button type="button" className="btn btn-accent" disabled={!!busy || needsPhoto} onClick={act[first]}>
-                {busy === first ? EXPORT_ACTION[first].busy : EXPORT_ACTION[first].label}
-              </button>
-            )}
-            {/* While one of its entries works, the button reads what that entry is doing. */}
-            <Menu
-              label={menu.find((action) => action === busy) ? EXPORT_ACTION[busy as ExportAction].busy : DOWNLOAD}
-              className={first ? 'btn btn-dark' : 'btn btn-accent'}
-              disabled={!!busy || needsPhoto}
-              entries={menu.map((action) => ({ id: action, label: EXPORT_ACTION[action].label, hint: EXPORT_ACTION[action].hint, onPick: act[action] }))}
-            />
+            <WaysOut offer={offer} act={act} busy={busy} disabled={!!busy || needsPhoto} dark />
           </div>
         </div>
 

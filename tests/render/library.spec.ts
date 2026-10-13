@@ -1,6 +1,6 @@
 import type { APIRequestContext, Locator, Page } from '@playwright/test';
 import { expect, test } from '../browser';
-import { EDITOR_VIEWPORT, apiCall, apiRoute, exportFit, filterLibrary, hold, libraryCard as card } from '../editor';
+import { EDITOR_VIEWPORT, apiCall, apiRoute, cardMore, exportFit, filterLibrary, hold, libraryCard as card, moreMenu, waysMenu, zoomButton } from '../editor';
 import { TEMPLATE_LABEL } from '../../src/editor/templates';
 import { newFlyerData } from '../../src/shared/defaults';
 import { CANVASES, DEFAULT_CANVAS } from '../../src/shared/layout';
@@ -104,7 +104,11 @@ test('a card’s box is the same size while its picture waits, once it shows, an
   // The flyer that could not load: its card as it was, its box empty, and no error over the library.
   await expect(flyerIn(broken)).toHaveCount(0);
   await expect(shown(broken)).toHaveCount(0);
-  await expect(broken.getByRole('link', { name: 'Open', exact: true })).toBeVisible();
+  await expect(broken.locator('a.card-main')).toBeVisible();
+  // Its ways out stay greyed, and so does its zoom: there is no flyer to make a picture of. "More" still works.
+  await expect(waysMenu(broken)).toBeDisabled();
+  await expect(zoomButton(broken)).toBeDisabled();
+  await expect(moreMenu(broken)).toBeEnabled();
   await expect(page.locator('.banner-error')).toHaveCount(0);
 });
 
@@ -116,16 +120,17 @@ test('the picture is decoration: the card is still one link named by its title, 
 
   const main = c.locator('a.card-main');
   await expect(main).toHaveAccessibleName(new RegExp(`^${first.title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} .* · ${TEMPLATE_LABEL[first.template]} · `));
-  await expect(c.getByRole('link'), 'the card and "Open", as before').toHaveCount(2);
+  // One link: "Open" is in the card's "More" menu since the library's views (the owner's pick, 2026-10-13).
+  await expect(c.getByRole('link'), 'the card itself').toHaveCount(1);
   await expect(thumb(c)).toHaveAttribute('aria-hidden', 'true');
   expect(await thumb(c).evaluate((el) => (el as HTMLElement).inert), 'inert').toBe(true);
   // The flyer's own images carry alt text (the hostel's badge, the wordmark): none of it is read out here.
   await expect(c.getByRole('img')).toHaveCount(0);
 
-  // Tab from the card's link goes straight to "Open": nothing inside the picture stops it.
+  // Tab from the card's link goes straight to the zoom button, the next control: nothing inside the picture stops it.
   await main.focus();
   await page.keyboard.press('Tab');
-  await expect(c.getByRole('link', { name: 'Open', exact: true })).toBeFocused();
+  await expect(zoomButton(c)).toBeFocused();
 
   // A click on the picture is a click on the card. The mouse itself, so the browser picks what is hit.
   const box = (await thumb(c).boundingBox())!;
@@ -194,7 +199,7 @@ test('a card whose flyer was saved since shows the flyer as it is now, whatever 
   expect(put.status(), await put.text()).toBe(200);
   // …and the list is loaded again in place, as archiving another flyer does: the card stays, and its flyer is newer.
   page.once('dialog', (d) => void d.accept());
-  await card(page, leaving).getByRole('button', { name: 'Archive', exact: true }).click();
+  await cardMore(card(page, leaving), 'Archive');
   await expect(card(page, leaving)).toHaveCount(0);
   await expect(shown(c)).toBeVisible();
   await expect(flyerIn(c)).toContainText('After the save');
@@ -243,7 +248,7 @@ test('on a phone the picture is smaller, the card fits the screen, and nothing s
   expect(await size(flyerIn(c)), 'the whole flyer, scaled into the smaller box').toEqual(BOX.phone);
 
   expect(await page.locator('.library').evaluate((el) => el.scrollWidth <= el.clientWidth), 'no sideways scroll').toBe(true);
-  for (const part of [c, c.locator('.card-title'), ...['Open', 'Duplicate', 'Archive'].map((name) => c.getByRole(name === 'Open' ? 'link' : 'button', { name, exact: true }))]) {
+  for (const part of [c, c.locator('.card-title'), zoomButton(c), ...(await c.locator('.card-actions').getByRole('button').all())]) {
     const box = (await part.boundingBox())!;
     expect(box.x, 'inside the screen, left').toBeGreaterThanOrEqual(0);
     expect(box.x + box.width, 'inside the screen, right').toBeLessThanOrEqual(390);

@@ -1344,7 +1344,10 @@ nest-nav > nav a.ai-entry .ai-count {
   gap: 10px;
 }
 
+/* The picture's width on screen is the one number written here, per view and per screen (--thumb-w). The card holds
+   it, not the picture: the zoom button over the picture's corner is placed by it too. */
 .card {
+  --thumb-w: 120;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1354,6 +1357,14 @@ nest-nav > nav a.ai-entry .ai-count {
   border: 1px solid var(--line);
   border-radius: 14px;
   padding: 14px 16px;
+}
+
+/* The card's link, and the zoom button laid over its picture's corner: the button is no part of the link. */
+.card-head {
+  position: relative;
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .card-main {
@@ -1381,7 +1392,6 @@ nest-nav > nav a.ai-entry .ai-count {
    flyer's own size comes from the canvas registry (--flyer-w and --flyer-h, set by the component), so the box's
    height and the scale follow from it. */
 .card-thumb {
-  --thumb-w: 120;
   flex: 0 0 auto;
   width: calc(var(--thumb-w) * 1px);
   height: calc(var(--thumb-w) * var(--flyer-h) / var(--flyer-w) * 1px);
@@ -1426,9 +1436,274 @@ nest-nav > nav a.ai-entry .ai-count {
   font-size: 13px;
 }
 
+/* What a frame with no photo reads, where the card's ways out are greyed. */
+.card-note {
+  color: var(--warn-ink);
+  font-size: 12px;
+}
+
+/* The zoom button: 44 px to hit, drawn as a 30 px disc in the picture's top-right corner. In the list the picture is
+   centred in the card's height, so the button is placed from the middle, by the picture's own height. */
+.card-zoom {
+  position: absolute;
+  left: calc(var(--thumb-w) * 1px - 44px);
+  top: calc(50% - var(--thumb-w) * var(--flyer-h) / var(--flyer-w) * 0.5px);
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  display: grid;
+  place-items: center;
+  cursor: zoom-in;
+}
+
+.card-zoom span {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: rgba(8, 44, 58, 0.82);
+  color: #fff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+}
+
+.card-zoom:hover:not(:disabled) span {
+  background: var(--teal);
+}
+
+/* Until the card's flyer is here there is nothing to show large. */
+.card-zoom:disabled {
+  opacity: 0;
+  cursor: default;
+}
+
+.card-zoom:focus-visible {
+  outline: 0;
+}
+
+.card-zoom:focus-visible span {
+  outline: 2px solid var(--teal);
+  outline-offset: 2px;
+}
+
+/* A card's buttons: the ways out, then "More". They wrap inside the card, never past it. */
 .card-actions {
   display: flex;
-  gap: 4px;
+  flex: 0 1 auto;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.card-actions .btn {
+  padding-left: 12px;
+  padding-right: 12px;
+}
+
+/* The switch between the two views, with the filters. */
+.view-switch button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  padding: 7px 12px;
+}
+
+/* The grid: larger pictures, three to a row on a desktop. The columns have the card's own width, because the picture
+   is scaled by a number (--thumb-w), not by the room it is given. Three cards and two gaps are 866 px: inside the
+   library's 900 px column with a scrollbar beside it. */
+.cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, 278px);
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.cards-grid .card {
+  --thumb-w: 252;
+  flex-direction: column;
+  flex-wrap: nowrap;
+  align-items: stretch;
+  justify-content: flex-start;
+  gap: 10px;
+  padding: 12px;
+}
+
+.cards-grid .card-head {
+  flex: 0 0 auto;
+}
+
+.cards-grid .card-main {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+}
+
+.cards-grid .card-zoom {
+  left: auto;
+  right: 0;
+  top: 0;
+}
+
+/* The buttons fill their rows, at the card's foot whatever the title's length. */
+.cards-grid .card-actions {
+  justify-content: flex-start;
+  margin-top: auto;
+}
+
+.cards-grid .card-actions > * {
+  flex: 1 1 auto;
+}
+
+.cards-grid .card-actions .menu > .btn {
+  width: 100%;
+}
+
+/* "Download" is at the left of its row there: its list opens from the button's left end, or a card in the first
+   column would hang it off the screen. "More", at the right, keeps the right end. */
+.cards-grid .card-actions .menu:not(:last-child) .menu-list {
+  left: 0;
+  right: auto;
+}
+
+/* Behind the lightbox the library keeps its place. */
+.library-held {
+  overflow: hidden;
+}
+
+/* A flyer shown large (Lightbox.tsx): the browser's modal dialog over the whole window, which is its own backdrop.
+   The flyer takes the room the bar under it leaves. */
+.lightbox {
+  position: fixed;
+  inset: 0;
+  box-sizing: border-box;
+  width: 100vw;
+  height: 100dvh;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: 16px;
+  border: 0;
+  background: rgba(6, 30, 40, 0.97);
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  overflow: hidden;
+  overscroll-behavior: contain;
+}
+
+/* Its own rule: the dialog sets `display`, which outranks the browser's for a closed one. */
+.lightbox:not([open]) {
+  display: none;
+}
+
+.lightbox::backdrop {
+  background: transparent;
+}
+
+.lightbox-room {
+  flex: 1 1 0;
+  min-height: 0;
+  width: 100%;
+  display: grid;
+  place-items: center;
+}
+
+.lightbox .card-thumb {
+  border-radius: 10px;
+  box-shadow: 0 16px 50px rgba(0, 0, 0, 0.5);
+}
+
+.lightbox-close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 1;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.16);
+  color: #fff;
+  font: inherit;
+  font-size: 26px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.lightbox-close:hover {
+  background: rgba(255, 255, 255, 0.28);
+}
+
+.lightbox-close:focus-visible {
+  outline: 2px solid var(--teal-bright);
+  outline-offset: 2px;
+}
+
+.lightbox-bar {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  max-width: 100%;
+  text-align: center;
+}
+
+.lightbox-title {
+  font-weight: 700;
+  font-size: 16px;
+  overflow-wrap: anywhere;
+}
+
+.lightbox-meta {
+  font-size: 13px;
+  opacity: 0.75;
+}
+
+.lightbox-note {
+  font-size: 13px;
+  color: #ffd98a;
+}
+
+.lightbox-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.lightbox-actions .btn:focus-visible {
+  outline-color: var(--teal-bright);
+}
+
+/* The bar is at the window's foot: its menu opens upwards. */
+.lightbox .menu-list {
+  top: auto;
+  bottom: calc(100% + 6px);
+}
+
+/* What an action answers, inside the dialog: in its top-left corner, clear of the bar and, by its width, of the
+   close button in the other corner (an error stays until it is closed, and must not lie over the way out). */
+.lightbox .toasts-anchor {
+  position: absolute;
+  inset: 0 auto auto 0;
+}
+
+.lightbox .toasts {
+  left: 8px;
+  right: auto;
+  top: 8px;
+  bottom: auto;
+  width: min(316px, calc(100vw - 70px));
 }
 
 .empty {
@@ -1567,7 +1842,60 @@ nest-nav > nav a.ai-entry .ai-count {
   }
 
   /* A phone's card: a smaller picture, so the title keeps most of the line. */
-  .card-thumb {
+  .card {
     --thumb-w: 96;
+  }
+
+  /* A finger's height, and under the picture the buttons share the card's width. */
+  .card-actions .btn {
+    min-height: 40px;
+  }
+
+  .cards-list .card-actions {
+    flex: 1 1 100%;
+  }
+
+  /* A phone's grid: two to a row at 360 px, with smaller buttons, two to a row inside the card (the owner's pick,
+     2026-10-13: "Two columns, small buttons"). */
+  .cards-grid {
+    grid-template-columns: repeat(auto-fill, 154px);
+    gap: 10px;
+  }
+
+  .cards-grid .card {
+    --thumb-w: 136;
+    padding: 8px;
+    gap: 8px;
+  }
+
+  .cards-grid .card-actions {
+    gap: 4px;
+  }
+
+  .cards-grid .card-actions .btn {
+    padding-left: 6px;
+    padding-right: 6px;
+    font-size: 12px;
+  }
+
+  /* No room for the menus' arrows: "Share…" and "Copy text" are one row of the card, "Download" and "More" the next. */
+  .cards-grid .card-actions .menu-chev {
+    display: none;
+  }
+
+  .cards-grid .card-title {
+    font-size: 14px;
+  }
+
+  .cards-grid .card-meta {
+    font-size: 12px;
+  }
+
+  .lightbox {
+    padding: 10px;
+  }
+
+  .lightbox-actions .btn {
+    min-height: 40px;
   }
 }

@@ -247,6 +247,34 @@ const exactly = (text: string) => new RegExp(`^${text.replace(/[.*+?^${}()|[\]\\
 export const libraryCard = (page: Page, title: string) =>
   page.locator('li.card').filter({ has: page.locator('.card-title', { hasText: exactly(title) }) });
 
+/** A library card's zoom button, over its picture's corner: it opens the lightbox. */
+export const zoomButton = (card: Locator) => card.getByRole('button', { name: /^Zoom in on / });
+
+/** The library's lightbox: the browser's own modal dialog, so it is found only while it is open. */
+export const lightbox = (page: Page) => page.getByRole('dialog');
+
+/** The "Download" button of a flyer's ways out in the library: `within` is a card, or the lightbox. By its place,
+    as in the editor's bar: it reads "Rendering…" while a download is being made. */
+export const waysMenu = (within: Locator) => within.locator('.menu > button').first();
+
+/** One of a flyer's ways out in the library, whichever it is on this device: the first button, or an entry behind
+    Download. It presses it and does not wait for what it does. */
+export async function pickWay(within: Locator, action: ExportAction) {
+  const first = within.getByRole('button', { name: EXPORT_ACTION[action].label, exact: true });
+  if (await first.count()) return first.click();
+  const menu = waysMenu(within);
+  await expect(menu).toBeEnabled();
+  if ((await menu.getAttribute('aria-expanded')) !== 'true') await menu.click();
+  await within.getByRole('menuitem', { name: new RegExp(`^${EXPORT_ACTION[action].label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}( · |$)`) }).click();
+}
+
+/** A card's "More" menu, the last of its buttons, and one of its entries: what a card does besides the ways out. */
+export const moreMenu = (card: Locator) => card.locator('.card-actions > .menu > button').last();
+export async function cardMore(card: Locator, entry: 'Open' | 'Duplicate' | 'Archive') {
+  await moreMenu(card).click();
+  await card.getByRole('menuitem', { name: entry, exact: true }).click();
+}
+
 /** Sets one of the library's filters and waits until the list for exactly that query is on screen. The library's
     selects are named by their <label>, with no aria-label, so the name is matched loosely. */
 export async function filterLibrary(page: Page, filter: 'Hostel' | 'Template', option: { value: string } | { label: string }, search: string) {

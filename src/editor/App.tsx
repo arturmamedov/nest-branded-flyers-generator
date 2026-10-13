@@ -102,7 +102,7 @@ export function App() {
       {hostels &&
         backend &&
         (page === 'library' ? (
-          <Library hostels={hostels} />
+          <Library hostels={hostels} exporter={backend.exporter} />
         ) : page === 'ai' && flyerAi ? (
           <AiPage key={nav} hostels={hostels} ai={flyerAi} photo={photoAi} limits={backend.limits} onRemaining={onRemaining} recount={recount} />
         ) : (
