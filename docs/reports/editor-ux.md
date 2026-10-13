@@ -626,7 +626,7 @@ It is the only part that changes what a flyer prints. Stored flyers do not chang
 | The blobs on WhatsApp under a long pill: stay, slide out, or shrink into their corners | "A - Stay: maybe we can change the colors of the sparks there?" |
 | The spark in yellow, on both canvases or on WhatsApp alone | "Let's invert the blob colors secondary-yellow and the sparks leave them secondary as the pill" |
 | The blobs with their inks swapped, drawn: is this it? | "Yes, on both canvases" |
-| The sparks on the photo's corners | "Leave them" |
+| The sparks on the photo's corners | "Leave them" (on 2026-10-13 he had them trade inks: the last section) |
 | The pencil: same size and higher, or smaller with its tip on the underline | "A · Same size, higher" |
 
 - **The plan** as written, its seven *Mine* points kept. One turned out not to be needed (M4, below).
@@ -646,7 +646,7 @@ It is the only part that changes what a flyer prints. Stored flyers do not chang
   draws the piece inside a box that is the pill's own before its tilt, at the same offsets from that box's end.
   The browser places it: nothing is measured after the fit. It comes before the pill in that box, so the pill is
   still drawn over it. A flyer that prints no pill keeps the spark on the flyer itself, at the anchor's point,
-  which is the pixels it always had.
+  which is the pixels it always had. (Since 2026-10-13 it prints no such spark: the last section.)
 - **The corner blobs print in each other's ink** (`5dedfc4`): teal on the left, yellow on the right. Each keeps its
   drawing and its place. The untouched template set draws `blob-left-teal` for the stored `blob-yellow` and
   `blob-right-yellow` for `blob-teal` (`SWAPPED_BLOBS` in `defaults.ts`). The two files are derived by
@@ -810,7 +810,8 @@ One of its points is not a test's and is in the list below: a long ask reaches t
 
 - **The colours no longer cross.** Before, teal and yellow sat on opposite corners: the teal spark on the photo's
   top left and the teal blob bottom right, yellow the other way. Now teal is on the left, top and bottom, and
-  yellow on the right. It is what the swap gives; Sheet A shows it on every sample.
+  yellow on the right. It is what the swap gives; Sheet A shows it on every sample. **Answered on 2026-10-13:**
+  "Invert also the image sparks on the top". They cross again (the last section).
 - **On WhatsApp a full-width pill's left end lies on the teal blob**, the pill's teal on a slightly lighter teal.
   Before, its right end did. The blobs stay, by his answer.
 - **The two new blob files are not in the seed's doodles** (`seed/hostels.json`). They are the template's inks,
@@ -830,9 +831,127 @@ One of its points is not a test's and is in the list below: a long ask reaches t
 ### Yours to do
 
 - **The release.** `npm run build:php`, upload the release whole, then `npm run deploy:tag -- <the site>`. This
-  part needs one: it brings two art files in `assets/art/` and the new schemas, and PHP reads the schemas on
-  every request.
+  part needs one: it brings four art files in `assets/art/` (two with the changes of 2026-10-13, below) and the
+  new schemas, and PHP reads the schemas on every request.
 - **After it, a tag longer than 12 ties a flyer to the new release.** `docs/deploy.md`, "Rolling back", says what
   an older release does with one.
 - **The live site** is still without its lock, and the AI's block is still to add: both as before this round.
 - **The phone trial of Part 3**, over https: its steps are in Part 3's section above.
+
+## After Part 4: three last changes (2026-10-13)
+
+Artur looked at Part 4 and asked for "two lasts things", which were three:
+
+> - The toogle show pill should also remove the sparks under it or it look wired
+> - Invert also the image sparks on the top
+> - Let's move the sidebar configuration panels in the order on how we editing the flyer: Flyer, Headline, Photo,
+>   When - Where - Cost, Nice to know, The ask (also we can add "CTA"), Top and tag pill (tha also can be diveded
+>   here. Top to Headline. And Pill alone).
+
+Built on `feat/editor-ux-part-3`, on top of `3bd2e81`, a commit each, test first. He approved a short plan with
+its five *Mine* points kept (below), and signed Sheet C before the two art changes were committed. Nothing is
+pushed, no release was built, and the live site and the Laragon copy were not touched.
+
+### What was built
+
+- **The form's sections are in the order a flyer is made** (`836f9a6`): Flyer, Headline, Photo, When · Where ·
+  Cost, Nice to know, The ask (CTA), Tag pill, Share text. A This week flyer: Flyer, Title, its rows, The ask
+  (CTA), Tag pill, Share text. It is the flyer's own order from top to bottom.
+  - "Top and tag pill" is split, as he said. The eyebrow is the Headline's first field (a week flyer's Title),
+    above the lines it prints over. The pill has a section of its own: its switch, the handle and the tag.
+  - The section is titled "The ask (CTA)". "The AI assumed…" still names its two lines "The ask (English)" and
+    "The ask (Spanish)".
+  - Closed, Tag pill reads `@HANDLE · TAG`, or "Not shown" with the switch off. The Headline's line is still its
+    two lines: the eyebrow is not in it.
+  - The editor's form alone (`sectionFolds.ts`, `fields.ts`, `Editor.tsx`). The drawing is byte-identical to the
+    capture taken after Part 4, on all 32 cases.
+- **A flyer that prints no tag pill prints no spark where the pill would end** (`1ffe2a7`). The spark is drawn
+  with the pill, and only with it. One line of `Flyer.tsx`.
+- **The two sparks on the photo's corners print in each other's ink** (`9b362c0`): yellow on the left, teal on the
+  right. Teal and yellow cross again from the flyer's top to its bottom, as they did before the blobs traded
+  theirs. Each spark keeps its drawing and its place.
+  - `SWAPPED_BLOBS` became `SWAPPED_INKS` and names where each swapped file hangs: the left spark's drawing is
+    the pill's spark too, and that one keeps its teal.
+  - Two more derived files, `assets/art/spark-left-yellow.png` and `spark-right-teal.png`, made by
+    `npm run gen:art`. The haze of the scans is left out of them, as from the blobs.
+  - Both inks are read off the blobs. A blob's scan is flat (four solid pixels in five are one colour); a
+    spark's is speckled, and its commonest colour is under a fiftieth of it, two levels of blue off the blob's
+    teal.
+
+Stored flyers did not change: no number or slug in `DEFAULT_DOODLES` moved, there is no migration, and art
+someone arranged by hand is drawn as stored.
+
+### What is mine, and he kept
+
+- **"No pill" is any flyer that prints none**: the switch off, or the handle and the tag both empty.
+- **On a This week flyer the sparks on the first row's corners trade inks too.** They are the same two pieces.
+- **The sections he did not name**: the week's order above, and Share text last on both.
+- **The words**: "Tag pill", "The ask (CTA)" and "Not shown".
+- **A browser that remembered "Top and tag pill" open finds Tag pill closed the first time.** The memory is by
+  section, and a section a release does not know is dropped, as before.
+- Not in the plan: the eyebrow is the Headline's *first* field, and both inks come from the blobs.
+
+### The tests
+
+Each written before its change and seen to fail.
+
+- `tests/unit/section-folds.test.ts`: the two orders, the eyebrow's rules in Headline and the pill's in Tag pill,
+  the Tag pill's line, and the old section dropped from a remembered list.
+- `tests/render/panel.spec.ts`: the titles on screen in order on both templates, written as words; a new test
+  reads the Headline's four fields in order and the Tag pill's three, and the line "Not shown".
+  `editor.spec.ts`: the closed Tag pill's line is the handle and the tag.
+- `tests/render/art.spec.ts`:
+  - No pill, no spark: four flyers on each canvas (the switch off, off with a long pill waiting, on with no copy,
+    a week flyer), and nothing but the four pieces and the pencil anywhere on the flyer.
+  - The inks, in a frame, full bleed, with no photo and on a week flyer, on both canvases: what each spark inks
+    is counted from the picture with it less the picture without, so a row's yellow highlighter under it is no
+    part of the count. Yellow and no teal on the left, teal and no yellow on the right, and teal for the pill's.
+  - Both were seen to fail again on a build with the rule undone.
+- `tests/unit/shared.test.ts` and `art-inks.test.ts`: the slugs the template draws, the table, the four files
+  held to what the script makes, and that every derived file is flat in a blob's ink.
+
+### Sheet C, and the look
+
+In `backups/editor-ux-part-4/`, outside git, with the scripts that drew them (`sheet-c.mts`, `look-c.mts`).
+
+- **Sheet C** (`sheet-c/`, with `sheet-c.html` at full size): close-ups at the flyer's own size of the strip the
+  two sparks are in and of the strip a hidden pill leaves, for each body on both canvases; then the nine seeded
+  samples and Pool party in a frame, each with its pill and with the pill switched off, before (a build of
+  `836f9a6` in a temp folder) and after. He answered "Signed: commit both".
+- **The editor**, in the installed Chrome driven by a script, on Node, at 1440, 1280, 390 and 360 px wide: the
+  sections in the new order on both templates, the eyebrow above Line 1, and Tag pill with its switch alone once
+  it is off. With the switch off the flyer on screen has the four pieces and the pencil, and so has the WhatsApp
+  image downloaded from the bar (`look-c/`).
+- Not looked at by eye on PHP, and not tried on a real phone.
+
+### The gates
+
+On the tree that was committed (`9b362c0`), all green:
+
+| Gate | Result | At the end of Part 4 |
+|---|---|---|
+| `npm run typecheck` | clean | clean |
+| `npm test` | 694 in 40 files | 690 |
+| `npm run test:contract`, every backend | 381 | 381 |
+| `npm run test:render` | 327, and the opt-in baseline skipped | 324 |
+| `npm run test:php` | 894 | 894 |
+| `npm run test:php-smoke` | 3 | 3 |
+
+A fresh capture of the drawing is in the temp folder `nest-ux4c-baseline` (32 cases, never committed). No
+provider was called, and no review by another agent was run on these three.
+
+### For Artur to decide
+
+- **A long pill's copy still ends in an ellipsis in the closed section's line.** The eyebrow is out of that line
+  now, but a handle of 18 with a tag of 24 is 45 characters, and the line shows about 37 of them at 421 px.
+- **A closed Headline does not show the eyebrow.** Its line is the headline's two lines, as before. "NEXT
+  ACTIVITY · Saturday is a pool party" would show both and be cut sooner.
+- **The right-hand spark's teal is the blobs' teal**, as flat as the swapped blobs. The spark off the pill is
+  still the scan, speckled within two levels of it: no eye tells them apart, and one more derived file would
+  make them the same.
+- The list at the end of Part 4 stands, but for the colours, which cross again.
+
+### Yours to do
+
+As at the end of Part 4: the release (`npm run build:php`, uploaded whole, then `npm run deploy:tag -- <the
+site>`), the live site, and the phone trial of Part 3 over https. The release now brings four art files.

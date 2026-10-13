@@ -33,6 +33,10 @@ next part's prompt, so he never has to come back here for one.
     each other's ink, and the pencil hangs from the end of the ask. The report quotes his answers.
   - "The baseline holds for every flyer whose pill fitted before" (Part 4, *Done when*) held for the fitted pill
     and ended with the art: he signed a sheet of every sample before and after instead.
+  - **Three last changes followed on 2026-10-13**, after he had looked at it (the report's last section): a flyer
+    with no pill prints no spark for it, the two sparks on the photo's corners trade inks, and the form's sections
+    are in the order a flyer is made, with "Top and tag pill" split. So the list of sections under *What the code
+    says today* (Part 2, below) is no longer the order, and "the sparks on the photo stay" is no longer true.
   - There is no next part. Left, his: the release, the live site, and a phone trial of Part 3 over https.
 - Commit each piece as it goes green, as in the flyer from a photo.
 - Before anything else, check git against that: the branch, the last commit, and whether the tree holds work that

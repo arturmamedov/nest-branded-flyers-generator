@@ -16,7 +16,7 @@ npm test               # Vitest: shared logic, shared vectors, the editor's hist
 npm run test:contract  # HTTP contract suite on every backend, php-basic (behind a login), php-access (the lock over
                        # HTTP), cross; CONTRACT_BASE_URL (+ _BASIC_USER/_PASSWORD) in .env targets a deployment
 npm run gen            # regenerate schema/*.json, seed/samples.json, the error table in docs/api-contract.md
-npm run gen:art        # remake the template's two blobs in each other's ink (assets/art/blob-left-teal, -right-yellow)
+npm run gen:art        # remake the template's blobs and photo sparks in each other's ink (four derived files in assets/art/)
 npm run test:render    # builds, then Playwright render/export checks + client-export fidelity
 npm run test:php       # PHPUnit (PHP_BIN picks the interpreter; composer test in php/ does the same)
 npm run test:php-smoke # the editor driven against the PHP backend in a browser
@@ -131,6 +131,14 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
     scroll by itself, and a closed section's long line never wraps. `panel.spec.ts` holds the 421 px.
   - The section titles are in `FIELD` (`fields.ts`), and the form asks `sectionsOf()` which sections a template
     shows.
+  - The sections are in the order a flyer is made, which is the flyer's own from top to bottom (Artur, 2026-10-13:
+    "in the order on how we editing the flyer"): Flyer, Headline, Photo, When · Where · Cost, Nice to know, The ask
+    (CTA), Tag pill, Share text. A This week flyer: Flyer, Title, its rows, The ask (CTA), Tag pill, Share text.
+    - The eyebrow is the Headline's first field (a week flyer's Title). The pill has a section of its own: they
+      shared "Top and tag pill", last but one. Closed, Tag pill reads its two words, or "Not shown".
+    - `SECTIONS` in `sectionFolds.ts` is the order, and `Editor.tsx` draws the sections in it by hand: change both.
+    - "The ask (CTA)" is the section's title alone. "The AI assumed…" names its lines "The ask (English)".
+    - The memory of open sections is by section id: `top` is gone, and a list that names it drops it.
   - Browser specs: `tests/render/panel.spec.ts`. `tests/editor.ts` has `sectionHead(page, title)`,
     `openSection(page, ...titles)` and `panelFold(page)`: a spec that opens a saved flyer opens the section it
     uses first.
@@ -452,18 +460,27 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
     tag (`docs/deploy.md`, "Rolling back").
   - The spark off the pill's end hangs from the pill (`pillEnd` in `artAnchors`; it took the place of `floor`).
     `Flyer.tsx` draws it inside a box that is the pill's own before its tilt, so the browser places it and nothing
-    is measured. A flyer that prints no pill keeps it where the default pill would end (`DEFAULT_PILL_WIDTH`).
-  - The corner blobs print in each other's ink, teal left and yellow right (`SWAPPED_BLOBS` in `defaults.ts`).
+    is measured. `DEFAULT_PILL_WIDTH` is only how its stored place becomes an offset from the pill's end.
+  - A flyer that prints no pill prints no such spark (Artur, 2026-10-13: "The toggle show pill should also remove
+    the sparks under it"; it was kept where the default pill would end). No pill is the switch off, or no handle
+    and no tag.
+  - The corner blobs print in each other's ink, teal left and yellow right (`SWAPPED_INKS` in `defaults.ts`).
     His answer to a teal spark lost on the teal blob: the blobs stay under a long pill, and "let's invert the
-    blob colors". The two files are derived by `scripts/art-inks.ts`, never drawn by hand, and are not in the
-    seed's doodles.
+    blob colors".
+  - The two sparks on the photo's corners trade inks too, yellow left and teal right (Artur, 2026-10-13: "Invert
+    also the image sparks on the top"; on 2026-10-12 he had left them). So the two inks cross again from the
+    flyer's top to its bottom. On a week flyer they are the sparks on the first row's corners. The spark off the
+    pill keeps its teal: `SWAPPED_INKS` names where each swapped file hangs, since that spark is the left one's
+    drawing.
+  - The four swapped files are derived by `scripts/art-inks.ts`, never drawn by hand, and are not in the seed's
+    doodles. Both inks are read off the blobs, whose scans are flat; the sparks' are speckled.
   - The pencil hangs from the end of the ask's block of copy, 14 px after it and 10 px above its top (his pick of
     two: "same size, higher"). From the block's end, not the English line's: under a short English line it would
     lie on a longer Spanish one.
-  - The sparks on the photo's corners stay as they were (his answer).
   - Art someone arranged by hand is drawn as stored, places and inks.
   - The story's byte-identical baseline ended here: the pencil is on every flyer with an ask. He signed a sheet of
-    every sample before and after instead. Take a capture before the next change that must not move the drawing.
+    every sample before and after instead, and another for the sparks' inks. Take a capture before the next change
+    that must not move the drawing.
   - Browser specs: `tests/render/art.spec.ts` (the spark, the inks, the pencil) and `pill.spec.ts`.
     `tests/render/drawn.ts` draws a payload the API would refuse (`newPayload()`, `drawPayload()`, and the long
     pill's copy, `HANDLE_18` and `TAG_24`).
@@ -721,8 +738,9 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
         the first example's "Free".
     - No release was built. A host needs nothing new for this work: it comes with the files. A host that names
       `photo` names it with `flyer`.
-- Built, all four parts (2026-10-07 to 2026-10-12): **the editor's UX round** (brief `docs/prompts/editor-ux.md`;
-  the report is `docs/reports/editor-ux.md`, one section per part). Designed with Artur on 2026-10-07: his
+- Built, all four parts (2026-10-07 to 2026-10-12, and three last changes on 2026-10-13): **the editor's UX
+  round** (brief `docs/prompts/editor-ux.md`; the report is `docs/reports/editor-ux.md`, one section per part,
+  and a last one for those three). Designed with Artur on 2026-10-07: his
   answers are quoted in the brief and the report, and are not to be reopened. Parts 1 and 2 are in `main`, on
   origin. Parts 3 and 4 are on `feat/editor-ux-part-3`, not pushed. Left, his: the release, the live site, and a
   phone trial of Part 3 over https.
@@ -820,8 +838,9 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
       sheet of every sample before and after, then the sheet of the tag at 8, 14 and 24.
     - Stored flyers did not change, and there is no migration. A flyer whose art was arranged by hand is drawn
       as stored.
-    - **It needs a release, uploaded whole.** It brings two art files (`assets/art/blob-left-teal.png`,
-      `blob-right-yellow.png`) and the new schemas. An older release refuses a flyer saved with a tag over 12:
+    - **It needs a release, uploaded whole.** It brings four art files (`assets/art/blob-left-teal.png`,
+      `blob-right-yellow.png`, `spark-left-yellow.png`, `spark-right-teal.png`) and the new schemas. An older
+      release refuses a flyer saved with a tag over 12:
       `docs/deploy.md`, "Rolling back", says what staff see on each backend, and a test holds each half.
     - The story's byte-identical baseline ended with this part. A capture of the new drawing is in the temp
       folder `nest-ux4-baseline`, outside git.
@@ -831,12 +850,21 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
       tests, and each is fixed: among it, the export check could not see a spark drawn off its pill (it now
       compares the spark and the pencil in their own boxes, `follow` in `tests/render/pixels.ts`), and the
       pencil's test held a week flyer to an Activity flyer's bound.
-    - **For Artur to decide** (the report has each): teal is now on the left top and bottom and yellow on the
-      right, where the two colours crossed; on WhatsApp a full-width pill's left end lies on the teal blob; on a
-      story week flyer with five rows the pencil's top is 4 px under the fifth row's frame; a long pill's copy
-      ends in an ellipsis in the closed section's line; the two new files are not in the seed's doodles; and,
-      older than the round, an ask too long for its 760 px column is not cut there: it prints on under the pencil
-      and, at 60 characters, past the safe margin, with the editor's cut-off warning.
+    - **Three last changes, after he had looked at it** (2026-10-13, the same branch, a commit each; the report's
+      last section). His words: "The toggle show pill should also remove the sparks under it", "Invert also the
+      image sparks on the top", and the form's sections "in the order on how we editing the flyer", with "Top and
+      tag pill" split.
+      - The form is the client alone, and the drawing stayed byte-identical to Part 4's capture (32 cases). The
+        two art changes are the renderer's: stored flyers did not change, and there is no migration.
+      - He signed a sheet of every sample before and after, with its pill and with the pill switched off
+        (`backups/editor-ux-part-4/sheet-c/`).
+      - A fresh capture of the drawing is in the temp folder `nest-ux4c-baseline`, outside git.
+    - **For Artur to decide** (the report has each): on WhatsApp a full-width pill's left end lies on the teal
+      blob; on a story week flyer with five rows the pencil's top is 4 px under the fifth row's frame; a long
+      pill's copy still ends in an ellipsis in the closed Tag pill's line; the four swapped files are not in the
+      seed's doodles; and, older than the round, an ask too long for its 760 px column is not cut there: it prints
+      on under the pencil and, at 60 characters, past the safe margin, with the editor's cut-off warning.
+    - Answered since (2026-10-13): the two inks cross again, by the photo's sparks trading theirs.
   - The round is over: there is no next part and no next prompt.
 - Waiting, don't start unasked: **the counts of what is left today confuse the interface a little** ("AI credits
   left", in Artur's words, on his phone, 2026-10-07; "Follow ups will fix in future"). Not designed, and not part
@@ -850,8 +878,8 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
   (dx/dy) are shared by every canvas, so it must decide how they apply per canvas; step 9, when it stores
   the render-only anchors (`bottomLeft`, `bottomRight`, `pillEnd`), must add a JSON migration id so an older
   release refuses the store cleanly. A stored `pillEnd` piece would also need the renderer's rule for it (drawn
-  with the pill), which today only the template set reaches, and step 9 decides whether staff may pick the
-  blobs' swapped inks (`blob-left-teal`, `blob-right-yellow`).
+  with the pill, and not at all on a flyer that prints none), which today only the template set reaches, and
+  step 9 decides whether staff may pick the four swapped inks (`SWAPPED_INKS`).
 - Next, once Artur supplies its prototype: a second flyer style, chosen in the editor while making a flyer.
   Not designed yet.
 - Done: output canvases, Instagram story 9:16 + WhatsApp 3:4 (branch `feat/output-canvases`, 2026-09-23).
