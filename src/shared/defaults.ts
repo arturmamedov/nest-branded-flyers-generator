@@ -184,5 +184,6 @@ export function newFlyerData(template: Template = 'activity'): FlyerData {
     overrides: {},
     doodles: DEFAULT_DOODLES.map((d) => ({ ...d })),
     share: '',
+    labels: [],
   };
 }

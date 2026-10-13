@@ -608,6 +608,16 @@
               "default": "",
               "type": "string",
               "maxLength": 2200
+            },
+            "labels": {
+              "default": [],
+              "maxItems": 8,
+              "type": "array",
+              "items": {
+                "type": "string",
+                "maxLength": 40,
+                "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+              }
             }
           },
           "required": [

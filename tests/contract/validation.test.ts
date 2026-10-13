@@ -1,5 +1,6 @@
 import { afterAll, describe, expect, it } from 'vitest';
 import { newFlyerData } from '../../src/shared/defaults.js';
+import { LABELS_MAX, LABEL_SLUGS, LABEL_SLUG_MAX } from '../../src/shared/labels.js';
 import { FlyerPayloadSchema, FlyerSavedSchema } from '../../src/shared/schema.js';
 import { SHARE_MAX } from '../../src/shared/share.js';
 import { TEXT_LIMITS } from '../../src/shared/text.js';
@@ -28,7 +29,7 @@ describe('normalisation', () => {
   });
 
   it('fills defaults, strips unknown keys at every level, and keeps record keys', async () => {
-    const { v: _v, photoCrop: _c, showPill: _s, week: _w, overrides: _o, share: _h, ...data } = newFlyerData('activity');
+    const { v: _v, photoCrop: _c, showPill: _s, week: _w, overrides: _o, share: _h, labels: _l, ...data } = newFlyerData('activity');
     const body = {
       ...flyerInput(),
       junk: 1,
@@ -119,6 +120,26 @@ describe('validation', () => {
     // Counted in code points, as every other limit: a long caption of emoji fits exactly.
     expect((await mine.create(flyerInput({ data: { ...d, share: '🌅'.repeat(SHARE_MAX) } }))).flyer.data.share).toBe('🌅'.repeat(SHARE_MAX));
     expect(await invalidFields(flyerInput({ data: { ...d, share: '🌅'.repeat(SHARE_MAX + 1) } }))).toEqual(['data.share']);
+  });
+
+  it('keeps a flyer’s labels in the list’s order, once each, one off the list too; holds them to their shape and their number', async () => {
+    const [first, second] = LABEL_SLUGS;
+    const withLabels = (labels: unknown) => flyerInput({ data: { ...d, labels: labels as string[] } });
+    const { id, flyer } = await mine.create(withLabels([second, 'off-the-list', first, second]));
+    // A label is checked by its shape, never against the list: one taken off the list stays on its flyers.
+    expect(flyer.data.labels).toEqual([first, second, 'off-the-list']);
+    expect((await ok(send('GET', `api/flyers/${id}`), FlyerPayloadSchema)).flyer.data.labels, 'and it reads back').toEqual([first, second, 'off-the-list']);
+    const updated = await ok(send('PUT', `api/flyers/${id}`, withLabels([second])), FlyerSavedSchema);
+    expect(updated.flyer.data.labels).toEqual([second]);
+    expect((await ok(send('PUT', `api/flyers/${id}`, withLabels([])), FlyerSavedSchema)).flyer.data.labels).toEqual([]);
+
+    expect(await invalidFields(withLabels(['Not A Slug']))).toEqual(['data.labels.0']);
+    expect(await invalidFields(withLabels([first, `${second}\n`]))).toEqual(['data.labels.1']);
+    expect(await invalidFields(withLabels(['x'.repeat(LABEL_SLUG_MAX + 1)]))).toEqual(['data.labels.0']);
+    expect(await invalidFields(withLabels(Array.from({ length: LABELS_MAX + 1 }, (_, i) => `label-${i}`)))).toEqual(['data.labels']);
+    expect(await invalidFields(withLabels(first))).toEqual(['data.labels']);
+    const most = Array.from({ length: LABELS_MAX }, (_, i) => `label-${i}`);
+    expect((await mine.create(withLabels(most))).flyer.data.labels).toEqual(most);
   });
 
   it('holds each line of copy to its limit, and names the line: a tag of 24 is saved, one of 25 refused', async () => {

@@ -16,6 +16,7 @@ use NestFlyers\Ai\ConfigAiPolicy;
 use NestFlyers\Ai\FakeProvider;
 use NestFlyers\Diagnostics\HostFacts;
 use NestFlyers\Domain\DoodleRepository;
+use NestFlyers\Domain\FlyerLabels;
 use NestFlyers\Domain\FlyerRepository;
 use NestFlyers\Domain\HostelRepository;
 use NestFlyers\Domain\MissingReference;
@@ -133,10 +134,13 @@ final class ApiTest extends TestCase
         $input->hostel = '';
         $input->template = 'activity';
         $input->data->template = 'week';
+        [$first, $second] = array_column($this->shared->labels()['list'], 'slug');
+        $input->data->labels = [$second, 'off-the-list', $first, $second];
         $this->send('POST', 'api/flyers', $input);
         $stored = $this->flyers->inputs[0];
         self::assertNull($stored['hostel'], 'an empty hostel means chain-wide');
         self::assertSame('activity', $stored['data']->template, 'the template column wins');
+        self::assertSame([$first, $second, 'off-the-list'], $stored['data']->labels, 'the labels in the list’s order, once each, one off the list kept');
         self::assertSame('activity', $stored['template']);
         self::assertInstanceOf(stdClass::class, $stored['data']);
     }
@@ -402,6 +406,7 @@ final class ApiTest extends TestCase
             $this->photos,
             $this->flyers,
             $validator,
+            FlyerLabels::fromShared($this->shared),
             $this->errors,
             new ApiConfig('json', $this->shared, $limits, new HostFacts(
                 $this->shared,

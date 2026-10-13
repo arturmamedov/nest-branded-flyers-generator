@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { AI_ASSUMPTIONS_MAX, AI_FEATURES, AI_INPUT_MAX } from './ai.js';
 import { CHIP_LABEL_MAX, CHIP_VALUE_MAX } from './chips.js';
 import { EXTRA_MAX, EXTRAS_MAX } from './extras.js';
+import { LABELS_MAX, LABEL_SLUG, LABEL_SLUG_MAX } from './labels.js';
 import { TITLE_MAX } from './names.js';
 import { DEFAULT_CROP, ZOOM_MAX, ZOOM_MIN } from './photo.js';
 import { SHARE_MAX } from './share.js';
@@ -101,6 +102,10 @@ export const FlyerDataSchema = z.object({
   doodles: z.array(DoodlePlacementSchema).max(40),
   /* Not printed (share.ts). Defaulted, so every flyer saved before it reads back with none, on both backends. */
   share: z.string().max(SHARE_MAX).default(''),
+  /* Not printed either (labels.ts), and defaulted for the same reason. Each is held to a slug's shape, never to the
+     list: a flyer is checked against this schema on every read, and a label taken off the list must not stop it
+     opening. Last, as newFlyerData() writes it: PHP's stored files are compared key for key. */
+  labels: z.array(z.string().regex(LABEL_SLUG).max(LABEL_SLUG_MAX)).max(LABELS_MAX).default([]),
 });
 export type FlyerData = z.infer<typeof FlyerDataSchema>;
 

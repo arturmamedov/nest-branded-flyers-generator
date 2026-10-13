@@ -122,7 +122,7 @@ final class FlyerValidatorTest extends TestCase
     {
         $sample = self::samples()[0]->data;
         $data = clone $sample;
-        unset($data->v, $data->photoCrop, $data->showPill, $data->week, $data->overrides, $data->share);
+        unset($data->v, $data->photoCrop, $data->showPill, $data->week, $data->overrides, $data->share, $data->labels);
         $data->junk = (object) ['deep' => true];
         $data->text = (object) ((array) $sample->text + ['junk' => 'x']);
         $data->doodles = [(object) ['slug' => 'spark-teal', 'x' => 1, 'y' => 2, 'w' => 50, 'extra' => true]];
@@ -133,7 +133,7 @@ final class FlyerValidatorTest extends TestCase
 
         $input = $this->validator->validate($body);
 
-        // The first sample holds the default v, photoCrop, showPill, week and share, so it is what zod would give back.
+        // The first sample holds the default v, photoCrop, showPill, week, share and labels, so it is what zod would give back.
         $expected = self::samples()[0]->data;
         $expected->doodles = Json::decode('[{"slug":"spark-teal","x":1,"y":2,"w":50,"rot":0}]');
         $expected->overrides = Json::decode('{"headline":{"dx":0,"dy":5,"scale":1},"chips":{"dx":0,"dy":0,"scale":1,"order":["cost"]}}');
@@ -144,7 +144,7 @@ final class FlyerValidatorTest extends TestCase
     public function testDefaultsAreTheOnesZodFills(): void
     {
         $body = self::body();
-        unset($body->data->v, $body->data->photoCrop, $body->data->showPill, $body->data->week, $body->data->overrides, $body->data->share);
+        unset($body->data->v, $body->data->photoCrop, $body->data->showPill, $body->data->week, $body->data->overrides, $body->data->share, $body->data->labels);
 
         $data = $this->validator->validate($body)['data'];
 
@@ -156,6 +156,30 @@ final class FlyerValidatorTest extends TestCase
         self::assertInstanceOf(stdClass::class, $data->overrides);
         self::assertSame('{}', Json::encode($data->overrides));
         self::assertSame('', $data->share);
+        self::assertSame([], $data->labels);
+        self::assertSame('labels', array_key_last((array) $data), 'written last, as newFlyerData() writes it');
+    }
+
+    public function testLabelsAreHeldToTheirShapeAndTheirNumberNeverToTheList(): void
+    {
+        $labels = Shared::fromFile(Paths::schema('shared.json'))->labels();
+        $with = static function (mixed $value): object {
+            $body = self::body();
+            $body->data->labels = $value;
+            return $body;
+        };
+
+        // A label taken off the list stays on its flyers: the schema knows a slug's shape, not the list.
+        self::assertSame(['a-label-no-longer-listed'], $this->validator->validate($with(['a-label-no-longer-listed']))['data']->labels);
+        self::assertSame([str_repeat('x', $labels['slugMax'])], $this->validator->validate($with([str_repeat('x', $labels['slugMax'])]))['data']->labels);
+        $most = array_map(static fn (int $i): string => "label-$i", range(1, $labels['max']));
+        self::assertSame($most, $this->validator->validate($with($most))['data']->labels);
+
+        self::assertSame(['data.labels'], $this->invalidFields($with([...$most, 'one-more'])));
+        self::assertSame(['data.labels'], $this->invalidFields($with('masca')));
+        self::assertSame(['data.labels.0'], $this->invalidFields($with(['Not A Slug'])));
+        self::assertSame(['data.labels.1'], $this->invalidFields($with(['masca', "teide\n"])));
+        self::assertSame(['data.labels.0'], $this->invalidFields($with([str_repeat('x', $labels['slugMax'] + 1)])));
     }
 
     public function testKeepsAnEmptyObjectAsAnObjectAndAnEmptyArrayAsAnArray(): void
@@ -276,7 +300,7 @@ final class FlyerValidatorTest extends TestCase
         self::assertSame(Json::encode($stored), Json::encode($this->validator->normalizeData($stored)));
 
         $old = self::samples()[1]->data;
-        unset($old->v, $old->showPill, $old->overrides, $old->share);
+        unset($old->v, $old->showPill, $old->overrides, $old->share, $old->labels);
         $old->legacy = 'x';
         $before = Json::encode($old);
 

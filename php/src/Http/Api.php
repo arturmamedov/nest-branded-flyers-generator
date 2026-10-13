@@ -8,6 +8,7 @@ use Closure;
 use NestFlyers\Ai\ActorResolver;
 use NestFlyers\Ai\AiService;
 use NestFlyers\Domain\DoodleRepository;
+use NestFlyers\Domain\FlyerLabels;
 use NestFlyers\Domain\FlyerRepository;
 use NestFlyers\Domain\HostelRepository;
 use NestFlyers\Domain\PhotoRepository;
@@ -39,6 +40,7 @@ final class Api
         private readonly PhotoRepository $photos,
         private readonly FlyerRepository $flyers,
         private readonly FlyerValidator $validator,
+        private readonly FlyerLabels $labels,
         private readonly ErrorCatalog $errors,
         private readonly ApiConfig $config,
         private readonly Closure $photoService,
@@ -177,10 +179,12 @@ final class Api
     private function flyerInput(mixed $body): array
     {
         $input = $this->validator->validate($body);
-        // An empty hostel means chain-wide, and the template column wins over data.template.
+        // An empty hostel means chain-wide, the template column wins over data.template, and the labels are saved
+        // in the list's order, once each (Domain\FlyerLabels).
         $input['hostel'] = $input['hostel'] === '' ? null : $input['hostel'];
         $data = clone $input['data'];
         $data->template = $input['template'];
+        $data->labels = $this->labels->tidy($data->labels);
         $input['data'] = $data;
 
         if ($input['hostel'] !== null && $this->hostels->bySlug($input['hostel']) === null) {

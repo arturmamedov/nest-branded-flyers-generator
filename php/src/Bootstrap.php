@@ -16,6 +16,7 @@ use NestFlyers\Ai\HttpClientFactory;
 use NestFlyers\Ai\LlmProviderFactory;
 use NestFlyers\Diagnostics\HostFacts;
 use NestFlyers\Domain\Clock;
+use NestFlyers\Domain\FlyerLabels;
 use NestFlyers\Domain\Repositories;
 use NestFlyers\Domain\SystemClock;
 use NestFlyers\Http\AccessGuard;
@@ -178,6 +179,7 @@ final class Bootstrap
             $repos->photos,
             $repos->flyers,
             $validator,
+            FlyerLabels::fromShared($shared),
             $errors,
             new ApiConfig(
                 $config->storage,

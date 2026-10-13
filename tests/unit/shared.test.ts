@@ -37,6 +37,7 @@ import {
   type CanvasId,
   type PhotoMode,
 } from '../../src/shared/layout.js';
+import { LABELS_MAX, LABEL_SLUGS, LABEL_SLUG_MAX } from '../../src/shared/labels.js';
 import { DEFAULT_CROP, clampCrop, coverRect, panCrop, wholePhotoZoom, zoomCrop } from '../../src/shared/photo.js';
 import { SAMPLE_FLYERS } from '../../src/shared/samples.js';
 import { FlyerDataSchema, type Crop } from '../../src/shared/schema.js';
@@ -718,6 +719,31 @@ describe('schema', () => {
     expect(FlyerDataSchema.parse(older).share).toBe('');
     expect(FlyerDataSchema.safeParse({ ...newFlyerData(), share: 'x'.repeat(SHARE_MAX) }).success).toBe(true);
     expect(FlyerDataSchema.safeParse({ ...newFlyerData(), share: 'x'.repeat(SHARE_MAX + 1) }).success).toBe(false);
+  });
+
+  it('gives a flyer saved before labels none, and holds them to their shape and their number, never to the list', () => {
+    const { labels: _, ...older } = newFlyerData();
+    expect(FlyerDataSchema.parse(older).labels).toEqual([]);
+    const withLabels = (labels: unknown) => FlyerDataSchema.safeParse({ ...newFlyerData(), labels }).success;
+    expect(withLabels(LABEL_SLUGS.slice(0, LABELS_MAX))).toBe(true);
+    // Node checks a flyer against these rules on every read: a label taken off the list must not stop it opening.
+    expect(withLabels(['a-label-no-longer-listed'])).toBe(true);
+    expect(withLabels(Array.from({ length: LABELS_MAX + 1 }, (_, i) => `label-${i}`)), 'one too many').toBe(false);
+    for (const bad of ['Dinners', 'movie nights', '', 'masca\n', 'x'.repeat(LABEL_SLUG_MAX + 1)]) expect(withLabels([bad]), JSON.stringify(bad)).toBe(false);
+    expect(withLabels(['x'.repeat(LABEL_SLUG_MAX)])).toBe(true);
+    expect(withLabels('masca'), 'a list, never one word').toBe(false);
+  });
+
+  it('writes the labels last, in a new flyer and in the schema: PHP’s stored files are compared key for key', () => {
+    expect(Object.keys(newFlyerData()).at(-1)).toBe('labels');
+    expect(Object.keys(FlyerDataSchema.parse(newFlyerData())).at(-1)).toBe('labels');
+    expect(newFlyerData('week').labels).toEqual([]);
+  });
+
+  it('keeps the labels across a template switch', () => {
+    const d = { ...newFlyerData(), labels: LABEL_SLUGS.slice(0, 2) };
+    expect(switchTemplate(d, 'week', 'Duque Nest').labels).toEqual(d.labels);
+    expect(switchTemplate(switchTemplate(d, 'week', null), 'activity', null)).toEqual(d);
   });
 
   it('holds each line of copy to its limit in TEXT_LIMITS, the Spanish line to 260, the tag to 24 beside a handle of 18', () => {

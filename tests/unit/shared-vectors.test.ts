@@ -4,6 +4,7 @@ import sharp from 'sharp';
 import { describe, expect, it } from 'vitest';
 import { API_ERRORS, apiError, formatMb } from '../../src/shared/errors.js';
 import { flyerFilename } from '../../src/shared/filename.js';
+import { LABEL_SLUGS } from '../../src/shared/labels.js';
 import { HEIC, fitLongEdge, isHeic } from '../../src/shared/limits.js';
 import { normalizeFlyerInput } from '../../src/shared/normalize.js';
 import { SAMPLE_FLYERS } from '../../src/shared/samples.js';
@@ -115,5 +116,13 @@ describe('normalizeFlyerInput', () => {
       data: { ...data, template: 'activity' },
       photoId: null,
     });
+  });
+
+  it('tidies the labels: the list’s order, once each, and one off the list kept after them', () => {
+    const [first, second] = LABEL_SLUGS;
+    const data = { ...SAMPLE_FLYERS[0].data, labels: [second, 'off-the-list', first, second] };
+    const saved = normalizeFlyerInput({ title: 't', hostel: null, template: data.template, data, photoId: null });
+    expect(saved.data.labels).toEqual([first, second, 'off-the-list']);
+    expect(data.labels, 'the input is left as it was').toEqual([second, 'off-the-list', first, second]);
   });
 });
