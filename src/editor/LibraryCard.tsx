@@ -67,7 +67,8 @@ export function LibraryCard({
   busy: Busy | null;
   /** The ways out for a flyer, as the library runs them (pictureActions.ts). */
   ways: (target: Target) => { act: Record<ExportAction, () => void>; copyCaption: () => void };
-  onZoom: (target: Target) => void;
+  /** `from` is the button that asked: the focus goes back to it when the lightbox closes. */
+  onZoom: (target: Target, from: HTMLElement) => void;
   onDuplicate: (item: FlyerListItem) => void;
   onArchive: (item: FlyerListItem) => void;
 }) {
@@ -96,7 +97,7 @@ export function LibraryCard({
         {/* Over the picture's corner, and no part of the link: a button in a link is no button, and the picture is
             inert. Its click opens the lightbox and nothing else. It waits while an action is in hand: a duplicate
             that lands would leave the page from under the lightbox. */}
-        <button type="button" className="card-zoom" aria-label={`Zoom in on ${item.title}`} disabled={!target || busy !== null} onClick={() => target && onZoom(target)}>
+        <button type="button" className="card-zoom" aria-label={`Zoom in on ${item.title}`} disabled={!target || busy !== null} onClick={(e) => target && onZoom(target, e.currentTarget)}>
           <span>
             <ZoomIcon />
           </span>

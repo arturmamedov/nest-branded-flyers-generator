@@ -84,9 +84,17 @@ export function Library({ hostels, exporter }: { hostels: Hostel[]; exporter: Fl
   }, []);
   const onScreen = () => onPage('library') && here.current;
   // A toast that stands is about the flyer it came from: another flyer's lightbox opens without it.
-  const zoom = (target: Target) => {
+  const opener = useRef<HTMLElement | null>(null);
+  const zoom = (target: Target, from: HTMLElement) => {
+    opener.current = from;
     setMessage(null);
     setZoomed(target);
+  };
+  // The browser gives the focus back to what had it when the dialog opened. Safari on a Mac gives a pressed button
+  // none, so there the dialog has nothing to go back to: the button that opened it is handed the focus here.
+  const unzoom = () => {
+    opener.current?.focus();
+    setZoomed(null);
   };
 
   // Answers can come back out of order (a slow host, two quick changes of filter): only the latest load's answer is
@@ -244,7 +252,7 @@ export function Library({ hostels, exporter }: { hostels: Hostel[]; exporter: Fl
         </section>
       </div>
       {zoomed && large ? (
-        <Lightbox title={zoomed.item.title} payload={zoomed.payload} canvas={canvas} onClose={() => setZoomed(null)}>
+        <Lightbox title={zoomed.item.title} payload={zoomed.payload} canvas={canvas} onClose={unzoom}>
           {largeNoPhoto && <div className="lightbox-note">{NO_PHOTO}</div>}
           <div className="lightbox-actions">
             <WaysOut offer={offer} act={large.act} busy={busy?.id === zoomed.item.id ? busy.kind : null} disabled={busy !== null || largeNoPhoto}>

@@ -243,6 +243,23 @@ test.describe('the zoom button and the lightbox', () => {
     await expect(dialog).toHaveCount(0);
   });
 
+  test('opened from a button that never had the focus, it still hands the focus to that button', async ({ page }) => {
+    // Safari on a Mac gives a pressed button no focus, so the dialog has nothing of its own to go back to. No WebKit
+    // runs here: the same state is made by a click that is dispatched, with the focus on nothing.
+    const [first] = await flyers(page);
+    await page.goto('/');
+    const zoom = zoomButton(card(page, first.title));
+    const dialog = lightbox(page);
+    await expect(zoom).toBeEnabled();
+    await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+    await zoom.dispatchEvent('click');
+    await expect(dialog).toBeVisible();
+    expect(await page.evaluate(() => !!document.activeElement?.closest('dialog')), 'the focus went in').toBe(true);
+    await page.keyboard.press('Escape');
+    await expect(dialog).toHaveCount(0);
+    await expect(zoom, 'the focus is on the button that opened it').toBeFocused();
+  });
+
   test('the library behind keeps its place: it does not scroll under the lightbox', async ({ page }) => {
     const list = await flyers(page);
     await page.goto('/');

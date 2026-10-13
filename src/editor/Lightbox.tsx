@@ -7,7 +7,8 @@ import { FlyerThumb } from './FlyerThumb';
    own click still opens the editor). The same <Flyer> as everywhere, on the canvas the ways out make, fitted to the
    window: what is seen is what is copied.
    It is the browser's own modal dialog: the focus goes in and stays in, the page behind is inert, Escape closes it,
-   and the focus goes back to the zoom button that opened it. A press on the backdrop closes it too. */
+   and the focus goes back to the zoom button that opened it (where the browser has none to go back to, the library
+   hands it there in `onClose`). A press on the backdrop closes it too. */
 export function Lightbox({
   title,
   payload,
