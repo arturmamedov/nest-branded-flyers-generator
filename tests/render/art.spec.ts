@@ -1,4 +1,4 @@
-import type { Page } from '@playwright/test';
+import type { Locator, Page } from '@playwright/test';
 import { PNG } from 'pngjs';
 import { expect, test } from '../browser';
 import { DEFAULT_DOODLES, resolveDoodles } from '../../src/shared/defaults';
@@ -12,7 +12,9 @@ import { HANDLE_18, TAG_24, drawPayload, newPayload } from './drawn';
      that prints no pill prints no such spark (2026-10-13);
    - the pencil by the ask hangs from the end of the ask's copy, a little higher than it was;
    - the corner blobs print in each other's ink: teal on the left, yellow on the right, where a long pill carries
-     its teal spark.
+     its teal spark;
+   - the two sparks on the photo's corners print in each other's ink too (2026-10-13): yellow on the left, teal on
+     the right, so the inks cross from the flyer's top to its bottom.
    None of it is stored: a flyer's doodles are the numbers every flyer has always carried. */
 
 /** Pills from the narrowest staff can make to the widest the column takes. */
@@ -60,7 +62,7 @@ test.describe('the spark off the pill’s end hangs from the pill', () => {
           expect(Math.abs(pill.top - CANVASES[canvas].activity.pill.top), `${name}: on the pill's row`).toBeLessThanOrEqual(0.5);
 
           expect(r.withPill.map((a) => a.file), `${name}: one spark, drawn with the pill`).toEqual(['spark-teal.png']);
-          expect(r.onFlyer.map((a) => a.file), `${name}: and not a second time on the flyer`).toEqual(['spark-teal.png', 'spark-yellow.png', 'blob-left-teal.png', 'blob-right-yellow.png']);
+          expect(r.onFlyer.map((a) => a.file), `${name}: and not a second time on the flyer`).toEqual(['spark-left-yellow.png', 'spark-right-teal.png', 'blob-left-teal.png', 'blob-right-yellow.png']);
           const [drawn] = r.withPill;
           expect(drawn.width, `${name}: its size`).toBe(spark.w);
           expect(Math.abs(drawn.x - drawn.width / 2 - pill.right - spark.x), `${name}: from the pill's end`).toBeLessThanOrEqual(0.5);
@@ -103,7 +105,7 @@ test.describe('the spark off the pill’s end hangs from the pill', () => {
         await drawPayload(page, payload, canvas);
         const r = await page.evaluate(readSpark);
         expect(r.pill, name).toBeNull();
-        expect(r.onFlyer.map((a) => a.file), `${name}: the photo's two sparks and the two blobs`).toEqual(['spark-teal.png', 'spark-yellow.png', 'blob-left-teal.png', 'blob-right-yellow.png']);
+        expect(r.onFlyer.map((a) => a.file), `${name}: the photo's two sparks and the two blobs`).toEqual(['spark-left-yellow.png', 'spark-right-teal.png', 'blob-left-teal.png', 'blob-right-yellow.png']);
         // And it is nowhere else: with the pencil by the ask, that is all the art there is.
         expect(await page.locator('[data-flyer] img[data-art]').count(), name).toBe(5);
         await page.goto('about:blank');
@@ -155,6 +157,58 @@ test.describe('the corner blobs print in each other’s ink', () => {
     expect(yellow, `the ground under the spark is the yellow blob (${JSON.stringify(clip)})`).toBeGreaterThan((clip.width * clip.height) / 2);
     expect(teal, 'the spark’s rays, teal on it').toBeGreaterThan(300);
   });
+});
+
+/** What a piece of art inks on the flyer: the picture with it, less the picture without. Counted by ink, so what
+    lies under the piece (a photo's ground, a row's highlighter) is no part of the count. */
+async function inkOfPiece(page: Page, piece: Locator): Promise<{ teal: number; yellow: number }> {
+  const { width: W, height: H } = page.viewportSize()!;
+  const box = (await piece.boundingBox())!;
+  const x = Math.max(0, Math.floor(box.x));
+  const y = Math.max(0, Math.floor(box.y));
+  const clip = { x, y, width: Math.min(W, Math.ceil(box.x + box.width)) - x, height: Math.min(H, Math.ceil(box.y + box.height)) - y };
+  const shoot = async () => PNG.sync.read(await page.screenshot({ clip })).data;
+  const drawn = await shoot();
+  await piece.evaluate((el: HTMLElement) => (el.style.visibility = 'hidden'));
+  const without = await shoot();
+  await piece.evaluate((el: HTMLElement) => (el.style.visibility = ''));
+  let teal = 0;
+  let yellow = 0;
+  for (let i = 0; i < drawn.length; i += 4) {
+    const [r, g, b] = drawn.subarray(i, i + 3);
+    if (Math.abs(r - without[i]) <= 40 && Math.abs(g - without[i + 1]) <= 40 && Math.abs(b - without[i + 2]) <= 40) continue;
+    if (r > 230 && g > 170 && b < 70) yellow++;
+    else if (r < 60 && g > 90 && g < 140 && b > 110 && b < 165) teal++;
+  }
+  return { teal, yellow };
+}
+
+test.describe('the sparks on the photo’s corners print in each other’s ink', () => {
+  const BODIES = [
+    ['in a frame', newPayload('activity')],
+    ['full bleed', newPayload('activity', {}, (data) => void (data.photoMode = 'bleed'))],
+    ['no photo', newPayload('activity', {}, (data) => void (data.photoMode = 'none'))],
+    ['a week flyer', newPayload('week')],
+  ] as const;
+  for (const canvas of CANVAS_IDS) {
+    test(`${canvas}: yellow on the left and teal on the right, wherever they hang; the spark off the pill keeps its teal`, async ({ page }) => {
+      for (const [name, payload] of BODIES) {
+        await drawPayload(page, payload, canvas);
+        const onFlyer = page.locator('[data-flyer] > img[data-art]');
+        const left = await inkOfPiece(page, onFlyer.nth(0));
+        const right = await inkOfPiece(page, onFlyer.nth(1));
+        // A spark is over a thousand pixels of ink at its size; its soft edge is neither colour.
+        expect(left.yellow, `${name}: the left spark's yellow`).toBeGreaterThan(700);
+        expect(left.teal, `${name}: no teal in the left spark`).toBe(0);
+        expect(right.teal, `${name}: the right spark's teal`).toBeGreaterThan(700);
+        expect(right.yellow, `${name}: no yellow in the right spark`).toBe(0);
+        const pill = await inkOfPiece(page, page.locator('[data-group=pill]').locator('xpath=..').locator(':scope > img[data-art]'));
+        expect(pill.teal, `${name}: the pill's spark is teal`).toBeGreaterThan(500);
+        expect(pill.yellow, `${name}: and has no yellow`).toBe(0);
+        await page.goto('about:blank');
+      }
+    });
+  }
 });
 
 test.describe('art someone arranged is drawn as stored', () => {

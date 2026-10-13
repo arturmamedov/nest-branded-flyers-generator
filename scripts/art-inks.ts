@@ -2,11 +2,12 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { PNG } from 'pngjs';
-import { SWAPPED_BLOBS } from '../src/shared/defaults.js';
+import { SWAPPED_INKS } from '../src/shared/defaults.js';
 import { ROOT } from './gen-shared.js';
 
-/* The template's corner blobs in each other's ink (defaults.ts, SWAPPED_BLOBS): each file is one of the designer's
-   two drawings, pixel for pixel, in the other one's colour. Derived, never drawn by hand:
+/* The template's corner blobs, and the sparks on the photo's corners, in each other's ink (defaults.ts,
+   SWAPPED_INKS): each file is one of the designer's drawings, pixel for pixel, in the other colour. Derived, never
+   drawn by hand:
 
      npm run gen:art
 
@@ -58,7 +59,7 @@ const readArt = (slug: string) => PNG.sync.read(readFileSync(join(ROOT, ART_DIR,
 
 /** Every derived file, by slug. */
 export function derive(read: (slug: string) => PNG = readArt): Record<string, PNG> {
-  return Object.fromEntries(Object.entries(SWAPPED_BLOBS).map(([slug, { drawing, ink }]) => [slug, inked(read(drawing), inkOf(read(ink)))]));
+  return Object.fromEntries(Object.entries(SWAPPED_INKS).map(([slug, { drawing, ink }]) => [slug, inked(read(drawing), inkOf(read(ink)))]));
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {

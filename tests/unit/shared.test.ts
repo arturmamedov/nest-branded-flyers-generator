@@ -8,7 +8,7 @@ import {
   DEFAULT_PHOTO_MODE,
   DEFAULT_TEXT,
   PROTOTYPE_DOODLES,
-  SWAPPED_BLOBS,
+  SWAPPED_INKS,
   newFlyerData,
   resolveDoodles,
   sameDoodles,
@@ -426,7 +426,8 @@ describe('template art', () => {
       const anchors = artAnchors('story', mode);
       resolved.forEach((d, i) => {
         const stored = DEFAULT_DOODLES[i];
-        if (stored.anchor) return expect(d).toBe(stored);
+        // A spark on the photo is the stored piece but for the ink it prints in.
+        if (stored.anchor) return expect({ ...d, slug: stored.slug }).toEqual(stored);
         const at = placeArt(d, anchors);
         // toBe, not toBeCloseTo: the story must not move by a float's last bit.
         expect(at.left, `${d.slug} x`).toBe(stored.x);
@@ -445,11 +446,20 @@ describe('template art', () => {
     expect(resolveDoodles(newFlyerData().doodles).map((d) => d.anchor)).toEqual(['photoLeft', 'photoRight', 'bottomLeft', 'bottomRight', 'pillEnd']);
   });
 
-  it('the corner blobs print in each other’s ink, teal on the left and yellow on the right (Artur, 2026-10-12); stored art keeps its slugs', () => {
+  // The blobs: Artur, 2026-10-12. The photo's sparks: 2026-10-13, "Invert also the image sparks on the top", so the two
+  // inks cross again, yellow over teal on the left and teal over yellow on the right.
+  it('the corner blobs and the photo’s sparks print in each other’s ink; the spark off the pill keeps its teal, and stored art its slugs', () => {
     expect(DEFAULT_DOODLES.map((d) => d.slug)).toEqual(['spark-teal', 'spark-yellow', 'blob-yellow', 'blob-teal', 'spark-teal']);
-    expect(resolveDoodles(newFlyerData().doodles).map((d) => d.slug)).toEqual(['spark-teal', 'spark-yellow', 'blob-left-teal', 'blob-right-yellow', 'spark-teal']);
-    // Each new file is one blob's drawing in the other's ink, and the two trade.
-    expect(SWAPPED_BLOBS).toEqual({ 'blob-left-teal': { drawing: 'blob-yellow', ink: 'blob-teal' }, 'blob-right-yellow': { drawing: 'blob-teal', ink: 'blob-yellow' } });
+    expect(resolveDoodles(newFlyerData().doodles).map((d) => d.slug)).toEqual(['spark-left-yellow', 'spark-right-teal', 'blob-left-teal', 'blob-right-yellow', 'spark-teal']);
+    // Each new file is one piece's drawing in the other ink, hung where the template has that piece. Both inks are
+    // read off the blobs, whose scans are flat. The left spark's drawing is the pill's spark too: only the one on
+    // the photo trades.
+    expect(SWAPPED_INKS).toEqual({
+      'spark-left-yellow': { drawing: 'spark-teal', ink: 'blob-yellow', at: 'photoLeft' },
+      'spark-right-teal': { drawing: 'spark-yellow', ink: 'blob-teal', at: 'photoRight' },
+      'blob-left-teal': { drawing: 'blob-yellow', ink: 'blob-teal', at: 'bottomLeft' },
+      'blob-right-yellow': { drawing: 'blob-teal', ink: 'blob-yellow', at: 'bottomRight' },
+    });
     // Art someone arranged is drawn as stored, inks included.
     const moved = DEFAULT_DOODLES.map((d, i) => (i === 4 ? { ...d, x: d.x + 1 } : d));
     expect(resolveDoodles(moved).map((d) => d.slug)).toEqual(DEFAULT_DOODLES.map((d) => d.slug));

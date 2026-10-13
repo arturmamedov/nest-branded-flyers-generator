@@ -72,30 +72,36 @@ export interface ArtPlacement extends Omit<DoodlePlacement, 'anchor'> {
    canvas: the blobs the bottom corners, the spark off the tag pill the pill's
    own end, so it moves as the pill's copy grows (Artur, 2026-10-12; it hung
    from the stack's floor, and a long pill covered it). The two sparks on the
-   photo carry their anchors already. Only the renderer uses these anchors, so
+   photo carry their anchors already (and trade inks, below). Only the renderer uses these anchors, so
    the stored data stays DEFAULT_DOODLES as every flyer has it (no migration,
    and an older release still reads it). */
 const FOLLOWS: Record<string, ArtAnchor> = { 'blob-yellow': 'bottomLeft', 'blob-teal': 'bottomRight', 'spark-teal': 'pillEnd' };
 
-/** The corner blobs print in each other's ink (Artur, 2026-10-12): teal in the left corner, yellow in the right,
-    where a long pill carries its spark. The spark is teal, as the pill it hangs from, and was lost on the teal blob.
-    Each blob keeps its drawing and its place. The file drawn → the drawing it keeps and the blob whose ink it
-    takes: scripts/art-inks.ts makes the files from this (npm run gen:art). */
-export const SWAPPED_BLOBS = {
-  'blob-left-teal': { drawing: 'blob-yellow', ink: 'blob-teal' },
-  'blob-right-yellow': { drawing: 'blob-teal', ink: 'blob-yellow' },
+/** The template's two pairs print in each other's ink. Each piece keeps its drawing and its place.
+    - The corner blobs (Artur, 2026-10-12): teal in the left corner, yellow in the right, where a long pill carries
+      its spark. The spark is teal, as the pill it hangs from, and was lost on the teal blob.
+    - The sparks on the photo's corners (Artur, 2026-10-13: "Invert also the image sparks on the top"): yellow on the
+      left, teal on the right, so the two inks cross again from the flyer's top to its bottom.
+    The file drawn → the drawing it keeps, the piece whose ink it takes, and where the template hangs it: the left
+    spark's drawing is the pill's spark too, which keeps its teal. Both inks are read off the blobs: their scans
+    are flat, the sparks' are speckled. scripts/art-inks.ts makes the files from this (npm run gen:art). */
+export const SWAPPED_INKS = {
+  'spark-left-yellow': { drawing: 'spark-teal', ink: 'blob-yellow', at: 'photoLeft' },
+  'spark-right-teal': { drawing: 'spark-yellow', ink: 'blob-teal', at: 'photoRight' },
+  'blob-left-teal': { drawing: 'blob-yellow', ink: 'blob-teal', at: 'bottomLeft' },
+  'blob-right-yellow': { drawing: 'blob-teal', ink: 'blob-yellow', at: 'bottomRight' },
 } as const;
 
-/** The file the template draws for a stored slug: the blobs' swapped inks, and every other piece its own. */
-const DRAWN: Record<string, string> = Object.fromEntries(Object.entries(SWAPPED_BLOBS).map(([file, { drawing }]) => [drawing, file]));
+/** The file the template draws for a piece where it hangs: its drawing in the ink it trades for, or its own. */
+const drawn = (slug: string, at: ArtAnchor): string => Object.entries(SWAPPED_INKS).find(([, swap]) => swap.drawing === slug && swap.at === at)?.[0] ?? slug;
 
 /** DEFAULT_DOODLES re-expressed from the story's anchor points. Derived, and
     exact: x − p + p is x again for these numbers (shared.test.ts checks it). */
 const TEMPLATE_ART: ArtPlacement[] = DEFAULT_DOODLES.map((d) => {
-  if (d.anchor) return d;
+  if (d.anchor) return { ...d, slug: drawn(d.slug, d.anchor) };
   const anchor = FOLLOWS[d.slug];
   const p = artAnchors('story', 'band')[anchor];
-  return { ...d, slug: DRAWN[d.slug] ?? d.slug, anchor, x: d.x - p.x, y: d.y - p.y };
+  return { ...d, slug: drawn(d.slug, anchor), anchor, x: d.x - p.x, y: d.y - p.y };
 });
 
 /** The art to draw. An untouched template set follows the template onto every

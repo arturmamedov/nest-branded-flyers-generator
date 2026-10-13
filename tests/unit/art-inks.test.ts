@@ -4,20 +4,20 @@ import { PNG } from 'pngjs';
 import { describe, expect, it } from 'vitest';
 import { ART_DIR, EDGE, INK_ALPHA, derive, inkOf, nearInk } from '../../scripts/art-inks.js';
 import { ROOT } from '../../scripts/gen-shared.js';
-import { SWAPPED_BLOBS } from '../../src/shared/defaults.js';
+import { SWAPPED_INKS } from '../../src/shared/defaults.js';
 
-/* The corner blobs print in each other's ink (Artur, 2026-10-12). The two files that do it are derived from the
-   designer's two drawings by scripts/art-inks.ts (npm run gen:art), never drawn by hand: these tests hold the
-   committed files to what the script makes, and say what that is. Pixels are compared, not bytes: a PNG's bytes
-   belong to its encoder. */
+/* The corner blobs print in each other's ink (Artur, 2026-10-12), and so do the two sparks on the photo's corners
+   (2026-10-13). The four files that do it are derived from the designer's drawings by scripts/art-inks.ts (npm run
+   gen:art), never drawn by hand: these tests hold the committed files to what the script makes, and say what that
+   is. Pixels are compared, not bytes: a PNG's bytes belong to its encoder. */
 
 const read = (slug: string) => PNG.sync.read(readFileSync(join(ROOT, ART_DIR, `${slug}.png`)));
-const FILES = Object.entries(SWAPPED_BLOBS);
+const FILES = Object.entries(SWAPPED_INKS);
 
-describe('the blobs in each other’s ink', () => {
+describe('the template’s pairs in each other’s ink', () => {
   it('each file in assets/art/ is what the script derives today', () => {
     const made = derive();
-    expect(Object.keys(made).sort()).toEqual(Object.keys(SWAPPED_BLOBS).sort());
+    expect(Object.keys(made).sort()).toEqual(['blob-left-teal', 'blob-right-yellow', 'spark-left-yellow', 'spark-right-teal']);
     for (const [slug, png] of Object.entries(made)) {
       const kept = read(slug);
       expect([kept.width, kept.height], `${slug}: its size`).toEqual([png.width, png.height]);
@@ -52,7 +52,8 @@ describe('the blobs in each other’s ink', () => {
           if (is !== 0 && (made.data[i] !== colour[0] || made.data[i + 1] !== colour[1] || made.data[i + 2] !== colour[2])) problems.push(`${x},${y}: another colour`);
         }
       expect(problems.slice(0, 5)).toEqual([]);
-      expect(inkPixels).toBeGreaterThan(10_000);
+      // A blob has over ten thousand pixels of ink, a spark about two thousand.
+      expect(inkPixels).toBeGreaterThan(slug.startsWith('blob') ? 10_000 : 1_500);
       // A shape this size has a soft edge of several hundred pixels: it is there.
       expect(edgeKept).toBeGreaterThan(400);
       // The haze is a small part of the scan, and it is all that was dropped: nothing within reach of the ink.
@@ -70,8 +71,24 @@ describe('the blobs in each other’s ink', () => {
     expect(Array.from({ length: 9 }, (_, x) => nearInk(dot, x, 0))).toEqual([false, false, true, true, true, true, true, false, false]);
   });
 
-  it('the two inks are the art’s own teal and yellow, read from the drawings', () => {
+  it('the two inks are the art’s own teal and yellow, read from the blobs, and every derived file is flat in one of them', () => {
     expect(inkOf(read('blob-teal'))).toEqual([10, 120, 143]);
     expect(inkOf(read('blob-yellow'))).toEqual([250, 194, 19]);
+    // The sparks' scans are speckled: no colour is as much as a fiftieth of one's solid pixels, where a blob is flat
+    // (four in five). So a spark takes its new ink from a blob, never from the other spark.
+    expect(new Set(FILES.map(([, { ink }]) => ink))).toEqual(new Set(['blob-teal', 'blob-yellow']));
+    for (const slug of ['spark-teal', 'spark-yellow']) {
+      const png = read(slug);
+      const counts = new Map<number, number>();
+      let solid = 0;
+      for (let i = 0; i < png.data.length; i += 4) {
+        if (png.data[i + 3] !== 255) continue;
+        solid++;
+        const key = (png.data[i] << 16) | (png.data[i + 1] << 8) | png.data[i + 2];
+        counts.set(key, (counts.get(key) ?? 0) + 1);
+      }
+      expect(Math.max(...counts.values()) / solid, slug).toBeLessThan(0.02);
+    }
+    for (const [slug, { ink }] of FILES) expect(inkOf(read(slug)), slug).toEqual(inkOf(read(ink)));
   });
 });
