@@ -156,8 +156,9 @@ test.describe('the top of the library', () => {
     expect(await libraryFilter(page, 'Hostel').locator('option').first().textContent()).toBe('All hostels');
     expect(await libraryFilter(page, 'Template').locator('option').first().textContent()).toBe('All templates');
     expect(await labelFilter(page).locator('option').first().textContent()).toBe('All labels');
-    // Four rows over the cards, as before the third filter: the name, the switch, and two rows of filters.
-    expect((await box(first)).y, 'the first card is no lower than it was').toBeLessThanOrEqual(290);
+    // Five rows over the cards: the name, the switch, the search on a row of its own (the owner's answer of the
+    // library's search, 2026-10-14), and two rows of filters.
+    expect((await box(first)).y, 'the first card is no lower than it was').toBeLessThanOrEqual(330);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth), 'nothing scrolls sideways').toBe(true);
     expect(await page.locator('.library').evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
   });

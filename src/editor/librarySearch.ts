@@ -47,6 +47,9 @@ const LEAD = 16;
 /** Where the line's text stops: CSS cuts it again at the card's edge. */
 const SNIPPET_MAX = 120;
 
+/** What a cut text never starts on. */
+const SEPARATOR = /[\s·,;:.!?–—-]/;
+
 /** Typed on a phone, an apostrophe is often a curly one: all of them count as one. */
 const APOSTROPHES = /[‘’ʼ]/g;
 
@@ -163,6 +166,8 @@ function snippet(text: string, words: readonly string[]): Part[] {
   if (first - LEAD > 0) {
     const space = flat.indexOf(' ', first - LEAD);
     start = space !== -1 && space < first ? space + 1 : first;
+    // Never on a separator ("…· Catamaran"): a week row's cells are between dots.
+    while (start < first && SEPARATOR.test(flat[start])) start++;
   }
   let end = Math.min(flat.length, start + SNIPPET_MAX);
   if (end < flat.length) {

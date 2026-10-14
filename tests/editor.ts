@@ -294,6 +294,15 @@ export async function filterLibrary(page: Page, filter: 'Hostel' | 'Template' | 
   await expect(page.getByText('Loading…', { exact: true })).toHaveCount(0);
 }
 
+/** The library's search box (librarySearch.ts), the first of its filters. */
+export const librarySearch = (page: Page) => page.getByRole('searchbox', { name: 'Search', exact: true });
+
+/** Types into the library's search box. It narrows the list in the page: nothing is asked of the server for it but
+    each flyer's own answer, once. */
+export async function searchLibrary(page: Page, query: string) {
+  await librarySearch(page).fill(query);
+}
+
 /** A DataTransfer in the page with the file in it: what a drop or a paste carries. */
 const transferOf = (page: Page, file: FilePayload) =>
   page.evaluateHandle(

@@ -215,6 +215,14 @@ describe('the “why” line', () => {
     expect(why.parts.map((p) => p.text).join('')).toBe('Teide at dawn');
   });
 
+  it('never starts its cut on a separator: a dot, a comma', () => {
+    const week = itemOf({ title: 'Our week', template: 'week' });
+    const row = findIn(week, payloadOf(week, (d) => (d.week = [{ day: 'Saturdays', name: 'Catamaran trip', time: '18:30', cost: '' }])), searchWords('trip'))!.why!;
+    expect(row.parts.map((p) => p.text).join('')).toBe('…Catamaran trip · 18:30');
+    const share = findIn(itemOf({ title: 'Stars' }), payloadOf(itemOf(), (d) => (d.share = 'We walk up the hill, then down , sunset')), searchWords('sunset'))!.why!;
+    expect(share.parts.map((p) => p.text).join('')).toBe('…then down , sunset');
+  });
+
   it('shows a week row as one line, its cells between dots', () => {
     const week = itemOf({ title: 'Our week', template: 'week' });
     const why = findIn(week, payloadOf(week, (d) => (d.week = [{ day: 'Sat', name: 'Catamaran', time: '18:30', cost: '' }])), searchWords('catamaran'))!.why!;

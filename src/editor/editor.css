@@ -167,6 +167,7 @@ nest-nav > nav a.ai-entry .ai-count {
 .seg button:focus-visible,
 .label-picker button:focus-visible,
 .field input:focus-visible,
+.library-search input:focus-visible,
 .field select:focus-visible,
 .field textarea:focus-visible {
   outline: 2px solid var(--teal);
@@ -1356,7 +1357,7 @@ nest-nav > nav a.ai-entry .ai-count {
 
 .library-filters {
   display: flex;
-  gap: 16px;
+  gap: 12px;
   flex-wrap: wrap;
 }
 
@@ -1378,6 +1379,65 @@ nest-nav > nav a.ai-entry .ai-count {
   border-radius: 8px;
   border: 1px solid var(--line);
   background: #fff;
+}
+
+/* The search box, the first of the filters (the owner's pick from pictures, 2026-10-14), with Clear beside it. */
+.library-search {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1 1 180px;
+  min-width: 0;
+}
+
+.library-search input {
+  font: inherit;
+  width: 100%;
+  text-overflow: ellipsis;
+  min-width: 0;
+  padding: 7px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: #fff;
+}
+
+/* .btn sets display, which would otherwise win over the attribute. */
+.library-search .btn[hidden] {
+  display: none;
+}
+
+/* How many the search found, and how many flyers are still being read: one quiet line under the filters. */
+.library-status {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.library-status p {
+  margin: 0;
+}
+
+.library-status-on {
+  margin: -6px 0 12px;
+}
+
+.library-reading {
+  font-style: italic;
+}
+
+.library-none {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 22px 0;
+}
+
+.library-none p {
+  margin: 0;
+  font-size: 15px;
 }
 
 .cards {
@@ -1426,10 +1486,36 @@ nest-nav > nav a.ai-entry .ai-count {
    or the library would scroll sideways. */
 .card-text {
   display: flex;
+  flex: 1 1 auto;
   flex-direction: column;
   gap: 4px;
   min-width: 0;
   overflow-wrap: anywhere;
+}
+
+/* The search's words, marked: the brand's bright teal, light, behind the ink (the owner's pick, 2026-10-14). The bright
+   teal is never the letters' own colour on cream. */
+.card mark {
+  background: rgb(83 206 209 / 0.38);
+  color: inherit;
+  border-radius: 2px;
+  padding: 0 1px;
+}
+
+/* Why a flyer is found, when its card shows none of the words: one line, cut at the card's edge (his answer). It
+   takes the room the card's text has and never widens it: its own width does not count (contain). */
+.card-why {
+  color: var(--muted);
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  contain: inline-size;
+}
+
+.card-why-field {
+  font-weight: 600;
+  color: var(--ink);
 }
 
 /* A card's picture of its flyer (FlyerThumb.tsx). The box is this size in every state (waiting, shown, a flyer that
@@ -1927,6 +2013,15 @@ nest-nav > nav a.ai-entry .ai-count {
   .library-filters .filter select {
     width: 100%;
     min-width: 0;
+  }
+
+  /* The search is a row of its own above the filters. 16 px, or a phone's browser zooms into it. */
+  .library-search {
+    grid-column: 1 / -1;
+  }
+
+  .library-search input {
+    font-size: 16px;
   }
 
   /* A phone's card: a smaller picture, so the title keeps most of the line. */

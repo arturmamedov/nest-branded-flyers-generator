@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { copyTitle } from '../shared/names';
 import type { FlyerListItem, Hostel, Template } from '../shared/schema';
 import { api } from './api';
@@ -7,8 +7,9 @@ import { canCopyImage } from './clipboard';
 import type { FlyerExporter } from './export';
 import { NO_PHOTO, TOUCH_QUERY, exportActions, type ExportAction } from './exportActions';
 import { LibraryCard, lacksPhoto, type Busy, type CardAction, type Target } from './LibraryCard';
-import { LABEL_FILTER_OPTIONS, LABEL_PREF, labelFilterFrom } from './libraryLabel';
+import { ALL_LABELS, LABEL_FILTER_OPTIONS, LABEL_PREF, labelFilterFrom } from './libraryLabel';
 import { flyerAnswers } from './libraryFlyers';
+import { SEARCH_PREF, findFlyers, searchWords, type Found } from './librarySearch';
 import { LIBRARY_VIEWS, VIEW_LABEL, VIEW_PREF, viewFrom, type LibraryView } from './libraryView';
 import { Lightbox } from './Lightbox';
 import { useOneAction } from './oneAction';
@@ -65,6 +66,10 @@ export function Library({ hostels, exporter }: { hostels: Hostel[]; exporter: Fl
   const scroller = useRef<HTMLDivElement>(null);
   // Each flyer's own answer, for this visit: the cards' pictures and ways out, and the search (libraryFlyers.ts).
   const [flyers] = useState(() => flyerAnswers(api.flyer));
+  // The search narrows the list the filters gave, in the page (librarySearch.ts), and is remembered as they are.
+  const [query, setQuery] = useState(() => localStorageGet(SEARCH_PREF) ?? '');
+  const words = useMemo(() => searchWords(query), [query]);
+  const searching = words.length > 0;
 
   // A flyer leaves the library as a picture the ways it leaves the editor (pictureActions.ts), one action at a time,
   // and what an action came to is the editor's toast. The picture is of the canvas this viewer last chose in the
@@ -127,6 +132,27 @@ export function Library({ hostels, exporter }: { hostels: Hostel[]; exporter: Fl
     setItems(null);
     load();
   }, [filter, template, label]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => localStorageSet(SEARCH_PREF, query), [query]);
+  // A search reads every listed flyer, a few at a time; the list redraws as their answers land, and only then.
+  useEffect(() => {
+    if (searching && items) flyers.read(items);
+  }, [searching, items, flyers]);
+  const [, redraw] = useState(0);
+  useEffect(() => {
+    if (searching) return flyers.subscribe(() => redraw((n) => n + 1));
+  }, [searching, flyers]);
+
+  const filtered = filter !== '' || template !== '' || label !== ALL_LABELS;
+  // One way back to every flyer: the search emptied, and the filters set back to all (the owner's answer).
+  const clearAll = () => {
+    setQuery('');
+    setFilter('');
+    setTemplate('');
+    setLabel(ALL_LABELS);
+  };
+  const found = searching && items ? findFlyers(items, words, (item) => flyers.answer(item.id, item.updatedAt)) : null;
+  const shown: { item: FlyerListItem; found: Found | null }[] = found?.found ?? items?.map((item) => ({ item, found: null })) ?? [];
 
   const chooseView = (v: LibraryView) => {
     setView(v);
@@ -205,6 +231,27 @@ export function Library({ hostels, exporter }: { hostels: Hostel[]; exporter: Fl
             </div>
           </div>
           <div className="library-filters">
+            {/* The search, first of the filters (the owner's pick from pictures, 2026-10-14), with Clear beside it
+                while there is something to clear. The box gives Clear its room, so the filters never move. */}
+            <div className="library-search" role="search">
+              <input
+                type="search"
+                aria-label="Search"
+                placeholder="Name, label, share text…"
+                value={query}
+                maxLength={80}
+                spellCheck={false}
+                onChange={(e) => setQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key !== 'Escape' || query === '') return;
+                  e.preventDefault();
+                  setQuery('');
+                }}
+              />
+              <button type="button" className="btn btn-quiet" hidden={query === '' && !filtered} onClick={clearAll}>
+                Clear
+              </button>
+            </div>
             <label className="filter">
               <span>Hostel</span>
               <select value={filter} onChange={(e) => setFilter(e.target.value)}>
@@ -240,6 +287,18 @@ export function Library({ hostels, exporter }: { hostels: Hostel[]; exporter: Fl
             </label>
           </div>
         </div>
+        {/* How many the search found, said to a screen reader as it changes: in the page before its words. How many
+            flyers are still being read is shown and not said, or it would be said at every answer. */}
+        <div className={'library-status' + (found ? ' library-status-on' : '')}>
+          <p className="library-count" role="status">
+            {found && items ? `${found.found.length} of ${items.length} flyers` : ''}
+          </p>
+          {found && items && found.waiting > 0 && (
+            <p className="library-reading">
+              Reading the flyers… {items.length - found.waiting} of {items.length}
+            </p>
+          )}
+        </div>
         {error && <div className="banner banner-error">{error}</div>}
         {!items && !error && <div className="loading">Loading…</div>}
         {items && items.length === 0 && (
@@ -250,10 +309,20 @@ export function Library({ hostels, exporter }: { hostels: Hostel[]; exporter: Fl
             </a>
           </div>
         )}
-        {items && items.length > 0 && (
+        {items && items.length > 0 && found && found.found.length === 0 && found.waiting === 0 && (
+          <div className="library-none">
+            <p>
+              No flyer matches “{query.trim()}”{filtered ? ' with these filters' : ''}.
+            </p>
+            <button type="button" className="btn" onClick={clearAll}>
+              {filtered ? 'Clear the search and filters' : 'Clear the search'}
+            </button>
+          </div>
+        )}
+        {shown.length > 0 && (
           <ul className={`cards cards-${view}`}>
-            {items.map((f) => (
-              <LibraryCard key={f.id} item={f} scroller={scroller} flyers={flyers} canvas={canvas} offer={offer} busy={busy} ways={waysOf} onZoom={zoom} onDuplicate={duplicate} onArchive={archive} />
+            {shown.map(({ item: f, found: hit }) => (
+              <LibraryCard key={f.id} item={f} words={words} why={hit?.why ?? null} scroller={scroller} flyers={flyers} canvas={canvas} offer={offer} busy={busy} ways={waysOf} onZoom={zoom} onDuplicate={duplicate} onArchive={archive} />
             ))}
           </ul>
         )}

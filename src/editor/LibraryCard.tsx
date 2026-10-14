@@ -6,9 +6,9 @@ import type { FlyerListItem, FlyerPayload } from '../shared/schema';
 import { NO_PHOTO, needsPhoto, type ExportAction, type Offer } from './exportActions';
 import { FlyerThumb, flyerSize, useNearFlyer } from './FlyerThumb';
 import type { FlyerAnswers } from './libraryFlyers';
+import { marked, metaOf, type Part, type Why } from './librarySearch';
 import { Menu } from './Menu';
 import { go } from './route';
-import { TEMPLATE_LABEL } from './templates';
 import { WaysOut } from './WaysOut';
 
 /* One flyer of the library: its picture, its name, and what staff do with it without opening it (the library's
@@ -40,6 +40,16 @@ export const lacksPhoto = (canvas: CanvasId, { flyer, photo }: FlyerPayload) => 
 
 const when = (iso: string) => libraryDate(new Date(iso), true);
 
+/** A text with the search's words marked (librarySearch.ts): runs of plain text and <mark>, so the text and every
+    name read from it are what they were. */
+function Marked({ parts }: { parts: Part[] }) {
+  return (
+    <>
+      {parts.map((part, i) => (part.mark ? <mark key={i}>{part.text}</mark> : part.text))}
+    </>
+  );
+}
+
 function ZoomIcon() {
   return (
     <svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round">
@@ -51,6 +61,8 @@ function ZoomIcon() {
 
 export function LibraryCard({
   item,
+  words,
+  why,
   scroller,
   flyers,
   canvas,
@@ -62,6 +74,10 @@ export function LibraryCard({
   onArchive,
 }: {
   item: FlyerListItem;
+  /** The words searched for, marked where the card shows them; none when nothing is searched. */
+  words: readonly string[];
+  /** Why the flyer is found, where the card shows none of the words: its "why" line. */
+  why: Why | null;
   /** The library's scroller: nearness is measured against it. */
   scroller: RefObject<HTMLElement | null>;
   /** The library's answers, which its search reads too (libraryFlyers.ts). */
@@ -87,6 +103,7 @@ export function LibraryCard({
   // From the list itself, so they are here with the card's name and its box never changes when its picture lands.
   // Read loosely: a backend from before labels sends none.
   const labels = labelNames(item.labels ?? []);
+  const meta = metaOf(item);
 
   return (
     <li ref={box} className="card" style={flyerSize()}>
@@ -95,15 +112,23 @@ export function LibraryCard({
         <a className="card-main" href={`#/flyers/${item.id}`}>
           <FlyerThumb payload={payload} />
           <span className="card-text">
-            <span className="card-title">{item.title}</span>
-            <span className="card-meta">
-              {item.hostelName ?? 'All hostels'} · {TEMPLATE_LABEL[item.template]} · {when(item.updatedAt)}
+            <span className="card-title">
+              <Marked parts={marked(item.title, words)} />
             </span>
+            <span className="card-meta">
+              <Marked parts={marked(meta.hostel, words)} /> · <Marked parts={marked(meta.template, words)} /> · {when(item.updatedAt)}
+            </span>
+            {/* One line, cut at the card's edge (the owner's answer), for a flyer found by its share text or its copy. */}
+            {why && (
+              <span className="card-why">
+                <span className="card-why-field">{why.field}:</span> <Marked parts={why.parts} />
+              </span>
+            )}
             {labels.length > 0 && (
               <span className="card-labels">
                 {labels.map((name) => (
                   <span key={name} className="card-label">
-                    {name}
+                    <Marked parts={marked(name, words)} />
                   </span>
                 ))}
               </span>
