@@ -3,7 +3,7 @@ import { deriveChips, DEFAULT_CHIP_ORDER } from '../shared/chips';
 import { marksFor } from '../shared/defaults';
 import { printedExtras } from '../shared/extras';
 import { BODY_FONT } from '../shared/fonts';
-import { ASK_MAX_WIDTH, CANVASES, artAnchors, bodyOf, boxesOf, photoFrame, pillBox, placeArt, safeBox, type ArtAnchor, type ArtPoint, type CanvasId, type Rect, type WeekBoxes } from '../shared/layout';
+import { ASK_MAX_WIDTH, CANVASES, PILL_TILT_ROOM, artAnchors, bodyOf, boxesOf, photoFrame, pillBox, placeArt, safeBox, type ArtAnchor, type ArtPoint, type CanvasId, type Rect, type WeekBoxes } from '../shared/layout';
 import { lookOf, type ArtPlacement, type LineType, type Look, type Palette } from '../shared/looks';
 import { coverRect } from '../shared/photo';
 import type { FlyerData, FlyerText, Hostel, PhotoInfo } from '../shared/schema';
@@ -136,10 +136,6 @@ function Highlight({ file, children }: { file: string; children: ReactNode }) {
     </span>
   );
 }
-
-/** How far inside its column the pill's width is held. The pill is tilted -0.6°, which lifts a corner of one as wide as
-    its column by 0.36 px past the safe edge; one pixel less keeps the tilted pill inside it, the zone being a hard limit. */
-const PILL_TILT_ROOM = 1;
 
 /** A week row's fixed day column (the prototype's), and the cap on its right-hand time and price. */
 const DAY_WIDTH = 250;
@@ -431,11 +427,11 @@ export function Flyer({ data, canvas, hostel, photo, showSafeZones = false, ref 
                 pass reports it for the editor's cut-off note. */}
             <div
               data-group="pill"
-              style={{ display: 'flex', alignItems: 'center', boxSizing: 'border-box', maxWidth: pillBox(canvas, geometry).width - PILL_TILT_ROOM, overflowX: 'clip', background: paint.accent, borderRadius: 20, padding: '17px 38px 19px', transform: 'rotate(-0.6deg)' }}
+              style={{ display: 'flex', alignItems: 'center', boxSizing: 'border-box', maxWidth: pillBox(canvas, geometry).width - PILL_TILT_ROOM, overflowX: 'clip', background: paint.accent, borderRadius: look.pill.radius, padding: look.pill.padding, transform: `rotate(${look.pill.tilt}deg)` }}
             >
-              <div {...fitOf(type.pill)} style={{ ...typeStyle(type.pill, paint), display: 'flex', alignItems: 'center', gap: 18, minWidth: 0, whiteSpace: 'nowrap' }}>
+              <div {...fitOf(type.pill)} style={{ ...typeStyle(type.pill, paint), display: 'flex', alignItems: 'center', gap: look.pill.gap, minWidth: 0, whiteSpace: 'nowrap' }}>
                 {t.handle && <span>{t.handle}</span>}
-                {t.handle && t.tag && <span data-deco="dot" style={{ flex: '0 0 auto', width: 14, height: 14, borderRadius: '50%', background: paint.pillDot }} />}
+                {t.handle && t.tag && <span data-deco="dot" style={{ flex: '0 0 auto', width: look.pill.dot, height: look.pill.dot, borderRadius: '50%', background: paint.pillDot }} />}
                 {t.tag && <span>{t.tag}</span>}
               </div>
             </div>

@@ -130,6 +130,15 @@ export interface Look {
     readonly stroke: number;
     readonly photoRadius: number;
   };
+  /** The tag pill's shape round its one fitted line: its corners, its tilt in degrees (held to the room the pill's
+      column leaves it, layout.ts's PILL_TILT_ROOM), its padding, the gap around the dot, and the dot's size. */
+  readonly pill: {
+    readonly radius: number;
+    readonly tilt: number;
+    readonly padding: string;
+    readonly gap: number;
+    readonly dot: number;
+  };
 }
 
 /** What a flyer that names no look prints in, forever: the hand-drawn look. */

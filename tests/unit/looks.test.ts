@@ -2,7 +2,7 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 import { ROOT } from '../../scripts/gen-shared.js';
-import { SHARED_GEOMETRY } from '../../src/shared/layout.js';
+import { CANVAS_IDS, PILL_TILT_ROOM, SHARED_GEOMETRY, pillBox } from '../../src/shared/layout.js';
 import { FIRST_LOOK, allLooks, lookIds, lookOf } from '../../src/shared/looks.js';
 import { DEFAULT_COLORS, DEFAULT_DOODLES, HAND_DRAWN, resolveDoodles } from '../../src/shared/looks/handDrawn.js';
 import { geometryProblems } from '../geometry.js';
@@ -126,6 +126,24 @@ describe('the looks', () => {
       ];
       expect(files.length).toBeGreaterThan(10);
       expect(files.filter((file) => !existsSync(join(ROOT, file)))).toEqual([]);
+    });
+  }
+
+  it('hand-drawn’s pill is the handoff’s: 20 px corners, -0.6°, its padding, a 14 px dot 18 px from the words', () => {
+    expect(HAND_DRAWN.pill).toEqual({ radius: 20, tilt: -0.6, padding: '17px 38px 19px', gap: 18, dot: 14 });
+  });
+
+  // A tilted pill as wide as its column reaches past its sides by (height × sin θ − width × (1 − cos θ)) / 2. The
+  // renderer holds the pill PILL_TILT_ROOM inside its column, so a look's tilt may lift it no further: the safe zone is
+  // a hard limit. Hand-drawn's -0.6° lifts it 0.35 px on the story.
+  for (const look of allLooks()) {
+    it(`${look.id}: its pill's tilt keeps a full-width pill inside the safe zone`, () => {
+      const θ = (Math.abs(look.pill.tilt) * Math.PI) / 180;
+      for (const canvas of CANVAS_IDS) {
+        const { width, height } = pillBox(canvas, look.geometry);
+        const lift = (height * Math.sin(θ) - width * (1 - Math.cos(θ))) / 2;
+        expect(lift, canvas).toBeLessThanOrEqual(PILL_TILT_ROOM);
+      }
     });
   }
 

@@ -384,6 +384,11 @@ export function inside(inner: Rect, outer: Rect, tolerance = 0): boolean {
     browser (pill.spec.ts holds it). The design pass set the spark off the pill's end against this pill. */
 export const DEFAULT_PILL_WIDTH = 585;
 
+/** How far inside its column the pill's width is held. A pill is tilted, which lifts a corner of one as wide as its
+    column past the safe edge (hand-drawn's -0.6° by 0.36 px); one pixel less keeps it inside, the zone being a hard
+    limit. Every look's tilt is held to this room (looks.test.ts). */
+export const PILL_TILT_ROOM = 1;
+
 /** The ask's block is at most this wide: its two lines shrink to fit it (Flyer.tsx), beside the art at its end. */
 export const ASK_MAX_WIDTH = 760;
 

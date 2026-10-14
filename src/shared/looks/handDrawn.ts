@@ -171,4 +171,6 @@ export const HAND_DRAWN: Look = {
   wordmark: 'assets/nest-logo-teal.png',
   // The photo in a frame has the handoff's 40 px corners (§3, Geometry).
   frame: { path: WONKY_PATH, viewBox: '0 0 960 200', stroke: 5, photoRadius: 40 },
+  // The handoff's pill (§2): 20 px corners, -0.6°, 17/38/19 padding, a 14 px dot 18 px from the words.
+  pill: { radius: 20, tilt: -0.6, padding: '17px 38px 19px', gap: 18, dot: 14 },
 };
