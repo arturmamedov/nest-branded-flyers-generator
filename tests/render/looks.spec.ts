@@ -3,7 +3,9 @@ import { join } from 'node:path';
 import type { APIRequestContext } from '@playwright/test';
 import { PNG } from 'pngjs';
 import { expect, test } from '../browser';
-import { EDITOR_VIEWPORT, canvasButton, clientOnlyEditor, download, exportFit, libraryCard, openSection, status } from '../editor';
+import sharp from 'sharp';
+import type { Download } from '@playwright/test';
+import { EDITOR_VIEWPORT, canvasButton, clientOnlyEditor, clipboardPng, copyImage, download, exportFit, grantClipboard, libraryCard, lightbox, openSection, pickWay, status, zoomButton } from '../editor';
 import { FIELD } from '../../src/editor/fields';
 import { checkDrawn, drawnSamples, samples } from './drawnChecks';
 import { inProof, sampleCopy, siteNames } from './proofFlyers';
@@ -155,4 +157,42 @@ test('M2: a flyer in a look the site does not name still opens in it, saves, and
   const { flyer } = (await (await request.get(`/api/flyers/${id}`)).json()) as FlyerPayload;
   expect(flyer.data.look).toBe(PROOF_LOOK_ID);
   expect(pixel(await serverPng(request, id, 'story'), 2, 2)).toBe(PROOF_LOOK.palette({ colors: DEFAULT_COLORS }).ground.toUpperCase());
+});
+
+/** The colour of a picture's top-left corner, where nothing but the ground is drawn, as #rrggbb. */
+async function corner(file: Buffer): Promise<string> {
+  const { data } = await sharp(file).extract({ left: 2, top: 2, width: 1, height: 1 }).raw().toBuffer({ resolveWithObject: true });
+  return `#${[0, 1, 2].map((c) => data[c].toString(16).padStart(2, '0')).join('')}`.toUpperCase();
+}
+const near = (a: string, b: string) => [1, 3, 5].every((i) => Math.abs(parseInt(a.slice(i, i + 2), 16) - parseInt(b.slice(i, i + 2), 16)) <= 6);
+const PROOF_GROUND = PROOF_LOOK.palette({ colors: DEFAULT_COLORS }).ground.toUpperCase();
+const fileOf = async (d: Download) => readFileSync(await d.path());
+
+test('every way out of a proof flyer is the proof look: the editor’s downloads and copy, a card’s download, the lightbox', async ({ page, request }) => {
+  test.setTimeout(120_000);
+  await page.setViewportSize(EDITOR_VIEWPORT);
+  const { id, title } = await sampleCopy(request, 'Pool party', 'band', keep);
+  await page.goto(`/#/flyers/${id}`);
+  for (const canvas of CANVAS_IDS) {
+    await canvasButton(page, canvas).click();
+    for (const format of ['png', 'jpg'] as const) {
+      const ground = await corner(await fileOf(await download(page, format)));
+      expect(near(ground, PROOF_GROUND), `the editor's ${format} on ${canvas}: ${ground}`).toBe(true);
+    }
+  }
+  await grantClipboard(page);
+  await copyImage(page).click();
+  await expect(copyImage(page)).toBeEnabled();
+  expect(await corner(await clipboardPng(page)), 'the copied picture').toBe(PROOF_GROUND);
+
+  await page.goto('/');
+  const card = libraryCard(page, title);
+  await card.scrollIntoViewIfNeeded();
+  await expect(card.locator('.card-thumb [data-flyer]')).toHaveAttribute('data-look', PROOF_LOOK_ID);
+  const [fromCard] = await Promise.all([page.waitForEvent('download'), pickWay(card, 'png')]);
+  expect(await corner(await fileOf(fromCard)), 'a card’s download').toBe(PROOF_GROUND);
+  await zoomButton(card).click();
+  await expect(lightbox(page).locator('[data-flyer]')).toHaveAttribute('data-look', PROOF_LOOK_ID);
+  const [fromLightbox] = await Promise.all([page.waitForEvent('download'), pickWay(lightbox(page), 'png')]);
+  expect(await corner(await fileOf(fromLightbox)), 'the lightbox’s download').toBe(PROOF_GROUND);
 });
