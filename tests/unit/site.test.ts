@@ -2,7 +2,8 @@ import { createServer, type IncomingHttpHeaders, type ServerResponse } from 'nod
 import type { AddressInfo } from 'node:net';
 import { afterEach, describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { SiteError, siteCaller } from '../../scripts/site.js';
+import { SiteError, siteCaller, siteFirstLook } from '../../scripts/site.js';
+import { FIRST_LOOK } from '../../src/shared/looks.js';
 
 /* How the Node-side scripts call a deployment's API (scripts/site.ts, for flyers:post and ai:smoke): the staff login
    on every request, the write header only on a write, a refusal in the API's own words, and a redirect never
@@ -151,5 +152,27 @@ describe('siteCaller', () => {
     });
     const e = await refusal(siteCaller({ baseUrl }, { timeoutMs: 100 })('GET', 'api/config', Hostels));
     expect((e as Error).name).toBe('TimeoutError');
+  });
+});
+
+describe('siteFirstLook', () => {
+  // The look flyers:post makes its flyers in (M6), read as the editor reads api/config. Against two looks of the
+  // test's own (tests/fixtures/looks-settings.json): this release has one, and a site's first can only be seen with two.
+  const known = ['hand-drawn', 'second'];
+  const configOf = (looks?: unknown) => ({ backend: 'php', storage: 'json', ...(looks === undefined ? {} : { looks }) });
+
+  it('asks the site, and takes the first look it names', async () => {
+    const { baseUrl, seen } = await site((res) => json(res, 200, configOf(['second', 'hand-drawn'])));
+    expect(await siteFirstLook(siteCaller({ baseUrl }), known)).toBe('second');
+    expect(seen.map((s) => [s.method, s.url])).toEqual([['GET', '/app/api/config']]);
+  });
+
+  it('a site from before looks names none, and one in a later release may name a look this checkout does not have: the first look', async () => {
+    for (const looks of [undefined, ['another', 'second']]) {
+      const { baseUrl } = await site((res) => json(res, 200, configOf(looks)));
+      expect(await siteFirstLook(siteCaller({ baseUrl }), known), JSON.stringify(looks)).toBe('hand-drawn');
+    }
+    const { baseUrl } = await site((res) => json(res, 200, configOf()));
+    expect(await siteFirstLook(siteCaller({ baseUrl })), 'against this release’s own looks').toBe(FIRST_LOOK);
   });
 });

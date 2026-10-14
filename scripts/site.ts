@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { siteLooks } from '../src/shared/looks.js';
 import { ErrorEnvelopeSchema } from '../src/shared/schema.js';
 import { WRITE_HEADERS } from '../src/shared/writeGuard.js';
 import { basicAuthHeader, type RemoteSite } from './env.js';
@@ -55,6 +56,16 @@ export async function siteKeeps(call: SiteCall, key: string, listed?: SiteFlyer[
     }
   }
   return null;
+}
+
+/** The look a site starts a new flyer in: the first its api/config names, read as the editor reads it (siteLooks), so a
+    script's flyers follow the site too (M6). A release from before looks names none, and one later than this checkout
+    may name a look it does not have: either way the first look, which every release prints. `known` is the registry,
+    unless a test reads against looks of its own. */
+export async function siteFirstLook(call: SiteCall, known?: readonly string[]): Promise<string> {
+  const config = await call('GET', 'api/config', z.unknown());
+  const looks = typeof config === 'object' && config !== null ? (config as { looks?: unknown }).looks : undefined;
+  return siteLooks(looks, known)[0];
 }
 
 /** What failed a schema (an answer, or a file a script was given), each bad field by its dotted path, as the API names them. */

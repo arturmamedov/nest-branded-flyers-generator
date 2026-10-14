@@ -6,7 +6,7 @@ import { flyerFromBrief } from '../../src/shared/brief.js';
 import { lintFlyer } from '../../src/shared/copyRules.js';
 import { AiExampleSchema, FlyerInputSchema, FlyerSavedSchema, HostelSchema, type AiExample } from '../../src/shared/schema.js';
 import { flyersTarget, type RemoteSite } from '../env.js';
-import { SiteFlyerSchema, issues, siteCaller, siteKeeps } from '../site.js';
+import { SiteFlyerSchema, issues, siteCaller, siteFirstLook, siteKeeps } from '../site.js';
 
 /* npm run flyers:post -- <example files or folders…> [--to <app root>] [--dry-run]
 
@@ -56,6 +56,8 @@ async function main() {
   // a saved flyer is asked first (siteKeeps).
   const keepsShare = await siteKeeps(call, 'share', onSite);
   const keepsLabels = await siteKeeps(call, 'labels', onSite);
+  // The look the site starts a new flyer in, as its editor does (M6): the first it names.
+  const look = await siteFirstLook(call);
   let failed = 0;
 
   for (const file of exampleFiles(positionals)) {
@@ -72,7 +74,7 @@ async function main() {
       // Hostel names come only from the owner: a slug the site doesn't know stops the brief, never guessed.
       const hostel = brief.hostel === null ? null : hostels.find((h) => h.slug === brief.hostel);
       if (hostel === undefined) throw new Error(`no hostel "${brief.hostel}" on this site (${hostels.map((h) => h.slug).join(', ')})`);
-      const input = flyerFromBrief(brief, hostel?.name ?? null);
+      const input = flyerFromBrief(brief, hostel?.name ?? null, new Date(), look);
       const checked = FlyerInputSchema.safeParse(input);
       if (!checked.success) throw new Error(issues(checked.error));
       const same = onSite.find((f) => f.title === input.title && f.hostel === input.hostel);
