@@ -158,6 +158,36 @@
         "required": [],
         "additionalProperties": false
       }
+    },
+    {
+      "name": "labels: a required list of words from a fixed list, and an optional one",
+      "input": {
+        "type": "object",
+        "properties": {
+          "labels": { "maxItems": 8, "type": "array", "items": { "type": "string", "enum": ["dinners", "masca", "whats-on"] } },
+          "more": { "maxItems": 2, "type": "array", "items": { "type": "string", "enum": ["a", "b"] } }
+        },
+        "required": ["labels"],
+        "additionalProperties": false
+      },
+      "openai": {
+        "type": "object",
+        "properties": {
+          "labels": { "maxItems": 8, "type": "array", "items": { "type": "string", "enum": ["dinners", "masca", "whats-on"] } },
+          "more": { "anyOf": [{ "maxItems": 2, "type": "array", "items": { "type": "string", "enum": ["a", "b"] } }, { "type": "null" }] }
+        },
+        "required": ["labels", "more"],
+        "additionalProperties": false
+      },
+      "anthropic": {
+        "type": "object",
+        "properties": {
+          "labels": { "type": "array", "items": { "type": "string", "enum": ["dinners", "masca", "whats-on"] }, "description": "At most 8 items." },
+          "more": { "type": "array", "items": { "type": "string", "enum": ["a", "b"] }, "description": "At most 2 items." }
+        },
+        "required": ["labels"],
+        "additionalProperties": false
+      }
     }
   ],
   "dropNulls": [
