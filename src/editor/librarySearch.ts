@@ -79,8 +79,9 @@ export function searchWords(query: string): string[] {
   return fold(query).folded.split(/\s+/).filter(Boolean);
 }
 
-/** A card's meta line as it reads, but its date: what the search looks at, and what the card marks. */
-export const metaOf = (item: FlyerListItem) => ({ hostel: item.hostelName ?? 'All hostels', template: TEMPLATE_LABEL[item.template] });
+/** A card's meta line as it reads, but its date: what the search looks at, and what the card marks. A template this
+    release does not know (a later release's, met after going back) reads as none. */
+export const metaOf = (item: FlyerListItem) => ({ hostel: item.hostelName ?? 'All hostels', template: TEMPLATE_LABEL[item.template] ?? '' });
 
 /** One field a flyer is searched by. `why` is its name in the "why" line; the card's own fields have none: a word
     found there is marked where it is. */
@@ -126,6 +127,22 @@ function dataFields(template: Template, data: FlyerData): Field[] {
     rest('text.handle', t.handle),
     rest('text.tag', t.tag),
   ];
+}
+
+type Folded = Field & { folded: string };
+
+/* A flyer's fields folded once: the list redraws with every answer that lands and every key typed. Kept by the list
+   item and by the answer, objects that are new when the flyer is. */
+const LIST_FIELDS = new WeakMap<FlyerListItem, Folded[]>();
+const DATA_FIELDS = new WeakMap<FlyerPayload, Folded[]>();
+
+function foldedOnce<K extends object>(cache: WeakMap<K, Folded[]>, key: K, fields: () => Field[]): Folded[] {
+  let folded = cache.get(key);
+  if (!folded) {
+    folded = fields().map((field) => ({ ...field, folded: fold(field.text).folded }));
+    cache.set(key, folded);
+  }
+  return folded;
 }
 
 /** Where the words are in a text, as ranges of the text as written, joined where they meet. */
@@ -182,7 +199,8 @@ function snippet(text: string, words: readonly string[]): Part[] {
     them) and its "why" line. With no answer, by its list fields alone. */
 export function findIn(item: FlyerListItem, payload: FlyerPayload | null, words: readonly string[]): Found | null {
   if (words.length === 0) return null;
-  const fields = [...listFields(item), ...(payload ? dataFields(item.template, payload.flyer.data) : [])].map((field) => ({ ...field, folded: fold(field.text).folded }));
+  // The record's template wins over the list's, as on every write: the two are the same flyer's.
+  const fields = [...foldedOnce(LIST_FIELDS, item, () => listFields(item)), ...(payload ? foldedOnce(DATA_FIELDS, payload, () => dataFields(payload.flyer.template, payload.flyer.data)) : [])];
   if (!words.every((word) => fields.some((field) => field.folded.includes(word)))) return null;
   const holding = fields.filter((field) => words.some((word) => field.folded.includes(word)));
   const rank = Math.min(...holding.map((field) => field.rank)) as Rank;

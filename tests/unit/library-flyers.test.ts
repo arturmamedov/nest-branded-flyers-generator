@@ -62,6 +62,31 @@ describe('the library’s flyer answers', () => {
     expect(s.ids(), 'the next of the queue, never 6').toEqual([2, 3, 4, 5]);
   });
 
+  it('a new list takes the queue’s place, in its own order: a filter changed while the search reads', async () => {
+    const s = server();
+    const store = flyerAnswers(s.fetch);
+    store.read(items(1, 2, 3, 4, 5, 6, 7, 8));
+    store.read(items(7, 2, 9));
+    expect(s.ids(), 'what is on its way stays on its way').toEqual([1, 2, 3, 4]);
+    await s.answer(1);
+    await s.answer(3);
+    expect(s.ids(), 'the new list next, never 5 or 6').toEqual([2, 4, 7, 9]);
+    await s.answer(4);
+    expect(s.ids()).toEqual([2, 7, 9]);
+  });
+
+  it('stops reading when the search is cleared or the library is left: what is on its way still lands', async () => {
+    const s = server();
+    const store = flyerAnswers(s.fetch);
+    store.read(items(1, 2, 3, 4, 5, 6));
+    store.stop();
+    await s.answer(1);
+    expect(s.ids(), 'nothing more is asked for').toEqual([2, 3, 4]);
+    expect(store.answer(1, 'v1').state).toBe('here');
+    store.ask(6, 'v6');
+    expect(s.ids(), 'a card still asks').toEqual([2, 3, 4, 6]);
+  });
+
   it('a card joins a read the search has on its way', async () => {
     const s = server();
     const store = flyerAnswers(s.fetch);
@@ -97,13 +122,11 @@ describe('the library’s flyer answers', () => {
     const store = flyerAnswers(s.fetch);
     let told = 0;
     const stop = store.subscribe(() => told++);
-    const changes = store.changes();
     store.ask(1, 'v1');
     const waiting = store.answer(1, 'v1');
     expect(store.answer(1, 'v1')).toBe(waiting);
     await s.answer(1);
     expect(told).toBe(1);
-    expect(store.changes()).not.toBe(changes);
     const here = store.answer(1, 'v1');
     expect(store.answer(1, 'v1')).toBe(here);
     stop();

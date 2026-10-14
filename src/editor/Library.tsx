@@ -135,8 +135,11 @@ export function Library({ hostels, exporter }: { hostels: Hostel[]; exporter: Fl
 
   useEffect(() => localStorageSet(SEARCH_PREF, query), [query]);
   // A search reads every listed flyer, a few at a time; the list redraws as their answers land, and only then.
+  // Cleared, or the library left: no more of its reads (a library of a hundred flyers is not read behind the editor).
   useEffect(() => {
-    if (searching && items) flyers.read(items);
+    if (!searching || !items) return;
+    flyers.read(items);
+    return () => flyers.stop();
   }, [searching, items, flyers]);
   const [, redraw] = useState(0);
   useEffect(() => {
@@ -144,8 +147,11 @@ export function Library({ hostels, exporter }: { hostels: Hostel[]; exporter: Fl
   }, [searching, flyers]);
 
   const filtered = filter !== '' || template !== '' || label !== ALL_LABELS;
-  // One way back to every flyer: the search emptied, and the filters set back to all (the owner's answer).
+  const box = useRef<HTMLInputElement>(null);
+  // One way back to every flyer: the search emptied, and the filters set back to all (the owner's answer). Both its
+  // buttons leave once it is done, so the focus goes to the box, where the next search starts.
   const clearAll = () => {
+    box.current?.focus();
     setQuery('');
     setFilter('');
     setTemplate('');
@@ -235,6 +241,7 @@ export function Library({ hostels, exporter }: { hostels: Hostel[]; exporter: Fl
                 while there is something to clear. The box gives Clear its room, so the filters never move. */}
             <div className="library-search" role="search">
               <input
+                ref={box}
                 type="search"
                 aria-label="Search"
                 placeholder="Name, label, share text…"

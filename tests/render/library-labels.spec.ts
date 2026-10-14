@@ -132,7 +132,7 @@ test.describe('the top of the library', () => {
     for (const word of ['Hostel', 'Template', 'Label']) await expect(page.locator('.library-filters .filter > span', { hasText: new RegExp(`^${word}$`) })).toBeVisible();
   });
 
-  test('on a phone the filters are two to a row, each named by its first choice, and the cards start where they did', async ({ page }) => {
+  test('on a phone the filters are two to a row, each named by its first choice, and the cards start under them and the search', async ({ page }) => {
     await page.setViewportSize({ width: 360, height: 740 });
     await page.goto('/');
     const first = page.locator('li.card').first();
@@ -158,7 +158,7 @@ test.describe('the top of the library', () => {
     expect(await labelFilter(page).locator('option').first().textContent()).toBe('All labels');
     // Five rows over the cards: the name, the switch, the search on a row of its own (the owner's answer of the
     // library's search, 2026-10-14), and two rows of filters.
-    expect((await box(first)).y, 'the first card is no lower than it was').toBeLessThanOrEqual(330);
+    expect((await box(first)).y, 'the first card is no lower than five rows down').toBeLessThanOrEqual(330);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth), 'nothing scrolls sideways').toBe(true);
     expect(await page.locator('.library').evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
   });

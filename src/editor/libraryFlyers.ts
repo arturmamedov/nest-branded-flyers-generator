@@ -6,7 +6,9 @@ import type { Answer } from './librarySearch';
    - Kept by the flyer's id and its updatedAt as the list gave it: a flyer saved since is asked for again, and an
      answer for the flyer as it was is no answer for it.
    - A card asks once it nears the screen, at once. The search reads every listed flyer, at most READS_AT_ONCE at a
-     time and in the list's order; a card asking for one still in its queue takes it out and asks now.
+     time and in the list's order; a card asking for one still in its queue takes it out and asks now. A new list
+     (a filter changed) takes the queue's place, and the queue empties when the search is cleared or the library is
+     left: a library of a hundred flyers is not read behind the staff member's back.
    - A flyer that cannot load is remembered as such: neither asks again in the visit, as a card never did.
    - The store saves the request, never the drawing: a card still draws its picture only once it nears the screen.
    No React and no DOM, so it is tested by itself (tests/unit/library-flyers.test.ts). */
@@ -26,11 +28,9 @@ export function flyerAnswers(fetch: (id: number) => Promise<FlyerPayload>, most 
   const queue: { id: number; version: string }[] = [];
   const listeners = new Set<() => void>();
   let reading = 0;
-  let changed = 0;
 
   const settle = (key: string, answer: Answer) => {
     answers.set(key, answer);
-    changed++;
     for (const listener of listeners) listener();
   };
 
@@ -68,21 +68,22 @@ export function flyerAnswers(fetch: (id: number) => Promise<FlyerPayload>, most 
       void start(id, version);
     },
 
-    /** The search's reads: every flyer of the list not asked for yet, a few at a time. */
+    /** The search's reads: every flyer of this list not asked for yet, a few at a time, in its order. The list read
+        before it, if any, is no longer the one on screen: what of it is still queued is dropped. */
     read(items: readonly { id: number; updatedAt: string }[]) {
-      for (const { id, updatedAt } of items) {
-        const key = keyOf(id, updatedAt);
-        if (!answers.has(key) && !queue.some((q) => keyOf(q.id, q.version) === key)) queue.push({ id, version: updatedAt });
-      }
+      queue.length = 0;
+      for (const { id, updatedAt } of items) if (!answers.has(keyOf(id, updatedAt))) queue.push({ id, version: updatedAt });
       pump();
+    },
+
+    /** No more of the search's reads: what is on its way still lands. A card still asks. */
+    stop() {
+      queue.length = 0;
     },
 
     subscribe(listener: () => void) {
       listeners.add(listener);
       return () => void listeners.delete(listener);
     },
-
-    /** A number that moves with every answer that lands, for a page that redraws with them. */
-    changes: () => changed,
   };
 }

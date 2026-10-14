@@ -71,6 +71,21 @@ describe('a flyer is found', () => {
     expect(findIn(cafe, null, searchWords('CAFÉ'))).not.toBeNull();
   });
 
+  it('in a text whose accents are written as letters of their own', () => {
+    const decomposed = itemOf({ title: 'Excursión al Teide' });
+    expect(findIn(decomposed, null, searchWords('excursion'))).not.toBeNull();
+    expect(marked(decomposed.title, searchWords('excursion'))).toEqual([
+      { text: 'Excursión', mark: true },
+      { text: ' al Teide', mark: false },
+    ]);
+  });
+
+  it('with a template this release does not know (after going back): its meta line reads no template, and nothing breaks', () => {
+    const later = itemOf({ title: 'Quiz', template: 'poster' as never });
+    expect(metaOf(later).template).toBe('');
+    expect(findIn(later, payloadOf(itemOf()), searchWords('quiz'))).not.toBeNull();
+  });
+
   it('by nothing fuzzy: a typo finds nothing', () => {
     expect(findIn(item, payload, searchWords('tiede'))).toBeNull();
   });

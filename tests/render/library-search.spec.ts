@@ -112,11 +112,14 @@ test.describe('the search box', () => {
     await filterLibrary(page, 'Template', { label: TEMPLATE_LABEL.activity }, '?template=activity');
     await expect(clear, 'a filter is set').toBeVisible();
     await searchLibrary(page, w);
-    await clear.click();
+    // From the keyboard: the button leaves once nothing is left to clear, and the focus goes to the box.
+    await clear.focus();
+    await page.keyboard.press('Enter');
     await expect(librarySearch(page)).toHaveValue('');
     await expect(libraryFilter(page, 'Template')).toHaveValue('');
     await expect(page.locator('li.card')).toHaveCount(all.length);
     await expect(clear).toBeHidden();
+    await expect(librarySearch(page)).toBeFocused();
   });
 
   test('is remembered, like the filters', async ({ page, request }) => {
@@ -147,6 +150,28 @@ test.describe('the search box', () => {
     await page.getByRole('button', { name: 'Clear the search and filters', exact: true }).click();
     await expect(libraryFilter(page, 'Template')).toHaveValue('');
     await expect(page.locator('li.card')).toHaveCount(all.length);
+    await expect(librarySearch(page), 'the button is gone with its message: the focus is in the box').toBeFocused();
+  });
+
+  test('stops reading when the search is cleared', async ({ page }) => {
+    // A short window: few cards near the screen, so most flyers are the search's alone to ask for.
+    await page.setViewportSize({ width: 1440, height: 500 });
+    const all = await flyers(page);
+    // Every answer the search asks for is held, so its queue stays full.
+    const held: (() => void)[] = [];
+    await page.route(/\/api\/flyers\/\d+$/, (route) => new Promise<void>((resolve) => held.push(() => void route.continue().then(resolve))));
+    const asked = askedFor(page);
+    await page.goto('/');
+    await searchLibrary(page, 'reception');
+    await expect.poll(() => asked.length).toBeGreaterThan(0);
+    await librarySearch(page).fill('');
+    const before = asked.length;
+    for (const release of held.splice(0)) release();
+    await page.waitForTimeout(1000);
+    for (const release of held.splice(0)) release();
+    await page.waitForTimeout(500);
+    expect(asked.length, 'only the cards near the screen asked after the search was cleared').toBeLessThan(all.length);
+    expect(before).toBeLessThan(all.length);
   });
 });
 
