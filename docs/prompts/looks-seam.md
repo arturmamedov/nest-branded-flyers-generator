@@ -9,8 +9,9 @@ found wrong here. The order of the build was approved that day: it is "Commits, 
 
 **Stages 1 and 2 are built** (2026-10-14, the same session, on `feat/looks`: `c1d7e29..4139d14`; the report is
 `docs/reports/looks.md`). The block below launched them; it is kept as it was. **Stages 3 and 4 are built** (the same
-day, launched by `docs/prompts/looks-seam-stages-3-4.md`; the report's second section). **Stages 5 to 7 have their own
-prompt: `docs/prompts/looks-seam-stages-5-7.md`.** The design under the block stands for every stage.
+day, launched by `docs/prompts/looks-seam-stages-3-4.md`; the report's second section). **Stages 5 to 7 are built** (the
+same day, launched by `docs/prompts/looks-seam-stages-5-7.md`, `bfcb54c..ced1571`; the report's third section). Adding a
+look is `docs/adding-a-look.md`. The design under the block stands for every stage.
 
 Suggested run: Claude Opus 5.5 (`claude-opus-5-5`), effort **high**, started in plan mode.
 

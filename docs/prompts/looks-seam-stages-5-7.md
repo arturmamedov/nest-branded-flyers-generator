@@ -3,6 +3,9 @@
 Written 2026-10-14, at the end of the session that built stages 3 and 4 (`9a665cc..` on `feat/looks`, the report's
 section "Stages 3 and 4"), for a session with no memory of it. Artur gives the go for each stage. Paste the block below.
 
+**Done** (2026-10-14, the same day: `bfcb54c..ced1571` on `feat/looks`; the report's section "Stages 5 to 7"). Kept as
+it was launched.
+
 Suggested run: Claude Opus 5.5 (`claude-opus-5-5`), effort **high**, started in plan mode.
 
 ```

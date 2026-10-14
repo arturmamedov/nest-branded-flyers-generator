@@ -23,6 +23,9 @@ setup.
 npm run build:php
 ```
 
+It replaces whatever `release/php/` held. It stops, and builds nothing to upload, if anything in
+the release names the tests' own throwaway look (`proof-look`): that look never ships.
+
 It prints three things you need:
 
 - `release/php/` — the app, **434 files, 3.90 MB** (the build prints the current count, and
@@ -260,6 +263,8 @@ release brings a second, `config.php` names the looks staff may pick:
 - **In this order: a new flyer starts in the first**, in the editor, on "Create with AI" and in
   `npm run flyers:post`. Left out (or `null`), a site offers Hand-drawn alone. Leave it out until
   there is a second look to name.
+- **With two or more named, staff see a Look switch** in the editor's Flyer section, under Template.
+  With one, there is none, and the editor is as it was before looks.
 - **Only looks the release has.** A name it does not have (a typo, or a look of a later release)
   refuses the whole file: every request answers 503 until it is fixed. The reason names `looks`
   and the looks there are, never what was written, and it is in the host's own PHP error log.

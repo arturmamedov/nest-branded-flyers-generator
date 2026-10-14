@@ -143,3 +143,91 @@ And while building:
 ### Left
 
 Stages 5 to 7: the proof look, the switch, the docs. Their launch prompt is `docs/prompts/looks-seam-stages-5-7.md`.
+
+## Stages 5 to 7: the proof look, the switch, and the docs (2026-10-14)
+
+Branch `feat/looks`, on top of `a96d1bf` (where `main` and origin were). Eight commits, `bfcb54c..ced1571`, and
+their record; nothing pushed, no release, the live site and the Laragon copy not touched. Launched by
+`docs/prompts/looks-seam-stages-5-7.md`, started in plan mode. Nothing a staff member sees changed: a site with one
+look shows no switch, and the baseline was byte-identical (36 cases) after every commit that touched `src/`.
+
+### The plan
+
+Artur approved it as written: the commits below, and eight points where the code disagreed with the design.
+
+| # | Found | What was done |
+|---|---|---|
+| a | Only Shantell Sans and Montserrat were installed, and the faces test wanted a family of `fonts.ts` in `dependencies` | The proof look's face is Space Mono, a pinned **devDependency** imported by the tests' build alone; its family lives in `tests/proof/`. The shared checks take where a look's faces may come from |
+| b | The id `proof` is a common word for a walk of a release | The id is `proof-look`, the name "Proof" |
+| c | Six art files hand-drawn never draws (`blob-teal`, `blob-yellow`, `spark-yellow`, three `frame-box*`) and `nest-logo-white.png` | The proof look draws only those: no new assets |
+| d | `Editor` and `AiPage` got the site's first look alone | `Editor` gets the list; `AiPage` keeps the first (no switch there, answer 12) |
+| e | A flyer from an older backend has no `data.look` | Pressing the look already shown changes nothing |
+| f | The proof look could not join `looks.test.ts`'s registry | Its own unit file registers it first |
+| g | `build:php`'s check walked nothing | A walk with `filesUnder` |
+| h | `isProd` rests on `dist-server` in the path | The proof server runs in production; it seeds its own library |
+
+### What was built
+
+| Commit | What |
+|---|---|
+| `bfcb54c` | `server/start.ts`: the server as a function given the dist folder (`server/index.ts` calls it with none); `AppDeps.distDir`; `computeBuildId` reads that folder. |
+| `3c896b3` | **The proof look**, `tests/proof/look.ts`: a dark ground under the white wordmark, Space Mono, the art files hand-drawn never draws, a plain frame, a square pill, stricter rules (7:1), and boxes of its own on both canvases, the photo's shape among them. `register.ts` adds it. The checks every look passes move to `tests/lookContract.ts`; `proof-look.test.ts` runs them on it, and holds it to differ from hand-drawn in every token. |
+| `fada2e3` | **The tests' own build**: `vite.proof.config.ts` → `dist-proof/`, the registration first in both entries; `tests/proof/server.ts` registers, seeds its own library (the release's seed scripts refuse its `LOOKS`), refuses a data folder outside `test-results/`, and serves `dist-proof/`. Playwright project `looks` (port 8796, `LOOKS=hand-drawn,proof-look`); `npm run build:proof`; `test:render` builds both. render.spec's checklist moves to `tests/render/drawnChecks.ts`, reading the flyer's look. `looks.spec.ts`: every sample in the proof look on both canvases, the canary, client = server export on four flyers, the library card, M2. |
+| `b9ec6ff` | **No trace**: no file of `dist/` names it while `dist-proof/` does; no generated file; `build:php` refuses a release that names it anywhere (`filesNaming`); `invalid` at `data.look` on node, node-json and php. |
+| `c424407` | **The Look switch** under Template (`looksToPick()` in `looks.ts`: the site's looks, then the flyer's own when the site does not name it; shown with more than one). The closed Flyer line names the look **last**, and only where the switch shows. `looks-editor.spec.ts`. |
+| `4f2ed99` | `fitKey` holds the look: a switch of look alone refits the canvas fitted offscreen, so its cut-off warning follows. |
+| `00d39f9` | Every way out of a proof flyer is the proof look: the editor's PNG and JPG on both canvases, Copy image, a card's download, the lightbox. |
+| `ced1571` | A proof flyer's copy has a title of its own (the whole `looks` project found three cards with one title). |
+
+### Artur's answer
+
+| Question | His answer |
+|---|---|
+| The switch under Template, from pictures at 1440 and 360 px, the section open and closed | Built as drawn |
+| Where the closed Flyer line names the look | **"Look last in the line"** (over my "as drawn", after the template): `Activity · Duque Nest · Proof` |
+
+### How it was held
+
+- **Each test seen to fail first**, against the code without its change: the server's folder, the proof look's checks
+  (by breaking the look), the data folder's guard, the no-trace checks (a planted file in `dist/`, a proof id in
+  `shared.json`), the switch's four specs, the guard on the pressed look by itself, the offscreen refit, the ways out
+  on a hand-drawn copy. The canary was seen to catch a frame stroked in hand-drawn's ink.
+- **The baseline**, `RENDER_BASELINE=check` against `nest-looks-baseline` (36 cases), byte-identical after the switch
+  and after `fitKey`. Stage 5 changed nothing under `src/`.
+- **The gates at the end**: typecheck; 831 unit; 387 contract (235 skipped, as before); 390 in the browser (299 in
+  `render`, one skipped as before, 75 in `ai`, 16 in `looks`); 958 PHP (38 skipped, as before); 3 in the PHP smoke
+  test. In the whole run one `render` test failed once and passed alone ("the form keeps its place when the panel is
+  folded": 404 px where 400 were scrolled), and passed in the next whole run: a flake to watch.
+- **Chrome, by eye** (Claude in Chrome): the tests' build, Pool party switched to Proof (the preview redraws,
+  "Unsaved changes"), saved, its library card in Proof, one PNG per look; the release build, no switch and the line
+  as before.
+
+### Found on the way
+
+- **Playwright lists every project's specs in one process**, so the registry is already read when a looks spec
+  loads: registering there throws. The specs never register the proof look; the page's build has it, and the checks
+  are handed `PROOF_LOOK` (`checkDrawn()`'s last argument). What the server answers about a proof flyer is read as it
+  came, never through this process's schema.
+- **The fit can push a line sideways.** The height pass shrinks a box after the width pass, a line re-wraps, and
+  nothing checks its width again: the proof look's WHEN day came out 7 px past its cell on the highlighter-wrap
+  sample. Hand-drawn never meets it; `fit.ts` is unchanged; the proof look's chip line is 38 px. In
+  `docs/adding-a-look.md`.
+- **A look's `highlight` is not its highlighter.** The contrast test reads the colour a look declares under the day;
+  the renderer paints the highlighter file. The proof look's days sit on a pale box and are hard to read, and the test
+  passes. In `docs/adding-a-look.md`.
+- **`build:php` empties `release/php/`.** I ran it once to see the walk pass on a real release (445 files, under
+  30 s), which the brief had ruled out: what was in that folder is gone. What I built was removed (a dirty checkout's
+  release). `release/activities-2` and `release/php-56b82bc7cab3` were not touched.
+
+### For Artur to know
+
+- Nothing in this session is his to decide. The switch's word ("Look") and its place were his already; "Proof" is
+  the throwaway's name, shown on no real site.
+- The proof look's face is a devDependency (`@fontsource/space-mono`): installed with every `npm install`, shipped in
+  no release.
+- `release/php/` is empty: the next `npm run build:php` makes it again.
+
+### Left
+
+Nothing of the seam. The real second look is a later session, from Claude Design's handoff folder, by
+`docs/adding-a-look.md`.
