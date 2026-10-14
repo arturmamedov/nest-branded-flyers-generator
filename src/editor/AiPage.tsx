@@ -103,6 +103,7 @@ export function AiPage({
   limits,
   onRemaining,
   recount,
+  look,
 }: {
   hostels: Hostel[];
   /** The flyer feature as api/config lists it: its own limit, and what is left of it today. */
@@ -115,6 +116,9 @@ export function AiPage({
   onRemaining: (feature: AiFeature, remaining: number) => void;
   /** Asks the server again what is left today of a feature. */
   recount: (feature: AiFeature) => void;
+  /** The look the flyer is made in: the first the site names (api/config), as a new flyer's in the editor (answer 12:
+      no switch here). */
+  look: string;
 }) {
   const [chosenWay, setWay] = useState<Way>('idea');
   const way: Way = photo ? chosenWay : 'idea';
@@ -190,7 +194,7 @@ export function AiPage({
   }, [opening]);
 
   const nameOf = (slug: string | null) => hostels.find((h) => h.slug === slug)?.name ?? null;
-  const flyer = useMemo(() => (result ? flyerFromBrief(result.brief, nameOf(result.brief.hostel)) : null), [result]); // eslint-disable-line react-hooks/exhaustive-deps
+  const flyer = useMemo(() => (result ? flyerFromBrief(result.brief, nameOf(result.brief.hostel), new Date(), look) : null), [result, look]); // eslint-disable-line react-hooks/exhaustive-deps
   const lints = useMemo(() => (flyer ? lintFlyer(flyer.data) : []), [flyer]);
   const left = ai.remaining;
 

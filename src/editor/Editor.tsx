@@ -46,7 +46,7 @@ export interface Draft {
   photo: PhotoInfo | null;
 }
 
-const blankDraft = (): Draft => ({ title: '', hostel: null, data: newFlyerData('activity'), photo: null });
+const blankDraft = (look: string): Draft => ({ title: '', hostel: null, data: newFlyerData('activity', look), photo: null });
 
 /** The line under the labels' buttons: what they are for, or, with the flyer's room taken, why the ones not pressed
     wait greyed. A label that is no longer on the list is stored and shows nowhere, so it takes room unseen: the line
@@ -114,6 +114,7 @@ export function Editor({
   limits,
   ai,
   onRemaining,
+  look,
 }: {
   id: number | null;
   hostels: Hostel[];
@@ -124,12 +125,15 @@ export function Editor({
   ai: AiFeatureOn | null;
   /** Tells the app what is left today of a feature after an AI answer. */
   onRemaining: (feature: AiFeature, remaining: number) => void;
+  /** The look a new flyer starts in: the first the site names (api/config). */
+  look: string;
 }) {
   // A new flyer the AI page made (handoff.ts): taken once, it starts the draft as it was offered, unsaved, so the leave
   // guard is armed at once and the first save makes its URL as for any new flyer.
   const [handoff] = useState(() => (id == null ? takeDraft() : null));
-  const [draft, setDraft] = useState<Draft | null>(id == null ? (handoff?.draft ?? blankDraft()) : null);
-  const [savedJson, setSavedJson] = useState<string>(() => (id == null ? JSON.stringify(toInput(blankDraft(), hostels)) : 'loading'));
+  // Both copies of a blank flyer in the same look: the one on the form, and the saved state it is compared with.
+  const [draft, setDraft] = useState<Draft | null>(id == null ? (handoff?.draft ?? blankDraft(look)) : null);
+  const [savedJson, setSavedJson] = useState<string>(() => (id == null ? JSON.stringify(toInput(blankDraft(look), hostels)) : 'loading'));
   const [flyerId, setFlyerId] = useState<number | null>(id);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [canvas, setCanvas] = useState<CanvasId>(savedCanvas);

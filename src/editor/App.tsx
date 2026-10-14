@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { aiFor, aiWithRemaining, type AiFeature } from '../shared/ai';
+import { FIRST_LOOK, siteLooks } from '../shared/looks';
 import type { AiConfig, ApiConfig, Hostel } from '../shared/schema';
 import { assetUrl } from '../flyer/urls';
 import { AiPage } from './AiPage';
@@ -21,6 +22,9 @@ export function App() {
   // and what is left of it today follows every answer, so the bar and the buttons count down without asking the
   // server again.
   const [ai, setAi] = useState<AiConfig>({ enabled: false });
+  // The looks staff may pick (api/config), in the site's order: a new flyer, in the editor or from the AI page, starts
+  // in the first. Known before either page mounts: both wait for this answer.
+  const [looks, setLooks] = useState<string[]>([FIRST_LOOK]);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -30,6 +34,8 @@ export function App() {
         setBackend({ exporter: createExporter(config), limits: config.limits });
         // A backend from before the AI answers no `ai` block: off, as aiFor() reads every answer it does not know.
         setAi(config.ai ?? { enabled: false });
+        // Read loosely too: a backend from before looks answers none, and offers the first look alone.
+        setLooks(siteLooks(config.looks));
       },
       (e) => setError(String(e.message || e)),
     );
@@ -104,7 +110,7 @@ export function App() {
         (page === 'library' ? (
           <Library hostels={hostels} exporter={backend.exporter} />
         ) : page === 'ai' && flyerAi ? (
-          <AiPage key={nav} hostels={hostels} ai={flyerAi} photo={photoAi} limits={backend.limits} onRemaining={onRemaining} recount={recount} />
+          <AiPage key={nav} hostels={hostels} ai={flyerAi} photo={photoAi} limits={backend.limits} onRemaining={onRemaining} recount={recount} look={looks[0]} />
         ) : (
           <Editor
             key={nav}
@@ -114,6 +120,7 @@ export function App() {
             limits={backend.limits}
             ai={shareAi}
             onRemaining={onRemaining}
+            look={looks[0]}
           />
         ))}
     </div>

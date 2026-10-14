@@ -168,6 +168,19 @@ export function allLooks(): readonly Look[] {
 /** Every look's id, the first look first. */
 export const lookIds = (): string[] => allLooks().map((l) => l.id);
 
+/** The looks a site offers, as the editor reads api/config's `looks` (server/config.ts and PHP's SiteLooks checked
+    them): in the site's order, the first is what a new flyer starts in. Read loosely, as aiFor() reads the AI: an
+    answer it cannot take whole (none, from a backend older than the editor; a look this release does not have, from a
+    later one) is the first look alone, so no switch shows and a new flyer starts hand-drawn. `known` is the registry,
+    unless a test reads against looks of its own. */
+export function siteLooks(listed: unknown, known: readonly string[] = lookIds()): string[] {
+  const whole =
+    Array.isArray(listed) &&
+    listed.length > 0 &&
+    listed.every((id, i) => typeof id === 'string' && known.includes(id) && listed.indexOf(id) === i);
+  return whole ? [...(listed as string[])] : known.slice(0, 1);
+}
+
 /** The look a flyer's data prints in, read loosely: a backend older than the editor sends data with no look. A flyer
     that names none, or a look this release does not know (a later release's, met after going back to this one),
     prints hand-drawn: never a blank page. */

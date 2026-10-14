@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { flyerFromBrief } from '../../src/shared/brief.js';
 import { newFlyerData, weekTitle } from '../../src/shared/defaults.js';
 import { LABEL_SLUGS } from '../../src/shared/labels.js';
+import { FIRST_LOOK } from '../../src/shared/looks.js';
 import { BriefSchema, FlyerInputSchema, type Brief, type FlyerInput } from '../../src/shared/schema.js';
 
 /* A brief is a flyer's copy alone (brief.ts): what scripts/flyers/post.ts sends today, and what the editor's AI
@@ -47,6 +48,16 @@ describe('a flyer from a brief', () => {
     expect(input.data.labels).toEqual([first, second]);
     expect(flyerFromBrief({ hostel: null, template: 'week' }, null, DAY).data.labels).toEqual([]);
     expect(flyerFromBrief({ hostel: null, template: 'week', labels: [second] }, null, DAY).data.labels, 'a This week flyer too').toEqual([second]);
+  });
+
+  it('makes the flyer in the look it is given, and in the first look when given none', () => {
+    const brief = { hostel: null, template: 'activity', text: { headline1: 'Quiz night' } } as const;
+    expect(flyerFromBrief(brief, null, DAY).data.look).toBe(FIRST_LOOK);
+    // Whatever look the site's list starts with (its loader checked it): the brief has no say in it.
+    const input = flyerFromBrief(brief, null, DAY, 'a-site-first-look');
+    expect(input.data.look).toBe('a-site-first-look');
+    expect(Object.keys(input.data).at(-1), 'still last, as newFlyerData() writes it').toBe('look');
+    expect(flyerFromBrief({ hostel: null, template: 'week' }, null, DAY, 'a-site-first-look').data.look, 'a This week flyer too').toBe('a-site-first-look');
   });
 
   it('leaves what a brief doesn’t say at the template’s defaults, and every empty field to collapse', () => {

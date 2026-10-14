@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { ROOT } from '../../scripts/gen-shared.js';
 import * as fonts from '../../src/shared/fonts.js';
 import { CANVAS_IDS, PILL_TILT_ROOM, SHARED_GEOMETRY, pillBox } from '../../src/shared/layout.js';
-import { FIRST_LOOK, allLooks, lookIds, lookOf } from '../../src/shared/looks.js';
+import { FIRST_LOOK, allLooks, lookIds, lookOf, siteLooks } from '../../src/shared/looks.js';
 import { DEFAULT_COLORS, DEFAULT_DOODLES, HAND_DRAWN, resolveDoodles } from '../../src/shared/looks/handDrawn.js';
 import { geometryProblems } from '../geometry.js';
 
@@ -195,6 +195,25 @@ describe('the looks', () => {
     expect(fresh.lookOf({ look: 'extra' })).toBe(extra);
     expect(() => fresh.registerLook({ ...HAND_DRAWN, id: 'late', name: 'Late' })).toThrow(/already read/);
     vi.resetModules();
+  });
+});
+
+describe('the looks a site offers, as the editor reads api/config', () => {
+  // Read against two looks of the table's own (tests/fixtures/looks-settings.json): this release has one.
+  const known = ['hand-drawn', 'second'];
+
+  it('takes the site’s list whole, in its order: a new flyer starts in the first', () => {
+    expect(siteLooks(['second', 'hand-drawn'], known)).toEqual(['second', 'hand-drawn']);
+    expect(siteLooks(['hand-drawn'], known)).toEqual(['hand-drawn']);
+    expect(siteLooks([FIRST_LOOK])).toEqual([FIRST_LOOK]);
+  });
+
+  it('reads an answer it cannot take whole as the first look alone: no switch, and new flyers hand-drawn', () => {
+    // A backend from before looks answers none; a later one may name a look this client does not have.
+    for (const answer of [undefined, null, 'second', [], ['second', 'another'], ['second', 'second'], [1], { 0: 'second' }]) {
+      expect(siteLooks(answer, known), JSON.stringify(answer)).toEqual(['hand-drawn']);
+    }
+    expect(siteLooks(undefined)).toEqual([FIRST_LOOK]);
   });
 });
 

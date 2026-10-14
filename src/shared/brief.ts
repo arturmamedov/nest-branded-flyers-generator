@@ -13,9 +13,10 @@ import { isPrintable } from './week.js';
     "In a frame" (DEFAULT_PHOTO_MODE). A week flyer's title lines are the defaults for its hostel, as a new week
     flyer gets them, unless the brief writes its own. Untitled, it is named as the editor would on its first save.
     A blank says nothing: a field of spaces is an empty one (which prints nothing, as a hand-written "" does), and
-    an extra or a week row with nothing in it is left out, so the editor opens with no empty field or row. */
-export function flyerFromBrief(brief: Brief, hostelName: string | null, now = new Date()): FlyerInput {
-  const base = newFlyerData(brief.template);
+    an extra or a week row with nothing in it is left out, so the editor opens with no empty field or row. It is in
+    `look`, the site's first on the AI page (api/config), and in the first look where a caller names none. */
+export function flyerFromBrief(brief: Brief, hostelName: string | null, now = new Date(), look?: string): FlyerInput {
+  const base = newFlyerData(brief.template, look);
   const titleLines = brief.template === 'week' ? weekTitle(hostelName) : {};
   const chip = (key: ChipKey) => said(brief[key]);
   const lines = Object.fromEntries(Object.entries(brief.text ?? {}).map(([key, line]) => [key, said(line)])) as Partial<FlyerText>;
