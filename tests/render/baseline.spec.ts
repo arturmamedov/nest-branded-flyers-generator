@@ -2,18 +2,18 @@ import { execSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
-import type { APIRequestContext } from '@playwright/test';
+import type { APIRequestContext, BrowserContext, Page } from '@playwright/test';
 import { KIT_URL, expect, test } from '../browser';
 import { PNG } from 'pngjs';
 import { PROTOTYPE_DOODLES } from '../../src/shared/defaults';
-import type { Rect } from '../../src/shared/layout';
+import { CANVASES, CANVAS_IDS, type CanvasId, type Rect } from '../../src/shared/layout';
 import { SAMPLE_FLYERS } from '../../src/shared/samples';
-import type { Crop, DoodlePlacement, FlyerData, FlyerListItem, FlyerPayload, FlyerSaved } from '../../src/shared/schema';
+import type { Colors, Crop, DoodlePlacement, FlyerData, FlyerListItem, FlyerPayload, FlyerSaved } from '../../src/shared/schema';
 import { WRITE_HEADERS } from '../../src/shared/writeGuard';
 import { bodiesOf, highlighterWrapSample } from './pixels';
 
-/* Opt-in pixel baseline of the story canvas: proof that a change leaves the
-   story exactly as it was. fidelity.spec holds the client export to the server
+/* Opt-in pixel baseline of every canvas: proof that a change leaves the
+   drawing exactly as it was. fidelity.spec holds the client export to the server
    one *of the same code*, so a change made to both passes it; this holds the
    server export to PNGs captured before the change. Nothing is committed:
 
@@ -22,18 +22,23 @@ import { bodiesOf, highlighterWrapSample } from './pixels';
 
    Run `npm run build` first. The cases are every sample as the render suites
    draw it (each Activity sample in each photo mode, each week sample once, with
-   no photo), the highlighter wrap, and a few Pool party variants.
+   no photo), the highlighter wrap, a few Pool party variants, and flyers with
+   colours of their own. Each case is shot on every canvas: the export and the
+   safe-zone overlay.
 
    A capture names its folder (never test-results/, which Playwright empties),
-   and lists its cases in manifest.json once the last shot is in, so a capture
-   that fails half-way leaves no list. A check compares every listed case, and
-   skips, by name, a case the list lacks (one added since); a listed case whose
-   PNG is missing fails, and the check goes on. A folder captured before the list
+   and lists its cases and canvases in manifest.json once the last shot is in, so
+   a capture that fails half-way leaves no list. A check compares every listed
+   case on every listed canvas, and skips, by name, a case or a canvas the list
+   lacks (one added since); a listed case whose PNG is missing fails, and the
+   check goes on. The story keeps the file names it had when it was the only
+   canvas, and a list without canvases is a capture of the story alone, so a
+   capture from then still checks the story. A folder captured before the list
    existed (captured-from.txt) is checked where it has the case's PNGs; capture
    again for a strict check. No capture at all fails at once, and so does a check
-   that compared nothing. A check renders every case with the default canvas and
-   again with canvas: 'story' when the server knows canvases, and wants
-   byte-identical RGBA. */
+   that compared nothing. A check renders the story with the default canvas and
+   again with canvas: 'story' when the server knows canvases, every other canvas
+   by name, and wants byte-identical RGBA. */
 
 const MODE = process.env.RENDER_BASELINE as 'capture' | 'check' | undefined;
 const DIR = process.env.RENDER_BASELINE_DIR || join(tmpdir(), 'nest-story-baseline');
@@ -52,6 +57,11 @@ const CUSTOM_ART: DoodlePlacement[] = [
   { slug: 'icon-clock', x: 300, y: 1300, w: 74, rot: -9, flipX: true, opacity: 0.8 },
   { slug: 'blob-teal', x: 500, y: 1800, w: 290, rot: 0 },
 ];
+
+/* Colours of a flyer's own, none of them a default. The renderer reads a flyer's ink, accent and ground from the
+   flyer: without these cases, a change that read them from anywhere else would pass on every sample, which all
+   carry the defaults. The week flyer is here because its rows read them in code of their own. */
+const OWN_COLORS: Colors = { bg: '#EEF3E2', ink: '#2B1D3A', accent: '#7A2E5C', mark: '#7FB800' };
 
 interface Case {
   name: string;
@@ -79,6 +89,9 @@ function cases(): Case[] {
     out.push({ name: `${name} - ${mode}`, title: pool.title, hostel: pool.hostel, data: { ...pool.data, photoMode: mode, photoCrop }, photo: true });
   crop('crop zoomed out', 'band', { x: 0.3, y: 0.7, zoom: 0.6 });
   crop('crop zoomed in', 'bleed', { x: 0.8, y: 0.2, zoom: 2.5 });
+  out.push(...variant('own colours', { colors: OWN_COLORS }));
+  const week = SAMPLE_FLYERS.find((s) => s.title === 'This week · Duque Nest')!;
+  out.push({ name: 'own colours - week', title: week.title, hostel: week.hostel, data: { ...week.data, colors: OWN_COLORS }, photo: false });
   return out;
 }
 
@@ -90,6 +103,24 @@ async function photoId(request: APIRequestContext): Promise<number> {
 }
 
 const file = (name: string, variant = '') => join(DIR, `${name.replace(/[^\w.-]+/g, '_')}${variant}.png`);
+
+/** A case's name on a canvas: the story keeps the names it had when it was the only canvas. */
+const onCanvas = (name: string, canvas: CanvasId) => (canvas === 'story' ? name : `${name}.${canvas}`);
+
+/** How a canvas is asked for. The story is what a request that names no canvas gets (the contract), so it is
+    captured that way, as before canvases, and checked that way and by name. Every other canvas is asked by name. */
+const askedFor = (canvas: CanvasId): { variant: string; canvas?: CanvasId }[] =>
+  canvas === 'story' ? [{ variant: '' }, { variant: '.story', canvas: 'story' }] : [{ variant: '', canvas }];
+
+/** A shot of the wrong size would still be captured, and checked against itself: each one is held to its canvas. */
+function sized(canvas: CanvasId, name: string, shoot: () => Promise<Buffer>): () => Promise<Buffer> {
+  return async () => {
+    const shot = await shoot();
+    const { width, height } = PNG.sync.read(shot);
+    expect({ width, height }, `${name} on the ${canvas} canvas`).toEqual({ width: CANVASES[canvas].width, height: CANVASES[canvas].height });
+    return shot;
+  };
+}
 
 interface Difference {
   message: string;
@@ -168,29 +199,40 @@ const source = () => {
 
 interface Manifest {
   capturedFrom: string;
+  /** Absent from a capture made when the story was the only canvas. */
+  canvases?: CanvasId[];
   cases: string[];
 }
 
-/** What a check holds the renders to: a capture and its case list, which a folder from before the list lacks (null). */
-type Capture = { from: string; cases: Set<string> | null };
+/** What a check holds the renders to: a capture, its canvases, and its case list, which a folder from before the
+    list lacks (null). */
+type Capture = { from: string; canvases: Set<string>; cases: Set<string> | null };
 
 function readCapture(): Capture | null {
   if (existsSync(LIST)) {
     const m = JSON.parse(readFileSync(LIST, 'utf8')) as Manifest;
-    return { from: m.capturedFrom, cases: new Set(m.cases) };
+    return { from: m.capturedFrom, canvases: new Set(m.canvases ?? ['story']), cases: new Set(m.cases) };
   }
-  if (existsSync(LEGACY)) return { from: readFileSync(LEGACY, 'utf8').trim(), cases: null };
+  if (existsSync(LEGACY)) return { from: readFileSync(LEGACY, 'utf8').trim(), canvases: new Set(['story']), cases: null };
   return null;
 }
 
-test('story baseline: every case renders byte-identical to the captured PNGs', async ({ request, browser, baseURL }) => {
-  test.setTimeout(1_200_000);
-  const overlays = await browser.newContext({ baseURL, viewport: { width: 1080, height: 1920 }, deviceScaleFactor: 1 });
-  const page = await overlays.newPage();
+test('baseline: every case renders byte-identical to the captured PNGs, on every canvas', async ({ request, browser, baseURL }) => {
+  test.setTimeout(1_800_000);
+  // A context for each canvas, at its size: the story's is the one every capture before canvases was shot from.
+  const overlays: BrowserContext[] = [];
+  const pages = new Map<CanvasId, Page>();
   const kit: string[] = [];
-  page.on('request', (r) => {
-    if (r.url().includes(KIT_PATH)) kit.push(r.url());
-  });
+  for (const canvas of CANVAS_IDS) {
+    const { width, height } = CANVASES[canvas];
+    const context = await browser.newContext({ baseURL, viewport: { width, height }, deviceScaleFactor: 1 });
+    const page = await context.newPage();
+    page.on('request', (r) => {
+      if (r.url().includes(KIT_PATH)) kit.push(r.url());
+    });
+    overlays.push(context);
+    pages.set(canvas, page);
+  }
   const held = MODE === 'check' ? readCapture() : null;
   if (MODE === 'capture') {
     // A capture relabels its folder, so it never falls back to the default one, which may hold an older capture.
@@ -210,11 +252,11 @@ test('story baseline: every case renders byte-identical to the captured PNGs', a
   const skipped = new Map<string, string[]>();
   for (const c of cases()) {
     await test.step(c.name, async (step) => {
-      const files = [file(c.name), file(`${c.name}.safe`)];
+      const filesOf = (canvas: CanvasId) => [file(onCanvas(c.name, canvas)), file(`${onCanvas(c.name, canvas)}.safe`)];
+      let canvases = [...CANVAS_IDS];
       if (held) {
-        const missing = files.filter((f) => !existsSync(f));
         // A case the list lacks was added after the capture. A folder from before the list can only say it has no PNGs.
-        const absent = held.cases ? !held.cases.has(c.name) : missing.length === files.length;
+        const absent = held.cases ? !held.cases.has(c.name) : filesOf('story').every((f) => !existsSync(f));
         if (absent) {
           const reason = held.cases
             ? `not in the capture from ${held.from}`
@@ -222,6 +264,13 @@ test('story baseline: every case renders byte-identical to the captured PNGs', a
           skipped.set(reason, [...(skipped.get(reason) ?? []), c.name]);
           step.skip(true, reason);
         }
+        // A canvas the list lacks was added after the capture, or the capture is from when the story was the only one.
+        for (const canvas of canvases.filter((canvas) => !held.canvases.has(canvas))) {
+          const reason = `no ${canvas} canvas in the capture from ${held.from}`;
+          skipped.set(reason, [...(skipped.get(reason) ?? []), c.name]);
+        }
+        canvases = canvases.filter((canvas) => held.canvases.has(canvas));
+        const missing = canvases.flatMap(filesOf).filter((f) => !existsSync(f));
         if (missing.length) {
           problems.push(`${c.name}: ${missing.map((f) => basename(f)).join(', ')} missing from the capture`);
           return;
@@ -239,37 +288,42 @@ test('story baseline: every case renders byte-identical to the captured PNGs', a
         expect(res.status(), c.name).toBe(200);
         return res.body();
       };
-      // The safe-zone overlay (editor chrome, never exported), from the render page.
-      const overlay = (query: string) => async () => {
+      // The safe-zone overlay (editor chrome, never exported), from the render page, in the canvas's own context.
+      const overlay = (canvas: CanvasId, query: string) => async () => {
+        const page = pages.get(canvas)!;
         await page.goto(`/render.html?id=${saved.id}&safe=1${query}`);
         await page.waitForFunction(() => {
           const w = window as { __FLYER_READY?: boolean; __FLYER_ERROR?: string };
           return w.__FLYER_READY || w.__FLYER_ERROR;
         });
-        return page.screenshot({ clip: { x: 0, y: 0, width: 1080, height: 1920 }, animations: 'disabled', caret: 'hide', scale: 'css' });
+        const { width, height } = CANVASES[canvas];
+        return page.screenshot({ clip: { x: 0, y: 0, width, height }, animations: 'disabled', caret: 'hide', scale: 'css' });
       };
 
-      if (MODE === 'capture') {
-        writeFileSync(files[0], await capture(c.name, exportPng({ format: 'png' })));
-        writeFileSync(files[1], await capture(`${c.name}.safe`, overlay('')));
-      } else {
-        // The default canvas, and the story asked for by name (ignored by a server that has no canvases).
-        problems.push(
-          (await check(c.name, '', exportPng({ format: 'png' }))) ?? '',
-          (await check(c.name, '.story', exportPng({ format: 'png', canvas: 'story' }))) ?? '',
-          (await check(`${c.name}.safe`, '', overlay(''))) ?? '',
-          (await check(`${c.name}.safe`, '.story', overlay('&canvas=story'))) ?? '',
-        );
+      for (const canvas of canvases) {
+        const name = onCanvas(c.name, canvas);
+        const [exportFile, overlayFile] = filesOf(canvas);
+        const asked = askedFor(canvas);
+        const body = (a: (typeof asked)[number]) => (a.canvas ? { format: 'png', canvas: a.canvas } : { format: 'png' });
+        const query = (a: (typeof asked)[number]) => (a.canvas ? `&canvas=${a.canvas}` : '');
+        if (MODE === 'capture') {
+          writeFileSync(exportFile, await capture(name, sized(canvas, name, exportPng(body(asked[0])))));
+          writeFileSync(overlayFile, await capture(`${name}.safe`, sized(canvas, `${name}.safe`, overlay(canvas, query(asked[0])))));
+        } else {
+          // The story with no canvas named and by name (a server that has no canvases ignores the name); the others by name.
+          for (const a of asked) problems.push((await check(name, a.variant, exportPng(body(a)))) ?? '');
+          for (const a of asked) problems.push((await check(`${name}.safe`, a.variant, overlay(canvas, query(a)))) ?? '');
+        }
       }
       done.push(c.name);
       await request.delete(`/api/flyers/${saved.id}`, { headers: WRITE_HEADERS });
     });
   }
-  await overlays.close();
+  for (const context of overlays) await context.close();
   expect(kit, 'the render page asked for the nav kit, which its unrouted context would fetch').toEqual([]);
   if (MODE === 'capture') {
-    writeFileSync(LIST, JSON.stringify({ capturedFrom: from, cases: done } satisfies Manifest, null, 2) + '\n');
-    console.log(`Captured ${done.length} cases from ${from} into ${DIR}`);
+    writeFileSync(LIST, JSON.stringify({ capturedFrom: from, canvases: CANVAS_IDS, cases: done } satisfies Manifest, null, 2) + '\n');
+    console.log(`Captured ${done.length} cases on ${CANVAS_IDS.join(' and ')} from ${from} into ${DIR}`);
     return;
   }
   // The list reporter prints stdout, never a step's skip reason: this line says what the check covered.
