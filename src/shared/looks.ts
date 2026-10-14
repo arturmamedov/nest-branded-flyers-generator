@@ -181,6 +181,15 @@ export function siteLooks(listed: unknown, known: readonly string[] = lookIds())
   return whole ? [...(listed as string[])] : known.slice(0, 1);
 }
 
+/** The looks the editor's switch offers for a flyer: the site's, in its order, and after them the flyer's own when the
+    site does not name it, so a flyer in a look the site no longer offers still shows it pressed (M2: the site's list
+    decides what is offered, never what a save accepts). The switch shows only when there is more than one. */
+export function looksToPick(site: readonly string[], data: object): Look[] {
+  const own = lookOf(data);
+  const offered = site.map((id) => allLooks().find((l) => l.id === id)).filter((l): l is Look => l !== undefined);
+  return offered.includes(own) ? offered : [...offered, own];
+}
+
 /** The look a flyer's data prints in, read loosely: a backend older than the editor sends data with no look. A flyer
     that names none, or a look this release does not know (a later release's, met after going back to this one),
     prints hand-drawn: never a blank page. */

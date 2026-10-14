@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { ROOT } from '../../scripts/gen-shared.js';
 import { CANVAS_IDS, photoFrame, SHARED_GEOMETRY } from '../../src/shared/layout.js';
-import { lookIds, lookOf } from '../../src/shared/looks.js';
+import { lookIds, lookOf, looksToPick } from '../../src/shared/looks.js';
 import { DEFAULT_COLORS, DEFAULT_DOODLES, HAND_DRAWN } from '../../src/shared/looks/handDrawn.js';
 import { fontPackage, lookContract } from '../lookContract.js';
 import { PROOF_LOOK_ID } from '../proof/id.js';
@@ -27,6 +27,18 @@ describe('the proof look', () => {
   });
 
   lookContract(PROOF_LOOK, { families: [PROOF_FAMILY], packages: pkg.devDependencies });
+
+  // The editor's Look switch, with two looks in the registry (this release's own registry has one).
+  it('the switch offers the site’s looks in its order, and a flyer’s own look after them when the site does not name it', () => {
+    const hand = HAND_DRAWN.id;
+    expect(looksToPick([hand, PROOF_LOOK_ID], {})).toEqual([HAND_DRAWN, PROOF_LOOK]);
+    expect(looksToPick([PROOF_LOOK_ID, hand], { look: hand })).toEqual([PROOF_LOOK, HAND_DRAWN]);
+    // M2: a flyer in a look the site no longer names still shows it, and so offers two.
+    expect(looksToPick([hand], { look: PROOF_LOOK_ID })).toEqual([HAND_DRAWN, PROOF_LOOK]);
+    // One look to pick: no switch. A flyer with no look, or a later release's, is drawn hand-drawn (lookOf).
+    for (const data of [{}, { look: hand }, { look: 'a-later-look' }]) expect(looksToPick([hand], data), JSON.stringify(data)).toEqual([HAND_DRAWN]);
+    expect(looksToPick([PROOF_LOOK_ID], { look: PROOF_LOOK_ID })).toEqual([PROOF_LOOK]);
+  });
 
   it('its face ships nowhere: a devDependency, never imported by src/flyer/fonts.css', () => {
     expect(pkg.dependencies[fontPackage(PROOF_FAMILY)]).toBeUndefined();

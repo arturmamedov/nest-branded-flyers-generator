@@ -1,11 +1,12 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import type { APIRequestContext, Page } from '@playwright/test';
+import type { APIRequestContext } from '@playwright/test';
 import { PNG } from 'pngjs';
 import { expect, test } from '../browser';
 import { EDITOR_VIEWPORT, canvasButton, clientOnlyEditor, download, exportFit, libraryCard, openSection, status } from '../editor';
 import { FIELD } from '../../src/editor/fields';
 import { checkDrawn, drawnSamples, samples } from './drawnChecks';
+import { inProof, sampleCopy, siteNames } from './proofFlyers';
 import { drawPayload } from './drawn';
 import { compare, failures, regionsOf } from './pixels';
 import { filesNaming } from '../../scripts/build-php';
@@ -15,7 +16,7 @@ import { PROOF_LOOK } from '../proof/look';
 import { CANVASES, CANVAS_IDS, DEFAULT_CANVAS, type Body, type CanvasId } from '../../src/shared/layout';
 import { FIRST_LOOK } from '../../src/shared/looks';
 import { DEFAULT_COLORS } from '../../src/shared/looks/handDrawn';
-import type { FlyerPayload, FlyerSaved } from '../../src/shared/schema';
+import type { FlyerPayload } from '../../src/shared/schema';
 import { WRITE_HEADERS } from '../../src/shared/writeGuard';
 
 /* The proof look, in the tests' own build (dist-proof/, served by tests/proof/server.ts on a site that names both
@@ -30,27 +31,10 @@ import { WRITE_HEADERS } from '../../src/shared/writeGuard';
 
 /** Flyers a test saved: archived afterwards, so the specs after this one find the library as seeded. */
 const saved: number[] = [];
+const keep = (id: number) => saved.push(id);
 test.afterAll(async ({ request }) => {
   for (const id of saved.splice(0)) await request.delete(`/api/flyers/${id}`, { headers: WRITE_HEADERS });
 });
-
-/** The payload as the proof look draws it. */
-const inProof = (payload: FlyerPayload): FlyerPayload => ({ ...payload, flyer: { ...payload.flyer, data: { ...payload.flyer.data, look: PROOF_LOOK_ID } } });
-
-/** A seeded sample saved again in the proof look, under a title of its own, in a photo mode (or its rows). */
-async function proofCopy(request: APIRequestContext, sample: string, body: Body): Promise<{ id: number; title: string }> {
-  const all = await samples(request);
-  const source = all.find((p) => p.flyer.title === sample)!;
-  const photo = body === 'none' || body === 'week' ? null : (source.photo ?? all.find((p) => p.photo)!.photo)!.id;
-  const data = { ...source.flyer.data, look: PROOF_LOOK_ID, ...(body === 'week' ? {} : { photoMode: body }) };
-  const title = `proof · ${sample} / ${body}`;
-  const res = await request.post('/api/flyers', { headers: WRITE_HEADERS, data: { title, hostel: source.flyer.hostel, template: data.template, data, photoId: photo } });
-  expect(res.status(), await res.text()).toBe(201);
-  // Read as it came: this process's schema has one look, the server's two.
-  const { id } = (await res.json()) as FlyerSaved;
-  saved.push(id);
-  return { id, title };
-}
 
 test('no trace: no file of the release’s build names the proof look, and the tests’ build does', () => {
   // Both are built before this suite runs (npm run test:render): dist/ is what build:php ships.
@@ -122,7 +106,7 @@ const pixel = (png: PNG, x: number, y: number) =>
 for (const [sample, body] of [['Pool party', 'band'], ['Pool party', 'bleed'], ['Paragliding', 'none'], ['This week · stress test', 'week']] as const) {
   test(`the client export matches the server's in the proof look: ${sample} / ${body}, on every canvas`, async ({ browser, baseURL, page, request }) => {
     test.setTimeout(180_000);
-    const { id } = await proofCopy(request, sample, body);
+    const { id } = await sampleCopy(request, sample, body, keep);
     const { context, page: editor, overridden } = await clientOnlyEditor(browser, baseURL);
     try {
       await editor.goto(`./#/flyers/${id}`);
@@ -145,7 +129,7 @@ for (const [sample, body] of [['Pool party', 'band'], ['Pool party', 'bleed'], [
 
 test('a library card shows its flyer in the proof look, fitted as the export fits it', async ({ page, request }) => {
   await page.setViewportSize(EDITOR_VIEWPORT);
-  const { id, title } = await proofCopy(request, 'Long copy · stress test', 'band');
+  const { id, title } = await sampleCopy(request, 'Long copy · stress test', 'band', keep);
   const want = await exportFit(page, id, DEFAULT_CANVAS);
   await page.goto('/');
   const card = libraryCard(page, title);
@@ -156,17 +140,9 @@ test('a library card shows its flyer in the proof look, fitted as the export fit
   expect(await flyer.evaluate((root) => [...root.querySelectorAll<HTMLElement>('[data-fit]')].map((el) => el.style.fontSize)), 'card = export').toEqual(want);
 });
 
-/** api/config, answered as a site that names only these looks. */
-async function siteNames(page: Page, looks: string[]) {
-  await page.route('**/api/config', async (route) => {
-    const res = await route.fetch();
-    await route.fulfill({ response: res, json: { ...(await res.json()), looks } });
-  });
-}
-
 test('M2: a flyer in a look the site does not name still opens in it, saves, and prints in it', async ({ page, request }) => {
   await page.setViewportSize(EDITOR_VIEWPORT);
-  const { id } = await proofCopy(request, 'Pool party', 'band');
+  const { id } = await sampleCopy(request, 'Pool party', 'band', keep);
   await siteNames(page, [FIRST_LOOK]);
   await page.goto(`/#/flyers/${id}`);
   await expect(page.locator('.stage-canvas [data-flyer]')).toHaveAttribute('data-look', PROOF_LOOK_ID);

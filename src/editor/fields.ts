@@ -13,6 +13,7 @@ const ASK = 'The ask';
 export const FIELD = {
   flyer: 'Flyer',
   template: 'Template',
+  look: 'Look',
   hostel: 'Hostel',
   title: 'Library name',
   labels: 'Labels',

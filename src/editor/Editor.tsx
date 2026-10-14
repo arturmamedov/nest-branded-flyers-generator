@@ -6,7 +6,7 @@ import { ACCEPTED_PHOTO_TYPES } from '../shared/limits';
 import { lintFlyer } from '../shared/copyRules';
 import { followHostel, marksFor, newFlyerData, switchTemplate, weekTitle, withPhoto } from '../shared/defaults';
 import { CANVASES, CANVAS_IDS, bodyOf, photoFrame, type CanvasId, type PhotoMode } from '../shared/layout';
-import { lookOf } from '../shared/looks';
+import { lookOf, looksToPick } from '../shared/looks';
 import { DEFAULT_CROP, ZOOM_MAX, ZOOM_MIN, clampCrop, wholePhotoZoom, zoomCrop } from '../shared/photo';
 import type { AiFeature, AiFeatureOn } from '../shared/ai';
 import type { Chip, ChipKey, Crop, FlyerData, FlyerInput, FlyerListItem, FlyerText, Hostel, PhotoInfo, Template, WeekRow } from '../shared/schema';
@@ -114,7 +114,7 @@ export function Editor({
   limits,
   ai,
   onRemaining,
-  look,
+  looks,
 }: {
   id: number | null;
   hostels: Hostel[];
@@ -125,9 +125,11 @@ export function Editor({
   ai: AiFeatureOn | null;
   /** Tells the app what is left today of a feature after an AI answer. */
   onRemaining: (feature: AiFeature, remaining: number) => void;
-  /** The look a new flyer starts in: the first the site names (api/config). */
-  look: string;
+  /** The looks the site offers (api/config), in its order: a new flyer starts in the first, and the Look switch offers
+      them. */
+  looks: string[];
 }) {
+  const look = looks[0];
   // A new flyer the AI page made (handoff.ts): taken once, it starts the draft as it was offered, unsaved, so the leave
   // guard is armed at once and the first save makes its URL as for any new flyer.
   const [handoff] = useState(() => (id == null ? takeDraft() : null));
@@ -246,6 +248,9 @@ export function Editor({
   const nameOf = (slug: string | null) => hostels.find((h) => h.slug === slug)?.name ?? null;
   // Both read the draft they change: the defaults that follow a template or a hostel are worked out from it.
   const chooseTemplate = (to: Template) => setDraft((d) => (d ? { ...d, data: switchTemplate(d.data, to, nameOf(d.hostel)) } : d));
+  // The look already shown changes nothing: a flyer from a backend older than looks has none stored, and pressing the
+  // look it is drawn in must not make it unsaved.
+  const chooseLook = (to: string) => setDraft((d) => (d && lookOf(d.data).id !== to ? { ...d, data: { ...d.data, look: to } } : d));
   const chooseHostel = (slug: string | null) =>
     setDraft((d) => (d ? { ...d, hostel: slug, data: followHostel(d.data, nameOf(d.hostel), nameOf(slug)) } : d));
   const updateWeek = (fn: (rows: WeekRow[]) => WeekRow[]) => setDraft((d) => (d ? { ...d, data: { ...d.data, week: fn(d.data.week) } } : d));
@@ -412,10 +417,14 @@ export function Editor({
     lints.map((l) => l.field),
     needsPhoto,
   );
+  // The Look switch: the site's looks and the flyer's own, shown only with more than one to pick. The pressed one is the
+  // look the flyer is drawn in (lookOf), never data.look as stored: a flyer from an older backend has none.
+  const pickable = looksToPick(looks, draft.data);
+  const shownLook = pickable.length > 1 ? lookOf(draft.data) : null;
   const fold = (section: SectionId): Fold => ({
     open: openSections.includes(section),
     onToggle: () => setOpenSections((open) => toggled(open, section)),
-    line: sectionLine(section, { data: draft.data, hostelName: hostel?.name ?? null, hasPhoto: draft.photo !== null }),
+    line: sectionLine(section, { data: draft.data, hostelName: hostel?.name ?? null, hasPhoto: draft.photo !== null, lookName: shownLook?.name ?? null }),
     flagged: flagged.includes(section),
   });
 
@@ -455,6 +464,18 @@ export function Editor({
                 ))}
               </div>
             </div>
+            {shownLook && (
+              <div className="field">
+                <span className="label">{FIELD.look}</span>
+                <div className="seg" role="group" aria-label={FIELD.look}>
+                  {pickable.map((l) => (
+                    <button key={l.id} type="button" className={shownLook === l ? 'on' : ''} aria-pressed={shownLook === l} onClick={() => chooseLook(l.id)}>
+                      {l.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
             <Field
               label={FIELD.hostel}
               help={`${hostel?.logoPath && marksFor(true).includes('badge') ? 'Its badge prints at the top. ' : ''}${week ? 'Named in the Spanish title line, and tags the flyer in the library' : 'Prints in the WHERE block and tags the flyer in the library'}`}

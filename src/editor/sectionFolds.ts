@@ -93,13 +93,18 @@ const dotted = (parts: string[]): string =>
     .join(' · ');
 
 /** What a closed section says of itself in one line, so the whole flyer reads at a glance. `hostelName`: null on a
-    chain-wide flyer; `hasPhoto`: a photo is set, whatever the mode. */
-export function sectionLine(id: SectionId, { data, hostelName, hasPhoto }: { data: FlyerData; hostelName: string | null; hasPhoto: boolean }): string {
+    chain-wide flyer; `hasPhoto`: a photo is set, whatever the mode; `lookName`: the flyer's look, where the editor shows
+    the Look switch, and null where it does not (a site with one look: the line is as it was before looks). */
+export function sectionLine(
+  id: SectionId,
+  { data, hostelName, hasPhoto, lookName = null }: { data: FlyerData; hostelName: string | null; hasPhoto: boolean; lookName?: string | null },
+): string {
   const t = data.text;
   switch (id) {
     case 'flyer':
-      // Its labels by their names, as the picker shows them: the listed ones, in the list's order.
-      return dotted([TEMPLATE_LABEL[data.template], hostelName ?? 'All hostels', labelNames(data.labels).join(', ')]);
+      // Its labels by their names, as the picker shows them: the listed ones, in the list's order. The look last, and only
+      // where the switch shows (Artur's pick from the pictures, 2026-10-14: "Look last in the line").
+      return dotted([TEMPLATE_LABEL[data.template], hostelName ?? 'All hostels', labelNames(data.labels).join(', '), lookName ?? '']);
     case 'headline':
       // The headline's own lines: the eyebrow above them is a field of the section, and no part of its line. With no
       // English line, the Spanish one is what the section holds.

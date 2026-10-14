@@ -120,7 +120,7 @@ export function App() {
             limits={backend.limits}
             ai={shareAi}
             onRemaining={onRemaining}
-            look={looks[0]}
+            looks={looks}
           />
         ))}
     </div>

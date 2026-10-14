@@ -156,6 +156,19 @@ describe('a closed section’s line', () => {
     expect(line('flyer', { ...pool, labels: ['a-label-taken-off-the-list'] })).toBe('Activity · All hostels');
   });
 
+  it('Flyer: its look last, only where the editor shows the Look switch', () => {
+    // Artur's pick from the pictures (2026-10-14): "Look last in the line". A site with one look shows no switch, and
+    // the line is as it was before looks.
+    const [first] = FLYER_LABELS;
+    const flyer = (lookName: string | null, data = pool) => sectionLine('flyer', { data, hostelName: 'Duque Nest', hasPhoto: false, lookName });
+    expect(flyer('Proof')).toBe('Activity · Duque Nest · Proof');
+    expect(flyer('Hand-drawn', { ...pool, labels: [first.slug] })).toBe(`Activity · Duque Nest · ${first.name} · Hand-drawn`);
+    expect(flyer(null)).toBe('Activity · Duque Nest');
+    for (const id of SECTIONS.filter((section) => section !== 'flyer')) {
+      expect(sectionLine(id, { data: pool, hostelName: null, hasPhoto: false, lookName: 'Proof' }), id).toBe(line(id, pool));
+    }
+  });
+
   it('Headline: its two lines as one', () => {
     expect(line('headline', pool)).toBe('Saturday is a pool party.');
     expect(line('headline', withText(pool, { headline1: '  ' }))).toBe('pool party.');

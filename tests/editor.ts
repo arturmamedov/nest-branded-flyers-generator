@@ -203,6 +203,13 @@ export async function openSection(page: Page, ...titles: string[]) {
 export const templateButton = (page: Page, template: Template) =>
   page.getByRole('group', { name: 'Template' }).getByRole('button', { name: TEMPLATE_LABEL[template], exact: true });
 
+/** The Flyer section's Look switch: one look's button, by the name staff see ("Hand-drawn"). It shows only where there
+    is more than one look to pick (the tests' own build, tests/render/looks*.spec.ts). */
+export const lookButton = (page: Page, name: string) => lookSwitch(page).getByRole('button', { name, exact: true });
+
+/** The Look switch as a whole: absent where there is one look to pick. */
+export const lookSwitch = (page: Page) => page.getByRole('group', { name: 'Look' });
+
 /** The toolbar's button for a canvas ("Story 9:16", "WhatsApp 3:4"): pressed while that canvas is on screen. A test
     about one canvas clicks its button; only a test about the default relies on what a fresh editor shows. */
 export const canvasButton = (page: Page, canvas: CanvasId) =>
