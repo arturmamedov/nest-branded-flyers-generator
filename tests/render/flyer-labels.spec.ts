@@ -109,10 +109,32 @@ test(`a flyer carries ${LABELS_MAX} labels at most: with that many pressed the o
   await pick(page, most.at(-1)!.name).click();
   for (const label of rest) await expect(pick(page, label.name), label.name).toBeDisabled();
   for (const label of most) await expect(pick(page, label.name), label.name).toBeEnabled();
+  // The picker says why, in the line under it, which the group is described by.
+  const help = page.locator('.label-picker + .help');
+  await expect(help).toHaveText(`A flyer carries ${LABELS_MAX} labels at most: take one off to add another.`);
+  await expect(picker(page)).toHaveAccessibleDescription(`A flyer carries ${LABELS_MAX} labels at most: take one off to add another.`);
   expect((await save(page)).data.labels).toEqual(most.map((l) => l.slug));
   // One taken off makes room again.
   await pick(page, most[0].name).click();
   for (const label of rest) await expect(pick(page, label.name), label.name).toBeEnabled();
+  await expect(help).toHaveText('For the library’s filter — not printed');
+});
+
+// Found in review: a label that is no longer on the list is stored, so it takes one of the flyer's 8 places and
+// the server counts it. The picker counted it too, and greyed its buttons at "seven pressed" with no word of why.
+test('a label that is no longer on the list takes room too, and the picker says so', async ({ page, request }) => {
+  const listed = FLYER_LABELS.slice(0, LABELS_MAX - 1);
+  const { id } = await savedFlyer(request, [...listed.map((l) => l.slug), 'a-label-taken-off-the-list']);
+  await page.goto(`/#/flyers/${id}`);
+  await openSection(page, FIELD.flyer);
+  expect(await pressed(page), 'seven show').toEqual(listed.map((l) => l.name));
+  for (const label of FLYER_LABELS.slice(LABELS_MAX - 1)) await expect(pick(page, label.name), `${label.name}: the eighth place is taken`).toBeDisabled();
+  await expect(page.locator('.label-picker + .help')).toHaveText(`A flyer carries ${LABELS_MAX} labels at most, and 1 of this one’s is no longer on the list: take one off to add another.`);
+  // One of the seven taken off: there is room for one more, and a save keeps the hidden one.
+  await pick(page, listed[0].name).click();
+  const next = FLYER_LABELS[LABELS_MAX - 1];
+  await pick(page, next.name).click();
+  expect((await save(page)).data.labels).toEqual([...listed.slice(1).map((l) => l.slug), next.slug, 'a-label-taken-off-the-list']);
 });
 
 test('a label that is no longer on the list stays on its flyer through a save, and is on no screen', async ({ page, request }) => {

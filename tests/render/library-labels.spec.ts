@@ -144,10 +144,12 @@ test.describe('the top of the library', () => {
       expect(select.x).toBeGreaterThanOrEqual(0);
       expect(select.x + select.width, 'inside the screen').toBeLessThanOrEqual(360);
     }
-    // The words are not drawn there, and are still each select's name (the selects above were found by them).
+    // The words are not drawn there, and are still each select's name: asked of the accessibility tree, since a
+    // word hidden the wrong way (display or visibility) would take the name with it (found in review).
     for (const word of ['Hostel', 'Template', 'Label']) {
       const span = page.locator('.library-filters .filter > span', { hasText: new RegExp(`^${word}$`) });
       expect((await box(span)).width, `${word} takes no room`).toBeLessThanOrEqual(1);
+      await expect(page.getByRole('combobox', { name: word, exact: true }), `a select named ${word}`).toHaveCount(1);
     }
     expect(await libraryFilter(page, 'Hostel').locator('option').first().textContent()).toBe('All hostels');
     expect(await libraryFilter(page, 'Template').locator('option').first().textContent()).toBe('All templates');

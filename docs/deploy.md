@@ -462,9 +462,9 @@ every older flyer.
 
 - **Every flyer opens and saves, on the host and on a Node machine.** The older release does not know
   `labels` and leaves it out of what it reads, as it does any key it does not know.
-- **A flyer saved there loses its labels.** That is Save, and every Download, Copy and Share in the
-  editor, which save first. A flyer nobody saves there keeps them, and has them again when the newer
-  release is back.
+- **A flyer saved there loses its labels.** That is Save, every Download, Copy and Share in the
+  editor, which save first, and "Write with AI", which saves the flyer with its caption. A flyer
+  nobody saves there keeps them, and has them again when the newer release is back.
 - **The library has no Label filter and no pills there.** Nothing else of it changes: the store is the
   same, and the older release reads it as it always did.
 

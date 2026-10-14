@@ -1,7 +1,7 @@
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { CHIP_VALUE_MAX, deriveChip, splitBigSub } from '../shared/chips';
 import { EXTRA_MAX, EXTRAS_MAX } from '../shared/extras';
-import { FLYER_LABELS, LABELS_MAX, tidyLabels, toggleLabel } from '../shared/labels';
+import { FLYER_LABELS, LABELS_MAX, knownLabels, tidyLabels, toggleLabel } from '../shared/labels';
 import { ACCEPTED_PHOTO_TYPES } from '../shared/limits';
 import { lintFlyer } from '../shared/copyRules';
 import { followHostel, marksFor, newFlyerData, switchTemplate, weekTitle, withPhoto } from '../shared/defaults';
@@ -46,6 +46,16 @@ export interface Draft {
 }
 
 const blankDraft = (): Draft => ({ title: '', hostel: null, data: newFlyerData('activity'), photo: null });
+
+/** The line under the labels' buttons: what they are for, or, with the flyer's room taken, why the ones not pressed
+    wait greyed. A label that is no longer on the list is stored and shows nowhere, so it takes room unseen: the line
+    says how many do (found in review, 2026-10-14). */
+function labelRoom(labels: readonly string[]): string {
+  if (labels.length < LABELS_MAX) return 'For the library’s filter — not printed';
+  const hidden = labels.length - knownLabels(labels).length;
+  const unseen = hidden === 0 ? '' : `, and ${hidden} of this one’s ${hidden === 1 ? 'is' : 'are'} no longer on the list`;
+  return `A flyer carries ${LABELS_MAX} labels at most${unseen}: take one off to add another.`;
+}
 
 /** The name a save writes: the one typed in the field, else the flyer's own (names.ts), dated today. Only an untitled
     week flyer's name reads the day, and such a draft already differs from the blank one it started as, so the
@@ -165,6 +175,7 @@ export function Editor({
   // on every visit: a form hidden on arrival would look broken, so only the sections are remembered.
   const [panelOpen, setPanelOpen] = useState(true);
   const formId = useId();
+  const labelsHelp = useId();
   // Folded, the form is not laid out and forgets how far it was scrolled: opened, it gets its place back.
   const form = useRef<HTMLDivElement>(null);
   const formPlace = useRef(0);
@@ -456,7 +467,7 @@ export function Editor({
                 press the first one. With the flyer's room taken, the ones not pressed wait greyed. */}
             <div className="field">
               <span className="label">{FIELD.labels}</span>
-              <div className="label-picker" role="group" aria-label={FIELD.labels}>
+              <div className="label-picker" role="group" aria-label={FIELD.labels} aria-describedby={labelsHelp}>
                 {FLYER_LABELS.map(({ slug, name }) => {
                   const on = draft.data.labels.includes(slug);
                   return (
@@ -466,7 +477,10 @@ export function Editor({
                   );
                 })}
               </div>
-              <span className="help">For the library’s filter — not printed</span>
+              {/* What the buttons are for, or why the ones not pressed wait greyed. */}
+              <span className="help" id={labelsHelp}>
+                {labelRoom(draft.data.labels)}
+              </span>
             </div>
           </Section>
 
