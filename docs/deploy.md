@@ -458,6 +458,24 @@ there again. Both halves are held by tests (`php/tests/BootstrapTest.php`,
 `tests/storage/repositories.contract.ts`). The other way round needs nothing: a newer release reads
 every older flyer.
 
+**A flyer's labels** (releases after 2026-10-14). Going back to a release from before them:
+
+- **Every flyer opens and saves, on the host and on a Node machine.** The older release does not know
+  `labels` and leaves it out of what it reads, as it does any key it does not know.
+- **A flyer saved there loses its labels.** That is Save, and every Download, Copy and Share in the
+  editor, which save first. A flyer nobody saves there keeps them, and has them again when the newer
+  release is back.
+- **The library has no Label filter and no pills there.** Nothing else of it changes: the store is the
+  same, and the older release reads it as it always did.
+
+Between two releases that both know labels, nothing is lost by going back. A label the older one's
+list does not have stays on its flyers, on no screen there, through every save, and shows again in
+the newer release. The same holds for a label taken off the list later.
+
+One thing would not go back cleanly: a flyer carries 8 labels at most, each a slug of 40 characters
+at most. If a later release raises either, a flyer saved with more behaves in an older release as a
+line of copy longer than it allows does, above.
+
 ## Locked out?
 
 A wrong password hash, a wrong `AuthUserFile` path (every page then answers 500) or a host that

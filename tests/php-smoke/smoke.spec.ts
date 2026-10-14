@@ -9,6 +9,7 @@ import { TEMPLATE_LABEL } from '../../src/editor/templates';
 import { DEFAULT_PHOTO_MODE } from '../../src/shared/defaults';
 import { apiError } from '../../src/shared/errors';
 import { flyerFilename } from '../../src/shared/filename';
+import { FLYER_LABELS, NO_LABEL } from '../../src/shared/labels';
 import { CANVASES, CANVAS_IDS, DEFAULT_CANVAS } from '../../src/shared/layout';
 import { MAX_PHOTO_EDGE } from '../../src/shared/limits';
 import {
@@ -274,11 +275,35 @@ test('the editor on the PHP backend: create, photos, crop, reopen, library, down
     await expect(status(page)).toHaveText('Saved');
   });
 
+  const [firstLabel, secondLabel] = FLYER_LABELS;
+  await test.step('7b. labels: pressed in the Flyer section, and saved by this backend in the list’s order', async () => {
+    const picker = page.getByRole('group', { name: 'Labels', exact: true });
+    // Pressed in the other order than the list's.
+    await picker.getByRole('button', { name: secondLabel.name, exact: true }).click();
+    await picker.getByRole('button', { name: firstLabel.name, exact: true }).click();
+    await expect(status(page)).toHaveText('Unsaved changes');
+    const [put] = await Promise.all([page.waitForResponse(apiCall('PUT', `flyers/${id}`)), page.getByRole('button', { name: 'Save', exact: true }).click()]);
+    expect(put.status(), await put.text()).toBe(200);
+    await expect(status(page)).toHaveText('Saved');
+    expect((await payload(request, id)).flyer.data.labels).toEqual([firstLabel.slug, secondLabel.slug]);
+    await page.reload();
+    await expect(picker.locator('button[aria-pressed="true"]')).toHaveText([firstLabel.name, secondLabel.name]);
+    await expect(status(page), 'reopened, nothing is unsaved').toHaveText('Saved');
+  });
+
   await test.step('8. library: filter, duplicate, archive the copy', async () => {
     await backToLibrary(page).click();
     const mine = card(page, title);
     await expect(mine).toBeVisible();
     await expect(mine.locator('.card-meta')).toContainText(hostel.name);
+    // Its labels come with this backend's list, and its filter by label is this backend's own.
+    await expect(mine.locator('.card-label')).toHaveText([firstLabel.name, secondLabel.name]);
+    await filterLibrary(page, 'Label', { label: secondLabel.name }, `?label=${secondLabel.slug}`);
+    await expect(mine).toBeVisible();
+    await filterLibrary(page, 'Label', { label: 'No label' }, `?label=${NO_LABEL}`);
+    await expect(mine).toHaveCount(0);
+    await filterLibrary(page, 'Label', { label: 'All labels' }, '');
+    await expect(mine).toBeVisible();
 
     // The card's picture is the flyer itself, drawn in the browser from what this backend answers for the flyer:
     // its copy, on the canvas a viewer who never chose sees, with its photo (tests/render/library.spec.ts has the rest).
