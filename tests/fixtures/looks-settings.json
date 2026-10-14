@@ -1,0 +1,23 @@
+{
+  "about": "The looks a site's staff may pick, as both backends must read them: LOOKS in .env (Node, namedLooks in server/config.ts) and 'looks' in config.php (PHP, SiteLooks). Replayed by tests/unit/looks-settings.test.ts and php/tests/ConfigTest.php, against `known`: the looks a release has (src/shared/looks.ts, schema/shared.json), here two, since the site's order and its first can only be seen with two. `env` is the variable's value (null: not set), `php` the key's value (null: not set); a row without one of them is the other backend's alone. `looks` is what the site offers, in its order: the first is what a new flyer starts in. A refusal names the setting and the looks there are, never its value (docs/prompts/looks-seam.md, M3).",
+  "known": ["hand-drawn", "second"],
+  "accepted": [
+    { "name": "not set: the first look alone", "env": null, "php": null, "looks": ["hand-drawn"] },
+    { "name": "the first look alone", "env": "hand-drawn", "php": ["hand-drawn"], "looks": ["hand-drawn"] },
+    { "name": "another look alone", "env": "second", "php": ["second"], "looks": ["second"] },
+    { "name": "two, in the site's order: a new flyer starts in the first", "env": "second,hand-drawn", "php": ["second", "hand-drawn"], "looks": ["second", "hand-drawn"] },
+    { "name": "spaces and a stray comma, as typed in .env", "env": " hand-drawn , second ,", "looks": ["hand-drawn", "second"] }
+  ],
+  "refused": [
+    { "name": "a look this release does not have", "env": "hand-drawn,another", "php": ["hand-drawn", "another"] },
+    { "name": "a look named twice", "env": "second,hand-drawn,second", "php": ["second", "hand-drawn", "second"] },
+    { "name": "named, but none", "env": "", "php": [] },
+    { "name": "only commas", "env": " , ," },
+    { "name": "a look's name in other letters", "env": "Hand-drawn", "php": ["Hand-drawn"] },
+    { "name": "a look's name with spaces round it", "php": [" hand-drawn"] },
+    { "name": "a string, not a list", "php": "hand-drawn" },
+    { "name": "a list keyed by names", "php": { "first": "hand-drawn" } },
+    { "name": "a number in the list", "php": ["hand-drawn", 1] },
+    { "name": "true, not a list", "php": true }
+  ]
+}

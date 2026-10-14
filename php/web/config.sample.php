@@ -49,6 +49,12 @@ return [
     // Photo processing: 'auto' (GD when installed, else Imagick), 'gd' or 'imagick'.
     'imageProcessor' => 'auto',
 
+    // The looks staff may pick for a flyer, in this order: a new flyer starts in the first.
+    // Left out (or null): 'hand-drawn' alone, and no switch shows. Only looks the release has.
+    // Put it in after the release that knows looks is up, and take it out before going back
+    // to a release from before them, or it refuses config.php (503; docs/deploy.md).
+    // 'looks' => ['hand-drawn'],
+
     // The AI assistant ("Create with AI" and "Write with AI"). Off until a provider,
     // its key and the features are set; without this block it is off too. At most 3 generations
     // a day of each feature unless 'dailyLimit' or 'dailyLimits' says otherwise, counted in the

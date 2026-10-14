@@ -1,6 +1,7 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { AI_DAILY_LIMIT, AI_DAILY_LIMIT_MAX, AI_DEFAULT_MODEL, AI_FEATURE_DEFAULT_MODEL, AI_FEATURES, AI_PROVIDERS, AI_TIMEOUT_MS, type AiFeature, type AiProvider } from '../src/shared/ai.js';
+import { lookIds } from '../src/shared/looks.js';
 import { FAKE_MODEL } from './ai/providers/fake.js';
 import { APP_ROOT } from './paths.js';
 
@@ -44,10 +45,26 @@ export interface Config {
   renderTimeoutMs: number;
   isProd: boolean;
   ai: AiSettings;
+  /** The looks this site's staff may pick (LOOKS), in the site's order: the first is what a new flyer starts in. */
+  looks: string[];
 }
 
 const WILDCARD = new Set(['0.0.0.0', '::', '127.0.0.1', 'localhost', '::1']);
 const OFF = new Set(['0', 'false', 'off', 'no']);
+
+/** The LOOKS setting: the looks this site's staff may pick, separated by commas, in the site's order; the first is what
+    a new flyer starts in (the owner's answers 3 and 11). Not set: the first look alone, so a site shows no switch until
+    it names a second. Every name a look this release has (`known`: the registry, src/shared/looks.ts), none twice, at
+    least one; anything else is refused by the setting's name and the looks there are, never what was typed (M3). It
+    decides what the editor offers, never what a save accepts (M2): that is the schema's, held to the registry.
+    PHP's twin is SiteLooks; tests/fixtures/looks-settings.json holds both to one table. */
+export function namedLooks(value: string | undefined, known: readonly string[] = lookIds()): string[] {
+  if (value === undefined) return known.slice(0, 1);
+  const named = value.split(',').map((name) => name.trim()).filter(Boolean);
+  const valid = named.length > 0 && named.every((name, i) => known.includes(name) && named.indexOf(name) === i);
+  if (!valid) throw new Error(`LOOKS must name looks from: ${known.join(', ')}, each once`);
+  return named;
+}
 
 /** The AI_FEATURES setting: the names of the features this site runs, separated by commas. It shares its name with
     the constant in src/shared/ai.ts, which lists every feature the app has: the setting picks from that list. */
@@ -149,5 +166,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     // The compiled server always serves the built client; tsx dev hosts Vite.
     isProd: env.NODE_ENV === 'production' || /dist-server/.test(import.meta.dirname),
     ai: loadAiSettings(env),
+    looks: namedLooks(env.LOOKS),
   };
 }

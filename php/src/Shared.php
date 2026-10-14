@@ -124,4 +124,15 @@ final class Shared
     {
         return $this->data['labels'];
     }
+
+    /**
+     * The looks a flyer can print in (src/shared/looks.ts), the first look first: what a flyer that names none prints
+     * in, and what a site that names none offers. config.php's `looks` picks from them (SiteLooks).
+     *
+     * @return array{ids:list<string>}
+     */
+    public function looks(): array
+    {
+        return $this->data['looks'];
+    }
 }

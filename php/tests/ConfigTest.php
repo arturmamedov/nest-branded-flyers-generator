@@ -7,6 +7,7 @@ namespace NestFlyers\Tests;
 use InvalidArgumentException;
 use NestFlyers\Config;
 use NestFlyers\Shared;
+use NestFlyers\SiteLooks;
 use NestFlyers\Tests\Support\Paths;
 use NestFlyers\Tests\Support\TempDir;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -134,6 +135,77 @@ final class ConfigTest extends TestCase
         self::assertNull($raw['ai']['dailyLimit'], 'the sample sets no cap of its own');
         self::assertNull($raw['ai']['dailyLimits'], 'the sample gives no feature a number of its own');
         self::assertNull($raw['ai']['models'], 'the sample gives no feature a model of its own');
+        // Shown, and left out: a release from before looks refuses the key, so a copied sample never blocks going back.
+        self::assertArrayNotHasKey('looks', $raw);
+        self::assertMatchesRegularExpression("~^\s*// 'looks' => \[~m", (string) file_get_contents(Paths::repo() . '/php/web/config.sample.php'));
+        self::assertSame([self::shared()->looks()['ids'][0]], Config::load($root, self::shared())?->looks);
+    }
+
+    // ---- `looks` (SiteLooks): the PHP side of server/config.ts's namedLooks ----
+
+    /**
+     * tests/fixtures/looks-settings.json: the looks its rows are read against, and the rows config.php can spell.
+     *
+     * @return array{known: list<string>, rows: array<string, array<string, mixed>>}
+     */
+    private static function looksVectors(string $outcome): array
+    {
+        $vectors = json_decode((string) file_get_contents(Paths::fixture('looks-settings.json')), true, flags: JSON_THROW_ON_ERROR);
+        $rows = [];
+        foreach ($vectors[$outcome] as $row) {
+            if (array_key_exists('php', $row)) {
+                $rows[$row['name']] = $row;
+            }
+        }
+        return ['known' => $vectors['known'], 'rows' => $rows];
+    }
+
+    /** @return iterable<string, array{mixed, list<string>, list<string>}> */
+    public static function looksAccepted(): iterable
+    {
+        $vectors = self::looksVectors('accepted');
+        foreach ($vectors['rows'] as $name => $row) {
+            yield $name => [$row['php'], $vectors['known'], $row['looks']];
+        }
+    }
+
+    /**
+     * @param list<string> $known
+     * @param list<string> $looks
+     */
+    #[DataProvider('looksAccepted')]
+    public function testTheLooksASiteOffersAreTheOnesItNamesInItsOrder(mixed $named, array $known, array $looks): void
+    {
+        self::assertSame($looks, SiteLooks::fromConfig($named, $known));
+    }
+
+    /** @return iterable<string, array{mixed, list<string>}> */
+    public static function looksRefused(): iterable
+    {
+        $vectors = self::looksVectors('refused');
+        foreach ($vectors['rows'] as $name => $row) {
+            yield $name => [$row['php'], $vectors['known']];
+        }
+    }
+
+    /** @param list<string> $known */
+    #[DataProvider('looksRefused')]
+    public function testLooksNobodyWroteAreRefusedByTheSettingsName(mixed $named, array $known): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('looks must be null or a list of: hand-drawn, second, each once');
+        SiteLooks::fromConfig($named, $known);
+    }
+
+    public function testASiteIsHeldToTheLooksThisReleaseHasAndWithoutTheKeyOffersTheFirstAlone(): void
+    {
+        $ids = self::shared()->looks()['ids'];
+        self::assertSame([$ids[0]], Config::fromArray([], self::ROOT, self::shared())->looks);
+        self::assertSame([$ids[0]], Config::fromArray(['looks' => null], self::ROOT, self::shared())->looks);
+        self::assertSame($ids, Config::fromArray(['looks' => $ids], self::ROOT, self::shared())->looks);
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('looks must be');
+        Config::fromArray(['looks' => [$ids[0], 'a-later-look']], self::ROOT, self::shared());
     }
 
     // ---- the `ai` block (AiConfig): the PHP side of server/config.ts's loadAiSettings ----

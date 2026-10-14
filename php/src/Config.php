@@ -22,7 +22,7 @@ final class Config
     /** Where the JSON store lives unless config.php says otherwise; the release's data/.htaccess denies it. */
     public const DEFAULT_DATA_DIR = 'data';
 
-    private const KEYS = ['access', 'dataDir', 'storage', 'imageProcessor', 'ai'];
+    private const KEYS = ['access', 'dataDir', 'storage', 'imageProcessor', 'ai', 'looks'];
     private const STORAGES = ['json'];
     private const IMAGE_PROCESSORS = ['auto', 'gd', 'imagick'];
 
@@ -36,6 +36,8 @@ final class Config
         public readonly string $imageProcessor,
         /** The AI assistant: off when config.php has no `ai` block. */
         public readonly AiConfig $ai,
+        /** @var list<string> the looks staff may pick, in the site's order: the first is a new flyer's (SiteLooks) */
+        public readonly array $looks,
     ) {
     }
 
@@ -91,6 +93,7 @@ final class Config
             $storage,
             $imageProcessor,
             AiConfig::fromArray($raw['ai'] ?? null, $shared->ai()),
+            SiteLooks::fromConfig($raw['looks'] ?? null, $shared->looks()['ids']),
         );
     }
 

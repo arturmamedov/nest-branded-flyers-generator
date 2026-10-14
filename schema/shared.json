@@ -315,5 +315,10 @@
     "slugMax": 40,
     "slug": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
     "none": "none"
+  },
+  "looks": {
+    "ids": [
+      "hand-drawn"
+    ]
   }
 }

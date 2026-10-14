@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { AI_SHARED } from '../src/shared/ai.js';
 import { API_ERRORS } from '../src/shared/errors.js';
 import { FLYER_LABELS, LABELS_SHARED } from '../src/shared/labels.js';
+import { lookIds } from '../src/shared/looks.js';
 import {
   ACCEPTED_PHOTO_TYPES,
   EXPORT_JPEG_QUALITY,
@@ -179,6 +180,8 @@ export function generate(read: (rel: string) => string = (rel) => readFileSync(j
       },
       ai: AI_SHARED,
       labels: LABELS_SHARED,
+      // The registry's ids, the first look first (PHP: Shared::looks(), which config.php's 'looks' picks from).
+      looks: { ids: lookIds() },
     }),
     // The AI assistant's bundle, read by both backends at request time: the prompts (with their limits), the few-shot
     // examples, and the answer and request schemas, inline (PHP's validator takes no $ref).
