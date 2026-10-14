@@ -178,7 +178,7 @@ test('the check is not blind: a sliced highlighter fails it', async ({ browser, 
     // reach the capture: it copies inline styles, hence CLAUDE.md's rule.)
     await page.evaluate(() => {
       const slice = () =>
-        document.querySelectorAll<HTMLElement>('[data-flyer] span[style*="mark-yellow"]').forEach((el) => {
+        document.querySelectorAll<HTMLElement>('[data-flyer] [data-deco=highlighter]').forEach((el) => {
           if (el.style.boxDecorationBreak === 'slice') return;
           el.style.boxDecorationBreak = 'slice';
           el.style.setProperty('-webkit-box-decoration-break', 'slice');

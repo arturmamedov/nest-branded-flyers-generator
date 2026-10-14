@@ -72,16 +72,16 @@ export function readRegions(): Regions {
   const root = document.querySelector<HTMLElement>('[data-flyer]')!;
   const o = root.getBoundingClientRect();
   const rel = (r: DOMRect) => ({ left: r.left - o.left, top: r.top - o.top, width: r.width, height: r.height });
-  const styled = [...root.querySelectorAll<HTMLElement>('[style*="url("]')];
-  const marks = styled.filter((el) => el.style.backgroundImage.includes('mark-yellow'));
+  const marks = [...root.querySelectorAll<HTMLElement>('[data-deco=highlighter]')];
   return {
     groups: [...root.querySelectorAll<HTMLElement>('[data-group]')].map((el) => ({ name: el.dataset.group!, ...rel(el.getBoundingClientRect()) })),
     markLines: marks.reduce((n, el) => n + el.getClientRects().length, 0),
-    art: styled.filter((el) => !el.style.backgroundImage.includes('mark-yellow')).map((el) => rel(el.getBoundingClientRect())),
+    // The brush rules: the eyebrow's, the ask's, and the one that stands for no photo.
+    art: [...root.querySelectorAll<HTMLElement>('[data-deco=rule]')].map((el) => rel(el.getBoundingClientRect())),
     // Every drawn piece but the ones hung straight on the flyer: those are placed in canvas px.
     follow: [...root.querySelectorAll<HTMLElement>('img[data-art]')].filter((el) => el.parentElement !== root).map((el) => rel(el.getBoundingClientRect())),
     mark: marks.flatMap((el) => [...el.getClientRects()].map(rel)),
-    wonky: [...root.querySelectorAll('svg')].map((el) => rel(el.getBoundingClientRect())),
+    wonky: [...root.querySelectorAll('[data-deco=frame]')].map((el) => rel(el.getBoundingClientRect())),
     text: ['headline', 'title', 'rows', 'extras', 'ask', 'pill'].flatMap((g) =>
       [...root.querySelectorAll(`[data-group="${g}"]`)].map((el) => rel(el.getBoundingClientRect())),
     ),

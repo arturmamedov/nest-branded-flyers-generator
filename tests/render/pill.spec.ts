@@ -51,8 +51,8 @@ const readPill = () => {
     top: b.top,
     bottom: b.bottom,
     width: pill.offsetWidth,
-    letters: spans.filter((s) => s.textContent!.trim()).map((s) => ({ text: s.textContent!, px: parseFloat(getComputedStyle(s).fontSize) })),
-    dots: spans.filter((s) => !s.textContent!.trim()).length,
+    letters: spans.filter((s) => !s.matches('[data-deco=dot]')).map((s) => ({ text: s.textContent!, px: parseFloat(getComputedStyle(s).fontSize) })),
+    dots: pill.querySelectorAll('[data-deco=dot]').length,
     cut: fit.entries.filter((e) => e.overflowX).map((e) => e.text),
   };
 };
@@ -109,7 +109,7 @@ test.describe('a pill wider than the safe column shrinks its letters to fit it',
       const p = await pillOf(page, payload('activity', { handle: HANDLE_18, tag: TAG_24.slice(0, n) }), 'story');
       const [dot, padding] = await page.evaluate(() => {
         const pill = document.querySelector<HTMLElement>('[data-group=pill]')!;
-        const dotEl = [...pill.querySelectorAll<HTMLElement>('span')].find((s) => !s.textContent!.trim())!;
+        const dotEl = pill.querySelector<HTMLElement>('[data-deco=dot]')!;
         return [dotEl.getBoundingClientRect().width, getComputedStyle(pill).paddingLeft] as const;
       });
       sizes.push({ n, dot, padding, px: p.letters[0].px });

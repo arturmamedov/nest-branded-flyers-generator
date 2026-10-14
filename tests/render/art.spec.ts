@@ -364,7 +364,7 @@ test.describe('the pencil hangs from the end of the ask', () => {
     test(`${canvas}: a flyer with no ask draws no pencil`, async ({ page }) => {
       await drawPayload(page, newPayload('activity', { askEn: '', askEs: '' }), canvas);
       expect(await page.evaluate(readAsk)).toBeNull();
-      expect(await page.locator('img[src*="doodle-pencil"]').count()).toBe(0);
+      expect(await page.locator('img[data-anchor=askEnd]').count()).toBe(0);
     });
   }
 });

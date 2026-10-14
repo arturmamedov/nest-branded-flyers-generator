@@ -25,6 +25,7 @@ export const WONKY_PATH =
 export function WonkyBox({ fill, stroke }: { fill: string; stroke: string }) {
   return (
     <svg
+      data-deco="frame"
       viewBox="0 0 960 200"
       preserveAspectRatio="none"
       style={{
@@ -107,6 +108,7 @@ function Headline({ group, box, W, t, ink, accent }: { group: 'headline' | 'titl
 function Highlight({ children }: { children: ReactNode }) {
   return (
     <span
+      data-deco="highlighter"
       style={{
         backgroundImage: `url(${art('mark-yellow')})`,
         backgroundSize: '100% 100%',
@@ -176,7 +178,7 @@ function WeekRow({ slot, row, height, ink, accent }: { slot: number; row: Printe
           <div data-cell="right" style={{ flex: '0 0 auto', maxWidth: DAY_WIDTH, overflowX: 'clip', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
             {row.time && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, maxWidth: '100%' }}>
-                <img src={art('icon-clock')} alt="" style={{ height: 30, width: 'auto', flex: '0 0 auto' }} />
+                <img data-deco="clock" src={art('icon-clock')} alt="" style={{ height: 30, width: 'auto', flex: '0 0 auto' }} />
                 <div data-cell="time" data-fit="34" data-fit-min="0.7" style={{ ...HL, fontWeight: 700, fontSize: 34, lineHeight: 1.1, color: ink, whiteSpace: 'nowrap', minWidth: 0 }}>
                   {row.time}
                 </div>
@@ -273,18 +275,18 @@ export function Flyer({ data, canvas, hostel, photo, showSafeZones = false, ref 
         boxSizing: 'content-box',
       }}
     >
-      {pieces.map((d, i) => (pillArt.includes(d) ? null : <img key={i} data-art="" src={art(d.slug)} alt="" style={doodleStyle(d, anchors)} />))}
+      {pieces.map((d, i) => (pillArt.includes(d) ? null : <img key={i} data-art="" data-anchor={d.anchor ?? 'canvas'} src={art(d.slug)} alt="" style={doodleStyle(d, anchors)} />))}
 
       <div
         data-group="eyebrow"
         style={{ position: 'absolute', ...across(A.eyebrow, W), top: A.eyebrow.top, height: A.eyebrow.height, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 24 }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 18, flex: '0 0 auto' }}>
-          <img src={art('icon-calendar')} alt="" style={{ height: 62, width: 'auto' }} />
+          <img data-deco="icon" src={art('icon-calendar')} alt="" style={{ height: 62, width: 'auto' }} />
           {t.eyebrow && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
               <div style={{ ...HL, fontWeight: 700, fontSize: 36, letterSpacing: '0.1em', color: ink, lineHeight: 1, whiteSpace: 'nowrap' }}>{t.eyebrow}</div>
-              <div style={{ height: 16, background: `url(${art('rule-teal-wide')}) left center/100% 100% no-repeat` }} />
+              <div data-deco="rule" style={{ height: 16, background: `url(${art('rule-teal-wide')}) left center/100% 100% no-repeat` }} />
             </div>
           )}
         </div>
@@ -314,6 +316,7 @@ export function Flyer({ data, canvas, hostel, photo, showSafeZones = false, ref 
           {mode === 'none' && (
             <div
               data-group="photo"
+              data-deco="rule"
               style={{ position: 'absolute', ...across(A.noPhotoRule, W), top: A.noPhotoRule.top, height: A.noPhotoRule.height, background: `url(${art('rule-teal-wide')}) center/100% 100% no-repeat` }}
             />
           )}
@@ -327,12 +330,12 @@ export function Flyer({ data, canvas, hostel, photo, showSafeZones = false, ref 
                 const when = chip.key === 'when';
                 const icon = chip.key === 'when' ? art('icon-calendar') : chip.key === 'where' ? art('icon-pin') : null;
                 return (
-                  <div key={chip.key} data-fit-box="1" style={{ position: 'relative', height: A.chips.height, overflow: 'hidden' }}>
+                  <div key={chip.key} data-chip={chip.key} data-fit-box="1" style={{ position: 'relative', height: A.chips.height, overflow: 'hidden' }}>
                     <WonkyBox fill="#ffffff" stroke={ink} />
                     <div style={{ position: 'relative', zIndex: 1, padding: '24px 26px 20px', display: 'flex', flexDirection: 'column', gap: 8 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10, height: 36 }}>
-                        {icon && <img src={icon} alt="" style={{ height: 32, width: 'auto' }} />}
-                        {!icon && <span style={{ ...HL, fontWeight: 800, fontSize: 36, lineHeight: 1, color: accent }}>€</span>}
+                        {icon && <img data-deco="icon" src={icon} alt="" style={{ height: 32, width: 'auto' }} />}
+                        {!icon && <span data-deco="icon" style={{ ...HL, fontWeight: 800, fontSize: 36, lineHeight: 1, color: accent }}>€</span>}
                         <span style={{ ...BODY, fontWeight: 700, fontSize: 26, letterSpacing: '0.13em', textTransform: 'uppercase', color: accent }}>{chip.label}</span>
                       </div>
                       {when ? (
@@ -346,7 +349,7 @@ export function Flyer({ data, canvas, hostel, photo, showSafeZones = false, ref 
                         /* The time is one line that shrinks, as a week row's is: left to wrap, a browser could break a
                            range after its hyphen ("09:15-" over "14:00") and the chip clipped the second line. */
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                          <img src={art('icon-clock')} alt="" style={{ height: 36, width: 'auto', flex: '0 0 auto' }} />
+                          <img data-deco="clock" src={art('icon-clock')} alt="" style={{ height: 36, width: 'auto', flex: '0 0 auto' }} />
                           <div data-fit="40" data-fit-min="0.7" style={{ ...HL, fontWeight: 700, fontSize: 40, lineHeight: 1.1, color: ink, whiteSpace: 'nowrap', minWidth: 0 }}>{chip.sub}</div>
                         </div>
                       )}
@@ -386,7 +389,7 @@ export function Flyer({ data, canvas, hostel, photo, showSafeZones = false, ref 
             {t.askEn && (
               <div data-fit="62" data-fit-min="0.66" style={{ ...HL, fontWeight: 800, fontSize: 62, lineHeight: 1.08, color: ink, whiteSpace: 'nowrap' }}>{t.askEn}</div>
             )}
-            <div style={{ height: 22, marginTop: 2, background: `url(${art('rule-teal-ask')}) left center/100% 100% no-repeat` }} />
+            <div data-deco="rule" style={{ height: 22, marginTop: 2, background: `url(${art('rule-teal-ask')}) left center/100% 100% no-repeat` }} />
             {t.askEs && (
               <div data-fit="34" data-fit-min="0.8" style={{ ...BODY, fontWeight: 600, fontSize: 34, lineHeight: 1.2, color: MUTED, marginTop: 10, whiteSpace: 'nowrap' }}>{t.askEs}</div>
             )}
@@ -394,7 +397,7 @@ export function Flyer({ data, canvas, hostel, photo, showSafeZones = false, ref 
                 right edge, wherever the copy ended). From the block's end, not the English line's: the pencil is
                 taller than that line, and under a short one it would lie on a longer Spanish line. It is a child of
                 the block and of neither line, so it takes no room from their fit. */}
-            <img data-art="" src={art('doodle-pencil')} alt="" style={{ position: 'absolute', left: `calc(100% + ${PENCIL_AFTER}px)`, top: -PENCIL_ABOVE, width: 104, transform: 'rotate(-4deg)' }} />
+            <img data-art="" data-anchor="askEnd" src={art('doodle-pencil')} alt="" style={{ position: 'absolute', left: `calc(100% + ${PENCIL_AFTER}px)`, top: -PENCIL_ABOVE, width: 104, transform: 'rotate(-4deg)' }} />
           </div>
         </div>
       )}
@@ -405,7 +408,7 @@ export function Flyer({ data, canvas, hostel, photo, showSafeZones = false, ref 
               pill is drawn over it, as it was over the art on the flyer. */}
           <div style={{ position: 'relative', display: 'flex' }}>
             {pillArt.map((d, i) => (
-              <img key={i} data-art="" src={art(d.slug)} alt="" style={pillArtStyle(d)} />
+              <img key={i} data-art="" data-anchor="pillEnd" src={art(d.slug)} alt="" style={pillArtStyle(d)} />
             ))}
             {/* The pill is as wide as its copy up to its column, and the handle and the tag are one fitted line: a pill
                 that fits is drawn as it always was, a wider one shrinks its letters (the editor's UX round, Part 4).
@@ -418,7 +421,7 @@ export function Flyer({ data, canvas, hostel, photo, showSafeZones = false, ref 
             >
               <div data-fit="34" data-fit-min="0.7" style={{ ...pillText, display: 'flex', alignItems: 'center', gap: 18, minWidth: 0, whiteSpace: 'nowrap' }}>
                 {t.handle && <span>{t.handle}</span>}
-                {t.handle && t.tag && <span style={{ flex: '0 0 auto', width: 14, height: 14, borderRadius: '50%', background: BRIGHT_TEAL }} />}
+                {t.handle && t.tag && <span data-deco="dot" style={{ flex: '0 0 auto', width: 14, height: 14, borderRadius: '50%', background: BRIGHT_TEAL }} />}
                 {t.tag && <span>{t.tag}</span>}
               </div>
             </div>

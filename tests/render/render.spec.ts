@@ -75,7 +75,7 @@ for (const canvas of CANVAS_IDS) {
             });
             const faces = [...document.fonts].filter((f) => f.status === 'loaded').map((f) => `${f.family.replace(/"/g, '')} ${f.weight}`);
             // Every highlighter: the WHEN chip's, and each week row's day.
-            const marks = [...document.querySelectorAll('[data-flyer] span[style*="mark-yellow"]')].map(
+            const marks = [...document.querySelectorAll('[data-flyer] [data-deco=highlighter]')].map(
               (el) => getComputedStyle(el).getPropertyValue('box-decoration-break') || getComputedStyle(el).getPropertyValue('-webkit-box-decoration-break'),
             );
             const edges = (el: Element) => {
@@ -96,8 +96,8 @@ for (const canvas of CANVAS_IDS) {
                 name: el.querySelector('[data-cell=name]')?.textContent ?? '',
                 time: el.querySelector('[data-cell=time]')?.textContent ?? '',
                 cost: [...el.querySelectorAll('[data-cell=cost]')].map((c) => c.textContent ?? ''),
-                clocks: el.querySelectorAll('img').length,
-                marks: el.querySelectorAll('span[style*="mark-yellow"]').length,
+                clocks: el.querySelectorAll('[data-deco=clock]').length,
+                marks: el.querySelectorAll('[data-deco=highlighter]').length,
                 right: right ? edges(right) : null,
                 rightKids: right ? [...right.children].map(edges) : [],
               };
@@ -106,10 +106,15 @@ for (const canvas of CANVAS_IDS) {
             const rowDots = [...document.querySelectorAll('[data-group=rows] *')].filter((el) => el.children.length === 0 && el.textContent!.trim() === '·').length;
             // The headline's lines as printed: the Activity headline, or the week's title.
             const lines = [...document.querySelectorAll('[data-group=title] [data-fit], [data-group=headline] [data-fit]')].map((el) => el.textContent ?? '');
-            // The fit boxes still too tall after the fit, and by how much (the WHERE chip is the one with the pin).
+            // The fit boxes still too tall after the fit, and by how much (a chip by its key, the WHERE chip as 'WHERE').
             const clips = [...document.querySelectorAll<HTMLElement>('[data-fit-box]')]
               .filter((b) => b.scrollHeight > b.clientHeight + 1)
-              .map((b) => ({ box: b.querySelector('img[src*="icon-pin"]') ? 'WHERE' : (b.closest('[data-group]')?.getAttribute('data-group') ?? '?'), over: b.scrollHeight - b.clientHeight }));
+              .map((b) => ({ box: b.dataset.chip === 'where' ? 'WHERE' : (b.closest('[data-group]')?.getAttribute('data-group') ?? '?'), over: b.scrollHeight - b.clientHeight }));
+            // Everything drawn that is no copy carries a hook naming what it is, so a spec finds it in any look, never by
+            // the file one look draws it from: art, a decoration, a mark, or the photo.
+            const unhooked = [...document.querySelectorAll<HTMLElement>('[data-flyer] img, [data-flyer] svg, [data-flyer] [style*="url("]')]
+              .filter((el) => !el.matches('[data-art], [data-deco], [data-logo]') && !(el.tagName === 'IMG' && el.closest('[data-group=photo]')))
+              .map((el) => el.outerHTML.slice(0, 120));
             // Every fitted line's final size, against its own floor (data-fit × data-fit-min).
             const floors = [...document.querySelectorAll<HTMLElement>('[data-fit]')].map((el) => ({
               text: (el.textContent ?? '').trim(),
@@ -147,6 +152,7 @@ for (const canvas of CANVAS_IDS) {
               art,
               pillArt,
               clips,
+              unhooked,
               drawn: document.querySelector<HTMLElement>('[data-flyer]')!.dataset.canvas,
               groups,
               logos,
@@ -162,6 +168,7 @@ for (const canvas of CANVAS_IDS) {
           });
 
           expect(r.drawn, `${label}: the page drew this canvas`).toBe(canvas);
+          expect(r.unhooked, `${label}: everything drawn names what it is`).toEqual([]);
           // Every block where the registry puts it: a leftover story number would pass the safe box, not this.
           const table = groupsOf(canvas, body);
           // Exactly this template's blocks, each once: none missing (a week flyer's title, say), none extra (a photo).
@@ -409,8 +416,7 @@ for (const canvas of CANVAS_IDS) {
       const over = [...document.querySelectorAll<HTMLElement>('[data-fit-box]')].filter((b) => b.scrollHeight > b.clientHeight + 1);
       return {
         clipped: (window as unknown as { __FLYER_FIT: { clippedBoxes: number } }).__FLYER_FIT.clippedBoxes,
-        // The WHEN chip is the one with the calendar icon.
-        over: over.map((b) => (b.querySelector('img[src*="icon-calendar"]') ? 'WHEN' : (b.textContent ?? '').slice(0, 40))),
+        over: over.map((b) => (b.dataset.chip === 'when' ? 'WHEN' : (b.textContent ?? '').slice(0, 40))),
         lines: over.flatMap((b) =>
           [...b.querySelectorAll<HTMLElement>('[data-fit]')].map((el) => ({
             text: (el.textContent ?? '').trim(),
@@ -433,7 +439,7 @@ for (const canvas of CANVAS_IDS) {
       payload.flyer.data.chips = payload.flyer.data.chips.map((c) => (c.key === 'when' ? { ...c, value: `Every day · ${time}` } : c));
       await renderPayload(page, payload, canvas);
       return page.evaluate(() => {
-        const chip = [...document.querySelectorAll<HTMLElement>('[data-fit-box]')].find((b) => b.querySelector('img[src*="icon-calendar"]'))!;
+        const chip = document.querySelector<HTMLElement>('[data-chip=when]')!;
         const [day, line] = [...chip.querySelectorAll<HTMLElement>('[data-fit]')];
         const range = document.createRange();
         range.selectNodeContents(line);
@@ -528,9 +534,7 @@ test('a badge that fails to load leaves the Nests wordmark in its place, drawn b
         configurable: true,
         get: () => ready,
         set: (value) => {
-          w.__MARKS_AT_READY = [...document.querySelectorAll<HTMLImageElement>('[data-group=eyebrow] img')]
-            .filter((img) => !img.src.includes('icon-calendar'))
-            .map((img) => ({ logo: img.dataset.logo ?? null, path: new URL(img.src).pathname, drawn: img.complete && img.naturalWidth > 0 }));
+          w.__MARKS_AT_READY = [...document.querySelectorAll<HTMLImageElement>('[data-group=eyebrow] img:not([data-deco])')].map((img) => ({ logo: img.dataset.logo ?? null, path: new URL(img.src).pathname, drawn: img.complete && img.naturalWidth > 0 }));
           ready = value;
         },
       });
