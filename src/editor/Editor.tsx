@@ -178,8 +178,9 @@ export function Editor({
       (p) => {
         // The record's template wins over data.template, as it does on every write (normalize.ts). The labels are
         // put in the list's order the same way, before the saved copy is taken below: a list that changed its order
-        // since the flyer was saved must not make one press and its undo read "Unsaved changes".
-        const data = { ...p.flyer.data, template: p.flyer.template, labels: tidyLabels(p.flyer.data.labels) };
+        // since the flyer was saved must not make one press and its undo read "Unsaved changes". Read loosely: a
+        // backend from before labels sends none, and the form must still open (it was a blank page, found 2026-10-14).
+        const data = { ...p.flyer.data, template: p.flyer.template, labels: tidyLabels(p.flyer.data.labels ?? []) };
         const d: Draft = { title: p.flyer.title, hostel: p.flyer.hostel, data, photo: p.photo };
         setDraft(d);
         setCaptionOf(captionDetails(d));

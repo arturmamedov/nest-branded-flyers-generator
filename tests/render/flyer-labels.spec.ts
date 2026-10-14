@@ -1,6 +1,6 @@
 import type { APIRequestContext, Page } from '@playwright/test';
 import { expect, test } from '../browser';
-import { EDITOR_VIEWPORT, apiCall, cardMore, libraryCard as card, openSection, saveNew, sectionHead, status } from '../editor';
+import { EDITOR_VIEWPORT, apiCall, apiRoute, cardMore, libraryCard as card, openSection, saveNew, sectionHead, status } from '../editor';
 import { FIELD } from '../../src/editor/fields';
 import { newFlyerData } from '../../src/shared/defaults';
 import { FLYER_LABELS, LABELS_MAX } from '../../src/shared/labels';
@@ -124,6 +124,34 @@ test('a label that is no longer on the list stays on its flyer through a save, a
   await expect(status(page), 'opening it changes nothing').toHaveText('Saved');
   await pick(page, FIRST.name).click();
   expect((await save(page)).data.labels).toEqual([FIRST.slug, SECOND.slug, 'a-label-taken-off-the-list']);
+});
+
+test('a backend from before labels sends none: the library still lists, and the editor opens with none pressed', async ({ page, request }) => {
+  // The page a browser kept, on a site that went back to an older release: no `labels` in the list's items, none in
+  // a flyer's data. Read strictly, that took the editor down.
+  const { id, title } = await savedFlyer(request, [FIRST.slug]);
+  await page.route(apiRoute('flyers'), async (route) => {
+    const res = await route.fetch();
+    const list = (await res.json()) as Record<string, unknown>[];
+    await route.fulfill({ response: res, json: list.map(({ labels: _, ...item }) => item) });
+  });
+  await page.route(apiRoute(`flyers/${id}`), async (route) => {
+    if (route.request().method() !== 'GET') return route.continue();
+    const res = await route.fetch();
+    const body = (await res.json()) as { flyer: { data: Record<string, unknown> } };
+    delete body.flyer.data.labels;
+    await route.fulfill({ response: res, json: body });
+  });
+  await page.goto('/');
+  const c = card(page, title);
+  await expect(c).toBeVisible();
+  await expect(c.locator('.card-thumb-ready'), 'its picture is drawn from a flyer with no labels').toHaveCount(1);
+  await expect(c.locator('.card-labels')).toHaveCount(0);
+  await page.goto(`/#/flyers/${id}`);
+  await openSection(page, FIELD.flyer);
+  expect(await pressed(page)).toEqual([]);
+  await expect(status(page)).toHaveText('Saved');
+  await expect(sectionHead(page, FIELD.flyer)).toHaveAttribute('aria-expanded', 'true');
 });
 
 test('a new flyer has no label until one is picked, and its first save carries the ones picked', async ({ page }) => {
