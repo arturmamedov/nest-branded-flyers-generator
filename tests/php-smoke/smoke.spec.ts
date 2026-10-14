@@ -2,7 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import type { APIRequestContext, Page, Response as PwResponse } from '@playwright/test';
 import { expect, test } from '../browser';
-import { POOL_PARTY, apiCall, backToLibrary, cardMore, clipboardPng, copyImage, download, dropFile, filterLibrary, grantClipboard, libraryCard as card, openSection, rowField, saveNew, status, templateButton, toast, type FilePayload } from '../editor';
+import { POOL_PARTY, apiCall, backToLibrary, cardMore, clipboardPng, copyImage, download, dropFile, filterLibrary, grantClipboard, libraryCard as card, openSection, rowField, saveNew, searchLibrary, status, templateButton, toast, type FilePayload } from '../editor';
 import sharp from 'sharp';
 import { PHOTO_MODE_LABEL } from '../../src/editor/photoModes';
 import { TEMPLATE_LABEL } from '../../src/editor/templates';
@@ -304,6 +304,13 @@ test('the editor on the PHP backend: create, photos, crop, reopen, library, down
     await expect(mine).toHaveCount(0);
     await filterLibrary(page, 'Label', { label: 'All labels' }, '');
     await expect(mine).toBeVisible();
+
+    // The search reads this backend's answer for each flyer: found by a chip's value, with the line that says why.
+    await searchLibrary(page, 'terrace');
+    await expect(mine.locator('.card-why')).toHaveText(`Where: ${COPY.where}`);
+    await expect(mine.locator('.card-why mark')).toHaveText(['terrace']);
+    await searchLibrary(page, '');
+    await expect(mine.locator('.card-why')).toHaveCount(0);
 
     // The card's picture is the flyer itself, drawn in the browser from what this backend answers for the flyer:
     // its copy, on the canvas a viewer who never chose sees, with its photo (tests/render/library.spec.ts has the rest).
