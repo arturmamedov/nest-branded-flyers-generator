@@ -9,7 +9,7 @@ import { CANVASES, CANVAS_IDS, SHARED_GEOMETRY, type Body, type CanvasId } from 
 import { SAMPLE_FLYERS } from '../../src/shared/samples';
 import type { FlyerListItem, FlyerPayload, FlyerSaved } from '../../src/shared/schema';
 import { WRITE_HEADERS } from '../../src/shared/writeGuard';
-import { THRESHOLD, bodiesOf, compare, failures, groupsOf, highlighterWrapSample, jpegQuality, longPillSample, readRegions, type Regions } from './pixels';
+import { THRESHOLD, bodiesOf, compare, failures, groupsOf, highlighterWrapSample, jpegQuality, longPillSample, regionsOf, type Regions } from './pixels';
 
 /* The permanent export-fidelity check (brief Phase 2, from the approved spike):
    every Activity sample in every photo mode, and every This week sample once
@@ -55,16 +55,6 @@ async function json<T>(req: Promise<{ ok(): boolean; status(): number; json(): P
   const res = await req;
   expect(res.ok(), `HTTP ${res.status()}`).toBe(true);
   return (await res.json()) as T;
-}
-
-async function regionsOf(page: Page, id: number, canvas: CanvasId): Promise<Regions> {
-  await page.setViewportSize({ width: CANVASES[canvas].width, height: CANVASES[canvas].height });
-  await page.goto(`render.html?id=${id}&canvas=${canvas}`);
-  await page.waitForFunction(() => {
-    const w = window as { __FLYER_READY?: boolean; __FLYER_ERROR?: string };
-    return w.__FLYER_READY || w.__FLYER_ERROR;
-  });
-  return page.evaluate(readRegions);
 }
 
 async function seed(request: APIRequestContext, page: Page) {

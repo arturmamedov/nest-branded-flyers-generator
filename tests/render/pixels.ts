@@ -1,3 +1,4 @@
+import type { Page } from '@playwright/test';
 import pixelmatch from 'pixelmatch';
 import { PNG } from 'pngjs';
 import { CANVASES, activityGroups, weekGroups, type Body, type CanvasId, type Geometry, type PhotoMode, type Rect } from '../../src/shared/layout';
@@ -87,6 +88,17 @@ export function readRegions(): Regions {
       [...root.querySelectorAll(`[data-group="${g}"]`)].map((el) => rel(el.getBoundingClientRect())),
     ),
   };
+}
+
+/** The feature boxes of a saved flyer as the render page draws them on a canvas. */
+export async function regionsOf(page: Page, id: number, canvas: CanvasId): Promise<Regions> {
+  await page.setViewportSize({ width: CANVASES[canvas].width, height: CANVASES[canvas].height });
+  await page.goto(`render.html?id=${id}&canvas=${canvas}`);
+  await page.waitForFunction(() => {
+    const w = window as { __FLYER_READY?: boolean; __FLYER_ERROR?: string };
+    return w.__FLYER_READY || w.__FLYER_ERROR;
+  });
+  return page.evaluate(readRegions);
 }
 
 /** A mask the size of one canvas, one byte per pixel. */
