@@ -45,10 +45,12 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
   each line at its own `data-fit-min` floor, where `_fit()` scaled the whole box down to 0.55 (the owner's call,
   2026-09-30). Keep the `data-fit*` attributes. `ready.ts` loads fonts/images and fits before any export.
 - `src/shared/` — DOM-free, used by client **and** server: `schema.ts` (zod, source of truth for the data
-  shape), `layout.ts` (the `CANVASES` registry: every canvas's size, safe zones, both templates' box positions
-  and art anchor points; a new canvas is one entry; and `DEFAULT_CANVAS`, the canvas a viewer who never chose
-  sees), `defaults.ts` (tokens, template art, each template's
-  defaults and the switch between them, and `EYEBROW_MARKS`, which marks print at the eyebrow's right),
+  shape), `layout.ts` (the `CANVASES` registry: every canvas's size and safe zones, and, private, both templates'
+  shared box positions, read through a look's geometry with `boxesOf()`, and the art anchor points; a new canvas is
+  one entry; and `DEFAULT_CANVAS`, the canvas a viewer who never chose sees), `looks.ts` and `looks/` (the looks a
+  flyer prints in; "A flyer prints in a look", below), `defaults.ts` (each template's defaults and the switch
+  between them, and `EYEBROW_MARKS`, which marks print at the eyebrow's right; it re-exports the three names
+  `server/db/migrations.ts` reads, whose home is `looks/handDrawn.ts`),
   `chips.ts` (the `·` convention), `week.ts` (the This week rows: their limits, a row taken from a saved flyer,
   what a row prints — zod-free, so the client imports it and `schema.ts` takes its limits from it), `text.ts` (`TEXT_LIMITS`: each line of copy's limit, read by
   the schema and the editor's inputs — zod-free), `names.ts`
@@ -66,6 +68,29 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
   (NodeNext). The client never imports a value from `schema.ts`: that would bundle zod into the editor and the
   export page. Nothing the browser loads imports `samples.ts` either: it imports `seed/hostels.json` for the
   hostels' names, and Vite would bundle the whole seed.
+- A flyer prints in a look (2026-10-14; the design is `docs/prompts/looks-seam.md`, the report
+  `docs/reports/looks.md`). Stages 1 and 2 of 7 are built: the hand-drawn look is a registry entry the one renderer
+  reads. No flyer stores a look yet (stage 3), and staff see nothing of it.
+  - **`src/shared/looks.ts` is the registry**, zod-free and DOM-free: a look is one entry, in its own file
+    (`looks/handDrawn.ts`). `lookOf(data)` is the look a flyer prints in, read loosely: none, or an id this release
+    does not know, is hand-drawn. `registerLook()` adds one only before anything reads the registry (the tests' own
+    build, stage 5). A look's id is forever once a release accepts it.
+  - **A look holds** its palette (a function of the flyer: hand-drawn takes its ink, accent and ground from
+    `data.colors`, which only it reads), its type (every line of copy by its place: one token for its size and its
+    `data-fit`), its faces, its art (a function of the flyer: hand-drawn's is `data.doodles` resolved, which only it
+    reads, and its pencil at `askEnd`), its inline art files, its wordmark, its frame, its pill, its geometry, and its
+    rules (a contrast minimum and forbidden inks). Shared, never a look's: widths, the order of the boxes, safe zones,
+    fields and how they collapse, `fit.ts`, text limits, copy rules, `EYEBROW_MARKS` and the badges.
+  - **No `if (look === …)`.** Components read tokens. `tests/unit/looks.test.ts` fails on a look's id written in
+    `src/flyer` or `src/editor`; a treatment the tokens cannot express becomes a kind of that decoration, chosen by a
+    token.
+  - **A look may give a box its own top and height** per canvas, the photo's too (Artur struck "move only",
+    2026-10-14). `tests/geometry.ts` names every break of the rules fixed sizes used to keep; every look is held to it.
+  - Everything the flyer draws that is no copy carries a hook (`data-deco`, `data-chip`, `data-anchor`, and
+    `data-look` on the root): specs find things by them, never by a file one look draws.
+  - `tests/unit/looks.test.ts` holds every look: its boxes, its contrast, its art files, its faces (a family of
+    `fonts.ts`, a pinned package, imported by `src/flyer/fonts.css`), its pill's tilt within `PILL_TILT_ROOM`.
+  - The baseline (`tests/render/baseline.spec.ts`) shoots both canvases and flyers with their own colours.
 - `src/editor/` — editor + library UI. `render.html` + `src/render/` — the bare page headless Chromium shoots.
 - Each library card shows its flyer (`src/editor/FlyerThumb.tsx`, 2026-10-06): the same `<Flyer>`, on
   `DEFAULT_CANVAS` at its true size, scaled by a transform and prepared with `prepareFlyer()`. Never a stored
@@ -503,7 +528,7 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
 ## Design decisions already made
 
 - The team's layout pass (2026-09-18) departs from the prototype on purpose: headline at 345, sparks
-  anchored to the photo's top corners, no clock. The numbers live in `layout.ts` / `defaults.ts` with
+  anchored to the photo's top corners, no clock. The numbers live in `layout.ts` / `looks/handDrawn.ts` with
   comments. `compare:design` is a reference report now, not a gate.
 - Photo crop is stored per flyer in `data.photoCrop` (focal x/y + zoom ¼–4×, free positioning, the photo's
   centre stays in the frame).
@@ -568,7 +593,7 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
   - A flyer that prints no pill prints no such spark (Artur, 2026-10-13: "The toggle show pill should also remove
     the sparks under it"; it was kept where the default pill would end). No pill is the switch off, or no handle
     and no tag.
-  - The corner blobs print in each other's ink, teal left and yellow right (`SWAPPED_INKS` in `defaults.ts`).
+  - The corner blobs print in each other's ink, teal left and yellow right (`SWAPPED_INKS` in `looks/handDrawn.ts`).
     His answer to a teal spark lost on the teal blob: the blobs stay under a long pill, and "let's invert the
     blob colors".
   - The two sparks on the photo's corners trade inks too, yellow left and teal right (Artur, 2026-10-13: "Invert
@@ -1050,8 +1075,20 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
   release refuses the store cleanly. A stored `pillEnd` piece would also need the renderer's rule for it (drawn
   with the pill, and not at all on a flyer that prints none), which today only the template set reaches, and
   step 9 decides whether staff may pick the four swapped inks (`SWAPPED_INKS`).
-- Next, once Artur supplies its prototype: a second flyer style, chosen in the editor while making a flyer.
-  Not designed yet.
+- Built, stages 1 and 2 of 7: **looks, the seam for more than one flyer design** (2026-10-14, branch `feat/looks`,
+  cut from `feat/flyer-labels` at `a55589d`; the design `docs/prompts/looks-seam.md`, designed with Artur on
+  2026-10-13; the report `docs/reports/looks.md`). Eleven commits, `c1d7e29..4139d14`, not pushed.
+  - How it works is in the architecture section above ("A flyer prints in a look").
+  - Artur's answers are in the design and the report, and are not to be reopened: among those of 2026-10-14, a look
+    may give a box its own top and height, the photo's too (he struck "move only"), and M2 to M6 kept.
+  - Nothing a staff member sees changed: the drawing was byte-identical on both canvases after every commit (the
+    temp folder `nest-looks-baseline`, 36 cases).
+  - The gates at the end of stage 2: 782 unit, 299 in the `render` project, 75 in `ai`, 387 contract. PHP was not
+    run: nothing it reads changed.
+  - Also `0eadafa`: a flake in the labels work's own `library-labels.spec.ts`, fixed.
+  - **Next, on his go (given 2026-10-14): stages 3 and 4 in a new session**, `docs/prompts/looks-seam-stages-3-4.md`:
+    `data.look` on both backends, then the site's looks. Then the proof look, the switch, the docs. The real second
+    look is a later session still: data and art, once Claude Design's output is on the table.
 - Done: output canvases, Instagram story 9:16 + WhatsApp 3:4 (branch `feat/output-canvases`, 2026-09-23).
   The review is `docs/reports/output-canvases-review.md`, the report `docs/reports/output-canvases.md`.
 - Done: the PHP shared-hosting port, phases 2–5 (branch `feat/php-shared-hosting`): the seams, the PHP

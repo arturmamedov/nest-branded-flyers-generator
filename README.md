@@ -94,7 +94,7 @@ export renderer works in dev too.
 - The bottom spark sits off the tag pill's end (776,1601.7, flipped, −137°). The clock doodle is gone.
 - Flyers still carrying the old art untouched were migrated (DB migration 2); hand-arranged art is left alone.
 
-Numbers live in `src/shared/layout.ts` (boxes) and `src/shared/defaults.ts` (art).
+Numbers live in `src/shared/layout.ts` (boxes) and `src/shared/looks/handDrawn.ts` (art).
 
 ### The tag pill and the art around it (2026-10-12) — where the app departs from the handoff
 
@@ -149,6 +149,7 @@ full WHEN line) — download the stress-test flyer and look.
 | `src/flyer/Flyer.tsx` | **the** renderer — used by the editor preview and the export page. Transcribed 1:1 from the prototype |
 | `src/flyer/fit.ts` | the two-pass shrink-to-fit, from the prototype's `_fit()`; its height pass keeps each line's floor |
 | `src/shared/` | DOM-free logic shared by client and server: schema, layout numbers, `·` parsing, crop maths, copy rules |
+| `src/shared/looks.ts`, `src/shared/looks/` | the looks a flyer can print in: one entry each, read by the one renderer. Today one, the hand-drawn look, whose colours, type, faces, art, frame and pill live in `looks/handDrawn.ts` (`docs/reports/looks.md`) |
 | `src/editor/` | the editor and library UI. The library's top bar is `<nest-nav tool="flyers">`, the bar every Nests tool shares; see below |
 | `render.html`, `src/render/` | the bare page headless Chromium screenshots: one flyer on one canvas (`?canvas=`) |
 | `server/` | Express API, migrations, photo processing, export renderer |
