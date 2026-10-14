@@ -250,6 +250,38 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
     whose field is `labels` (his answer: "The AI may suggest one"). The rules in `ai/prompts/flyer.md` name the
     list and never a label of it; a label's `hint` in `labels.ts` is what the model reads beside its name.
   - Browser specs: `library-labels.spec.ts`, `flyer-labels.spec.ts`, and a step of the PHP smoke test.
+- The library has a search box (2026-10-14; Artur's ask and his answers are in `docs/reports/library-search.md`): to
+  find a flyer that exists, to duplicate or edit it, before making another. The browser alone, on both backends: no
+  route, schema or PHP class changed, and the list's contract did not either.
+  - **The rule is `src/editor/librarySearch.ts`**, pure and tested by itself. It searches from 3 characters, spaces
+    not counted (`SEARCH_MIN`). Every word must be found somewhere in the flyer, in any order. Case, accents and
+    curly apostrophes fold (`fold()`); nothing is fuzzy.
+    - The rank is the best field holding one of the words (`RANK`): the name, a label (`labelNames`, so a label off
+      the list is not searched), the share text, the rest. Within a rank, the list's own order.
+    - "The rest" is the copy, the chips' values (not their words), the extras, the week rows, and the meta line's
+      hostel ("All hostels") and template names, not its date (`metaOf`). Only what the flyer's template prints.
+  - **One store of answers, `src/editor/libraryFlyers.ts`**, one per visit to the library (`Library.tsx` makes it).
+    - The list carries no share text and no copy, so the search reads each flyer's `GET api/flyers/:id`, the answer
+      a card already asks for. Cards (`useNearFlyer`) and the search both read through the store.
+    - Kept by id and `updatedAt`: no flyer is asked for twice in a visit, and a flyer saved since is asked for again.
+    - The search reads `READS_AT_ONCE` (4) at a time, in the list's order. A card near the screen asks at once,
+      ahead of that queue.
+    - A failure is remembered: that flyer is searched by its list fields alone.
+    - **The store saves the request, never the drawing**: a card draws its picture only once it nears the screen.
+      Never make every card draw because the search has its answer.
+  - The box (`<input type="search">`, "Search") is the first of `.library-filters`, and a row of its own on a phone.
+    It is remembered as `library.search`, like the filters (his answer), so a remembered search reads every flyer
+    when the library opens.
+  - "Clear" shows while a search or a filter is set. It empties the box and sets the filters back to all. The box
+    gives it its room, so the filters never move. The no-match message's button does the same.
+  - What a card shows (`LibraryCard.tsx`):
+    - `<mark>` in its name, its meta line and its pills: #53CED1 at 38 % behind ink letters, his pick.
+    - The "why" line (`.card-why`) for a flyer found only by its share text or its copy: one line, his answer,
+      that never widens the card (`contain`). It names the field as "The AI assumed…" does (`briefFieldLabel`), from
+      16 characters before the word, and never starts on a separator.
+  - The count is `role="status"` ("3 of 16 flyers"). "Reading the flyers… n of N" is shown and not announced.
+  - Browser specs: `library-search.spec.ts`, and a step of the PHP smoke test. Unit tests: `library-search.test.ts`
+    and `library-flyers.test.ts`. `tests/editor.ts` has `librarySearch(page)` and `searchLibrary(page, query)`.
 - The library's top bar is `<nest-nav tool="flyers">` (`App.tsx`), the bar every Nests tool shares.
   - It is loaded `async` from `https://nestpass.ai/kit/nest-nav.js`. That file lives in the
     `nestpass-tools` repo (`A:\serverpath\laragon\nestpass-tools`), with the list of tools and the
@@ -1106,6 +1138,20 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
   - Left, his, in this order: the release; then `npm run flyers:labels -- --to <the site> --apply
     backups/flyer-labels/live-table.json` (a dry run), and again with `--write`, when nobody is editing, and once
     more afterwards; his own pass over the labels; a phone trial.
+- Built: **a search box in the library** (2026-10-14, directly on `main` by Artur's word, on top of `8e14547`; brief
+  `docs/prompts/library-search.md`, report `docs/reports/library-search.md`). Seven commits, `cbbb511..d33acb3`, and
+  their record; nothing pushed, no release. A fresh-context review found nothing severe; what it found is fixed (the
+  reads stop when the search is cleared or the library is left, a new list takes the queue, Clear keeps the focus).
+  - How it works is in the architecture section above ("The library has a search box").
+  - His answers are in the report and are not to be reopened. In words: remembered like the filters; Clear empties
+    the search and the filters too; from 3 characters. From pictures of the real library: the box first in the
+    filters; teal marks; the "why" line on one line.
+  - The drawing is byte-identical to the capture before the first change (36 cases, temp folder
+    `nest-search-baseline`).
+  - **For Artur to decide** (the report has each): the words that are mine; on a phone the one-line "why" line can cut
+    the word; it starts 16 characters before the word, not about 30; a remembered search reads every flyer when the
+    library opens; the default ask "Sign up at reception." matches nearly every flyer.
+  - Left, his: the release (the files alone), his look on a phone.
 - Waiting, don't start unasked: **the counts of what is left today confuse the interface a little** ("AI credits
   left", in Artur's words, on his phone, 2026-10-07; "Follow ups will fix in future"). Not designed, and not part
   of the editor's UX round.
