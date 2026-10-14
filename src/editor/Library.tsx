@@ -8,6 +8,7 @@ import type { FlyerExporter } from './export';
 import { NO_PHOTO, TOUCH_QUERY, exportActions, type ExportAction } from './exportActions';
 import { LibraryCard, lacksPhoto, type Busy, type CardAction, type Target } from './LibraryCard';
 import { LABEL_FILTER_OPTIONS, LABEL_PREF, labelFilterFrom } from './libraryLabel';
+import { flyerAnswers } from './libraryFlyers';
 import { LIBRARY_VIEWS, VIEW_LABEL, VIEW_PREF, viewFrom, type LibraryView } from './libraryView';
 import { Lightbox } from './Lightbox';
 import { useOneAction } from './oneAction';
@@ -62,6 +63,8 @@ export function Library({ hostels, exporter }: { hostels: Hostel[]; exporter: Fl
   const [error, setError] = useState<string | null>(null);
   // The library scrolls inside itself (editor.css): each card's nearness is measured against this.
   const scroller = useRef<HTMLDivElement>(null);
+  // Each flyer's own answer, for this visit: the cards' pictures and ways out, and the search (libraryFlyers.ts).
+  const [flyers] = useState(() => flyerAnswers(api.flyer));
 
   // A flyer leaves the library as a picture the ways it leaves the editor (pictureActions.ts), one action at a time,
   // and what an action came to is the editor's toast. The picture is of the canvas this viewer last chose in the
@@ -250,7 +253,7 @@ export function Library({ hostels, exporter }: { hostels: Hostel[]; exporter: Fl
         {items && items.length > 0 && (
           <ul className={`cards cards-${view}`}>
             {items.map((f) => (
-              <LibraryCard key={f.id} item={f} scroller={scroller} canvas={canvas} offer={offer} busy={busy} ways={waysOf} onZoom={zoom} onDuplicate={duplicate} onArchive={archive} />
+              <LibraryCard key={f.id} item={f} scroller={scroller} flyers={flyers} canvas={canvas} offer={offer} busy={busy} ways={waysOf} onZoom={zoom} onDuplicate={duplicate} onArchive={archive} />
             ))}
           </ul>
         )}

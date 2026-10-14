@@ -1,17 +1,18 @@
-import { useEffect, useRef, useState, type CSSProperties, type RefObject } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type RefObject } from 'react';
 import { Flyer } from '../flyer/Flyer';
 import { prepareFlyer } from '../flyer/ready';
 import { CANVASES, DEFAULT_CANVAS, type CanvasId } from '../shared/layout';
 import type { FlyerPayload } from '../shared/schema';
-import { api } from './api';
+import type { FlyerAnswers } from './libraryFlyers';
 
 /* A library card's picture of its flyer, and the lightbox's larger one: the same <Flyer> the editor and the export
    mount, at its canvas's true size, scaled down with a transform (never CSS zoom: the fit pass measures layout px)
    and prepared as an export is (prepareFlyer: fonts, images, fit). Never a second renderer and never a stored
    thumbnail, so it cannot drift from the flyer.
    - A card asks for its own flyer (useNearFlyer: GET api/flyers/:id, which both backends already answer with all the
-     renderer needs) once it nears the screen: a long library costs what is looked at, and the list stays six text
-     fields. The one answer serves the card's picture, its lightbox and its ways out (LibraryCard.tsx).
+     renderer needs) once it nears the screen: a long library costs what is looked at, and the list stays a few text
+     fields. The one answer serves the card's picture, its lightbox and its ways out (LibraryCard.tsx), and the
+     library's search: it is asked for through the library's one store of answers (libraryFlyers.ts).
    - Its box is the same size while it waits, once it shows and when the flyer cannot load, so nothing jumps.
    - It is decoration: hidden from assistive technology and inert. In a card it is inside the card's own link, so the
      link's name is still the title, nothing in the flyer takes focus, and a click on the picture is a click on the
@@ -26,10 +27,10 @@ const NEAR = '300px 0px';
 
 /** A card's flyer, asked for once the card nears the screen: null while it waits, and when it cannot load.
     `version` is the flyer's `updatedAt`, as the list gave it: a flyer saved since is asked for again. Nearness is
-    measured against the library's scroller, not the window. */
-export function useNearFlyer(box: RefObject<HTMLElement | null>, id: number, version: string, scroller: RefObject<HTMLElement | null>): FlyerPayload | null {
+    measured against the library's scroller, not the window. The answer is the library's store's (libraryFlyers.ts):
+    one the search has already read is not asked for again, and is still drawn only once the card is near. */
+export function useNearFlyer(box: RefObject<HTMLElement | null>, id: number, version: string, scroller: RefObject<HTMLElement | null>, flyers: FlyerAnswers): FlyerPayload | null {
   const [near, setNear] = useState(false);
-  const [payload, setPayload] = useState<FlyerPayload | null>(null);
 
   useEffect(() => {
     const seen = new IntersectionObserver(
@@ -44,22 +45,14 @@ export function useNearFlyer(box: RefObject<HTMLElement | null>, id: number, ver
     return () => seen.disconnect();
   }, [box, scroller]);
 
-  // An answer for a card that has gone, or for the flyer as it was before a save, is dropped: the library shows only
-  // its latest list (Library.tsx), and so do its pictures. A flyer that cannot load leaves the box empty.
   useEffect(() => {
-    if (!near) return;
-    let live = true;
-    setPayload(null);
-    api.flyer(id).then(
-      (p) => live && setPayload(p),
-      () => {},
-    );
-    return () => {
-      live = false;
-    };
-  }, [near, id, version]);
+    if (near) flyers.ask(id, version);
+  }, [near, id, version, flyers]);
 
-  return payload;
+  // Read by id and version: an answer for the flyer as it was before a save is no answer for the card, whatever
+  // order the answers land in. A flyer that cannot load leaves the box empty.
+  const answer = useSyncExternalStore(flyers.subscribe, () => flyers.answer(id, version));
+  return near && answer.state === 'here' ? answer.payload : null;
 }
 
 interface Props {

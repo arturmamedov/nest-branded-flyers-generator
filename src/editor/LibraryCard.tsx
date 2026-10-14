@@ -5,6 +5,7 @@ import type { CanvasId } from '../shared/layout';
 import type { FlyerListItem, FlyerPayload } from '../shared/schema';
 import { NO_PHOTO, needsPhoto, type ExportAction, type Offer } from './exportActions';
 import { FlyerThumb, flyerSize, useNearFlyer } from './FlyerThumb';
+import type { FlyerAnswers } from './libraryFlyers';
 import { Menu } from './Menu';
 import { go } from './route';
 import { TEMPLATE_LABEL } from './templates';
@@ -51,6 +52,7 @@ function ZoomIcon() {
 export function LibraryCard({
   item,
   scroller,
+  flyers,
   canvas,
   offer,
   busy,
@@ -62,6 +64,8 @@ export function LibraryCard({
   item: FlyerListItem;
   /** The library's scroller: nearness is measured against it. */
   scroller: RefObject<HTMLElement | null>;
+  /** The library's answers, which its search reads too (libraryFlyers.ts). */
+  flyers: FlyerAnswers;
   /** The canvas the ways out make: the viewer's own (prefs.ts). The card's picture is always the default one. */
   canvas: CanvasId;
   offer: Offer;
@@ -74,7 +78,7 @@ export function LibraryCard({
   onArchive: (item: FlyerListItem) => void;
 }) {
   const box = useRef<HTMLLIElement>(null);
-  const payload = useNearFlyer(box, item.id, item.updatedAt, scroller);
+  const payload = useNearFlyer(box, item.id, item.updatedAt, scroller, flyers);
   const target = payload && { item, payload };
   const noPhoto = payload !== null && lacksPhoto(canvas, payload);
   const mine = busy?.id === item.id ? busy.kind : null;
