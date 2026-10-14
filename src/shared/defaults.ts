@@ -1,4 +1,4 @@
-import { artAnchors, type ArtAnchor, type PhotoMode } from './layout.js';
+import { SHARED_GEOMETRY, artAnchors, type ArtAnchor, type PhotoMode } from './layout.js';
 import { DEFAULT_CROP } from './photo.js';
 import type { Colors, DoodlePlacement, FlyerData, FlyerText, Template } from './schema.js';
 
@@ -100,7 +100,7 @@ const drawn = (slug: string, at: ArtAnchor): string => Object.entries(SWAPPED_IN
 const TEMPLATE_ART: ArtPlacement[] = DEFAULT_DOODLES.map((d) => {
   if (d.anchor) return { ...d, slug: drawn(d.slug, d.anchor) };
   const anchor = FOLLOWS[d.slug];
-  const p = artAnchors('story', 'band')[anchor];
+  const p = artAnchors('story', 'band', SHARED_GEOMETRY)[anchor];
   return { ...d, slug: drawn(d.slug, anchor), anchor, x: d.x - p.x, y: d.y - p.y };
 });
 

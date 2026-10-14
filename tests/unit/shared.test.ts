@@ -21,12 +21,12 @@ import {
   CANVAS_IDS,
   DEFAULT_CANVAS,
   DEFAULT_PILL_WIDTH,
+  SHARED_GEOMETRY,
   activityGroups,
   artAnchors,
   bodyOf,
-  inside,
+  boxesOf,
   isCanvasId,
-  overlaps,
   photoFrame,
   pillBox,
   placeArt,
@@ -35,8 +35,10 @@ import {
   weekRowRect,
   type Body,
   type CanvasId,
+  type Geometry,
   type PhotoMode,
 } from '../../src/shared/layout.js';
+import { geometryProblems } from '../geometry.js';
 import { LABELS_MAX, LABEL_SLUGS, LABEL_SLUG_MAX } from '../../src/shared/labels.js';
 import { DEFAULT_CROP, clampCrop, coverRect, panCrop, wholePhotoZoom, zoomCrop } from '../../src/shared/photo.js';
 import { SAMPLE_FLYERS } from '../../src/shared/samples.js';
@@ -103,6 +105,9 @@ describe('the · convention', () => {
 
 const MODES: PhotoMode[] = ['bleed', 'band', 'none'];
 
+/** The shared boxes, which the hand-drawn look prints: every number pinned below is theirs. */
+const G = SHARED_GEOMETRY;
+
 describe('canvases', () => {
   it('the registry: story 9:16 and WhatsApp exactly 3:4, ids checked as own keys', () => {
     expect(CANVAS_IDS).toEqual(['story', 'whatsapp']);
@@ -122,7 +127,7 @@ describe('canvases', () => {
   it('the story is exactly the handoff\'s: 250 top, 300 bottom, 70 sides, the design pass\'s boxes', () => {
     expect(safeBox('story')).toEqual({ left: 70, top: 250, width: 940, height: 1370 });
     const inner = (top: number, height: number) => ({ left: 70, top, width: 940, height });
-    expect(activityGroups('story', 'bleed')).toEqual({
+    expect(activityGroups('story', 'bleed', G)).toEqual({
       eyebrow: inner(250, 95),
       headline: inner(345, 300),
       chips: inner(1110, 206),
@@ -131,14 +136,14 @@ describe('canvases', () => {
       pill: inner(1544, 72),
       photo: { left: 0, top: 712, width: 1080, height: 380 },
     });
-    expect(activityGroups('story', 'band').photo).toEqual(inner(712, 380));
-    expect(activityGroups('story', 'none')).toMatchObject({ headline: inner(398, 460), photo: { left: 240, top: 900, width: 600, height: 32 } });
-    expect([photoFrame('story', 'bleed'), photoFrame('story', 'band'), photoFrame('story', 'none')]).toEqual([
+    expect(activityGroups('story', 'band', G).photo).toEqual(inner(712, 380));
+    expect(activityGroups('story', 'none', G)).toMatchObject({ headline: inner(398, 460), photo: { left: 240, top: 900, width: 600, height: 32 } });
+    expect([photoFrame('story', 'bleed', G), photoFrame('story', 'band', G), photoFrame('story', 'none', G)]).toEqual([
       { width: 1080, height: 380 },
       { width: 940, height: 380 },
       null,
     ]);
-    expect(artAnchors('story', 'bleed')).toEqual({
+    expect(artAnchors('story', 'bleed', G)).toEqual({
       canvas: { x: 0, y: 0, scale: 1 },
       photoLeft: { x: 70, y: 712, scale: 1 },
       photoRight: { x: 1010, y: 712, scale: 1 },
@@ -146,69 +151,62 @@ describe('canvases', () => {
       bottomRight: { x: 1080, y: 1920, scale: 1 },
       pillEnd: { x: 832.5, y: 1544, scale: 1 },
     });
-    expect(artAnchors('story', 'band')).toEqual(artAnchors('story', 'bleed'));
-    expect(artAnchors('story', 'none')).toMatchObject({ photoLeft: { x: 240, y: 900, scale: 1 }, photoRight: { x: 840, y: 900, scale: 1 } });
+    expect(artAnchors('story', 'band', G)).toEqual(artAnchors('story', 'bleed', G));
+    expect(artAnchors('story', 'none', G)).toMatchObject({ photoLeft: { x: 240, y: 900, scale: 1 }, photoRight: { x: 840, y: 900, scale: 1 } });
+  });
+
+  // What every look's boxes keep (tests/geometry.ts): inside the safe box, the bleed's sides excepted; no two on each
+  // other; the bottom stack allocated upward from the floor; five rows above the ask; one photo shape on every canvas;
+  // fitted boxes at least the story's. The shared table, which the hand-drawn look prints, keeps all of it.
+  it('the shared boxes keep every rule a look’s boxes must keep, on every canvas and body', () => {
+    expect(geometryProblems(G)).toEqual([]);
+  });
+
+  // A look may give a box its own top and height (the owner's answers, 2026-10-14). Each rule, broken once, is named:
+  // whoever writes a look reads which box and why.
+  it.each<[string, Geometry, string]>([
+    ['a box out of the safe zone', { story: { boxes: { headline: { top: 240 } } } }, 'story / bleed: headline leaves the safe zone'],
+    ['two boxes on each other', { whatsapp: { boxes: { chips: { top: 870 } } } }, 'whatsapp / band: chips overlaps photo'],
+    ['the pill too near the floor for its tilt', { story: { boxes: { pill: { top: 1546 } } } }, 'story: the pill ends at 1618 and the floor is 1620: its tilt needs 4 px under it'],
+    ['the band and the bleed ending apart', { story: { boxes: { photoBand: { height: 370 } } } }, 'story: the bleed and the band end apart: the blocks below them are every photo mode’s'],
+    ['five rows too tall for the room above the ask', { story: { rowHeight: 128 } }, 'story: five rows end at 1400, and the ask starts at 1382: they need 12 px between'],
+    ['a photo of another shape on one canvas', { whatsapp: { boxes: { photoBand: { top: 466, height: 414 } } } }, "whatsapp: the band photo's shape is not the story's"],
+    ['an eyebrow shorter than its icon', { story: { boxes: { eyebrow: { height: 60 } } } }, 'story: the eyebrow is 60 px tall, under its 62 px of icon and words'],
+    ['a fitted box shorter than on the story', { whatsapp: { boxes: { ask: { height: 140 } } } }, 'whatsapp: ask is shorter than on the story'],
+  ])('%s is named', (_, geometry, problem) => {
+    expect(geometryProblems(geometry)).toContain(problem);
+  });
+
+  it('a look that moves and sizes boxes within the rules passes, and what hangs from them follows', () => {
+    // A taller photo in a frame, the same shape on both canvases, the headline above it shorter, and taller week rows.
+    const g: Geometry = {
+      story: { boxes: { headline: { height: 280 }, photoBand: { top: 692, height: 400 } }, rowHeight: 124, rowGap: 12 },
+      whatsapp: { boxes: { photoBand: { top: 454, height: 426 } } },
+    };
+    expect(geometryProblems(g)).toEqual([]);
+    expect(boxesOf('story', g).activity.photoBand).toEqual({ left: 70, top: 692, width: 940, height: 400 });
+    expect(boxesOf('story', g).activity.headline).toEqual({ left: 70, top: 345, width: 940, height: 280 });
+    expect(photoFrame('story', 'band', g)).toEqual({ width: 940, height: 400 });
+    expect(artAnchors('story', 'band', g).photoLeft).toEqual({ x: 70, y: 692, scale: 1 });
+    expect(weekRowRect('story', 4, g)).toEqual({ left: 70, top: 700 + 4 * 136, width: 940, height: 124 });
+    expect(boxesOf('story', g).week.rows.height, 'five rows of the look’s own height').toBe(5 * 124 + 4 * 12);
+    // A canvas the look leaves alone is the shared table's, the bleed too.
+    expect(boxesOf('whatsapp', g).activity.headline).toEqual(boxesOf('whatsapp', G).activity.headline);
+    expect(photoFrame('story', 'bleed', g)).toEqual(photoFrame('story', 'bleed', G));
   });
 
   for (const canvas of CANVAS_IDS) {
-    const { height, safe, activity: a } = CANVASES[canvas];
-    for (const mode of MODES) {
-      it(`${canvas} / ${mode}: groups never overlap and stay in the safe box`, () => {
-        const groups = Object.entries(activityGroups(canvas, mode));
-        for (const [name, rect] of groups) {
-          if (name === 'photo' && mode === 'bleed') {
-            // The one sanctioned exception, horizontally: edge to edge, and inside vertically.
-            expect([rect!.left, rect!.width], name).toEqual([0, CANVASES[canvas].width]);
-            expect(inside({ ...rect!, left: safe.side, width: 1 }, safeBox(canvas)), name).toBe(true);
-            continue;
-          }
-          expect(inside(rect!, safeBox(canvas)), name).toBe(true);
-        }
-        for (let i = 0; i < groups.length; i++)
-          for (let j = i + 1; j < groups.length; j++)
-            expect(overlaps(groups[i][1]!, groups[j][1]!), `${groups[i][0]} × ${groups[j][0]}`).toBe(false);
-      });
-    }
-
-    it(`${canvas}: the bottom stack is allocated upward from its floor`, () => {
-      const floor = height - safe.bottom;
-      // The pill is tilted -0.6°: 4 px under it keep its corners off the floor.
-      expect(a.pill.top + a.pill.height + 4).toBeLessThanOrEqual(floor);
-      expect(a.ask.top + a.ask.height).toBeLessThanOrEqual(a.pill.top);
-      expect(a.extras.top + a.extras.height).toBeLessThanOrEqual(a.ask.top);
-      expect(a.chips.top + a.chips.height).toBeLessThanOrEqual(a.extras.top);
-      expect(a.photoBand.top + a.photoBand.height).toBeLessThanOrEqual(a.chips.top);
-      expect(a.photoBleed.top + a.photoBleed.height, 'bleed and band end together: the blocks below are shared').toBe(a.photoBand.top + a.photoBand.height);
-      expect(a.eyebrow.height, 'the eyebrow row is 62 px of icon and text').toBeGreaterThanOrEqual(62);
-      expect(a.headline.top).toBeGreaterThanOrEqual(a.eyebrow.top + a.eyebrow.height);
-    });
-
     it(`${canvas}: the pill's box is the safe column, the one both templates draw it in, and the one it fits`, () => {
-      const box = pillBox(canvas);
+      const box = pillBox(canvas, G);
       const safeColumn = safeBox(canvas);
+      const { pill } = boxesOf(canvas, G).activity;
       expect([box.left, box.width], 'the safe column across').toEqual([safeColumn.left, safeColumn.width]);
-      expect([box.top, box.height], 'where the stack puts it').toEqual([a.pill.top, a.pill.height]);
-      for (const mode of MODES) expect(activityGroups(canvas, mode).pill).toEqual(box);
-      expect(weekGroups(canvas).pill).toEqual(box);
+      expect([box.top, box.height], 'where the stack puts it').toEqual([pill.top, pill.height]);
+      for (const mode of MODES) expect(activityGroups(canvas, mode, G).pill).toEqual(box);
+      expect(weekGroups(canvas, G).pill).toEqual(box);
     });
 
-    it(`${canvas}: every photo frame has the story's aspect, so one crop shows the same picture`, () => {
-      for (const mode of ['bleed', 'band'] as const) {
-        const f = photoFrame(canvas, mode)!;
-        const s = photoFrame('story', mode)!;
-        // Within half a pixel of the exact height at this width.
-        expect(Math.abs(f.height - (f.width * s.height) / s.width), mode).toBeLessThanOrEqual(0.5);
-      }
-    });
-
-    it(`${canvas}: fitted boxes at least the story's size, and a column of at least 940`, () => {
-      // Not a proof that copy fitting the story fits here (a wider line shrinks less, then needs
-      // more height): that is why the editor fits every canvas. It keeps clipping here rare.
-      const story = CANVASES.story.activity;
-      for (const box of ['headline', 'headlineNoPhoto', 'chips', 'extras', 'ask'] as const) {
-        expect(a[box].width, box).toBeGreaterThanOrEqual(story[box].width);
-        expect(a[box].height, box).toBeGreaterThanOrEqual(story[box].height);
-      }
+    it(`${canvas}: a column of at least 940`, () => {
       // text.ts's limits keep the unfitted lines (eyebrow, handle, tag) inside a 940 column.
       expect(safeBox(canvas).width).toBeGreaterThanOrEqual(940);
     });
@@ -216,27 +214,27 @@ describe('canvases', () => {
 
   it("the story's week is the handoff's §2: the title at 398/250, five 122 px rows 15 apart from 700 to 1370", () => {
     const inner = (top: number, height: number) => ({ left: 70, top, width: 940, height });
-    expect(weekGroups('story')).toEqual({
+    expect(weekGroups('story', G)).toEqual({
       eyebrow: inner(250, 95),
       title: inner(398, 250),
       rows: inner(700, 670),
       ask: inner(1382, 150),
       pill: inner(1544, 72),
     });
-    expect([0, 1, 2, 3, 4].map((slot) => weekRowRect('story', slot))).toEqual([
+    expect([0, 1, 2, 3, 4].map((slot) => weekRowRect('story', slot, G))).toEqual([
       inner(700, 122),
       inner(837, 122),
       inner(974, 122),
       inner(1111, 122),
       inner(1248, 122),
     ]);
-    expect(photoFrame('story', 'week'), 'a week flyer has no photo frame').toBeNull();
+    expect(photoFrame('story', 'week', G), 'a week flyer has no photo frame').toBeNull();
   });
 
   it("WhatsApp's week, signed off 2026-09-29: the title at 162/250, five rows from 464 to 1134, 30 px above the ask", () => {
     const inner = (top: number, height: number) => ({ left: 40, top, width: 1000, height });
-    expect(weekGroups('whatsapp')).toMatchObject({ title: inner(162, 250), rows: inner(464, 670), ask: inner(1164, 150) });
-    expect(weekRowRect('whatsapp', 4)).toEqual(inner(1012, 122));
+    expect(weekGroups('whatsapp', G)).toMatchObject({ title: inner(162, 250), rows: inner(464, 670), ask: inner(1164, 150) });
+    expect(weekRowRect('whatsapp', 4, G)).toEqual(inner(1012, 122));
   });
 
   it("a flyer's body is its photo mode, or the week's rows whatever its photo mode says", () => {
@@ -246,19 +244,12 @@ describe('canvases', () => {
   });
 
   for (const canvas of CANVAS_IDS) {
-    it(`${canvas} / week: groups never overlap and stay in the safe box, and five rows end at least 12 px above the ask`, () => {
-      const groups = Object.entries(weekGroups(canvas));
-      for (const [name, rect] of groups) expect(inside(rect!, safeBox(canvas)), name).toBe(true);
-      for (let i = 0; i < groups.length; i++)
-        for (let j = i + 1; j < groups.length; j++)
-          expect(overlaps(groups[i][1]!, groups[j][1]!), `${groups[i][0]} × ${groups[j][0]}`).toBe(false);
-      const { week: w, activity: a } = CANVASES[canvas];
-      const last = weekRowRect(canvas, WEEK_ROWS_MAX - 1);
+    it(`${canvas} / week: the rows box holds exactly five rows, 122 px tall and 15 apart`, () => {
+      const { week: w } = boxesOf(canvas, G);
+      const last = weekRowRect(canvas, WEEK_ROWS_MAX - 1, G);
       expect(last.top + last.height, 'the rows box holds exactly five rows').toBe(w.rows.top + w.rows.height);
-      expect(last.top + last.height + 12).toBeLessThanOrEqual(a.ask.top);
-      expect(w.title.top, 'the title starts below the eyebrow').toBeGreaterThanOrEqual(a.eyebrow.top + a.eyebrow.height);
       for (let slot = 1; slot < WEEK_ROWS_MAX; slot++) {
-        const [prev, next] = [weekRowRect(canvas, slot - 1), weekRowRect(canvas, slot)];
+        const [prev, next] = [weekRowRect(canvas, slot - 1, G), weekRowRect(canvas, slot, G)];
         expect(next.top - (prev.top + prev.height), `gap before row ${slot}`).toBe(15);
         expect(next.height).toBe(122);
       }
@@ -336,8 +327,8 @@ describe('photo crop', () => {
     ];
     for (const canvas of CANVAS_IDS)
       for (const mode of ['bleed', 'band'] as const) {
-        const f = photoFrame(canvas, mode)!;
-        const s = photoFrame('story', mode)!;
+        const f = photoFrame(canvas, mode, G)!;
+        const s = photoFrame('story', mode, G)!;
         const k = f.width / s.width;
         for (const photo of photos)
           for (const crop of crops) {
@@ -401,7 +392,7 @@ function artInk(slug: string) {
 /** Where a piece's ink lands, as canvas points, placed as Flyer.tsx places it (rotate, then flip, about the centre). */
 function inkPoints(d: ArtPlacement, canvas: CanvasId, mode: Body): [number, number][] {
   const art = artInk(d.slug);
-  const { left, top, width: w } = placeArt(d, artAnchors(canvas, mode));
+  const { left, top, width: w } = placeArt(d, artAnchors(canvas, mode, G));
   const h = (w * art.height) / art.width;
   const t = ((d.rot ?? 0) * Math.PI) / 180;
   return art.px.map(([sx, sy]) => {
@@ -424,7 +415,7 @@ describe('template art', () => {
   it('on the story the template art lands exactly where DEFAULT_DOODLES stores it', () => {
     for (const mode of MODES) {
       const resolved = resolveDoodles(DEFAULT_DOODLES);
-      const anchors = artAnchors('story', mode);
+      const anchors = artAnchors('story', mode, G);
       resolved.forEach((d, i) => {
         const stored = DEFAULT_DOODLES[i];
         // A spark on the photo is the stored piece but for the ink it prints in.
@@ -468,7 +459,7 @@ describe('template art', () => {
 
   it('the photo-corner sparks land exactly where the design pass put them on the story (band and bleed)', () => {
     for (const mode of ['band', 'bleed'] as const) {
-      const a = artAnchors('story', mode);
+      const a = artAnchors('story', mode, G);
       const [teal, yellow] = DEFAULT_DOODLES;
       expect([a[teal.anchor!].x + teal.x, a[teal.anchor!].y + teal.y]).toEqual([24, 657]);
       expect([a[yellow.anchor!].x + yellow.x, a[yellow.anchor!].y + yellow.y]).toEqual([975, 658]);
@@ -478,13 +469,13 @@ describe('template art', () => {
   for (const canvas of CANVAS_IDS) {
     it(`${canvas}: the sparks on the photo's corners clear the headline, and with no photo follow the brush rule`, () => {
       const [teal, yellow] = DEFAULT_DOODLES;
-      const { activity } = CANVASES[canvas];
+      const { activity } = boxesOf(canvas, G);
       for (const mode of ['band', 'bleed'] as const) {
-        const a = artAnchors(canvas, mode);
+        const a = artAnchors(canvas, mode, G);
         expect(a.photoLeft.y + teal.y, mode).toBeGreaterThanOrEqual(activity.headline.top + activity.headline.height);
         expect(a.photoRight.y + yellow.y, mode).toBeGreaterThanOrEqual(activity.headline.top + activity.headline.height);
       }
-      const none = artAnchors(canvas, 'none');
+      const none = artAnchors(canvas, 'none', G);
       expect(none.photoLeft).toMatchObject({ x: activity.noPhotoRule.left, y: activity.noPhotoRule.top });
       expect(none.photoRight.x).toBe(activity.noPhotoRule.left + activity.noPhotoRule.width);
     });
@@ -492,14 +483,15 @@ describe('template art', () => {
     it(`${canvas}: the last spark hangs from the pill's end, and where the default pill ends it is where the design pass put it`, () => {
       const spark = resolveDoodles(DEFAULT_DOODLES).at(-1)!;
       expect(spark.anchor).toBe('pillEnd');
-      const { activity, width } = CANVASES[canvas];
-      const end = artAnchors(canvas, 'band').pillEnd;
+      const { width } = CANVASES[canvas];
+      const { activity } = boxesOf(canvas, G);
+      const end = artAnchors(canvas, 'band', G).pillEnd;
       // The anchor: the right end of the default pill, which is centred, at the top of the pill's row.
       expect(end).toEqual({ x: width / 2 + DEFAULT_PILL_WIDTH / 2, y: activity.pill.top, scale: 1 });
       // Its offsets from the pill are what the design pass set, on every canvas: 776, 1601.7 on the story.
       expect([spark.x, spark.y, spark.w]).toEqual([776 - 832.5, 1601.7 - 1544, 92]);
       // So beside the default pill it lands on the same canvas column on every canvas, 57.7 px below its row's top.
-      const at = placeArt(spark, artAnchors(canvas, 'band'));
+      const at = placeArt(spark, artAnchors(canvas, 'band', G));
       expect(at.left).toBe(776);
       expect(at.top).toBeCloseTo({ story: 1601.7, whatsapp: 1381.7 }[canvas], 9);
       expect(at.width, 'the pill does not shrink, so neither does its spark').toBe(92);
@@ -509,14 +501,14 @@ describe('template art', () => {
       const spark = resolveDoodles(DEFAULT_DOODLES).at(-1)!;
       const { width, height } = CANVASES[canvas];
       // The widest pill fills its column (Flyer.tsx holds it a pixel inside): its end is as far as the spark goes.
-      const grow = (pillBox(canvas).width - DEFAULT_PILL_WIDTH) / 2;
+      const grow = (pillBox(canvas, G).width - DEFAULT_PILL_WIDTH) / 2;
       const off = inkPoints(spark, canvas, 'band').filter(([x, y]) => x + grow < 0 || x + grow >= width || y < 0 || y >= height);
       expect(off.length).toBe(0);
     });
 
     it(`${canvas}: the corner blobs keep off the ask's lines and the default pill's spark`, () => {
       // The ask's copy is at most 760 wide (Flyer.tsx), from the column's left edge.
-      const { ask } = CANVASES[canvas].activity;
+      const { ask } = boxesOf(canvas, G).activity;
       const art = resolveDoodles(DEFAULT_DOODLES);
       const cells = (d: ArtPlacement) => new Set(inkPoints(d, canvas, 'band').map(([x, y]) => `${Math.floor(x / 2)},${Math.floor(y / 2)}`));
       // A longer pill carries its spark over the right-hand blob, on purpose: teal on yellow (Artur, 2026-10-12).
@@ -529,7 +521,7 @@ describe('template art', () => {
     });
 
     it(`${canvas}: on a week flyer the sparks' ink never enters the title box, whatever the title says, and stays on the canvas`, () => {
-      const { title } = CANVASES[canvas].week;
+      const { title } = boxesOf(canvas, G).week;
       const sparks = resolveDoodles(DEFAULT_DOODLES).filter((d) => d.anchor === 'photoLeft' || d.anchor === 'photoRight');
       expect(sparks).toHaveLength(2);
       for (const d of sparks) {
@@ -548,11 +540,11 @@ describe('template art', () => {
   }
 
   it("on a week flyer the photo-corner sparks hang from the first row's top corners, in as on the band and 7 px lower (signed off 2026-09-29); the rest of the art stays put", () => {
-    expect(artAnchors('story', 'week')).toMatchObject({ photoLeft: { x: 70, y: 707, scale: 1 }, photoRight: { x: 1010, y: 707, scale: 1 } });
-    expect(artAnchors('whatsapp', 'week')).toMatchObject({ photoLeft: { x: 54, y: 471, scale: 1 }, photoRight: { x: 1026, y: 471, scale: 1 } });
+    expect(artAnchors('story', 'week', G)).toMatchObject({ photoLeft: { x: 70, y: 707, scale: 1 }, photoRight: { x: 1010, y: 707, scale: 1 } });
+    expect(artAnchors('whatsapp', 'week', G)).toMatchObject({ photoLeft: { x: 54, y: 471, scale: 1 }, photoRight: { x: 1026, y: 471, scale: 1 } });
     for (const canvas of CANVAS_IDS) {
-      const { photoLeft: _l, photoRight: _r, ...week } = artAnchors(canvas, 'week');
-      const { photoLeft: _bl, photoRight: _br, ...band } = artAnchors(canvas, 'band');
+      const { photoLeft: _l, photoRight: _r, ...week } = artAnchors(canvas, 'week', G);
+      const { photoLeft: _bl, photoRight: _br, ...band } = artAnchors(canvas, 'band', G);
       expect(week, canvas).toEqual(band);
     }
   });

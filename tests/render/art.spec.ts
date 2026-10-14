@@ -2,7 +2,7 @@ import type { Locator, Page } from '@playwright/test';
 import { PNG } from 'pngjs';
 import { expect, test } from '../browser';
 import { DEFAULT_DOODLES, resolveDoodles } from '../../src/shared/defaults';
-import { CANVASES, CANVAS_IDS, artAnchors, bodyOf, placeArt } from '../../src/shared/layout';
+import { CANVASES, CANVAS_IDS, SHARED_GEOMETRY, artAnchors, bodyOf, boxesOf, placeArt } from '../../src/shared/layout';
 import type { FlyerText } from '../../src/shared/schema';
 import { WEEK_ROWS_MAX } from '../../src/shared/week';
 import { HANDLE_18, TAG_24, drawPayload, newPayload } from './drawn';
@@ -59,7 +59,7 @@ test.describe('the spark off the pill’s end hangs from the pill', () => {
           const pill = r.pill!;
           expect(Math.abs(pill.holderWidth - pill.width), `${name}: the art hangs from a box as wide as the pill`).toBeLessThanOrEqual(1);
           expect(Math.abs((pill.left + pill.right) / 2 - CANVASES[canvas].width / 2), `${name}: the pill is centred, as before`).toBeLessThanOrEqual(1);
-          expect(Math.abs(pill.top - CANVASES[canvas].activity.pill.top), `${name}: on the pill's row`).toBeLessThanOrEqual(0.5);
+          expect(Math.abs(pill.top - boxesOf(canvas, SHARED_GEOMETRY).activity.pill.top), `${name}: on the pill's row`).toBeLessThanOrEqual(0.5);
 
           expect(r.withPill.map((a) => a.file), `${name}: one spark, drawn with the pill`).toEqual(['spark-teal.png']);
           expect(r.onFlyer.map((a) => a.file), `${name}: and not a second time on the flyer`).toEqual(['spark-left-yellow.png', 'spark-right-teal.png', 'blob-left-teal.png', 'blob-right-yellow.png']);
@@ -79,7 +79,7 @@ test.describe('the spark off the pill’s end hangs from the pill', () => {
     test(`${canvas}: beside the default pill the spark is where the design pass put it`, async ({ page }) => {
       const payload = newPayload('activity');
       const spark = resolveDoodles(payload.flyer.data.doodles).find((d) => d.anchor === 'pillEnd')!;
-      const at = placeArt(spark, artAnchors(canvas, bodyOf(payload.flyer.data)));
+      const at = placeArt(spark, artAnchors(canvas, bodyOf(payload.flyer.data), SHARED_GEOMETRY));
       await drawPayload(page, payload, canvas);
       const [drawn] = (await page.evaluate(readSpark)).withPill;
       // The default pill is 585 px to within a pixel (pill.spec.ts), so its end is the registry's point to half of one.
@@ -236,7 +236,7 @@ test.describe('art someone arranged is drawn as stored', () => {
         };
       });
       expect(drawn.withPill).toBe(0);
-      const anchors = artAnchors(canvas, bodyOf(payload.flyer.data));
+      const anchors = artAnchors(canvas, bodyOf(payload.flyer.data), SHARED_GEOMETRY);
       expect(drawn.onFlyer.map((a) => a.file)).toEqual(['spark-teal.png', 'spark-yellow.png', 'blob-yellow.png', 'blob-teal.png', 'spark-teal.png']);
       drawn.onFlyer.forEach((a, i) => {
         const want = placeArt(arranged[i], anchors);
@@ -285,7 +285,8 @@ test.describe('the pencil hangs from the end of the ask', () => {
   for (const canvas of CANVAS_IDS) {
     for (const template of ['activity', 'week'] as const) {
       test(`${canvas} / ${template}: after the end of the copy and a little above it, whatever the lines say`, async ({ page }) => {
-        const { width: W, height: H, activity } = CANVASES[canvas];
+        const { width: W, height: H } = CANVASES[canvas];
+        const { activity } = boxesOf(canvas, SHARED_GEOMETRY);
         const ends: number[] = [];
         for (const [name, text, { enPx }] of ASKS) {
           await drawPayload(page, newPayload(template, text), canvas);

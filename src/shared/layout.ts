@@ -6,7 +6,11 @@ import { WEEK_ROWS_MAX } from './week.js';
    editor's "Story 9:16 | WhatsApp 3:4"). Adding a canvas is one more CANVASES
    entry: the renderer, the editor, both exporters and the server read the
    registry. Tops are measured from the canvas edge; each canvas's bottom
-   stack is allocated upward from its floor (the bottom of its safe box). */
+   stack is allocated upward from its floor (the bottom of its safe box).
+
+   A look may give some of these boxes their own top and height on a canvas
+   (its Geometry, below). So the box tables are private here, and every reader
+   of a box takes the look's geometry: boxesOf(), and the readers built on it. */
 
 export interface Rect {
   left: number;
@@ -74,6 +78,10 @@ export interface CanvasSpec {
   safe: { top: number; bottom: number; side: number };
   /** Appended to the download's name. The story keeps today's `<slug>.png`. */
   fileSuffix: string;
+}
+
+/** A canvas's boxes, and what it decides about the template art, as one look draws them (boxesOf). */
+export interface CanvasBoxes {
   activity: ActivityBoxes;
   week: WeekBoxes;
   /** What the canvas decides about the template art; its anchor points follow from the rest (artAnchors). */
@@ -89,13 +97,16 @@ const columnOf = ({ width, safe }: Pick<CanvasSpec, 'width' | 'safe'>): Column =
 
 /** A canvas from what it decides: its boxes are written against its own column and width. */
 function defineCanvas(
-  spec: Omit<CanvasSpec, 'activity' | 'week'>,
+  { art, ...spec }: CanvasSpec & Pick<CanvasBoxes, 'art'>,
   activity: (inner: Column, width: number) => ActivityBoxes,
   week: (inner: Column) => WeekBoxes,
-): CanvasSpec {
+): { spec: CanvasSpec; boxes: CanvasBoxes } {
   const inner = columnOf(spec);
-  return { ...spec, activity: activity(inner, spec.width), week: week(inner) };
+  return { spec, boxes: { activity: activity(inner, spec.width), week: week(inner), art } };
 }
+
+/** The height of the box five rows fill: rows of one height, at one gap. */
+const rowsHeight = (rowHeight: number, rowGap: number) => WEEK_ROWS_MAX * rowHeight + (WEEK_ROWS_MAX - 1) * rowGap;
 
 /* ---- This week: the handoff §2's rows, the same size on every canvas ----
    122 px rows, 15 apart. §3's "22px between week rows" is stale: §2 explains
@@ -108,7 +119,7 @@ const WEEK_ROW_GAP = 15;
 /** A canvas's week boxes: its title's top, its rows' top, and how far the sparks hang below the rows' corners. */
 const weekBoxes = (inner: Column, titleTop: number, rowsTop: number, artDrop: number): WeekBoxes => ({
   title: inner(titleTop, WEEK_TITLE_HEIGHT),
-  rows: inner(rowsTop, WEEK_ROWS_MAX * WEEK_ROW_HEIGHT + (WEEK_ROWS_MAX - 1) * WEEK_ROW_GAP),
+  rows: inner(rowsTop, rowsHeight(WEEK_ROW_HEIGHT, WEEK_ROW_GAP)),
   rowHeight: WEEK_ROW_HEIGHT,
   rowGap: WEEK_ROW_GAP,
   artDrop,
@@ -214,11 +225,14 @@ const WHATSAPP = defineCanvas(
   (inner) => weekBoxes(inner, 162, 464, 7),
 );
 
-export const CANVASES = { story: STORY, whatsapp: WHATSAPP } as const satisfies Record<string, CanvasSpec>;
+export const CANVASES = { story: STORY.spec, whatsapp: WHATSAPP.spec } as const satisfies Record<string, CanvasSpec>;
 
 export type CanvasId = keyof typeof CANVASES;
 
 export const CANVAS_IDS = Object.keys(CANVASES) as CanvasId[];
+
+/** Every canvas's boxes before a look changes any: read them through boxesOf(), with the look's geometry. */
+const SHARED_BOXES: Record<CanvasId, CanvasBoxes> = { story: STORY.boxes, whatsapp: WHATSAPP.boxes };
 
 /** The canvas on screen for a viewer who never chose one: the editor's preview (a stored choice wins there), the AI
     page's, and the library's cards. The owner's answer (2026-10-05): WhatsApp, where most flyers are sent.
@@ -231,25 +245,96 @@ export function isCanvasId(value: unknown): value is CanvasId {
   return typeof value === 'string' && Object.hasOwn(CANVASES, value);
 }
 
+/* ---- What a look may change (the owner's answers, 2026-10-13 and 2026-10-14) ----
+   On each canvas, a box's own top and its own height (the photo's too, so its
+   shape), the week's rows' top, height and gap, the chips' gap, and where the
+   template art hangs (the photo-corner points' inset, the corner art's scale,
+   the sparks' drop on a week flyer). Never a width, the order top to bottom, or
+   a safe zone: those are every look's. What it does not write is the shared
+   table's, so a look that changes nothing prints exactly that table.
+   tests/geometry.ts holds every look's geometry to what fixed sizes used to
+   give by construction: inside the safe zone, no overlap, the stack in order,
+   five rows above the ask, one photo shape on every canvas. */
+
+/** The boxes a look may give their own top and height, by their names in ActivityBoxes (the week title as `weekTitle`). */
+export type BoxName = Exclude<keyof ActivityBoxes, 'chipGap'> | 'weekTitle';
+
+/** What a look changes on one canvas. */
+export interface CanvasGeometry {
+  boxes?: { readonly [B in BoxName]?: { top?: number; height?: number } };
+  chipGap?: number;
+  /** The rows box's top. Its height is five rows' (rowHeight, rowGap): never written. */
+  rowsTop?: number;
+  rowHeight?: number;
+  rowGap?: number;
+  photoInset?: number;
+  cornerScale?: number;
+  artDrop?: number;
+}
+
+/** A look's geometry: what it changes, canvas by canvas. */
+export type Geometry = { readonly [C in CanvasId]?: CanvasGeometry };
+
+/** Nothing changed: the shared table, the boxes the hand-drawn look prints. */
+export const SHARED_GEOMETRY: Geometry = {};
+
+/** A canvas's boxes as a look draws them: the shared table, with what the look's geometry changes on that canvas. */
+export function boxesOf(canvas: CanvasId, geometry: Geometry): CanvasBoxes {
+  const shared = SHARED_BOXES[canvas];
+  const g = geometry[canvas];
+  if (!g) return shared;
+  const box = <R extends { top: number; height: number }>(name: BoxName, r: R): R => {
+    const change = g.boxes?.[name];
+    return change ? { ...r, top: change.top ?? r.top, height: change.height ?? r.height } : r;
+  };
+  const a = shared.activity;
+  const w = shared.week;
+  const rowHeight = g.rowHeight ?? w.rowHeight;
+  const rowGap = g.rowGap ?? w.rowGap;
+  return {
+    activity: {
+      eyebrow: box('eyebrow', a.eyebrow),
+      headline: box('headline', a.headline),
+      headlineNoPhoto: box('headlineNoPhoto', a.headlineNoPhoto),
+      photoBleed: box('photoBleed', a.photoBleed),
+      photoBand: box('photoBand', a.photoBand),
+      noPhotoRule: box('noPhotoRule', a.noPhotoRule),
+      chips: box('chips', a.chips),
+      chipGap: g.chipGap ?? a.chipGap,
+      extras: box('extras', a.extras),
+      ask: box('ask', a.ask),
+      pill: box('pill', a.pill),
+    },
+    week: {
+      title: box('weekTitle', w.title),
+      rows: { ...w.rows, top: g.rowsTop ?? w.rows.top, height: rowsHeight(rowHeight, rowGap) },
+      rowHeight,
+      rowGap,
+      artDrop: g.artDrop ?? w.artDrop,
+    },
+    art: { photoInset: g.photoInset ?? shared.art.photoInset, cornerScale: g.cornerScale ?? shared.art.cornerScale },
+  };
+}
+
 export function safeBox(canvas: CanvasId): Rect {
   const { width, height, safe } = CANVASES[canvas];
   return { left: safe.side, top: safe.top, width: width - 2 * safe.side, height: height - safe.top - safe.bottom };
 }
 
 /** The boxes both templates share: the eyebrow, the ask and the pill. */
-function sharedGroups(canvas: CanvasId): Pick<Record<GroupId, Rect>, 'eyebrow' | 'ask' | 'pill'> {
-  const a = CANVASES[canvas].activity;
+function commonGroups(canvas: CanvasId, geometry: Geometry): Pick<Record<GroupId, Rect>, 'eyebrow' | 'ask' | 'pill'> {
+  const a = boxesOf(canvas, geometry).activity;
   return { eyebrow: a.eyebrow, ask: a.ask, pill: columnOf(CANVASES[canvas])(a.pill.top, a.pill.height) };
 }
 
 /** Where the tag pill sits on a canvas, for both templates: the safe column across, at the stack's pill row. The
     pill is copy on a ground, so it stays inside this width (Flyer.tsx fits the letters to it). */
-export const pillBox = (canvas: CanvasId): Rect => sharedGroups(canvas).pill;
+export const pillBox = (canvas: CanvasId, geometry: Geometry): Rect => commonGroups(canvas, geometry).pill;
 
-/** The fixed boxes of the Activity template on a canvas, for a photo mode. */
-export function activityGroups(canvas: CanvasId, mode: PhotoMode): Partial<Record<GroupId, Rect>> {
-  const a = CANVASES[canvas].activity;
-  const { eyebrow, ask, pill } = sharedGroups(canvas);
+/** The boxes of the Activity template on a canvas, for a photo mode. */
+export function activityGroups(canvas: CanvasId, mode: PhotoMode, geometry: Geometry): Partial<Record<GroupId, Rect>> {
+  const a = boxesOf(canvas, geometry).activity;
+  const { eyebrow, ask, pill } = commonGroups(canvas, geometry);
   const groups: Partial<Record<GroupId, Rect>> = {
     eyebrow,
     headline: mode === 'none' ? a.headlineNoPhoto : a.headline,
@@ -264,16 +349,16 @@ export function activityGroups(canvas: CanvasId, mode: PhotoMode): Partial<Recor
   return groups;
 }
 
-/** The fixed boxes of the This week template on a canvas: its own title and rows, the Activity eyebrow, ask and pill. */
-export function weekGroups(canvas: CanvasId): Partial<Record<GroupId, Rect>> {
-  const w = CANVASES[canvas].week;
-  const { eyebrow, ask, pill } = sharedGroups(canvas);
+/** The boxes of the This week template on a canvas: its own title and rows, the Activity eyebrow, ask and pill. */
+export function weekGroups(canvas: CanvasId, geometry: Geometry): Partial<Record<GroupId, Rect>> {
+  const w = boxesOf(canvas, geometry).week;
+  const { eyebrow, ask, pill } = commonGroups(canvas, geometry);
   return { eyebrow, title: w.title, rows: w.rows, ask, pill };
 }
 
 /** Where the printed row in `slot` sits: rows stack from the top of the rows box, whatever their number. */
-export function weekRowRect(canvas: CanvasId, slot: number): Rect {
-  const { rows, rowHeight, rowGap } = CANVASES[canvas].week;
+export function weekRowRect(canvas: CanvasId, slot: number, geometry: Geometry): Rect {
+  const { rows, rowHeight, rowGap } = boxesOf(canvas, geometry).week;
   return { left: rows.left, top: rows.top + slot * (rowHeight + rowGap), width: rows.width, height: rowHeight };
 }
 
@@ -302,7 +387,7 @@ export const DEFAULT_PILL_WIDTH = 585;
 /** Stored anchors, plus the ones only the template's own art uses (defaults.ts). */
 export type ArtAnchor = DoodleAnchor | 'bottomLeft' | 'bottomRight' | 'pillEnd';
 
-/** Where art hangs from on a canvas, for a flyer's body. The one statement of
+/** Where art hangs from on a canvas, for a flyer's body, in a look's boxes. The one statement of
     the rule (schema.ts and defaults.ts point here):
     - canvas: the canvas's top-left, so x/y are canvas px on every canvas;
     - photoLeft / photoRight: the band's top corners, moved in by the canvas's
@@ -317,8 +402,9 @@ export type ArtAnchor = DoodleAnchor | 'bottomLeft' | 'bottomRight' | 'pillEnd';
       renderer hangs the art from the end of the pill it draws, at the same offsets (Flyer.tsx), and a flyer that
       prints no pill prints none of this art (2026-10-13).
     placeArt() puts a piece there. */
-export function artAnchors(canvas: CanvasId, body: Body): Record<ArtAnchor, ArtPoint> {
-  const { width, height, activity: a, week: w, art } = CANVASES[canvas];
+export function artAnchors(canvas: CanvasId, body: Body, geometry: Geometry): Record<ArtAnchor, ArtPoint> {
+  const { width, height } = CANVASES[canvas];
+  const { activity: a, week: w, art } = boxesOf(canvas, geometry);
   let photoLeft: ArtPoint;
   let photoRight: ArtPoint;
   if (body === 'none') {
@@ -352,9 +438,9 @@ export function placeArt(d: { anchor?: ArtAnchor; x: number; y: number; w: numbe
   return { left: o.x + d.x * o.scale, top: o.y + d.y * o.scale, width: d.w * o.scale };
 }
 
-/** Photo frame size per canvas and body, for crop maths. No photo, and a week flyer, have none. */
-export function photoFrame(canvas: CanvasId, body: Body): { width: number; height: number } | null {
-  const a = CANVASES[canvas].activity;
+/** Photo frame size per canvas and body, in a look's boxes, for crop maths. No photo, and a week flyer, have none. */
+export function photoFrame(canvas: CanvasId, body: Body, geometry: Geometry): { width: number; height: number } | null {
+  const a = boxesOf(canvas, geometry).activity;
   if (body === 'bleed') return { width: a.photoBleed.width, height: a.photoBleed.height };
   if (body === 'band') return { width: a.photoBand.width, height: a.photoBand.height };
   return null;

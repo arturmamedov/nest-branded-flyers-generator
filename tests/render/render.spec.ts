@@ -9,7 +9,7 @@ import sharp from 'sharp';
 import { apiError, type ApiErrorKey } from '../../src/shared/errors';
 import { flyerFilename } from '../../src/shared/filename';
 import { marksFor, resolveDoodles } from '../../src/shared/defaults';
-import { CANVASES, CANVAS_IDS, DEFAULT_CANVAS, artAnchors, placeArt, safeBox, weekRowRect, type CanvasId } from '../../src/shared/layout';
+import { CANVASES, CANVAS_IDS, DEFAULT_CANVAS, SHARED_GEOMETRY, artAnchors, boxesOf, placeArt, safeBox, weekRowRect, type CanvasId } from '../../src/shared/layout';
 import { SAMPLE_FLYERS } from '../../src/shared/samples';
 import type { FlyerListItem, FlyerPayload } from '../../src/shared/schema';
 import { printedRows } from '../../src/shared/week';
@@ -170,7 +170,7 @@ for (const canvas of CANVAS_IDS) {
           expect(r.drawn, `${label}: the page drew this canvas`).toBe(canvas);
           expect(r.unhooked, `${label}: everything drawn names what it is`).toEqual([]);
           // Every block where the registry puts it: a leftover story number would pass the safe box, not this.
-          const table = groupsOf(canvas, body);
+          const table = groupsOf(canvas, body, SHARED_GEOMETRY);
           // Exactly this template's blocks, each once: none missing (a week flyer's title, say), none extra (a photo).
           expect(r.groups.map((g) => g.name).sort(), `${label}: exactly this template's blocks`).toEqual(Object.keys(table).sort());
           const t = payload.flyer.data.text;
@@ -201,7 +201,7 @@ for (const canvas of CANVAS_IDS) {
           const pieces = resolveDoodles(payload.flyer.data.doodles);
           const onPill = pieces.filter((d) => d.anchor === 'pillEnd');
           expect(onPill.length, `${label}: the template's spark hangs from the pill`).toBe(1);
-          const want = pieces.filter((d) => !onPill.includes(d)).map((d) => ({ ...placeArt(d, artAnchors(canvas, body)), file: `${d.slug}.png` }));
+          const want = pieces.filter((d) => !onPill.includes(d)).map((d) => ({ ...placeArt(d, artAnchors(canvas, body, SHARED_GEOMETRY)), file: `${d.slug}.png` }));
           expect(r.art.map((a) => a.file), `${label}: art pieces`).toEqual(want.map((a) => a.file));
           // The style reads back rounded to two decimals, so to the nearest 0.05 px.
           r.art.forEach((a, i) => {
@@ -257,7 +257,7 @@ for (const canvas of CANVAS_IDS) {
           const printed = body === 'week' ? printedRows(payload.flyer.data.week) : [];
           expect(r.rows.map((x) => x.slot), `${label}: printed rows, slot by slot`).toEqual(printed.map((_, slot) => slot));
           r.rows.forEach((x, slot) => {
-            const cell = weekRowRect(canvas, slot);
+            const cell = weekRowRect(canvas, slot, SHARED_GEOMETRY);
             for (const [edge, value] of [
               ['left', cell.left],
               ['top', cell.top],
@@ -310,8 +310,8 @@ for (const canvas of CANVAS_IDS) {
       })),
     );
     expect(rows).toEqual([
-      { slot: '0', name: first.name, top: weekRowRect(canvas, 0).top },
-      { slot: '1', name: second.name, top: weekRowRect(canvas, 1).top },
+      { slot: '0', name: first.name, top: weekRowRect(canvas, 0, SHARED_GEOMETRY).top },
+      { slot: '1', name: second.name, top: weekRowRect(canvas, 1, SHARED_GEOMETRY).top },
     ]);
   });
 }
@@ -473,7 +473,7 @@ for (const canvas of CANVAS_IDS) {
 
   test(`${canvas}: a flyer at a hostel with a badge prints the marks as set, in the eyebrow and the safe box, a long eyebrow too`, async ({ page, request }) => {
     const pool = (await samples(request)).find((p) => p.flyer.title === 'Pool party')!;
-    const eyebrow = CANVASES[canvas].activity.eyebrow;
+    const eyebrow = boxesOf(canvas, SHARED_GEOMETRY).activity.eyebrow;
     const safe = safeBox(canvas);
     const want = marksFor(true).map((m) => (m === 'badge' ? 'hostel' : 'nests'));
     // The default eyebrow, then 18 of the widest letters, which leave the marks less room than they need: they give

@@ -1,6 +1,6 @@
 import pixelmatch from 'pixelmatch';
 import { PNG } from 'pngjs';
-import { CANVASES, activityGroups, weekGroups, type Body, type CanvasId, type PhotoMode, type Rect } from '../../src/shared/layout';
+import { CANVASES, activityGroups, weekGroups, type Body, type CanvasId, type Geometry, type PhotoMode, type Rect } from '../../src/shared/layout';
 import { SAMPLE_FLYERS, type SampleFlyer } from '../../src/shared/samples';
 import type { FlyerData } from '../../src/shared/schema';
 import { HANDLE_18, TAG_24 } from './drawn';
@@ -10,8 +10,9 @@ import { HANDLE_18, TAG_24 } from './drawn';
 export const bodiesOf = (data: Pick<FlyerData, 'template'>): Body[] =>
   data.template === 'week' ? ['week'] : (['bleed', 'band', 'none'] satisfies PhotoMode[]);
 
-/** The blocks a flyer drawn as `body` has on `canvas`, exactly, and where the registry (layout.ts) puts each one. */
-export const groupsOf = (canvas: CanvasId, body: Body) => (body === 'week' ? weekGroups(canvas) : activityGroups(canvas, body));
+/** The blocks a flyer drawn as `body` has on `canvas`, exactly, and where the registry (layout.ts) puts each one in a
+    look's boxes. */
+export const groupsOf = (canvas: CanvasId, body: Body, geometry: Geometry) => (body === 'week' ? weekGroups(canvas, geometry) : activityGroups(canvas, body, geometry));
 
 /* Pixel comparison of a client export against the server export, lifted from
    the approved Phase 1 spike (docs/spikes/client-export.md): the same diff,
@@ -105,12 +106,13 @@ function fill({ W, H, px }: Mask, r: Rect, value: 0 | 1, grow = 0) {
   for (let y = y0; y < y1; y++) px.fill(value, y * W + Math.max(0, x0), y * W + Math.max(x0, x1));
 }
 
-/** The photo's pixels, left out of every metric but `inside`: no photo, and a week flyer, mask nothing. */
-function photoMask(canvas: CanvasId, body: Body): Uint8Array {
-  const { width, height, activity } = CANVASES[canvas];
+/** The photo's pixels, left out of every metric but `inside`: no photo, and a week flyer, mask nothing. The box is
+    the one the page drew, so the mask is the photo frame of the flyer's own look. */
+function photoMask(canvas: CanvasId, body: Body, regions: Regions): Uint8Array {
+  const { width, height } = CANVASES[canvas];
   const m = mask(width, height);
-  if (body === 'bleed') fill(m, activity.photoBleed, 1);
-  if (body === 'band') fill(m, activity.photoBand, 1);
+  const photo = regions.groups.find((g) => g.name === 'photo');
+  if ((body === 'bleed' || body === 'band') && photo) fill(m, photo, 1);
   return m.px;
 }
 
@@ -144,7 +146,7 @@ export function compare(golden: PNG, candidate: PNG, canvas: CanvasId, body: Bod
     const p = i * 4;
     diff[i] = diffImage.data[p] === 255 && diffImage.data[p + 1] === 0 && diffImage.data[p + 2] === 0 ? 1 : 0;
   }
-  const photo = photoMask(canvas, body);
+  const photo = photoMask(canvas, body, regions);
   let outT = 0;
   let outBad = 0;
   let inT = 0;

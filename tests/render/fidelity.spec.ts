@@ -5,7 +5,7 @@ import { canvasButton, clientOnlyEditor, download as downloadFlyer } from '../ed
 import { PNG } from 'pngjs';
 import sharp from 'sharp';
 import { flyerFilename } from '../../src/shared/filename';
-import { CANVASES, CANVAS_IDS, type Body, type CanvasId } from '../../src/shared/layout';
+import { CANVASES, CANVAS_IDS, SHARED_GEOMETRY, type Body, type CanvasId } from '../../src/shared/layout';
 import { SAMPLE_FLYERS } from '../../src/shared/samples';
 import type { FlyerListItem, FlyerPayload, FlyerSaved } from '../../src/shared/schema';
 import { WRITE_HEADERS } from '../../src/shared/writeGuard';
@@ -132,7 +132,7 @@ for (const { label, dpr } of runs) {
   test(`client export matches the server export: ${label} @${dpr}x`, async ({ browser, baseURL }) => {
     test.setTimeout(120_000);
     const c = cases.get(label)!;
-    const want = groupsOf(c.canvas, c.mode);
+    const want = groupsOf(c.canvas, c.mode, SHARED_GEOMETRY);
     expect(c.regions.groups.map((g) => g.name).sort(), `${label}: the golden drew exactly its template's blocks`).toEqual(Object.keys(want).sort());
     // The photo, or the rule a flyer with no photo draws in its place. The story's bleed and band differ only in left
     // and width, so every edge is checked.

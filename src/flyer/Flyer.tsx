@@ -3,7 +3,7 @@ import { deriveChips, DEFAULT_CHIP_ORDER } from '../shared/chips';
 import { BRIGHT_TEAL, MUTED, PHOTO_PLACEHOLDER, marksFor, resolveDoodles, type ArtPlacement } from '../shared/defaults';
 import { printedExtras } from '../shared/extras';
 import { BODY_FONT, HEADLINE_FONT } from '../shared/fonts';
-import { CANVASES, artAnchors, bodyOf, photoFrame, pillBox, placeArt, safeBox, type ArtAnchor, type ArtPoint, type CanvasId, type Rect, type WeekBoxes } from '../shared/layout';
+import { CANVASES, SHARED_GEOMETRY, artAnchors, bodyOf, boxesOf, photoFrame, pillBox, placeArt, safeBox, type ArtAnchor, type ArtPoint, type CanvasId, type Rect, type WeekBoxes } from '../shared/layout';
 import { coverRect } from '../shared/photo';
 import type { FlyerData, FlyerText, Hostel, PhotoInfo } from '../shared/schema';
 import { printedRows, type PrintedRow } from '../shared/week';
@@ -226,12 +226,15 @@ export function Flyer({ data, canvas, hostel, photo, showSafeZones = false, ref 
   const mode = data.photoMode;
   // A week flyer keeps its photo mode and photo for switching back, and draws neither.
   const body = bodyOf(data);
-  const { width: W, height: H, activity: A, week: WK } = CANVASES[canvas];
-  const anchors = artAnchors(canvas, body);
+  const { width: W, height: H } = CANVASES[canvas];
+  // The boxes the flyer's look draws in: the hand-drawn look's are the shared table.
+  const geometry = SHARED_GEOMETRY;
+  const { activity: A, week: WK } = boxesOf(canvas, geometry);
+  const anchors = artAnchors(canvas, body, geometry);
   const chips = deriveChips(data.chips, hostel?.name ?? null, data.overrides.chips?.order ?? DEFAULT_CHIP_ORDER);
   const extras = printedExtras(data.extras);
   const head = mode === 'none' ? A.headlineNoPhoto : A.headline;
-  const frame = photoFrame(canvas, body);
+  const frame = photoFrame(canvas, body, geometry);
   const img =
     photo && frame ? (
       <img
@@ -417,7 +420,7 @@ export function Flyer({ data, canvas, hostel, photo, showSafeZones = false, ref 
                 pass reports it for the editor's cut-off note. */}
             <div
               data-group="pill"
-              style={{ display: 'flex', alignItems: 'center', boxSizing: 'border-box', maxWidth: pillBox(canvas).width - PILL_TILT_ROOM, overflowX: 'clip', background: accent, borderRadius: 20, padding: '17px 38px 19px', transform: 'rotate(-0.6deg)' }}
+              style={{ display: 'flex', alignItems: 'center', boxSizing: 'border-box', maxWidth: pillBox(canvas, geometry).width - PILL_TILT_ROOM, overflowX: 'clip', background: accent, borderRadius: 20, padding: '17px 38px 19px', transform: 'rotate(-0.6deg)' }}
             >
               <div data-fit="34" data-fit-min="0.7" style={{ ...pillText, display: 'flex', alignItems: 'center', gap: 18, minWidth: 0, whiteSpace: 'nowrap' }}>
                 {t.handle && <span>{t.handle}</span>}
