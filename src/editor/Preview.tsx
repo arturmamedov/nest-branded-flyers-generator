@@ -189,7 +189,9 @@ function OffscreenFit({ canvas, data, hostel, photo, onFit }: { canvas: CanvasId
   );
 }
 
-/** The fields a fitted size depends on (the copy, what the chips and rows print, the template's and photo mode's boxes). */
+/** The fields a fitted size depends on (the copy, what the chips and rows print, the template's and photo mode's boxes,
+    and the look, whose boxes and type are its own). The look as drawn (lookOf), so a flyer with none and one stored in
+    the first look fit alike. */
 function fitKey(d: FlyerData): string {
-  return JSON.stringify([d.template, d.text, d.chips, d.extras, d.week, d.photoMode, d.showPill, d.overrides]);
+  return JSON.stringify([d.template, d.text, d.chips, d.extras, d.week, d.photoMode, d.showPill, d.overrides, lookOf(d).id]);
 }

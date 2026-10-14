@@ -1,12 +1,13 @@
 import type { Page } from '@playwright/test';
 import { expect, test } from '../browser';
-import { EDITOR_VIEWPORT, lookButton, lookSwitch, openSection, sectionHead, status } from '../editor';
+import { EDITOR_VIEWPORT, canvasButton, cutOff, cutOffOn, lookButton, lookSwitch, openSection, sectionHead, status } from '../editor';
 import { sampleCopy, siteNames } from './proofFlyers';
 import { PROOF_LOOK_ID } from '../proof/id';
 import { PROOF_LOOK } from '../proof/look';
 import { FIELD } from '../../src/editor/fields';
 import { FIRST_LOOK } from '../../src/shared/looks';
 import { HAND_DRAWN } from '../../src/shared/looks/handDrawn';
+import { TEXT_LIMITS } from '../../src/shared/text';
 import { WRITE_HEADERS } from '../../src/shared/writeGuard';
 
 /* The Look switch in the editor's Flyer section (docs/prompts/looks-seam.md, stage 6; the owner's answers 5 and 6),
@@ -122,4 +123,21 @@ test('a new flyer starts in the first look the site names, with nothing unsaved'
   expect(await offered(other)).toEqual({ names: [PROOF_LOOK.name, HAND_DRAWN.name], pressed: [PROOF_LOOK.name] });
   await expect(status(other)).not.toHaveText('Unsaved changes');
   await other.close();
+});
+
+test('a switch of look alone refits the canvas fitted offscreen, so its cut-off warning follows the look', async ({ page, request }) => {
+  // At the Spanish line's limit, hand-drawn cuts this flyer off on the story and not on WhatsApp; the proof look, with
+  // its own boxes and type, on neither (measured on the render page). WhatsApp is on screen: the story is fitted
+  // offscreen, and only a refit there can take its warning away.
+  const { id } = await sampleCopy(request, 'Pool party', 'band', keep, FIRST_LOOK);
+  await page.goto(`/#/flyers/${id}`);
+  await canvasButton(page, 'whatsapp').click();
+  await openSection(page, FIELD.headline, FIELD.flyer);
+  const words = 'Una tarde de piscina con música, juegos y comida para todos los huéspedes del hostal, ven con tus amigos y conoce gente nueva de todo el mundo en la terraza. Trae tu toalla, crema solar y muchas ganas de pasarlo bien con nosotros hasta que se ponga el sol de la tarde.';
+  await page.getByLabel(FIELD.spanishLine).fill(words.slice(0, TEXT_LIMITS.headlineEs));
+  await expect(cutOff(page)).toContainText(cutOffOn('story'));
+  await lookButton(page, PROOF_LOOK.name).click();
+  await expect(cutOff(page)).toHaveCount(0);
+  await lookButton(page, HAND_DRAWN.name).click();
+  await expect(cutOff(page)).toContainText(cutOffOn('story'));
 });
