@@ -6,8 +6,10 @@ import { SEED_FILE } from '../../server/paths.js';
 import type { Brief } from '../../src/shared/schema.js';
 import { SeedFileSchema } from '../../src/shared/seed.js';
 import { FLYER_LABELS, LABELS_MAX, LABEL_SLUGS } from '../../src/shared/labels.js';
+import { lookIds } from '../../src/shared/looks.js';
 import { SHARE_SPANISH_BREAK } from '../../src/shared/share.js';
 import { expectOwnersRules } from '../briefRules.js';
+import { PROOF_LOOK_ID } from '../proof/id.js';
 
 /* The committed copies of the shared sources of truth must be current: run
    `npm run gen` after changing src/shared. */
@@ -22,6 +24,13 @@ describe('generated files', () => {
       expect(readFileSync(file, 'utf8').replace(/\r\n/g, '\n')).toBe(content);
     });
   }
+
+  // The tests' proof look never ships: PHP reads the looks it accepts from these files.
+  it('no generated file names the proof look, and the looks block names the release’s looks alone', () => {
+    const committed = Object.keys(outputs).map((rel) => [rel, readFileSync(join(ROOT, rel), 'utf8')] as const);
+    expect(committed.filter(([, content]) => content.includes(PROOF_LOOK_ID)).map(([rel]) => rel)).toEqual([]);
+    expect(JSON.parse(committed.find(([rel]) => rel === 'schema/shared.json')![1]).looks).toEqual({ ids: lookIds() });
+  });
 
   it('flyer.schema.json carries the trim flag PHP relies on', () => {
     const schema = JSON.parse(outputs['schema/flyer.schema.json']);

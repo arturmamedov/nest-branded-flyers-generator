@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import type { APIRequestContext, Page } from '@playwright/test';
 import { PNG } from 'pngjs';
 import { expect, test } from '../browser';
@@ -7,6 +8,8 @@ import { FIELD } from '../../src/editor/fields';
 import { checkDrawn, drawnSamples, samples } from './drawnChecks';
 import { drawPayload } from './drawn';
 import { compare, failures, regionsOf } from './pixels';
+import { filesNaming } from '../../scripts/build-php';
+import { APP_ROOT } from '../../server/paths';
 import { PROOF_LOOK_ID } from '../proof/id';
 import { PROOF_LOOK } from '../proof/look';
 import { CANVASES, CANVAS_IDS, DEFAULT_CANVAS, type Body, type CanvasId } from '../../src/shared/layout';
@@ -48,6 +51,12 @@ async function proofCopy(request: APIRequestContext, sample: string, body: Body)
   saved.push(id);
   return { id, title };
 }
+
+test('no trace: no file of the release’s build names the proof look, and the tests’ build does', () => {
+  // Both are built before this suite runs (npm run test:render): dist/ is what build:php ships.
+  expect(filesNaming(join(APP_ROOT, 'dist'), PROOF_LOOK_ID), 'dist/').toEqual([]);
+  expect(filesNaming(join(APP_ROOT, 'dist-proof'), PROOF_LOOK_ID).length, 'dist-proof/').toBeGreaterThan(0);
+});
 
 for (const canvas of CANVAS_IDS) {
   test(`${canvas}: every sample, every photo mode, in the proof look: where its boxes are, in the safe box, fitted, its faces`, async ({ page, request }) => {

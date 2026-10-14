@@ -4,6 +4,7 @@ import { LABELS_MAX, LABEL_SLUGS, LABEL_SLUG_MAX } from '../../src/shared/labels
 import { FlyerPayloadSchema, FlyerSavedSchema } from '../../src/shared/schema.js';
 import { SHARE_MAX } from '../../src/shared/share.js';
 import { TEXT_LIMITS } from '../../src/shared/text.js';
+import { PROOF_LOOK_ID } from '../proof/id.js';
 import { fails, flyerInput, flyers, ok, send } from './client.js';
 
 /* What every backend does to a flyer body: zod's rules (src/shared/schema.ts,
@@ -90,6 +91,8 @@ describe('validation', () => {
     expect(await invalidFields(flyerInput({ template: 'poster' as never }))).toEqual(['template']);
     // A look a later release has, met after going back to this one (docs/deploy.md, "Rolling back").
     expect(await invalidFields(flyerInput({ data: { ...d, look: 'a-later-look' } }))).toEqual(['data.look']);
+    // The tests' proof look, which no release has: no trace of it on any backend (docs/prompts/looks-seam.md).
+    expect(await invalidFields(flyerInput({ data: { ...d, look: PROOF_LOOK_ID } }))).toEqual(['data.look']);
     const chips = d.chips.map((c, i) => (i === 0 ? { ...c, label: 'x'.repeat(13) } : c));
     expect(await invalidFields(flyerInput({ data: { ...d, chips } }))).toEqual(['data.chips.0.label']);
     expect(await invalidFields(flyerInput({ data: { ...d, colors: { ...d.colors, bg: '#aabbcc\n' } } }))).toEqual(['data.colors.bg']);

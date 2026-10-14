@@ -27,7 +27,8 @@ export interface Manifest {
   files: Record<string, ManifestEntry>;
 }
 
-function filesUnder(root: string): string[] {
+/** Every file under `root`, as a path from it with forward slashes, the manifest itself aside, sorted. */
+export function filesUnder(root: string): string[] {
   return readdirSync(root, { recursive: true, withFileTypes: true })
     .filter((entry) => entry.isFile())
     .map((entry) => relative(root, join(entry.parentPath, entry.name)).split(sep).join('/'))

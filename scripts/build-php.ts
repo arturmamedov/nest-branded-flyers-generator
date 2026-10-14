@@ -6,7 +6,8 @@ import { pathToFileURL } from 'node:url';
 import { APP_ROOT } from '../server/paths.js';
 import { generate } from './gen-shared.js';
 import { GUARD_FILES, MANIFEST_FILE } from './php/layout.js';
-import { describeSize, type Manifest } from './php/manifest.js';
+import { describeSize, filesUnder, type Manifest } from './php/manifest.js';
+import { PROOF_LOOK_ID } from '../tests/proof/id.js';
 import { stagePhp } from './php/stage.js';
 
 /* `npm run build:php` — the folder you upload to a PHP host, and the preflight
@@ -49,6 +50,16 @@ function assertComplete(dir: string): void {
   if (existsSync(join(dir, 'config.php'))) throw new Error('The release must not contain config.php');
   // The preflight page is uploaded alone, before the release; one inside it would come back with every re-upload.
   if (readdirSync(dir).some((name) => name.startsWith('nest-preflight'))) throw new Error('The release must not contain the preflight page');
+  // The tests' proof look never ships (docs/prompts/looks-seam.md): a release that names it anywhere was built from
+  // the tests' build, or with its look registered.
+  const leaked = filesNaming(dir, PROOF_LOOK_ID);
+  if (leaked.length > 0) throw new Error(`The release carries the tests' proof look: ${leaked.join(', ')}`);
+}
+
+/** The files under `dir` whose bytes hold `word`, in any format, as paths from it. */
+export function filesNaming(dir: string, word: string): string[] {
+  const bytes = Buffer.from(word);
+  return filesUnder(dir).filter((file) => readFileSync(join(dir, file)).includes(bytes));
 }
 
 /**
