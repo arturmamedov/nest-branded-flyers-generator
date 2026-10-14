@@ -14,6 +14,9 @@ export interface FlyerLabel {
   slug: string;
   /** What staff read. */
   name: string;
+  /** What says a flyer is of this kind, where the name alone does not: one line. The AI assistant reads it beside
+      the name when it picks a flyer's labels from this list (`npm run gen` writes the list into its prompt). */
+  hint?: string;
 }
 
 /** The list, in the order every screen shows it. Only the owner adds to it, as with the hostels: his own six
@@ -24,15 +27,16 @@ export const FLYER_LABELS: readonly FlyerLabel[] = [
   { slug: 'stretching', name: 'Stretching' },
   { slug: 'masca', name: 'Masca' },
   { slug: 'teide', name: 'Teide' },
-  { slug: 'excursions', name: 'Excursions' },
-  { slug: 'tenerife-tours', name: 'Tenerife Tours' },
+  { slug: 'excursions', name: 'Excursions', hint: 'a trip out of the hostel' },
+  // An organiser, and so the owner's answer of 2026-10-14: "An organiser only when named".
+  { slug: 'tenerife-tours', name: 'Tenerife Tours', hint: 'the organiser Tenerife Tours, only where the text or the picture names it' },
   { slug: 'shows', name: 'Shows' },
   { slug: 'movie-nights', name: 'Movie nights' },
   { slug: 'beach', name: 'Beach' },
   { slug: 'games', name: 'Games' },
   { slug: 'dance', name: 'Dance' },
   { slug: 'workshops', name: 'Workshops' },
-  { slug: 'whats-on', name: 'What’s on' },
+  { slug: 'whats-on', name: 'What’s on', hint: 'what is on in the city: concerts, festivals and other events that are not the hostel’s own' },
 ];
 
 export const LABEL_SLUGS: readonly string[] = FLYER_LABELS.map((label) => label.slug);

@@ -5,6 +5,7 @@ import { ROOT, generate } from '../../scripts/gen-shared.js';
 import { SEED_FILE } from '../../server/paths.js';
 import type { Brief } from '../../src/shared/schema.js';
 import { SeedFileSchema } from '../../src/shared/seed.js';
+import { FLYER_LABELS, LABELS_MAX, LABEL_SLUGS } from '../../src/shared/labels.js';
 import { SHARE_SPANISH_BREAK } from '../../src/shared/share.js';
 import { expectOwnersRules } from '../briefRules.js';
 
@@ -124,7 +125,52 @@ describe('the AI bundle (schema/ai.json) and the ai block of shared.json', () =>
     expect(bundle.schemas.flyerAnswer.properties.brief.additionalProperties).toBe(false);
     expect(bundle.schemas.flyerAnswer.required).toEqual(['brief', 'assumptions']);
     // The share text is part of every flyer the model answers, so a provider's structured output must write it.
-    expect([...bundle.schemas.flyerAnswer.properties.brief.required].sort()).toEqual(['hostel', 'share', 'template']);
+    // And its labels, an empty list when none fits: of the list alone, so the model cannot invent one.
+    expect([...bundle.schemas.flyerAnswer.properties.brief.required].sort()).toEqual(['hostel', 'labels', 'share', 'template']);
+    expect(bundle.schemas.flyerAnswer.properties.brief.properties.labels).toEqual({ maxItems: LABELS_MAX, type: 'array', items: { type: 'string', enum: LABEL_SLUGS } });
+  });
+
+  it('the flyer’s prompt lists every label once, with its name and what says a flyer is of that kind; the other prompts list none', () => {
+    const flyer = bundle.prompts.flyer as string;
+    const section = flyer.slice(flyer.indexOf('\n## The labels\n'), flyer.indexOf('\n## Limits\n'));
+    expect(section.split('\n').filter((line) => line.startsWith('- '))).toEqual(FLYER_LABELS.map((l) => `- ${l.slug}: ${l.name}${l.hint ? ` (${l.hint})` : ''}`));
+    expect(flyer).toContain(`- brief.labels: at most ${LABELS_MAX} items`);
+    // The rules name the list, never a label of it: a label added or taken off is a line of labels.ts alone.
+    const rules = readFileSync(join(ROOT, 'ai/prompts/flyer.md'), 'utf8');
+    for (const { slug } of FLYER_LABELS) expect(rules, slug).not.toContain('`' + slug + '`');
+    expect(rules).toContain('`labels`');
+    for (const other of [bundle.prompts.share, bundle.prompts.photo] as string[]) expect(other).not.toContain('## The labels');
+  });
+
+  it('the flyer’s rules say the owner’s answers on labels: of the list alone, an organiser only when named, a missing one suggested as a note', () => {
+    const flyer = bundle.prompts.flyer as string;
+    expect(flyer).toContain('Never write a label that is not on the list');
+    expect(flyer).toContain('only when the text or the picture names that organiser');
+    expect(flyer).toContain('"field": "labels"');
+    expect(flyer).toContain('`labels: []`');
+  });
+
+  it('every example carries labels of the list, and an organiser’s only where its text names the organiser', () => {
+    for (const e of bundle.examples as { text: string; answer: { brief: Brief } }[]) {
+      const labels = e.answer.brief.labels ?? [];
+      expect(labels.length, e.text.slice(0, 30)).toBeGreaterThan(0);
+      for (const slug of labels) expect(LABEL_SLUGS, slug).toContain(slug);
+      // The owner's answer (2026-10-14): "An organiser only when named".
+      if (labels.includes('tenerife-tours')) expect(e.text.toLowerCase()).toContain('tenerife tours');
+    }
+  });
+
+  it('refuses an example file without its labels: the few-shot shows the model the whole answer', () => {
+    const dir = 'docs/ai-flyers/examples';
+    const first = readdirSync(join(ROOT, dir)).filter((f) => f.endsWith('.json')).sort()[0];
+    const read = (rel: string) => {
+      const text = readFileSync(join(ROOT, rel), 'utf8');
+      if (rel !== `${dir}/${first}`) return text;
+      const example = JSON.parse(text);
+      delete example.brief.labels;
+      return JSON.stringify(example);
+    };
+    expect(() => generate(read)).toThrow(/brief\.labels/);
   });
 
   it('refuses an example file without its share text: the few-shot shows the model the whole answer', () => {

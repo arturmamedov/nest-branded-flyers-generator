@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { flyerFromBrief } from '../../src/shared/brief.js';
 import { newFlyerData, weekTitle } from '../../src/shared/defaults.js';
+import { LABEL_SLUGS } from '../../src/shared/labels.js';
 import { BriefSchema, FlyerInputSchema, type Brief, type FlyerInput } from '../../src/shared/schema.js';
 
 /* A brief is a flyer's copy alone (brief.ts): what scripts/flyers/post.ts sends today, and what the editor's AI
@@ -37,6 +38,15 @@ describe('a flyer from a brief', () => {
     ]);
     expect(input.data.extras).toEqual(brief.extras);
     expect(input.data.share).toBe(brief.share);
+  });
+
+  it('carries the brief’s labels in the list’s order, and none when the brief names none', () => {
+    const [first, second] = LABEL_SLUGS;
+    const input = flyerFromBrief({ hostel: null, template: 'activity', text: { headline1: 'Quiz night' }, labels: [second, first, second] }, null, DAY);
+    expect(valid(input)).toEqual([]);
+    expect(input.data.labels).toEqual([first, second]);
+    expect(flyerFromBrief({ hostel: null, template: 'week' }, null, DAY).data.labels).toEqual([]);
+    expect(flyerFromBrief({ hostel: null, template: 'week', labels: [second] }, null, DAY).data.labels, 'a This week flyer too').toEqual([second]);
   });
 
   it('leaves what a brief doesn’t say at the template’s defaults, and every empty field to collapse', () => {

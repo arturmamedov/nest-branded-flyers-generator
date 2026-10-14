@@ -89,6 +89,18 @@ describe('the list itself', () => {
     expect(new Set(names).size).toBe(names.length);
   });
 
+  it('says what a label is for where its name alone does not: one line, read by the AI assistant, which picks from the list', () => {
+    const hints = FLYER_LABELS.flatMap((l) => (l.hint === undefined ? [] : [l.hint]));
+    expect(hints.length).toBeGreaterThan(0);
+    for (const hint of hints) {
+      expect(hint.trim(), hint).toBe(hint);
+      expect(hint, 'one line').not.toMatch(/[\r\n]/);
+      expect(hint.length, hint).toBeGreaterThan(0);
+    }
+    // The owner's answer (2026-10-14): an organiser's label only when the text or the picture names the organiser.
+    expect(FLYER_LABELS.find((l) => l.slug === 'tenerife-tours')?.hint).toContain('only where the text or the picture names it');
+  });
+
   it('gives the names of a flyer’s labels, the listed ones, in the list’s order', () => {
     const [first, second] = FLYER_LABELS;
     expect(labelNames([second.slug, 'not-a-label', first.slug])).toEqual([first.name, second.name]);

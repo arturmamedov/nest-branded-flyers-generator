@@ -9,6 +9,7 @@ import { PHOTO_MODE_LABEL } from '../../src/editor/photoModes';
 import { SECTIONS_PREF } from '../../src/editor/sectionFolds';
 import { AI_DAILY_LIMIT, AI_FAKE, AI_FEATURES, AI_PICTURE_MAX_EDGE, aiFor, aiQuotaVars, type AiFeature } from '../../src/shared/ai';
 import { apiError } from '../../src/shared/errors';
+import { labelNames } from '../../src/shared/labels';
 import { newFlyerData } from '../../src/shared/defaults';
 import { DEFAULT_CANVAS, type PhotoMode } from '../../src/shared/layout';
 import { AiFlyerResultSchema, AiPhotoResultSchema, AiShareResultSchema, ApiConfigSchema, FlyerSavedSchema, PhotoInfoSchema, type AiFlyerAnswer } from '../../src/shared/schema';
@@ -221,12 +222,15 @@ test('an idea becomes a flyer: a waiting state, the preview, what the AI assumed
   await expect(page.getByLabel('Line 1')).toHaveValue(brief.text!.headline1!);
   await expect(page.getByLabel('Hostel', { exact: true })).toHaveValue('adeje-nest');
   await expect(page.getByLabel('Caption')).toHaveValue(brief.share!);
+  // The labels the AI chose are the flyer's own: pressed in the Flyer section, for the staff member to change.
+  expect(brief.labels!.length, 'the fake answers the first example, which carries a label').toBeGreaterThan(0);
+  await expect(page.getByRole('group', { name: 'Labels', exact: true }).locator('button[aria-pressed="true"]')).toHaveText(labelNames(brief.labels!));
   const draftNote = toast(page, 'warn').filter({ hasText: 'AI draft: check every fact before you print' });
   await expect(draftNote).toBeVisible();
   await expect(status(page)).toHaveText('Unsaved changes');
   expect(await answerConfirm(page, 'dismiss', () => backToLibrary(page).click())).toBe(LEAVE_PROMPT);
 
-  await saveNew(page, keep);
+  expect((await saveNew(page, keep)).flyer.data.labels, 'and saved with it').toEqual(brief.labels);
   await expect(draftNote).toHaveCount(0);
   // A later "New flyer" starts blank: the draft was handed over once.
   await backToLibrary(page).click();
@@ -807,7 +811,7 @@ function uploadsSent(page: Page): string[] {
 
 /** A This week flyer, as the AI answers one: it has no photo. */
 const weekAnswer: AiFlyerAnswer = {
-  brief: { hostel: 'adeje-nest', template: 'week', week: [{ day: 'Mon', name: 'Stretching class', time: '19:00', cost: 'Free' }], share: 'This week at Adeje Nest' },
+  brief: { hostel: 'adeje-nest', template: 'week', week: [{ day: 'Mon', name: 'Stretching class', time: '19:00', cost: 'Free' }], share: 'This week at Adeje Nest', labels: [] },
   assumptions: [],
 };
 

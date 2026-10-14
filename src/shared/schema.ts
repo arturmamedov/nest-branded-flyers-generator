@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { AI_ASSUMPTIONS_MAX, AI_FEATURES, AI_INPUT_MAX } from './ai.js';
 import { CHIP_LABEL_MAX, CHIP_VALUE_MAX } from './chips.js';
 import { EXTRA_MAX, EXTRAS_MAX } from './extras.js';
-import { LABELS_MAX, LABEL_SLUG, LABEL_SLUG_MAX } from './labels.js';
+import { LABELS_MAX, LABEL_SLUG, LABEL_SLUGS, LABEL_SLUG_MAX } from './labels.js';
 import { TITLE_MAX } from './names.js';
 import { DEFAULT_CROP, ZOOM_MAX, ZOOM_MIN } from './photo.js';
 import { SHARE_MAX } from './share.js';
@@ -139,6 +139,10 @@ export const BriefSchema = z.strictObject({
   extras: z.array(z.string().max(EXTRA_MAX)).max(EXTRAS_MAX).optional(),
   week: z.array(WeekRowSchema.strict()).max(WEEK_ROWS_MAX).optional(),
   share: z.string().max(SHARE_MAX).optional(),
+  /* Of the list (labels.ts), where a flyer's own are held to a slug's shape alone (FlyerDataSchema): a brief is
+     written now, by a hand or by the model, and both choose from the list as it stands. So the model cannot invent
+     one, and an example file that names a label taken off the list stops `npm run gen` until it is put right. */
+  labels: z.array(z.enum(LABEL_SLUGS as [string, ...string[]])).max(LABELS_MAX).optional(),
 });
 export type Brief = z.infer<typeof BriefSchema>;
 
@@ -157,9 +161,10 @@ export type AiFlyerRequest = z.infer<typeof AiFlyerRequestSchema>;
 
 /** What the model answers: generated into schema/ai.json, and what each provider's structured output is held to.
     The share text is required here, where a brief written by hand may go without: one generation is a whole flyer,
-    and a provider that takes optional keys as they are (Anthropic) otherwise leaves it out (seen 2026-10-04). */
+    and a provider that takes optional keys as they are (Anthropic) otherwise leaves it out (seen 2026-10-04). The
+    labels are required for the same reason (2026-10-14): an empty list when none fits. */
 export const AiFlyerAnswerSchema = z.strictObject({
-  brief: BriefSchema.required({ share: true }),
+  brief: BriefSchema.required({ share: true, labels: true }),
   assumptions: z.array(AiAssumptionSchema).max(AI_ASSUMPTIONS_MAX),
 });
 export type AiFlyerAnswer = z.infer<typeof AiFlyerAnswerSchema>;

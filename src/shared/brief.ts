@@ -1,5 +1,6 @@
 import { newFlyerData, weekTitle } from './defaults.js';
 import { printedExtras } from './extras.js';
+import { tidyLabels } from './labels.js';
 import { libraryName } from './names.js';
 import type { Brief, ChipKey, FlyerInput, FlyerText } from './schema.js';
 import { isPrintable } from './week.js';
@@ -26,6 +27,8 @@ export function flyerFromBrief(brief: Brief, hostelName: string | null, now = ne
     extras: printedExtras(brief.extras ?? []),
     week: (brief.week ?? []).filter(isPrintable),
     share: said(brief.share),
+    // As a save would store them: in the list's order, once each.
+    labels: tidyLabels(brief.labels ?? []),
   };
   return {
     title: brief.title?.trim() || libraryName(data, hostelName, now),

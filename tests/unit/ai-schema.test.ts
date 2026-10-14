@@ -18,6 +18,7 @@ import {
   ChipSchema,
   FlyerDataSchema,
 } from '../../src/shared/schema.js';
+import { FLYER_LABELS, LABELS_MAX, LABEL_SLUGS } from '../../src/shared/labels.js';
 import { SHARE_MAX } from '../../src/shared/share.js';
 import { WEEK_ROWS_MAX } from '../../src/shared/week.js';
 
@@ -43,7 +44,7 @@ describe('AiFlyerRequestSchema', () => {
 
 describe('AiFlyerAnswerSchema (what the model fills)', () => {
   /** A brief as the model must answer it: with the flyer's share text. */
-  const answered = { ...brief, share: 'Yoga a las 9\n---\nYoga at 9' };
+  const answered = { ...brief, share: 'Yoga a las 9\n---\nYoga at 9', labels: [] as string[] };
 
   it('is a brief plus the assumptions it made', () => {
     const answer = { brief: { ...answered, text: { headline1: 'Yoga' } }, assumptions: [{ field: 'cost', note: 'Ask at reception' }] };
@@ -57,6 +58,25 @@ describe('AiFlyerAnswerSchema (what the model fills)', () => {
     expect(ok(AiFlyerResultSchema, { brief: answered, assumptions: [], remaining: 2 })).toBe(true);
     // A brief written by hand (an example file's, one flyers:post saves) may still go without one.
     expect(ok(BriefSchema, brief)).toBe(true);
+  });
+
+  it('always carries the labels, an empty list when none fits; a brief written by hand may go without', () => {
+    const { labels: _, ...unlabelled } = answered;
+    expect(ok(AiFlyerAnswerSchema, { brief: unlabelled, assumptions: [] })).toBe(false);
+    expect(ok(AiFlyerResultSchema, { brief: unlabelled, assumptions: [], remaining: 2 })).toBe(false);
+    expect(ok(AiFlyerAnswerSchema, { brief: { ...answered, labels: LABEL_SLUGS.slice(0, 3) }, assumptions: [] })).toBe(true);
+    expect(ok(BriefSchema, unlabelled)).toBe(true);
+  });
+
+  it('a brief’s labels are of the list, and a flyer’s room of them at most: the model cannot invent one', () => {
+    expect(ok(BriefSchema, { ...brief, labels: [] })).toBe(true);
+    expect(ok(BriefSchema, { ...brief, labels: LABEL_SLUGS.slice(0, LABELS_MAX) })).toBe(true);
+    expect(ok(BriefSchema, { ...brief, labels: ['karaoke'] }), 'a slug by its shape, and not on the list').toBe(false);
+    expect(ok(BriefSchema, { ...brief, labels: [FLYER_LABELS[0].name] }), 'its name is not its slug').toBe(false);
+    expect(ok(BriefSchema, { ...brief, labels: LABEL_SLUGS.slice(0, LABELS_MAX + 1) })).toBe(false);
+    expect(ok(BriefSchema, { ...brief, labels: LABEL_SLUGS[0] })).toBe(false);
+    // A flyer's own are held to a slug's shape alone (FlyerDataSchema): one taken off the list later still opens.
+    expect(ok(FlyerDataSchema, { ...newFlyerData(), labels: ['karaoke'] })).toBe(true);
   });
 
   it('refuses a missing assumptions list, a long note, and extra keys anywhere', () => {

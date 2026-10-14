@@ -4,7 +4,7 @@ import { pathToFileURL } from 'node:url';
 import { z } from 'zod';
 import { AI_SHARED } from '../src/shared/ai.js';
 import { API_ERRORS } from '../src/shared/errors.js';
-import { LABELS_SHARED } from '../src/shared/labels.js';
+import { FLYER_LABELS, LABELS_SHARED } from '../src/shared/labels.js';
 import {
   ACCEPTED_PHOTO_TYPES,
   EXPORT_JPEG_QUALITY,
@@ -91,11 +91,20 @@ function limitLines(schema: JsonSchema, path = ''): string[] {
   return lines;
 }
 
-/** A prompt file with the limits of the answer it asks for appended, so a rule and its number have one home each. */
-function prompt(text: string, answer: JsonSchema): string {
+/** A prompt file with the limits of the answer it asks for appended, so a rule and its number have one home each.
+    `sections` come between the rules and the limits. */
+function prompt(text: string, answer: JsonSchema, ...sections: string[][]): string {
   const limits = ['## Limits', 'Characters are counted one by one, an emoji included; the app refuses a longer field.', ...limitLines(answer)];
-  return `${text.replace(/\r\n/g, '\n').trim()}\n\n${limits.join('\n')}\n`;
+  return `${text.replace(/\r\n/g, '\n').trim()}\n\n${[...sections, limits].map((lines) => lines.join('\n')).join('\n\n')}\n`;
 }
+
+/** The labels a flyer's brief picks from, one a line with its name and what says a flyer is of that kind: the list
+    has one home (labels.ts), and the flyer's rules name the list, never a label of it. */
+const labelLines = (): string[] => [
+  '## The labels',
+  '`labels` holds slugs from this list and no other, in any order:',
+  ...FLYER_LABELS.map((label) => `- ${label.slug}: ${label.name}${label.hint ? ` (${label.hint})` : ''}`),
+];
 
 /** Each example file as a few-shot turn: the staff text, and the answer the model should have given, its `asked`
     questions turned into the assumptions it would list instead of asking (`field` + the answer as the note). */
@@ -175,7 +184,7 @@ export function generate(read: (rel: string) => string = (rel) => readFileSync(j
     // examples, and the answer and request schemas, inline (PHP's validator takes no $ref).
     'schema/ai.json': json({
       prompts: {
-        flyer: prompt(read(PROMPT_FILES.flyer), def(AiFlyerAnswerSchema, 'input')),
+        flyer: prompt(read(PROMPT_FILES.flyer), def(AiFlyerAnswerSchema, 'input'), labelLines()),
         share: prompt(read(PROMPT_FILES.share), def(AiShareAnswerSchema, 'input')),
         photo: prompt(read(PROMPT_FILES.photo), def(AiPhotoAnswerSchema, 'input')),
       },

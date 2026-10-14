@@ -297,6 +297,31 @@ final class AiServiceTest extends TestCase
         self::assertStringContainsString('share', $this->log());
     }
 
+    public function testAFlyerTheModelLeftWithoutItsLabelsOrWithOneOffTheListIsAiFailedAndChargesNothing(): void
+    {
+        $unlabelled = Json::decode(Json::encode($this->example->answer->brief));
+        unset($unlabelled->labels);
+        $madeUp = Json::decode(Json::encode($this->example->answer->brief));
+        $madeUp->labels = ['a-label-the-model-made-up'];
+        foreach ([$unlabelled, $madeUp] as $brief) {
+            $raw = Json::encode((object) ['brief' => $brief, 'assumptions' => []]);
+            $service = $this->service(['provider' => $this->answering($raw)]);
+            $this->failsWith(fn () => $service->flyer($this->actor, $this->idea()), 'ai_failed');
+            // The ledger is one for both tries: the last record is this one's.
+            $record = $this->usage->records[array_key_last($this->usage->records)];
+            self::assertSame([false, 'flyer', $raw], [$record['ok'], $record['feature'], $record['output']]);
+            self::assertSame($this->on(), $service->status($this->actor));
+            self::assertStringContainsString('labels', $this->log());
+        }
+    }
+
+    public function testTheLabelsTheModelChoseAreAnsweredAsItChoseThem(): void
+    {
+        $result = $this->service()->flyer($this->actor, $this->idea());
+        self::assertSame($this->example->answer->brief->labels, $result['brief']->labels);
+        self::assertNotSame([], $result['brief']->labels, 'the first example carries a label, so this proves something');
+    }
+
     public function testAnAnswerThatFailsTheSchemaIsAiFailedRecordedAndChargesNothing(): void
     {
         $service = $this->service();

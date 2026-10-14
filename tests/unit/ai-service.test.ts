@@ -258,6 +258,24 @@ describe('the AI service', () => {
     expect(await service.status(actor)).toEqual(on());
   });
 
+  it('answers ai_failed for a flyer the model left without its labels, or with one that is not on the list, and charges nothing', async () => {
+    const { labels: _, ...unlabelled } = example.answer.brief;
+    for (const brief of [unlabelled, { ...example.answer.brief, labels: ['a-label-the-model-made-up'] }]) {
+      const json = { brief, assumptions: [] };
+      const { service, usage } = make({ provider: answering(json) });
+      await failsWith(service.flyer(actor, idea()), 'ai_failed');
+      expect(usage.records[0]).toMatchObject({ ok: false, feature: 'flyer', output: JSON.stringify(json) });
+      expect(await service.status(actor)).toEqual(on());
+    }
+  });
+
+  it('answers the labels the model chose, as it chose them', async () => {
+    const { service } = make();
+    const result = await service.flyer(actor, idea());
+    expect(result.brief.labels).toEqual(example.answer.brief.labels);
+    expect(result.brief.labels.length, 'the first example carries a label, so this proves something').toBeGreaterThan(0);
+  });
+
   it('answers ai_failed for an answer that fails the schema, records it, and charges nothing', async () => {
     const { service, usage } = make();
     await failsWith(service.flyer(actor, idea('[[fake:invalid]]')), 'ai_failed');

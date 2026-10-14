@@ -273,11 +273,13 @@
       },
       {
         "slug": "excursions",
-        "name": "Excursions"
+        "name": "Excursions",
+        "hint": "a trip out of the hostel"
       },
       {
         "slug": "tenerife-tours",
-        "name": "Tenerife Tours"
+        "name": "Tenerife Tours",
+        "hint": "the organiser Tenerife Tours, only where the text or the picture names it"
       },
       {
         "slug": "shows",
@@ -305,7 +307,8 @@
       },
       {
         "slug": "whats-on",
-        "name": "What’s on"
+        "name": "What’s on",
+        "hint": "what is on in the city: concerts, festivals and other events that are not the hostel’s own"
       }
     ],
     "max": 8,

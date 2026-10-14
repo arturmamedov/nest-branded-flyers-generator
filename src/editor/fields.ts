@@ -53,6 +53,7 @@ const BRIEF_FIELDS: ReadonlyMap<string, string> = new Map([
   ['extras', FIELD.extras],
   ['week', FIELD.weekRows],
   ['share', FIELD.share],
+  ['labels', FIELD.labels],
   ['text.eyebrow', FIELD.eyebrow],
   ['text.headline1', under(FIELD.headline, FIELD.line1)],
   ['text.headline2', under(FIELD.headline, FIELD.line2)],
