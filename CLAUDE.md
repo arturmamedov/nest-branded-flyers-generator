@@ -892,8 +892,8 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
   round** (brief `docs/prompts/editor-ux.md`; the report is `docs/reports/editor-ux.md`, one section per part,
   and a last one for those three). Designed with Artur on 2026-10-07: his
   answers are quoted in the brief and the report, and are not to be reopened. Parts 1 and 2 are in `main`, on
-  origin. Parts 3 and 4 are on `feat/editor-ux-part-3`, not pushed. Left, his: the release, the live site, and a
-  phone trial of Part 3 over https.
+  origin. Parts 3 and 4 were on `feat/editor-ux-part-3`; they are in `main` and on origin since 2026-10-14. Left,
+  his: the release, the live site, and a phone trial of Part 3 over https.
   - **Part 1 is built: the toasts, and the AI caption that saves itself** (2026-10-07, five commits on top of
     `497186c` and their record). Artur approved the plan with every *Mine* point kept. Nothing is pushed.
     - The toasts: the architecture section above says how they work.
@@ -1018,8 +1018,8 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
   - The round is over: there is no next part and no next prompt.
 - Built: **the library's views, a lightbox, and the ways out on every flyer** (2026-10-13, branch
   `feat/library-views`, cut from `feat/main-flyer-library` at `fcfaf06`; brief
-  `docs/prompts/library-views-lightbox-actions.md`, report `docs/reports/library-views.md`). Three commits, not
-  pushed; `main` has neither this nor the reception flyer.
+  `docs/prompts/library-views-lightbox-actions.md`, report `docs/reports/library-views.md`). Three commits; in `main`
+  and on origin since 2026-10-14, with the reception flyer.
   - How it works is in the architecture section above ("The library is a list or a grid…").
   - Artur approved the plan with every *Mine* point kept, then chose from mock-ups drawn by the real library: the
     **magnifier**; **"Ways out only, rest in a menu"** (Duplicate and Archive behind More, over my advice to keep
@@ -1043,8 +1043,7 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
   - Left, his: the release (nothing new on the host), and a phone trial over https, as for Part 3.
 - Built: **labels on every flyer, a filter by label in the library, and the AI sets them** (2026-10-14, branch
   `feat/flyer-labels`, cut from `feat/library-views` at `16e1527`; brief `docs/prompts/flyer-types-filter.md`, report
-  `docs/reports/flyer-labels.md`). Fourteen commits and their record, not pushed; `main` has neither this nor the
-  library's views.
+  `docs/reports/flyer-labels.md`). Fourteen commits and their record; in `main` and on origin since 2026-10-14.
   - How it works is in the architecture section above ("A flyer carries labels").
   - Artur's answers are in the report's table, and are not to be reopened: several on a flyer, from a fixed list;
     the word "Labels"; up to 8; a new flyer has none; a label off the list stays stored and hidden; no setting from
@@ -1099,7 +1098,16 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
 - Built, stages 1 to 4 of 7: **looks, the seam for more than one flyer design** (2026-10-14, branch `feat/looks`,
   cut from `feat/flyer-labels` at `a55589d`; the design `docs/prompts/looks-seam.md`, designed with Artur on
   2026-10-13; the report `docs/reports/looks.md`, one section per session). Stages 1 and 2: eleven commits,
-  `c1d7e29..4139d14`. Stages 3 and 4: five, `9a665cc..11773dc`, and their record. Nothing is pushed.
+  `c1d7e29..4139d14`. Stages 3 and 4: five, `9a665cc..11773dc`, and their record.
+  - **`main` is fast-forwarded to `feat/looks` and pushed to origin** (2026-10-14, Artur's word, so Claude Design can
+    read the repo): Parts 3 and 4 of the UX round, the reception flyer, the library's views, labels and looks stages 1
+    to 4, and the prompts in `docs/prompts/` that were untracked, his two among them. The feature branches stay
+    unpushed. No release was built: the host still runs what it ran.
+  - **His brief to Claude Design for the real second look** is `docs/prompts/claude-design-brief.md`, brought up to
+    date that day: the word "look", the `Look` interface as the hand-back's shape, the repo's paths, a box's own top
+    and height per canvas within `tests/geometry.ts`'s checks, PNG art only, 4.5:1, orange left open (his answer).
+    The real look is ported after stage 7, from Claude Design's handoff folder, by `docs/adding-a-look.md`: stages 5
+    to 7 do not wait for it.
   - How it works is in the architecture section above ("A flyer prints in a look").
   - Artur's answers are in the design and the report, and are not to be reopened: among those of 2026-10-14, a look
     may give a box its own top and height, the photo's too (he struck "move only"), and M2 to M6 kept.

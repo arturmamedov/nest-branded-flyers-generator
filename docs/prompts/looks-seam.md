@@ -148,8 +148,9 @@ Each point that was mine was asked by itself, keep or strike.
   library-views work has landed, or in its own worktree".
 
 For Artur, later: the contrast numbers and orange for the new look, when its design is on the table (his brief to
-Claude Design asks for 4.5:1 and does not mention orange). That brief also says "do not move, resize": it is his
-file, and a look may now do both. When the real look is in: name it in the Laragon copy's `config.php` first, then
+Claude Design asks for 4.5:1 and does not mention orange: on 2026-10-14 he left orange open there). That brief said
+"do not move, resize"; on 2026-10-14, at his ask, it was brought up to date with this design (a box's own top and
+height per canvas, the `Look` interface as its hand-back, the repo's paths). When the real look is in: name it in the Laragon copy's `config.php` first, then
 in live's.
 
 ## The shape
