@@ -165,6 +165,7 @@ nest-nav > nav a.ai-entry .ai-count {
 
 .btn:focus-visible,
 .seg button:focus-visible,
+.label-picker button:focus-visible,
 .field input:focus-visible,
 .field select:focus-visible,
 .field textarea:focus-visible {
@@ -641,6 +642,37 @@ nest-nav > nav a.ai-entry .ai-count {
 
 .seg-dark {
   background: rgba(255, 255, 255, 0.06);
+}
+
+/* A flyer's labels in the editor: a button a label, any number pressed, wrapping in the form's width (the flyers'
+   labels, 2026-10-14). Not a .seg: that is one choice of a few, in one pill. */
+.label-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.label-picker button {
+  font: inherit;
+  font-weight: 600;
+  font-size: 12.5px;
+  padding: 7px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.label-picker button.on {
+  background: var(--teal);
+  border-color: var(--teal);
+  color: #fff;
+}
+
+.label-picker button:disabled {
+  opacity: 0.5;
+  cursor: default;
 }
 
 .seg-dark button {

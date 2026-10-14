@@ -15,6 +15,7 @@ import {
 } from '../../src/editor/sectionFolds.js';
 import { lintFlyer } from '../../src/shared/copyRules.js';
 import { newFlyerData } from '../../src/shared/defaults.js';
+import { FLYER_LABELS } from '../../src/shared/labels.js';
 import type { FlyerData } from '../../src/shared/schema.js';
 
 /* Which of the editor's sections are open (src/editor/sectionFolds.ts; the editor's UX round, Part 2). A new flyer
@@ -145,9 +146,14 @@ describe('a closed section’s line', () => {
   const line = (id: SectionId, data: FlyerData, facts: { hostelName?: string | null; hasPhoto?: boolean } = {}) =>
     sectionLine(id, { data, hostelName: facts.hostelName ?? null, hasPhoto: facts.hasPhoto ?? false });
 
-  it('Flyer: the template and the hostel', () => {
+  it('Flyer: the template, the hostel, and its labels by their names', () => {
     expect(line('flyer', pool, { hostelName: 'Duque Nest' })).toBe('Activity · Duque Nest');
     expect(line('flyer', week())).toBe('This week · All hostels');
+    // The listed ones, in the list's order, whatever order they are stored in; one off the list is on no screen.
+    const [first, second] = FLYER_LABELS;
+    expect(line('flyer', { ...pool, labels: [second.slug, 'a-label-taken-off-the-list', first.slug] }, { hostelName: 'Duque Nest' })).toBe(`Activity · Duque Nest · ${first.name}, ${second.name}`);
+    expect(line('flyer', { ...week(), labels: [first.slug] })).toBe(`This week · All hostels · ${first.name}`);
+    expect(line('flyer', { ...pool, labels: ['a-label-taken-off-the-list'] })).toBe('Activity · All hostels');
   });
 
   it('Headline: its two lines as one', () => {

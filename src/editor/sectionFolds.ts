@@ -1,4 +1,5 @@
 import { deriveChips } from '../shared/chips';
+import { labelNames } from '../shared/labels';
 import type { FlyerData, Template } from '../shared/schema';
 import { isPrintable } from '../shared/week';
 import { PHOTO_MODE_LABEL } from './photoModes';
@@ -97,7 +98,8 @@ export function sectionLine(id: SectionId, { data, hostelName, hasPhoto }: { dat
   const t = data.text;
   switch (id) {
     case 'flyer':
-      return dotted([TEMPLATE_LABEL[data.template], hostelName ?? 'All hostels']);
+      // Its labels by their names, as the picker shows them: the listed ones, in the list's order.
+      return dotted([TEMPLATE_LABEL[data.template], hostelName ?? 'All hostels', labelNames(data.labels).join(', ')]);
     case 'headline':
       // The headline's own lines: the eyebrow above them is a field of the section, and no part of its line. With no
       // English line, the Spanish one is what the section holds.

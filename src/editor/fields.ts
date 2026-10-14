@@ -15,6 +15,7 @@ export const FIELD = {
   template: 'Template',
   hostel: 'Hostel',
   title: 'Library name',
+  labels: 'Labels',
   headline: 'Headline',
   weekTitle: 'Title',
   line1: 'Line 1',

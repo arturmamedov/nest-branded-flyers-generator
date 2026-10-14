@@ -1,6 +1,7 @@
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { CHIP_VALUE_MAX, deriveChip, splitBigSub } from '../shared/chips';
 import { EXTRA_MAX, EXTRAS_MAX } from '../shared/extras';
+import { FLYER_LABELS, LABELS_MAX, tidyLabels, toggleLabel } from '../shared/labels';
 import { ACCEPTED_PHOTO_TYPES } from '../shared/limits';
 import { lintFlyer } from '../shared/copyRules';
 import { followHostel, marksFor, newFlyerData, switchTemplate, weekTitle, withPhoto } from '../shared/defaults';
@@ -175,8 +176,11 @@ export function Editor({
     if (id == null) return;
     api.flyer(id).then(
       (p) => {
-        // The record's template wins over data.template, as it does on every write (normalize.ts).
-        const d: Draft = { title: p.flyer.title, hostel: p.flyer.hostel, data: { ...p.flyer.data, template: p.flyer.template }, photo: p.photo };
+        // The record's template wins over data.template, as it does on every write (normalize.ts). The labels are
+        // put in the list's order the same way, before the saved copy is taken below: a list that changed its order
+        // since the flyer was saved must not make one press and its undo read "Unsaved changes".
+        const data = { ...p.flyer.data, template: p.flyer.template, labels: tidyLabels(p.flyer.data.labels) };
+        const d: Draft = { title: p.flyer.title, hostel: p.flyer.hostel, data, photo: p.photo };
         setDraft(d);
         setCaptionOf(captionDetails(d));
         setSavedJson(JSON.stringify(toInput(d, hostels)));
@@ -228,6 +232,8 @@ export function Editor({
   const chooseHostel = (slug: string | null) =>
     setDraft((d) => (d ? { ...d, hostel: slug, data: followHostel(d.data, nameOf(d.hostel), nameOf(slug)) } : d));
   const updateWeek = (fn: (rows: WeekRow[]) => WeekRow[]) => setDraft((d) => (d ? { ...d, data: { ...d.data, week: fn(d.data.week) } } : d));
+  // A label on, or off: saved in the list's order, so pressed and pressed again is the flyer as it was (labels.ts).
+  const pressLabel = (slug: string) => setDraft((d) => (d ? { ...d, data: { ...d.data, labels: toggleLabel(d.data.labels, slug) } } : d));
 
   const week = draft.data.template === 'week';
   // The AI wrote this flyer and the staff member has not saved it yet: every fact is still the model's.
@@ -444,6 +450,23 @@ export function Editor({
             <Field label={FIELD.title} help="Only for finding it again — not printed">
               <input value={draft.title} placeholder={autoTitle({ ...draft, title: '' }, hostels)} maxLength={TITLE_MAX} onChange={(e) => set({ title: e.target.value })} />
             </Field>
+            {/* What kind of flyer it is, for the library's filter (the flyers' labels, 2026-10-14): a button a label,
+                pressed for the ones it carries. A group of buttons, so no <label> wraps it: a press on the word would
+                press the first one. With the flyer's room taken, the ones not pressed wait greyed. */}
+            <div className="field">
+              <span className="label">{FIELD.labels}</span>
+              <div className="label-picker" role="group" aria-label={FIELD.labels}>
+                {FLYER_LABELS.map(({ slug, name }) => {
+                  const on = draft.data.labels.includes(slug);
+                  return (
+                    <button key={slug} type="button" className={on ? 'on' : ''} aria-pressed={on} disabled={!on && draft.data.labels.length >= LABELS_MAX} onClick={() => pressLabel(slug)}>
+                      {name}
+                    </button>
+                  );
+                })}
+              </div>
+              <span className="help">For the library’s filter — not printed</span>
+            </div>
           </Section>
 
           {/* A week flyer's title is the headline's lines: one set, kept across a switch (the owner's call, 2026-09-29). */}
