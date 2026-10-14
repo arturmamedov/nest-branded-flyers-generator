@@ -81,6 +81,8 @@ test.describe('the filter by label', () => {
 
   test('it offers every flyer, the ones with no label, then each label by its name', async ({ page }) => {
     await page.goto('/');
+    // evaluateAll reads what is there at once: it waits for nothing, and once read no options while the page was drawing.
+    await expect(labelFilter(page).locator('option')).toHaveCount(LABEL_FILTER_OPTIONS.length);
     expect(await labelFilter(page).locator('option').evaluateAll((options) => options.map((o) => ({ value: (o as HTMLOptionElement).value, text: o.textContent })))).toEqual(LABEL_FILTER_OPTIONS);
   });
 
