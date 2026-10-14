@@ -473,6 +473,23 @@ final class BootstrapTest extends TestCase
         self::assertSame('hand-drawn', $this->ok($app->handle(self::request('PUT', "/api/flyers/$id", $input)))->flyer->data->look ?? null);
     }
 
+    public function testApiConfigListsTheLooksConfigPhpNamesAndWithoutThemTheFirstAlone(): void
+    {
+        $ids = Shared::fromFile(Paths::schema('shared.json'))->looks()['ids'];
+        self::assertSame([$ids[0]], $this->ok($this->app()->handle(self::request('GET', '/api/config')))->looks);
+        $named = Bootstrap::fromAppRoot($this->appRoot, $this->config() + ['looks' => $ids]);
+        self::assertSame($ids, $this->ok($named->handle(self::request('GET', '/api/config')))->looks);
+    }
+
+    public function testALookThisReleaseDoesNotHaveInConfigPhpIs503AndTheLogNamesTheSettingNotTheValue(): void
+    {
+        // Refused like any bad setting (M3): the whole file, 503 until it is fixed, and the log says why.
+        $app = Bootstrap::fromAppRoot($this->appRoot, $this->config() + ['looks' => ['hand-drawn', 'a-later-look']]);
+        $this->assertError($app->handle(self::request('GET', '/api/config')), 503, 'not_configured');
+        self::assertStringContainsString('looks must be null or a list of: hand-drawn', $this->log());
+        self::assertStringNotContainsString('a-later-look', $this->log());
+    }
+
     public function testTheLibraryOutlivesTheRequest(): void
     {
         $id = $this->ok($this->app()->handle(self::request('POST', '/api/flyers', $this->input())), 201)->id;
@@ -542,8 +559,8 @@ final class BootstrapTest extends TestCase
 
     protected function assertPostConditions(): void
     {
-        // The two tests whose point is a line in the log check it themselves.
-        if (!in_array($this->name(), ['testAnInvalidConfigIs503AndSaysWhyInTheLog', 'testALedgerFileThatCannotBeReadHidesTheAiAndLeavesTheAppUp'], true)) {
+        // The tests whose point is a line in the log check it themselves.
+        if (!in_array($this->name(), ['testAnInvalidConfigIs503AndSaysWhyInTheLog', 'testALedgerFileThatCannotBeReadHidesTheAiAndLeavesTheAppUp', 'testALookThisReleaseDoesNotHaveInConfigPhpIs503AndTheLogNamesTheSettingNotTheValue'], true)) {
             self::assertSame('', $this->log(), 'nothing was logged');
         }
     }

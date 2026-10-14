@@ -28,7 +28,7 @@ if (!config.isProd) {
   });
 }
 
-const app = createApp({ repos, storage: config.storage, uploadsDir: data.uploads, renderer, vite, buildId: computeBuildId(config.isProd), ai, aiPictures });
+const app = createApp({ repos, storage: config.storage, uploadsDir: data.uploads, renderer, vite, buildId: computeBuildId(config.isProd), ai, aiPictures, looks: config.looks });
 httpServer.on('request', app);
 
 httpServer.listen(config.port, config.host, () => {

@@ -9,6 +9,7 @@ import { formatMb } from '../src/shared/errors.js';
 import { flyerFilename } from '../src/shared/filename.js';
 import { isCanvasId } from '../src/shared/layout.js';
 import { MAX_PHOTO_EDGE, MAX_UPLOAD_BYTES } from '../src/shared/limits.js';
+import { FIRST_LOOK } from '../src/shared/looks.js';
 import { normalizeFlyerInput } from '../src/shared/normalize.js';
 import {
   FlyerInputSchema,
@@ -53,6 +54,9 @@ export interface AppDeps {
   aiPictures?: Pick<AiPictures, 'sweep'>;
   /** What "today" is for that; the system's unless a test hands one in. */
   clock?: Clock;
+  /** The looks this site offers, as the LOOKS setting named them (server/config.ts checked them); absent, as in most
+      tests, the first look alone. */
+  looks?: readonly string[];
 }
 
 const idParam = (req: Request) => {
@@ -104,6 +108,8 @@ export function createApp(deps: AppDeps) {
       server: { node: process.version },
       // The AI assistant for this actor (docs/prompts/ai-assistant.md): nothing beyond `enabled: false` when off.
       ai: deps.ai ? await deps.ai.status(actors.resolve(req)) : { enabled: false },
+      // The looks staff may pick, the site's first a new flyer's (the LOOKS setting).
+      looks: [...(deps.looks ?? [FIRST_LOOK])],
     };
     res.json(config);
   });

@@ -184,7 +184,7 @@ describe('api/config’s ai block', () => {
   });
 
   it('is part of ApiConfigSchema', () => {
-    const config = { backend: 'node', storage: 'sqlite', exporters: ['client'], limits: { maxUploadBytes: 1, maxPhotoEdge: 1 }, server: {} };
+    const config = { backend: 'node', storage: 'sqlite', exporters: ['client'], limits: { maxUploadBytes: 1, maxPhotoEdge: 1 }, server: {}, looks: ['hand-drawn'] };
     expect(ok(ApiConfigSchema, config)).toBe(false);
     expect(ok(ApiConfigSchema, { ...config, ai: { enabled: false } })).toBe(true);
   });

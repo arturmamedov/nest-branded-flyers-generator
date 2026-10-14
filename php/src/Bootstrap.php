@@ -186,6 +186,7 @@ final class Bootstrap
                 $shared,
                 $limits,
                 new HostFacts($shared, $limits, $processor, $config->access, $this->appRoot, $config->dataDir, $uploadsDir),
+                $config->looks,
             ),
             $photoService,
             $ai,

@@ -337,6 +337,10 @@ export const ApiConfigSchema = z.strictObject({
   }),
   server: z.record(z.string(), z.unknown()),
   ai: AiConfigSchema,
+  /** The looks this site's staff may pick (LOOKS, config.php's 'looks'), in the site's order: a new flyer starts in the
+      first. Never what a save accepts: that is FlyerDataSchema's, held to the registry (M2). The editor reads it
+      loosely (siteLooks in looks.ts): a backend from before looks answers none. */
+  looks: z.array(z.string().min(1)).min(1),
 });
 export type ApiConfig = z.infer<typeof ApiConfigSchema>;
 

@@ -72,6 +72,8 @@ final class ApiTest extends TestCase
     private ?Closure $processor = null;
     /** @var (Closure(): ?AiService)|null the AI the routes get; null: off, as with no `ai` block */
     private ?Closure $ai = null;
+    /** @var list<string>|null the site's looks, as Config hands them over; null: config.php names none */
+    private ?array $looks = null;
     private ActorResolver $actors;
     private MemoryAiUsage $usage;
     /** The app root, data and uploads folders HostFacts looks at: empty, so the release check reports no manifest. */
@@ -278,10 +280,19 @@ final class ApiTest extends TestCase
         self::assertEquals((object) ['path' => $this->root . '/data', 'writable' => true], $config->server->dataDir);
         self::assertEquals((object) ['manifest' => 'missing'], $config->server->release);
         self::assertSame('allowPublic', $config->server->accessRule);
+        // A site that names no look (config.php's 'looks') offers the first alone.
+        self::assertSame([$this->shared->looks()['ids'][0]], $config->looks);
         if (extension_loaded('gd')) {
             self::assertContains('jpeg', $config->server->formats);
             self::assertContains('png', $config->server->formats);
         }
+    }
+
+    public function testConfigListsTheSitesLooksInTheSitesOrder(): void
+    {
+        // As Config hands them over (SiteLooks): the first is what a new flyer starts in.
+        $this->looks = ['second', 'hand-drawn'];
+        self::assertSame(['second', 'hand-drawn'], Json::decode($this->kernel()->handle(self::request('GET', 'api/config'))->body)->looks);
     }
 
     public function testConfigStillAnswersWithoutAnImageLibrary(): void
@@ -422,7 +433,7 @@ final class ApiTest extends TestCase
                 $this->root,
                 $this->folder('data'),
                 $this->folder('uploads'),
-            )),
+            ), $this->looks ?? array_slice($this->shared->looks()['ids'], 0, 1)),
             static fn () => throw new LogicException('photo service built'),
             $this->ai ?? static fn (): ?AiService => null,
             $this->actors,
