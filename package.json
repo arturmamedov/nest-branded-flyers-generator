@@ -31,6 +31,7 @@
     "deploy:tag": "tsx scripts/php/tag-release.ts",
     "deploy:update": "tsx scripts/php/update-deploy.ts",
     "flyers:post": "tsx scripts/flyers/post.ts",
+    "flyers:labels": "tsx scripts/flyers/labels.ts",
     "ai:smoke": "tsx scripts/ai/smoke.ts"
   },
   "dependencies": {
