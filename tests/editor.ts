@@ -275,10 +275,14 @@ export async function cardMore(card: Locator, entry: 'Open' | 'Duplicate' | 'Arc
   await card.getByRole('menuitem', { name: entry, exact: true }).click();
 }
 
-/** Sets one of the library's filters and waits until the list for exactly that query is on screen. The library's
-    selects are named by their <label>, with no aria-label, so the name is matched loosely. */
-export async function filterLibrary(page: Page, filter: 'Hostel' | 'Template', option: { value: string } | { label: string }, search: string) {
-  const [res] = await Promise.all([page.waitForResponse(apiCall('GET', 'flyers', search)), page.getByLabel(filter).selectOption(option)]);
+/** One of the library's filters, by the word in its <label>, exactly: "Label" is also part of other names on the
+    page (a zoom button is named by its flyer's title), so the select is not looked for by a loose name. */
+export const libraryFilter = (page: Page, filter: 'Hostel' | 'Template' | 'Label') =>
+  page.locator('.library-filters label.filter').filter({ has: page.locator('span', { hasText: exactly(filter) }) }).locator('select');
+
+/** Sets one of the library's filters and waits until the list for exactly that query is on screen. */
+export async function filterLibrary(page: Page, filter: 'Hostel' | 'Template' | 'Label', option: { value: string } | { label: string }, search: string) {
+  const [res] = await Promise.all([page.waitForResponse(apiCall('GET', 'flyers', search)), libraryFilter(page, filter).selectOption(option)]);
   expect(res.status(), `GET api/flyers${search}`).toBe(200);
   await expect(page.getByText('Loading…', { exact: true })).toHaveCount(0);
 }

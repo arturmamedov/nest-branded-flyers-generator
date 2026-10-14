@@ -61,11 +61,12 @@ function photoForm(photo: Blob, name: string): FormData {
 export const api = {
   config: () => call<ApiConfig>('GET', 'config'),
   hostels: () => call<Hostel[]>('GET', 'hostels'),
-  /** An empty filter is left out of the query: `?hostel=` and `?template=` alone mean "all" too. */
-  flyers: ({ hostel, template }: { hostel?: string; template?: Template } = {}) => {
+  /** An empty filter is left out of the query: `?hostel=`, `?template=` and `?label=` alone mean "all" too. */
+  flyers: ({ hostel, template, label }: { hostel?: string; template?: Template; label?: string } = {}) => {
     const query = new URLSearchParams();
     if (hostel) query.set('hostel', hostel);
     if (template) query.set('template', template);
+    if (label) query.set('label', label);
     const search = query.toString();
     return call<FlyerListItem[]>('GET', 'flyers' + (search ? `?${search}` : ''));
   },

@@ -7,6 +7,7 @@ import { canCopyImage } from './clipboard';
 import type { FlyerExporter } from './export';
 import { NO_PHOTO, TOUCH_QUERY, exportActions, type ExportAction } from './exportActions';
 import { LibraryCard, lacksPhoto, type Busy, type CardAction, type Target } from './LibraryCard';
+import { LABEL_FILTER_OPTIONS, LABEL_PREF, labelFilterFrom } from './libraryLabel';
 import { LIBRARY_VIEWS, VIEW_LABEL, VIEW_PREF, viewFrom, type LibraryView } from './libraryView';
 import { Lightbox } from './Lightbox';
 import { useOneAction } from './oneAction';
@@ -53,6 +54,8 @@ function ViewIcon({ view }: { view: LibraryView }) {
 export function Library({ hostels, exporter }: { hostels: Hostel[]; exporter: FlyerExporter }) {
   const [filter, setFilter] = useState<string>(() => localStorageGet('library.hostel') ?? '');
   const [template, setTemplate] = useState<Template | ''>(savedTemplate);
+  // One label's flyers, the ones with none, or all (libraryLabel.ts): the server filters, as for the other two.
+  const [label, setLabel] = useState(() => labelFilterFrom(localStorageGet(LABEL_PREF)));
   // The flyers as a list or as a grid: how this viewer looks at them (libraryView.ts).
   const [view, setView] = useState<LibraryView>(() => viewFrom(localStorageGet(VIEW_PREF)));
   const [items, setItems] = useState<FlyerListItem[] | null>(null);
@@ -102,7 +105,7 @@ export function Library({ hostels, exporter }: { hostels: Hostel[]; exporter: Fl
   const latest = useRef(0);
   const load = () => {
     const n = ++latest.current;
-    return api.flyers({ hostel: filter || undefined, template: template || undefined }).then(
+    return api.flyers({ hostel: filter || undefined, template: template || undefined, label: label || undefined }).then(
       (list) => {
         if (n !== latest.current) return;
         setItems(list);
@@ -117,9 +120,10 @@ export function Library({ hostels, exporter }: { hostels: Hostel[]; exporter: Fl
   useEffect(() => {
     localStorageSet('library.hostel', filter);
     localStorageSet('library.template', template);
+    localStorageSet(LABEL_PREF, label);
     setItems(null);
     load();
-  }, [filter, template]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [filter, template, label]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const chooseView = (v: LibraryView) => {
     setView(v);
@@ -182,38 +186,55 @@ export function Library({ hostels, exporter }: { hostels: Hostel[]; exporter: Fl
     <>
       {/* Behind the lightbox the library keeps its place: it does not scroll (editor.css). */}
       <div className={'library' + (zoomed ? ' library-held' : '')} ref={scroller}>
+        {/* Two rows (the flyers' labels, 2026-10-14; the owner's picks from pictures): the name with how the flyers
+            are looked at, then what is looked for. On a phone the three filters are two to a row and their words
+            are not drawn (editor.css), so each one's first choice says what it is. */}
         <div className="library-head">
-          <h1>Flyer library</h1>
-          <label className="filter">
-            <span>Hostel</span>
-            <select value={filter} onChange={(e) => setFilter(e.target.value)}>
-              <option value="">All flyers</option>
-              <option value="none">Chain-wide only</option>
-              {hostels.map((h) => (
-                <option key={h.slug} value={h.slug}>
-                  {h.name}
-                </option>
+          <div className="library-top">
+            <h1>Flyer library</h1>
+            <div className="seg view-switch" role="group" aria-label="View">
+              {LIBRARY_VIEWS.map((v) => (
+                <button key={v} type="button" className={view === v ? 'on' : ''} aria-pressed={view === v} onClick={() => chooseView(v)}>
+                  <ViewIcon view={v} />
+                  {VIEW_LABEL[v]}
+                </button>
               ))}
-            </select>
-          </label>
-          <label className="filter">
-            <span>Template</span>
-            <select value={template} onChange={(e) => setTemplate(isTemplate(e.target.value) ? e.target.value : '')}>
-              <option value="">All templates</option>
-              {(Object.entries(TEMPLATE_LABEL) as [Template, string][]).map(([key, label]) => (
-                <option key={key} value={key}>
-                  {label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <div className="seg view-switch" role="group" aria-label="View">
-            {LIBRARY_VIEWS.map((v) => (
-              <button key={v} type="button" className={view === v ? 'on' : ''} aria-pressed={view === v} onClick={() => chooseView(v)}>
-                <ViewIcon view={v} />
-                {VIEW_LABEL[v]}
-              </button>
-            ))}
+            </div>
+          </div>
+          <div className="library-filters">
+            <label className="filter">
+              <span>Hostel</span>
+              <select value={filter} onChange={(e) => setFilter(e.target.value)}>
+                <option value="">All hostels</option>
+                <option value="none">Chain-wide only</option>
+                {hostels.map((h) => (
+                  <option key={h.slug} value={h.slug}>
+                    {h.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="filter">
+              <span>Template</span>
+              <select value={template} onChange={(e) => setTemplate(isTemplate(e.target.value) ? e.target.value : '')}>
+                <option value="">All templates</option>
+                {(Object.entries(TEMPLATE_LABEL) as [Template, string][]).map(([key, name]) => (
+                  <option key={key} value={key}>
+                    {name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="filter">
+              <span>Label</span>
+              <select value={label} onChange={(e) => setLabel(labelFilterFrom(e.target.value))}>
+                {LABEL_FILTER_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.text}
+                  </option>
+                ))}
+              </select>
+            </label>
           </div>
         </div>
         {error && <div className="banner banner-error">{error}</div>}

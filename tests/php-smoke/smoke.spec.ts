@@ -295,7 +295,7 @@ test('the editor on the PHP backend: create, photos, crop, reopen, library, down
     await filterLibrary(page, 'Hostel', { label: 'Chain-wide only' }, '?hostel=none');
     await expect(mine).toHaveCount(0);
     // Back to everything: the library remembers its filter, and the copy is looked for below.
-    await filterLibrary(page, 'Hostel', { label: 'All flyers' }, '');
+    await filterLibrary(page, 'Hostel', { label: 'All hostels' }, '');
     await expect(mine).toBeVisible();
 
     const original = await payload(request, id);

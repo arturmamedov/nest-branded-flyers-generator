@@ -1306,13 +1306,26 @@ nest-nav > nav a.ai-entry .ai-count {
   padding: 28px max(20px, calc((100% - 900px) / 2)) 60px;
 }
 
+/* Two rows: the name with List / Grid at its right, then the three filters. */
 .library-head {
   display: flex;
-  align-items: flex-end;
+  flex-direction: column;
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.library-top {
+  display: flex;
+  align-items: center;
   justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.library-filters {
+  display: flex;
   gap: 16px;
   flex-wrap: wrap;
-  margin-bottom: 18px;
 }
 
 .library h1 {
@@ -1434,6 +1447,26 @@ nest-nav > nav a.ai-entry .ai-count {
 .card-meta {
   color: var(--muted);
   font-size: 13px;
+}
+
+/* A flyer's labels, under its line: small pills, in the list's order (the owner's pick of two, 2026-10-14). They wrap
+   inside the card. */
+.card-labels {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 1px;
+}
+
+.card-label {
+  font-size: 11.5px;
+  font-weight: 600;
+  line-height: 1;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: #efeadc;
+  color: var(--ink);
+  white-space: nowrap;
 }
 
 /* What a frame with no photo reads, where the card's ways out are greyed. */
@@ -1839,6 +1872,29 @@ nest-nav > nav a.ai-entry .ai-count {
 
   .ai-steps li + li::before {
     width: 8px;
+  }
+
+  /* The library's three filters, two to a row (the owner's pick, 2026-10-14: "compact, two a row"), so the cards
+     start where they did with two. Their words are not drawn: each select's first choice says what it is ("All
+     hostels", "All templates", "All labels"), and the word is still its name for a screen reader. */
+  .library-filters {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .library-filters .filter > span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .library-filters .filter select {
+    width: 100%;
+    min-width: 0;
   }
 
   /* A phone's card: a smaller picture, so the title keeps most of the line. */

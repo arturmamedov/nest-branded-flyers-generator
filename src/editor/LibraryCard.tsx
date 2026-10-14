@@ -1,4 +1,5 @@
 import { useRef, type RefObject } from 'react';
+import { labelNames } from '../shared/labels';
 import { libraryDate } from '../shared/names';
 import type { CanvasId } from '../shared/layout';
 import type { FlyerListItem, FlyerPayload } from '../shared/schema';
@@ -79,6 +80,9 @@ export function LibraryCard({
   const mine = busy?.id === item.id ? busy.kind : null;
   const out = target && ways(target);
   const idle: Record<ExportAction, () => void> = { copy() {}, share() {}, png() {}, jpg() {} };
+  // From the list itself, so they are here with the card's name and its box never changes when its picture lands.
+  // Read loosely: a backend from before labels sends none.
+  const labels = labelNames(item.labels ?? []);
 
   return (
     <li ref={box} className="card" style={flyerSize()}>
@@ -91,6 +95,15 @@ export function LibraryCard({
             <span className="card-meta">
               {item.hostelName ?? 'All hostels'} · {TEMPLATE_LABEL[item.template]} · {when(item.updatedAt)}
             </span>
+            {labels.length > 0 && (
+              <span className="card-labels">
+                {labels.map((name) => (
+                  <span key={name} className="card-label">
+                    {name}
+                  </span>
+                ))}
+              </span>
+            )}
             {noPhoto && <span className="card-note">{NO_PHOTO}</span>}
           </span>
         </a>
