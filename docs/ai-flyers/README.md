@@ -23,11 +23,12 @@ The pieces, each defined once:
 | A brief's shape (zod, strict) | `BriefSchema` in `src/shared/schema.ts` |
 | Brief → flyer, every default filled | `flyerFromBrief()` in `src/shared/brief.ts`: DOM-free and zod-free, so the editor can call it |
 | The share text field (not printed) | `data.share`, limit in `src/shared/share.ts` |
+| The flyer's labels (not printed) | `data.labels`, the list and its rules in `src/shared/labels.ts` |
 | Every field's limit | `schema/flyer.schema.json` (generated). Never copy a number into this file |
 | Brand-voice warnings | `lintFlyer()` in `src/shared/copyRules.ts` |
 | The writer | `scripts/flyers/post.ts`: the API, with the write header, idempotent |
 | The rules, as the model reads them | `ai/prompts/flyer.md` and `ai/prompts/share.md` |
-| What the model must answer | `AiFlyerAnswerSchema` in `src/shared/schema.ts`: a brief, always with its share text, and at most 12 assumptions |
+| What the model must answer | `AiFlyerAnswerSchema` in `src/shared/schema.ts`: a brief, always with its share text and its labels (of the list alone), and at most 12 assumptions |
 | What both backends send a provider | `schema/ai.json` (generated): the prompts with their limits, these examples as few-shot turns, the answer's schema |
 | What a site keeps of each generation | the AI ledger (`docs/json-storage.md`) |
 | One real generation, by hand | `npm run ai:smoke` (`scripts/ai/smoke.ts`) |
@@ -89,7 +90,7 @@ npm run ai:smoke -- --share                                                     
 ```json
 {
   "source": "the staff text, exactly as it came — never cleaned up",
-  "brief": { "hostel": "adeje-nest", "template": "activity", "text": { … }, "when": "…", "where": "…", "cost": "…", "extras": [], "share": "…" },
+  "brief": { "hostel": "adeje-nest", "template": "activity", "text": { … }, "when": "…", "where": "…", "cost": "…", "extras": [], "share": "…", "labels": ["stretching"] },
   "asked": [{ "question": "How much does it cost?", "answer": "Free", "field": "cost" }],
   "notes": "what was decided, and Artur's corrections",
   "posted": [{ "site": "https://nestpass.ai/activities/", "id": 4, "at": "2026-10-01T…Z" }]
@@ -103,6 +104,10 @@ npm run ai:smoke -- --share                                                     
   each one as an assumption: the `field`, with the answer as its note.
 - **An example carries its share text.** The model is shown the example as the whole answer to give, and its answer
   must always have a share text. `npm run gen` refuses an example without one.
+- **An example carries its labels,** for the same reason, as slugs of the list in `src/shared/labels.ts`: every label
+  its text clearly supports, and an organiser's only when the text names the organiser (Artur, 2026-10-14). So the
+  Teide tour is `teide` and `excursions`, with no organiser. A label taken off the list later stops `npm run gen`
+  until the examples that name it are put right. Only Artur adds a label to the list.
 - **Never invent a hostel.** The slug comes from Artur or from the text. If neither names one, ask; never guess.
 
 ## From the ledger to an example

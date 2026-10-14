@@ -380,6 +380,11 @@ duplicate and archive. Then output canvases: every flyer previews and downloads 
 story or a WhatsApp 3:4 image (`docs/reports/output-canvases.md`). Then handoff step 8, the
 **This week** template, on both canvases and both backends (`docs/reports/week-template.md`).
 
+Built, on branch `feat/flyer-labels` (`docs/reports/flyer-labels.md`): **labels**. A flyer carries up
+to 8 from a fixed list (`src/shared/labels.ts`), set in the editor's Flyer section and never printed;
+the library filters by one and shows them on each card; the AI assistant sets them on the flyers it
+writes. It needs a release.
+
 Built, on branch `feat/ai-assistant` (`docs/reports/ai-assistant.md`): the **AI assistant**, on both
 backends. "Create with AI" writes a flyer from a staff member's text, and "Write with AI" a flyer's
 share text, with OpenAI or Anthropic behind one seam, at most 3 generations a day of each unless a

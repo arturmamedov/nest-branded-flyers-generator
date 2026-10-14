@@ -54,7 +54,8 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
   the schema and the editor's inputs — zod-free), `names.ts`
   (what a flyer is called in the library: an untitled flyer's name, the title's limit, the library's date — also
   zod-free), `share.ts` (the share text's limit and the line between its two languages: a caption saved with the flyer, copied from the panel or the
-  button floating by the preview, never printed), `brief.ts` (`flyerFromBrief`: a flyer from its copy alone, the shape the staff-text
+  button floating by the preview, never printed), `labels.ts` (a flyer's labels: the list, its limits and the rules
+  both backends apply to it, never printed either — zod-free; "A flyer carries labels", below), `brief.ts` (`flyerFromBrief`: a flyer from its copy alone, the shape the staff-text
   workflow in `docs/ai-flyers/` writes — zod-free; `BriefSchema` is in `schema.ts`), `photo.ts` (crop maths),
   `copyRules.ts`, `writeGuard.ts` (the write header, and the methods that need none), `ai.ts` (the AI assistant's
   facts: its features and what each one's generations are called, a feature's daily limit by default and its bound,
@@ -91,7 +92,8 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
   - **One fetch per card.** The card's one answer serves its picture, its lightbox and its ways out, so the caption
     is in hand at the tap, which a clipboard write needs. Until it is here the card's buttons and its zoom wait
     greyed; a flyer that cannot load leaves them so, and the card still opens it. Never add the caption to the
-    list: that is a contract change an older release refuses.
+    list: that is a contract change an older release refuses. (The flyer's labels are the one thing of its data
+    the list carries, since 2026-10-14 and with a release: below.)
   - **The view** is `src/editor/libraryView.ts`, pure and tested by itself: list for someone who never chose,
     stored as `library.view`, and a stored value that is neither view is ignored. The switch is a `.seg` beside
     the filters, two buttons with `aria-pressed`.
@@ -134,6 +136,49 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
     `lightbox(page)`, `waysMenu(within)`, `pickWay(within, action)`, `moreMenu(card)` and
     `cardMore(card, entry)`. A spec never imports a constant from a component file: that pulls the flyer's CSS
     into the test runner (`NO_PHOTO` is in `exportActions.ts` for this).
+- A flyer carries labels: what kind it is, for finding it in the library (2026-10-14; Artur's ask and his answers
+  are in `docs/reports/flyer-labels.md`: several on a flyer, from a fixed list, called "Labels" because the pill
+  already owns "Tag"). Never printed: `<Flyer>` does not read them.
+  - **The list is `FLYER_LABELS` in `src/shared/labels.ts`**: slug and name, in the order every screen shows it.
+    Only Artur adds to it, as with the hostels: a new label is a line there and a release. `npm run gen` writes it
+    to `schema/shared.json` (PHP: `Shared::labels()`, `Domain\FlyerLabels`) and into the AI's flyer prompt.
+  - **One rule, two backends**: `tidyLabels` (what a save stores: listed ones in the list's order, then the others
+    as stored, once each), `knownLabels` (what a screen shows), `matchesLabel` (the filter) and `storedLabels` (a
+    loose read). `tests/fixtures/flyer-labels.json` holds the TypeScript and the PHP to one table, with a list of
+    its own.
+  - **A label is held to a slug's shape, never to the list** (`FlyerDataSchema`). Node checks a flyer against the
+    schema on every read, so an enum would stop a flyer opening once a label left the list. A label off the list
+    stays stored, is on no screen, and comes back if the list takes it back (his answer). Never make `data.labels`
+    an enum. Only a brief's labels are one (`BriefSchema`): a brief is written now, by a hand or by the model.
+  - `data.labels` is defaulted like `share`, so there is no migration. It is the last key of the data, in the
+    schema and in `newFlyerData()`: PHP's stored files are compared key for key. Up to 8 (`LABELS_MAX`); raising
+    that later is a change an older release refuses.
+  - **The list carries them.** `GET api/flyers` answers each item's `labels`, and filters by `label=<slug>` or
+    `label=none` (no label of the list).
+    - Both JSON stores open each listed flyer's own file for it, under the lock they already hold, loosely: a file
+      that is missing or damaged has no labels, and its flyer is still listed.
+    - **The index was left alone on purpose.** A release from before labels rewrites every index row to its six
+      keys at its next save, so labels kept there would be lost by one save.
+    - SQLite reads the labels alone, from data that parses, and asks the match in JavaScript: one rule on every
+      driver.
+    - What it costs is in `docs/json-storage.md`, "What the list reads".
+  - The client: `src/editor/libraryLabel.ts` (the filter's choice and its memory, `library.label`, pure and tested
+    by itself), pills on a card from the list item (`.card-labels`), and the picker in the editor's Flyer section
+    (`.label-picker`, buttons with `aria-pressed`). A loaded flyer's labels pass through `tidyLabels` before the
+    saved copy is taken, so one press and its undo read "Saved".
+  - The library's top is two rows since: `.library-top` (the name, List / Grid) and `.library-filters`. On a phone
+    the filters are two to a row and their words are not drawn. `tests/editor.ts` finds a filter by that word with
+    `libraryFilter(page, 'Label')`, never by a loose name: a zoom button is named by its flyer's title.
+  - **No grouping by label.** He chose headings from text previews and, seeing them drawn on the real library,
+    said "I dont want the Group by label functionality". Not to be reopened.
+  - `npm run flyers:labels` (`scripts/flyers/labels.ts`, its rules in `labelTable.ts`): a site's flyers printed, and
+    a table of ids and labels put on them through its API. A dry run unless `--write`; it fills flyers with no
+    label, oldest first, and never changes one. There are no keyword rules: whoever chooses the labels reads the
+    flyers (his answer: "Classify the flyers, I trust you").
+  - The AI's flyer answer always carries `labels`, of the list alone. A label it misses is named in an assumption
+    whose field is `labels` (his answer: "The AI may suggest one"). The rules in `ai/prompts/flyer.md` name the
+    list and never a label of it; a label's `hint` in `labels.ts` is what the model reads beside its name.
+  - Browser specs: `library-labels.spec.ts`, `flyer-labels.spec.ts`, and a step of the PHP smoke test.
 - The library's top bar is `<nest-nav tool="flyers">` (`App.tsx`), the bar every Nests tool shares.
   - It is loaded `async` from `https://nestpass.ai/kit/nest-nav.js`. That file lives in the
     `nestpass-tools` repo (`A:\serverpath\laragon\nestpass-tools`), with the list of tools and the
@@ -950,6 +995,47 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
     with no word of why; the library makes the editor's last canvas and has no switch of its own; Safari on a Mac
     may not hand the focus back to the zoom button.
   - Left, his: the release (nothing new on the host), and a phone trial over https, as for Part 3.
+- Built: **labels on every flyer, a filter by label in the library, and the AI sets them** (2026-10-14, branch
+  `feat/flyer-labels`, cut from `feat/library-views` at `16e1527`; brief `docs/prompts/flyer-types-filter.md`, report
+  `docs/reports/flyer-labels.md`). Fourteen commits and their record, not pushed; `main` has neither this nor the
+  library's views.
+  - How it works is in the architecture section above ("A flyer carries labels").
+  - Artur's answers are in the report's table, and are not to be reopened: several on a flyer, from a fixed list;
+    the word "Labels"; up to 8; a new flyer has none; a label off the list stays stored and hidden; no setting from
+    a card's More menu; "Classify the flyers I trust you"; "The AI may suggest one"; "An organiser only when named".
+    From pictures drawn on the real library: the phone's top "B: compact, two a row", a card's labels "A: pills
+    under the line".
+  - **One answer replaced another.** From text previews he chose "Headings, under every label"; an hour later,
+    seeing it drawn, "I dont want the Group by label functionality." There is no grouping.
+  - Unlike the library's views it is on both backends: it **needs a release, uploaded whole** (new schema files,
+    and `shared.json` is read on every request). Nothing new in `config.php`.
+  - The drawing is byte-identical to `nest-ux4c-baseline` (32 cases), checked four times on the way.
+  - Part A of the brief, his answer "as suggested": Safari's focus after the lightbox is fixed (the library hands
+    it to the zoom button); the other four open decisions of the library's views wait for his phone trial.
+  - **The live site was read, never written** (2026-10-14, on his word "You read the live site"): its 16 flyers,
+    to choose their labels. The table he approved is `backups/flyer-labels/live-table.json`, outside git, with
+    what was read beside it. The Laragon copy was not touched.
+  - A fresh-context review found no blocking defect and nothing unsafe in the live write. What it found is fixed,
+    each test first: among it, the script judging "has a label" by the checkout's list and not the site's, a tick
+    printed for labels the site saved and does not show, "oldest first" passing with an order by id, and a picker
+    greyed with no word of why. One break I found while it read: a blank editor on a backend older than itself.
+  - The gates on `ec75579`: 765 unit, 387 contract, 374 in the browser, 938 PHP (38 skipped, as before), 3 in the
+    PHP smoke test. No provider was called.
+  - The look ran in the installed Chrome, driven by a script, on Node with the JSON store, at 1440, 1280, 390 and
+    360 px (`backups/flyer-labels/`, outside git, with the pictures he chose from). **Not done: PHP by eye (the
+    smoke test drove it), a real phone, Safari, Firefox.**
+  - **For Artur to decide** (the report has each, M1 to M10 and after):
+    - the list item still carries the labels with grouping gone (pills at once, and each list opens every listed
+      flyer's file on the JSON store: about 12 ms more at 16 flyers on this PC, 30 ms at 160; the host unmeasured);
+    - "All hostels" now reads in the hostel filter and in a chain-wide card's line;
+    - the AI's part: the words of its rule, three hints in `labels.ts`, the examples' labels (the Teide example
+      has no organiser's label, since its text names none), and the real check generations, on his go;
+    - the order of the list, which is the order of the picker, the filter and the pills;
+    - a save replaces the whole flyer, so the last of two saves wins: older than this work, and the script is the
+      first thing that makes it likely.
+  - Left, his, in this order: the release; then `npm run flyers:labels -- --to <the site> --apply
+    backups/flyer-labels/live-table.json` (a dry run), and again with `--write`, when nobody is editing, and once
+    more afterwards; his own pass over the labels; a phone trial.
 - Waiting, don't start unasked: **the counts of what is left today confuse the interface a little** ("AI credits
   left", in Artur's words, on his phone, 2026-10-07; "Follow ups will fix in future"). Not designed, and not part
   of the editor's UX round.
