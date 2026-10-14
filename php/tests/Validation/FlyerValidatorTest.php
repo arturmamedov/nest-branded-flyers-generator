@@ -122,7 +122,7 @@ final class FlyerValidatorTest extends TestCase
     {
         $sample = self::samples()[0]->data;
         $data = clone $sample;
-        unset($data->v, $data->photoCrop, $data->showPill, $data->week, $data->overrides, $data->share, $data->labels);
+        unset($data->v, $data->photoCrop, $data->showPill, $data->week, $data->overrides, $data->share, $data->labels, $data->look);
         $data->junk = (object) ['deep' => true];
         $data->text = (object) ((array) $sample->text + ['junk' => 'x']);
         $data->doodles = [(object) ['slug' => 'spark-teal', 'x' => 1, 'y' => 2, 'w' => 50, 'extra' => true]];
@@ -133,7 +133,7 @@ final class FlyerValidatorTest extends TestCase
 
         $input = $this->validator->validate($body);
 
-        // The first sample holds the default v, photoCrop, showPill, week, share and labels, so it is what zod would give back.
+        // The first sample holds the default v, photoCrop, showPill, week, share, labels and look, so it is what zod would give back.
         $expected = self::samples()[0]->data;
         $expected->doodles = Json::decode('[{"slug":"spark-teal","x":1,"y":2,"w":50,"rot":0}]');
         $expected->overrides = Json::decode('{"headline":{"dx":0,"dy":5,"scale":1},"chips":{"dx":0,"dy":0,"scale":1,"order":["cost"]}}');
@@ -144,7 +144,7 @@ final class FlyerValidatorTest extends TestCase
     public function testDefaultsAreTheOnesZodFills(): void
     {
         $body = self::body();
-        unset($body->data->v, $body->data->photoCrop, $body->data->showPill, $body->data->week, $body->data->overrides, $body->data->share, $body->data->labels);
+        unset($body->data->v, $body->data->photoCrop, $body->data->showPill, $body->data->week, $body->data->overrides, $body->data->share, $body->data->labels, $body->data->look);
 
         $data = $this->validator->validate($body)['data'];
 
@@ -157,7 +157,8 @@ final class FlyerValidatorTest extends TestCase
         self::assertSame('{}', Json::encode($data->overrides));
         self::assertSame('', $data->share);
         self::assertSame([], $data->labels);
-        self::assertSame('labels', array_key_last((array) $data), 'written last, as newFlyerData() writes it');
+        self::assertSame('hand-drawn', $data->look, 'FIRST_LOOK in src/shared/looks.ts: what a flyer that names no look is, forever');
+        self::assertSame(['labels', 'look'], array_slice(array_keys((array) $data), -2), 'written last, as newFlyerData() writes them');
     }
 
     public function testLabelsAreHeldToTheirShapeAndTheirNumberNeverToTheList(): void
@@ -240,6 +241,7 @@ final class FlyerValidatorTest extends TestCase
             'missing photoId' => [static function (stdClass $b): void { unset($b->photoId); }, ['photoId']],
             'missing data' => [static function (stdClass $b): void { unset($b->data); }, ['data']],
             'unknown template' => [static function (stdClass $b): void { $b->template = 'poster'; }, ['template']],
+            'a look this release does not know' => [static function (stdClass $b): void { $b->data->look = 'a-later-look'; }, ['data.look']],
             'hostel over 60' => [static function (stdClass $b): void { $b->hostel = str_repeat('h', 61); }, ['hostel']],
             'chip label over 12' => [static function (stdClass $b): void { $b->data->chips[0]->label = str_repeat('x', 13); }, ['data.chips.0.label']],
             'colour with a trailing newline' => [static function (stdClass $b): void { $b->data->colors->bg = "#aabbcc\n"; }, ['data.colors.bg']],
@@ -300,7 +302,7 @@ final class FlyerValidatorTest extends TestCase
         self::assertSame(Json::encode($stored), Json::encode($this->validator->normalizeData($stored)));
 
         $old = self::samples()[1]->data;
-        unset($old->v, $old->showPill, $old->overrides, $old->share, $old->labels);
+        unset($old->v, $old->showPill, $old->overrides, $old->share, $old->labels, $old->look);
         $old->legacy = 'x';
         $before = Json::encode($old);
 

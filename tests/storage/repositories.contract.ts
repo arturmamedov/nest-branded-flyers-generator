@@ -3,6 +3,7 @@ import { SEED_FILE } from '../../server/paths.js';
 import { applySeedFile } from '../../server/storage/seed.js';
 import { MissingReferenceError, type Clock, type FlyerFilter, type Repositories } from '../../server/storage/types.js';
 import { LABEL_SLUGS, NO_LABEL } from '../../src/shared/labels.js';
+import { FIRST_LOOK } from '../../src/shared/looks.js';
 import { SAMPLE_FLYERS } from '../../src/shared/samples.js';
 import type { FlyerInput } from '../../src/shared/schema.js';
 import type { StoredAiUsage } from '../../src/shared/storage.js';
@@ -161,6 +162,22 @@ export function describeRepositoryContract(name: string, factory: RepositoryFact
         await expect(repos.flyers.get(id)).rejects.toThrow(/tag/);
         // The list reads no flyer's copy, so the library still names it.
         expect((await repos.flyers.list({})).map((f) => [f.id, f.title])).toEqual([[id, 'From a newer release']]);
+      });
+
+      it('holds a flyer it reads to the schema: one stored in a look this release does not know is refused, and still listed', async () => {
+        // What a release that knows looks meets in a library a later one wrote, in a look it does not have
+        // (docs/deploy.md, "Rolling back"; the owner's answer 15). Drivers store what they are given.
+        const id = await repos.flyers.create(input({ title: 'In a later look', data: { ...data, look: 'a-later-look' } }));
+        await expect(repos.flyers.get(id)).rejects.toThrow(/look/);
+        expect((await repos.flyers.list({})).map((f) => [f.id, f.title])).toEqual([[id, 'In a later look']]);
+      });
+
+      it('reads a flyer saved before looks in the first look', async () => {
+        // As a release from before looks stored it: with no such key at all.
+        const { look: _, ...older } = data;
+        const at = '2026-01-01T00:00:00.000Z';
+        await repos.flyers.put({ id: 40, hostel: null, template: 'activity', title: 'older', data: older as typeof data, photoId: null, createdAt: at, updatedAt: at, archived: false });
+        expect((await repos.flyers.get(40))?.data.look).toBe(FIRST_LOOK);
       });
 
       it('rejects a hostel or photo that does not exist', async () => {

@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { deriveChips, splitBigSub, splitDot } from '../../src/shared/chips.js';
 import { MAX_EXCLAMATIONS, lintFlyer } from '../../src/shared/copyRules.js';
 import { DEFAULT_PHOTO_MODE, DEFAULT_TEXT, newFlyerData, switchTemplate, withPhoto } from '../../src/shared/defaults.js';
-import type { ArtPlacement } from '../../src/shared/looks.js';
+import { FIRST_LOOK, lookIds, type ArtPlacement } from '../../src/shared/looks.js';
 import { DEFAULT_DOODLES, PROTOTYPE_DOODLES, SWAPPED_INKS, resolveDoodles, sameDoodles } from '../../src/shared/looks/handDrawn.js';
 import {
   CANVASES,
@@ -717,10 +717,28 @@ describe('schema', () => {
     expect(withLabels('masca'), 'a list, never one word').toBe(false);
   });
 
-  it('writes the labels last, in a new flyer and in the schema: PHP’s stored files are compared key for key', () => {
-    expect(Object.keys(newFlyerData()).at(-1)).toBe('labels');
-    expect(Object.keys(FlyerDataSchema.parse(newFlyerData())).at(-1)).toBe('labels');
+  it('writes the look last, after the labels, in a new flyer and in the schema: PHP’s stored files are compared key for key', () => {
+    expect(Object.keys(newFlyerData()).slice(-2)).toEqual(['labels', 'look']);
+    expect(Object.keys(FlyerDataSchema.parse(newFlyerData())).slice(-2)).toEqual(['labels', 'look']);
     expect(newFlyerData('week').labels).toEqual([]);
+  });
+
+  it('gives a flyer saved before looks the first look, and holds a look to the registry’s ids', () => {
+    expect(FIRST_LOOK).toBe(lookIds()[0]);
+    const { look: _, ...older } = newFlyerData();
+    expect(FlyerDataSchema.parse(older).look).toBe(FIRST_LOOK);
+    expect(newFlyerData().look).toBe(FIRST_LOOK);
+    expect(newFlyerData('week').look).toBe(FIRST_LOOK);
+    expect(newFlyerData('activity', FIRST_LOOK).look).toBe(FIRST_LOOK);
+    for (const id of lookIds()) expect(FlyerDataSchema.safeParse({ ...newFlyerData(), look: id }).success, id).toBe(true);
+    // A look a later release has, met after going back to this one: refused, as answer 15's second rule says.
+    for (const bad of ['a-later-look', '', 'Hand-drawn', null, 1]) expect(FlyerDataSchema.safeParse({ ...newFlyerData(), look: bad }).success, JSON.stringify(bad)).toBe(false);
+  });
+
+  it('keeps the look across a template switch and a photo', () => {
+    const d = newFlyerData();
+    expect(switchTemplate(d, 'week', 'Duque Nest').look).toBe(d.look);
+    expect(withPhoto(d).look).toBe(d.look);
   });
 
   it('keeps the labels across a template switch', () => {

@@ -3,6 +3,7 @@ import { AI_ASSUMPTIONS_MAX, AI_FEATURES, AI_INPUT_MAX } from './ai.js';
 import { CHIP_LABEL_MAX, CHIP_VALUE_MAX } from './chips.js';
 import { EXTRA_MAX, EXTRAS_MAX } from './extras.js';
 import { LABELS_MAX, LABEL_SLUG, LABEL_SLUGS, LABEL_SLUG_MAX } from './labels.js';
+import { FIRST_LOOK, lookIds } from './looks.js';
 import { TITLE_MAX } from './names.js';
 import { DEFAULT_CROP, ZOOM_MAX, ZOOM_MIN } from './photo.js';
 import { SHARE_MAX } from './share.js';
@@ -104,8 +105,14 @@ export const FlyerDataSchema = z.object({
   share: z.string().max(SHARE_MAX).default(''),
   /* Not printed either (labels.ts), and defaulted for the same reason. Each is held to a slug's shape, never to the
      list: a flyer is checked against this schema on every read, and a label taken off the list must not stop it
-     opening. Last, as newFlyerData() writes it: PHP's stored files are compared key for key. */
+     opening. */
   labels: z.array(z.string().regex(LABEL_SLUG).max(LABEL_SLUG_MAX)).max(LABELS_MAX).default([]),
+  /* The look it prints in (looks.ts), read here when this file loads, so a look is registered before it or not at
+     all. One of the registry's ids, unlike a label: a look's id is forever once a release accepts it, so only going
+     back meets one this release does not have, and then a save is refused and, on Node, so is a read (docs/deploy.md,
+     "Rolling back"; the owner's answer 15). Defaulted to the first look, so a flyer saved before looks reads back
+     hand-drawn, with no migration. Last, as newFlyerData() writes it: PHP's stored files are compared key for key. */
+  look: z.enum(lookIds() as [string, ...string[]]).default(FIRST_LOOK),
 });
 export type FlyerData = z.infer<typeof FlyerDataSchema>;
 

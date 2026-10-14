@@ -427,6 +427,52 @@ final class BootstrapTest extends TestCase
         self::assertSame($input->data->text->tag, $this->ok($app->handle(self::request('PUT', "/api/flyers/$id", $input)))->flyer->data->text->tag);
     }
 
+    /**
+     * A flyer a release from before looks saved has no look at all (docs/deploy.md, "Rolling back"). A read fills the
+     * first look (FIRST_LOOK in src/shared/looks.ts), as it fills every defaulted key: the store keeps what it was given.
+     */
+    public function testAFlyerStoredBeforeLooksOpensInTheFirstLook(): void
+    {
+        $app = $this->app();
+        $id = $this->ok($app->handle(self::request('POST', '/api/flyers', $this->input())), 201)->id;
+
+        $file = "$this->dataDir/flyers/$id.json";
+        $stored = Json::decode((string) file_get_contents($file));
+        unset($stored->data->look);
+        file_put_contents($file, Json::encode($stored));
+
+        self::assertSame('hand-drawn', $this->ok($app->handle(self::request('GET', "/api/flyers/$id")))->flyer->data->look ?? null);
+    }
+
+    /**
+     * What a release that knows looks meets in a library a later one wrote, in a look it does not have
+     * (docs/deploy.md, "Rolling back"; the owner's answer 15). A read shapes the flyer and checks no enum, so it opens
+     * with its look as stored, and the editor draws it hand-drawn (lookOf, src/shared/looks.ts); a save is held to
+     * the looks this release has, so it is refused, by the field's name, until the look is one of them.
+     */
+    public function testAFlyerStoredInALookThisReleaseDoesNotKnowOpensAndItsSaveIsRefused(): void
+    {
+        $app = $this->app();
+        $id = $this->ok($app->handle(self::request('POST', '/api/flyers', $this->input())), 201)->id;
+
+        $file = "$this->dataDir/flyers/$id.json";
+        $stored = Json::decode((string) file_get_contents($file));
+        $stored->data->look = 'a-later-look';
+        file_put_contents($file, Json::encode($stored));
+
+        $opened = $this->ok($app->handle(self::request('GET', "/api/flyers/$id")));
+        self::assertSame('a-later-look', $opened->flyer->data->look ?? null);
+        self::assertSame([$id], array_column(array_map(static fn (stdClass $f): array => (array) $f, $this->ok($app->handle(self::request('GET', '/api/flyers')))), 'id'));
+
+        $input = $this->input();
+        $input->data->look = 'a-later-look';
+        $error = $this->assertError($app->handle(self::request('PUT', "/api/flyers/$id", $input)), 400, 'invalid');
+        self::assertSame(['data.look'], array_keys((array) $error->fields));
+
+        $input->data->look = 'hand-drawn';
+        self::assertSame('hand-drawn', $this->ok($app->handle(self::request('PUT', "/api/flyers/$id", $input)))->flyer->data->look ?? null);
+    }
+
     public function testTheLibraryOutlivesTheRequest(): void
     {
         $id = $this->ok($this->app()->handle(self::request('POST', '/api/flyers', $this->input())), 201)->id;

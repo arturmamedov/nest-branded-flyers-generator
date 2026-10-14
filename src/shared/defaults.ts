@@ -1,4 +1,5 @@
 import type { PhotoMode } from './layout.js';
+import { FIRST_LOOK } from './looks.js';
 import { DEFAULT_COLORS, DEFAULT_DOODLES } from './looks/handDrawn.js';
 import { DEFAULT_CROP } from './photo.js';
 import type { FlyerData, FlyerText, Template } from './schema.js';
@@ -74,7 +75,10 @@ export function followHostel(d: FlyerData, prevName: string | null, nextName: st
   return { ...d, text: { ...d.text, headlineEs: weekTitle(nextName).headlineEs } };
 }
 
-export function newFlyerData(template: Template = 'activity'): FlyerData {
+/** A blank flyer in a look. Its colours and art are the hand-drawn look's whatever the look, since only that look reads
+    them (looks/handDrawn.ts): a switch is the look alone, and an older release prints any flyer hand-drawn. Samples,
+    briefs and test payloads take the first look; the editor and the AI page pass the site's first (api/config). */
+export function newFlyerData(template: Template = 'activity', look: string = FIRST_LOOK): FlyerData {
   return {
     v: 1,
     template,
@@ -94,5 +98,6 @@ export function newFlyerData(template: Template = 'activity'): FlyerData {
     doodles: DEFAULT_DOODLES.map((d) => ({ ...d })),
     share: '',
     labels: [],
+    look,
   };
 }

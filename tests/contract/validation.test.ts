@@ -29,7 +29,7 @@ describe('normalisation', () => {
   });
 
   it('fills defaults, strips unknown keys at every level, and keeps record keys', async () => {
-    const { v: _v, photoCrop: _c, showPill: _s, week: _w, overrides: _o, share: _h, labels: _l, ...data } = newFlyerData('activity');
+    const { v: _v, photoCrop: _c, showPill: _s, week: _w, overrides: _o, share: _h, labels: _l, look: _k, ...data } = newFlyerData('activity');
     const body = {
       ...flyerInput(),
       junk: 1,
@@ -88,6 +88,8 @@ describe('validation', () => {
     const { photoId: _, ...noPhoto } = flyerInput();
     expect(await invalidFields(noPhoto)).toEqual(['photoId']);
     expect(await invalidFields(flyerInput({ template: 'poster' as never }))).toEqual(['template']);
+    // A look a later release has, met after going back to this one (docs/deploy.md, "Rolling back").
+    expect(await invalidFields(flyerInput({ data: { ...d, look: 'a-later-look' } }))).toEqual(['data.look']);
     const chips = d.chips.map((c, i) => (i === 0 ? { ...c, label: 'x'.repeat(13) } : c));
     expect(await invalidFields(flyerInput({ data: { ...d, chips } }))).toEqual(['data.chips.0.label']);
     expect(await invalidFields(flyerInput({ data: { ...d, colors: { ...d.colors, bg: '#aabbcc\n' } } }))).toEqual(['data.colors.bg']);

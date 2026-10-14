@@ -4,6 +4,7 @@ import { EDITOR_VIEWPORT, apiCall, apiRoute, cardMore, libraryCard as card, open
 import { FIELD } from '../../src/editor/fields';
 import { newFlyerData } from '../../src/shared/defaults';
 import { FLYER_LABELS, LABELS_MAX } from '../../src/shared/labels';
+import { FIRST_LOOK } from '../../src/shared/looks';
 import { FlyerSavedSchema } from '../../src/shared/schema';
 import { WRITE_HEADERS } from '../../src/shared/writeGuard';
 
@@ -148,9 +149,10 @@ test('a label that is no longer on the list stays on its flyer through a save, a
   expect((await save(page)).data.labels).toEqual([FIRST.slug, SECOND.slug, 'a-label-taken-off-the-list']);
 });
 
-test('a backend from before labels sends none: the library still lists, and the editor opens with none pressed', async ({ page, request }) => {
-  // The page a browser kept, on a site that went back to an older release: no `labels` in the list's items, none in
-  // a flyer's data. Read strictly, that took the editor down.
+test('a backend from before labels and looks sends neither: the library still lists, and the editor opens with no label pressed, drawn hand-drawn', async ({ page, request }) => {
+  // The page a browser kept, on a site that went back to an older release: no `labels` in the list's items, no
+  // labels and no look in a flyer's data. Read strictly, the labels took the editor down; the look is read through
+  // lookOf(), which draws a flyer that names none in the first look.
   const { id, title } = await savedFlyer(request, [FIRST.slug]);
   await page.route(apiRoute('flyers'), async (route) => {
     const res = await route.fetch();
@@ -162,6 +164,7 @@ test('a backend from before labels sends none: the library still lists, and the 
     const res = await route.fetch();
     const body = (await res.json()) as { flyer: { data: Record<string, unknown> } };
     delete body.flyer.data.labels;
+    delete body.flyer.data.look;
     await route.fulfill({ response: res, json: body });
   });
   await page.goto('/');
@@ -174,6 +177,7 @@ test('a backend from before labels sends none: the library still lists, and the 
   expect(await pressed(page)).toEqual([]);
   await expect(status(page)).toHaveText('Saved');
   await expect(sectionHead(page, FIELD.flyer)).toHaveAttribute('aria-expanded', 'true');
+  await expect(page.locator('.stage-canvas [data-flyer]')).toHaveAttribute('data-look', FIRST_LOOK);
 });
 
 test('a new flyer has no label until one is picked, and its first save carries the ones picked', async ({ page }) => {
