@@ -3,9 +3,8 @@ import { deriveChips, DEFAULT_CHIP_ORDER } from '../shared/chips';
 import { marksFor } from '../shared/defaults';
 import { printedExtras } from '../shared/extras';
 import { BODY_FONT } from '../shared/fonts';
-import { CANVASES, artAnchors, bodyOf, boxesOf, photoFrame, pillBox, placeArt, safeBox, type ArtAnchor, type ArtPoint, type CanvasId, type Rect, type WeekBoxes } from '../shared/layout';
+import { ASK_MAX_WIDTH, CANVASES, artAnchors, bodyOf, boxesOf, photoFrame, pillBox, placeArt, safeBox, type ArtAnchor, type ArtPoint, type CanvasId, type Rect, type WeekBoxes } from '../shared/layout';
 import { lookOf, type ArtPlacement, type LineType, type Look, type Palette } from '../shared/looks';
-import { resolveDoodles } from '../shared/looks/handDrawn';
 import { coverRect } from '../shared/photo';
 import type { FlyerData, FlyerText, Hostel, PhotoInfo } from '../shared/schema';
 import { printedRows, type PrintedRow } from '../shared/week';
@@ -72,11 +71,11 @@ function doodleStyle(d: ArtPlacement, anchors: Record<ArtAnchor, ArtPoint>): CSS
   return { ...doodleLook(d), ...placeArt(d, anchors) };
 }
 
-/** A piece that hangs from the pill's end (artAnchors, pillEnd), placed from the box of the pill it is drawn with:
-    its offsets are from that box's right end and top. The pill's width is its copy's, known only once the letters are
-    fitted, so the browser places the piece: nothing is measured, and the spark follows the pill as its copy grows
-    (Artur, 2026-10-12). At the widest pill its ink is still on the canvas (shared.test.ts). */
-function pillArtStyle(d: ArtPlacement): CSSProperties {
+/** A piece that hangs from the end of the block it is drawn with: the pill (pillEnd), or the ask's copy (askEnd). Its
+    offsets are from that block's right end and top. The block is as wide as its copy, known only once the letters are
+    fitted, so the browser places the piece: nothing is measured, and the art follows the copy as it grows (Artur,
+    2026-10-12). At the widest pill its ink is still on the canvas (shared.test.ts). */
+function followStyle(d: ArtPlacement): CSSProperties {
   return { ...doodleLook(d), left: `calc(100% + ${d.x}px)`, top: d.y, width: d.w };
 }
 
@@ -87,14 +86,14 @@ const MARK: CSSProperties = { height: 56, width: 'auto', flex: '0 1 auto', minWi
 /** The eyebrow's marks, as the setting in defaults.ts asks: the Nests wordmark, the hostel's badge, or the badge beside
     the wordmark. A badge that fails to load drops out, so an export never shows a broken image; ready.ts waits for
     the wordmark that may then come in its place. */
-function Marks({ hostel }: { hostel: Hostel | null }) {
+function Marks({ hostel, wordmark }: { hostel: Hostel | null; wordmark: string }) {
   const badge = hostel?.logoPath ? assetUrl(hostel.logoPath) : null;
   const [failed, setFailed] = useState<string | null>(null);
   const marks = marksFor(badge !== null && failed !== badge).map((m) =>
     m === 'badge' ? (
       <img key="badge" data-logo="hostel" src={badge!} alt={hostel!.name} onError={() => setFailed(badge)} style={{ ...MARK, width: 56 }} />
     ) : (
-      <img key="nests" data-logo="nests" src={assetUrl('assets/nest-logo-teal.png')} alt="Nests Hostels" style={MARK} />
+      <img key="nests" data-logo="nests" src={assetUrl(wordmark)} alt="Nests Hostels" style={MARK} />
     ),
   );
   // One mark sits in the eyebrow row where the wordmark always has; two share a row of their own, 20 px apart.
@@ -121,13 +120,13 @@ function Headline({ group, box, W, t, type, paint }: { group: 'headline' | 'titl
   );
 }
 
-/** Copy on the yellow highlighter stroke: the WHEN chip's big line, and a week row's day. */
-function Highlight({ children }: { children: ReactNode }) {
+/** Copy on the highlighter's stroke, the look's file: the WHEN chip's big line, and a week row's day. */
+function Highlight({ file, children }: { file: string; children: ReactNode }) {
   return (
     <span
       data-deco="highlighter"
       style={{
-        backgroundImage: `url(${art('mark-yellow')})`,
+        backgroundImage: `url(${art(file)})`,
         backgroundSize: '100% 100%',
         backgroundRepeat: 'no-repeat',
         padding: '2px 10px 4px',
@@ -145,11 +144,6 @@ function Highlight({ children }: { children: ReactNode }) {
     its column by 0.36 px past the safe edge; one pixel less keeps the tilted pill inside it, the zone being a hard limit. */
 const PILL_TILT_ROOM = 1;
 
-/** Where the pencil hangs by the ask: this far after the end of the copy, and this far above the block's top (it was
-    6 px below it). Artur's pick of two shapes from the mock-ups (2026-10-12): "same size, higher". */
-const PENCIL_AFTER = 14;
-const PENCIL_ABOVE = 10;
-
 /** A week row's fixed day column (the prototype's), and the cap on its right-hand time and price. */
 const DAY_WIDTH = 250;
 /** The day's fit box, about three lines at 34 px. The highlighter's stroke reaches past its line boxes, and the height
@@ -160,7 +154,7 @@ const DAY_BOX = 114;
 
 /** One row of the This week template (.dc.html's isWeek block). Every cell collapses when it has
     nothing to print: an empty highlighter or a lone clock would print as a mark with no copy. */
-function WeekRow({ slot, row, height, type, paint }: { slot: number; row: PrintedRow; height: number; type: Lines; paint: Palette }) {
+function WeekRow({ slot, row, height, type, inline, paint }: { slot: number; row: PrintedRow; height: number; type: Lines; inline: Look['inline']; paint: Palette }) {
   return (
     <div data-row={slot} style={{ position: 'relative', height }}>
       <WonkyBox fill={paint.surface} stroke={paint.ink} />
@@ -172,7 +166,7 @@ function WeekRow({ slot, row, height, type, paint }: { slot: number; row: Printe
              so the width pass still sees a word too long for it. */
           <div data-fit-box="day" style={{ flex: `0 0 ${DAY_WIDTH}px`, height: DAY_BOX, display: 'flex', alignItems: 'center' }}>
             <div data-cell="day" {...fitOf(type.weekDay)} style={{ flex: `0 0 ${DAY_WIDTH}px`, ...typeStyle(type.weekDay, paint) }}>
-              <Highlight>{row.day}</Highlight>
+              <Highlight file={inline.highlighter}>{row.day}</Highlight>
             </div>
           </div>
         )}
@@ -195,7 +189,7 @@ function WeekRow({ slot, row, height, type, paint }: { slot: number; row: Printe
           <div data-cell="right" style={{ flex: '0 0 auto', maxWidth: DAY_WIDTH, overflowX: 'clip', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
             {row.time && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, maxWidth: '100%' }}>
-                <img data-deco="clock" src={art('icon-clock')} alt="" style={{ height: 30, width: 'auto', flex: '0 0 auto' }} />
+                <img data-deco="clock" src={art(inline.clock)} alt="" style={{ height: 30, width: 'auto', flex: '0 0 auto' }} />
                 <div data-cell="time" {...fitOf(type.weekTime)} style={{ ...typeStyle(type.weekTime, paint), whiteSpace: 'nowrap', minWidth: 0 }}>
                   {row.time}
                 </div>
@@ -215,13 +209,13 @@ function WeekRow({ slot, row, height, type, paint }: { slot: number; row: Printe
 }
 
 /** The week's rows, top-aligned in the five-row box (the owner's call, 2026-09-29). */
-function WeekRows({ rows, boxes, W, type, paint }: { rows: PrintedRow[]; boxes: WeekBoxes; W: number; type: Lines; paint: Palette }) {
+function WeekRows({ rows, boxes, W, type, inline, paint }: { rows: PrintedRow[]; boxes: WeekBoxes; W: number; type: Lines; inline: Look['inline']; paint: Palette }) {
   if (!rows.length) return null;
   const box = boxes.rows;
   return (
     <div data-group="rows" style={{ position: 'absolute', ...across(box, W), top: box.top, height: box.height, display: 'flex', flexDirection: 'column', gap: boxes.rowGap }}>
       {rows.map((row, slot) => (
-        <WeekRow key={slot} slot={slot} row={row} height={boxes.rowHeight} type={type} paint={paint} />
+        <WeekRow key={slot} slot={slot} row={row} height={boxes.rowHeight} type={type} inline={inline} paint={paint} />
       ))}
     </div>
   );
@@ -268,8 +262,10 @@ export function Flyer({ data, canvas, hostel, photo, showSafeZones = false, ref 
   const pillPrints = data.showPill && !!(t.handle || t.tag);
   // The art that hangs from the pill's end is drawn with the pill, and only with it: a flyer that prints no pill
   // prints no spark off the end of nothing (Artur, 2026-10-13; it was kept where the default pill would end).
-  const pieces = resolveDoodles(data.doodles);
+  const pieces = look.art(data);
   const pillArt = pieces.filter((d) => d.anchor === 'pillEnd');
+  // The art at the end of the ask's copy is drawn with the ask, and only with it (the hand-drawn look's pencil).
+  const askArt = pieces.filter((d) => d.anchor === 'askEnd');
 
   return (
     <div
@@ -296,28 +292,28 @@ export function Flyer({ data, canvas, hostel, photo, showSafeZones = false, ref 
         boxSizing: 'content-box',
       }}
     >
-      {pieces.map((d, i) => (pillArt.includes(d) ? null : <img key={i} data-art="" data-anchor={d.anchor ?? 'canvas'} src={art(d.slug)} alt="" style={doodleStyle(d, anchors)} />))}
+      {pieces.map((d, i) => (pillArt.includes(d) || askArt.includes(d) ? null : <img key={i} data-art="" data-anchor={d.anchor ?? 'canvas'} src={art(d.slug)} alt="" style={doodleStyle(d, anchors)} />))}
 
       <div
         data-group="eyebrow"
         style={{ position: 'absolute', ...across(A.eyebrow, W), top: A.eyebrow.top, height: A.eyebrow.height, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 24 }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 18, flex: '0 0 auto' }}>
-          <img data-deco="icon" src={art('icon-calendar')} alt="" style={{ height: 62, width: 'auto' }} />
+          <img data-deco="icon" src={art(look.inline.eyebrowIcon)} alt="" style={{ height: 62, width: 'auto' }} />
           {t.eyebrow && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
               <div style={{ ...typeStyle(type.eyebrow, paint), whiteSpace: 'nowrap' }}>{t.eyebrow}</div>
-              <div data-deco="rule" style={{ height: 16, background: `url(${art('rule-teal-wide')}) left center/100% 100% no-repeat` }} />
+              <div data-deco="rule" style={{ height: 16, background: `url(${art(look.inline.eyebrowRule)}) left center/100% 100% no-repeat` }} />
             </div>
           )}
         </div>
-        <Marks hostel={hostel} />
+        <Marks hostel={hostel} wordmark={look.wordmark} />
       </div>
 
       {body === 'week' ? (
         <>
           <Headline group="title" box={WK.title} W={W} t={t} type={type} paint={paint} />
-          <WeekRows rows={printedRows(data.week)} boxes={WK} W={W} type={type} paint={paint} />
+          <WeekRows rows={printedRows(data.week)} boxes={WK} W={W} type={type} inline={look.inline} paint={paint} />
         </>
       ) : (
         <>
@@ -338,7 +334,7 @@ export function Flyer({ data, canvas, hostel, photo, showSafeZones = false, ref 
             <div
               data-group="photo"
               data-deco="rule"
-              style={{ position: 'absolute', ...across(A.noPhotoRule, W), top: A.noPhotoRule.top, height: A.noPhotoRule.height, background: `url(${art('rule-teal-wide')}) center/100% 100% no-repeat` }}
+              style={{ position: 'absolute', ...across(A.noPhotoRule, W), top: A.noPhotoRule.top, height: A.noPhotoRule.height, background: `url(${art(look.inline.photoRule)}) center/100% 100% no-repeat` }}
             />
           )}
 
@@ -349,7 +345,7 @@ export function Flyer({ data, canvas, hostel, photo, showSafeZones = false, ref 
             >
               {chips.map((chip) => {
                 const when = chip.key === 'when';
-                const icon = chip.key === 'when' ? art('icon-calendar') : chip.key === 'where' ? art('icon-pin') : null;
+                const icon = chip.key === 'when' ? art(look.inline.whenIcon) : chip.key === 'where' ? art(look.inline.whereIcon) : null;
                 return (
                   <div key={chip.key} data-chip={chip.key} data-fit-box="1" style={{ position: 'relative', height: A.chips.height, overflow: 'hidden' }}>
                     <WonkyBox fill={paint.surface} stroke={paint.ink} />
@@ -361,7 +357,7 @@ export function Flyer({ data, canvas, hostel, photo, showSafeZones = false, ref 
                       </div>
                       {when ? (
                         <div {...fitOf(type.chipBigMarked)} style={typeStyle(type.chipBigMarked, paint)}>
-                          <Highlight>{chip.big}</Highlight>
+                          <Highlight file={look.inline.highlighter}>{chip.big}</Highlight>
                         </div>
                       ) : (
                         <div {...fitOf(type.chipBig)} style={typeStyle(type.chipBig, paint)}>{chip.big}</div>
@@ -370,7 +366,7 @@ export function Flyer({ data, canvas, hostel, photo, showSafeZones = false, ref 
                         /* The time is one line that shrinks, as a week row's is: left to wrap, a browser could break a
                            range after its hyphen ("09:15-" over "14:00") and the chip clipped the second line. */
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                          <img data-deco="clock" src={art('icon-clock')} alt="" style={{ height: 36, width: 'auto', flex: '0 0 auto' }} />
+                          <img data-deco="clock" src={art(look.inline.clock)} alt="" style={{ height: 36, width: 'auto', flex: '0 0 auto' }} />
                           <div {...fitOf(type.chipTime)} style={{ ...typeStyle(type.chipTime, paint), whiteSpace: 'nowrap', minWidth: 0 }}>{chip.sub}</div>
                         </div>
                       )}
@@ -405,19 +401,20 @@ export function Flyer({ data, canvas, hostel, photo, showSafeZones = false, ref 
       {(t.askEn || t.askEs) && (
         <div data-group="ask" style={{ position: 'absolute', ...across(A.ask, W), top: A.ask.top, height: A.ask.height }}>
           {/* The block is as wide as the longer of its two lines, and the underline with it. */}
-          <div style={{ position: 'relative', display: 'inline-block', maxWidth: 760 }}>
+          <div style={{ position: 'relative', display: 'inline-block', maxWidth: ASK_MAX_WIDTH }}>
             {t.askEn && (
               <div {...fitOf(type.askEn)} style={{ ...typeStyle(type.askEn, paint), whiteSpace: 'nowrap' }}>{t.askEn}</div>
             )}
-            <div data-deco="rule" style={{ height: 22, marginTop: 2, background: `url(${art('rule-teal-ask')}) left center/100% 100% no-repeat` }} />
+            <div data-deco="rule" style={{ height: 22, marginTop: 2, background: `url(${art(look.inline.askRule)}) left center/100% 100% no-repeat` }} />
             {t.askEs && (
               <div {...fitOf(type.askEs)} style={{ ...typeStyle(type.askEs, paint), marginTop: 10, whiteSpace: 'nowrap' }}>{t.askEs}</div>
             )}
-            {/* The pencil hangs from the end of the copy, a little above it (Artur, 2026-10-12; it sat at the column's
-                right edge, wherever the copy ended). From the block's end, not the English line's: the pencil is
-                taller than that line, and under a short one it would lie on a longer Spanish line. It is a child of
-                the block and of neither line, so it takes no room from their fit. */}
-            <img data-art="" data-anchor="askEnd" src={art('doodle-pencil')} alt="" style={{ position: 'absolute', left: `calc(100% + ${PENCIL_AFTER}px)`, top: -PENCIL_ABOVE, width: 104, transform: 'rotate(-4deg)' }} />
+            {/* The art at the end of the copy hangs from the block's end, not the English line's: the pencil is taller
+                than that line, and under a short one it would lie on a longer Spanish line. It is a child of the block
+                and of neither line, so it takes no room from their fit. */}
+            {askArt.map((d, i) => (
+              <img key={i} data-art="" data-anchor="askEnd" src={art(d.slug)} alt="" style={followStyle(d)} />
+            ))}
           </div>
         </div>
       )}
@@ -428,7 +425,7 @@ export function Flyer({ data, canvas, hostel, photo, showSafeZones = false, ref 
               pill is drawn over it, as it was over the art on the flyer. */}
           <div style={{ position: 'relative', display: 'flex' }}>
             {pillArt.map((d, i) => (
-              <img key={i} data-art="" data-anchor="pillEnd" src={art(d.slug)} alt="" style={pillArtStyle(d)} />
+              <img key={i} data-art="" data-anchor="pillEnd" src={art(d.slug)} alt="" style={followStyle(d)} />
             ))}
             {/* The pill is as wide as its copy up to its column, and the handle and the tag are one fitted line: a pill
                 that fits is drawn as it always was, a wider one shrinks its letters (the editor's UX round, Part 4).

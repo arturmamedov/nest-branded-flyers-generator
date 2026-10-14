@@ -384,8 +384,11 @@ export function inside(inner: Rect, outer: Rect, tolerance = 0): boolean {
     browser (pill.spec.ts holds it). The design pass set the spark off the pill's end against this pill. */
 export const DEFAULT_PILL_WIDTH = 585;
 
-/** Stored anchors, plus the ones only the template's own art uses (defaults.ts). */
-export type ArtAnchor = DoodleAnchor | 'bottomLeft' | 'bottomRight' | 'pillEnd';
+/** The ask's block is at most this wide: its two lines shrink to fit it (Flyer.tsx), beside the art at its end. */
+export const ASK_MAX_WIDTH = 760;
+
+/** Stored anchors, plus the ones only a look's own art uses (looks.ts). */
+export type ArtAnchor = DoodleAnchor | 'bottomLeft' | 'bottomRight' | 'pillEnd' | 'askEnd';
 
 /** Where art hangs from on a canvas, for a flyer's body, in a look's boxes. The one statement of
     the rule (schema.ts and defaults.ts point here):
@@ -401,6 +404,9 @@ export type ArtAnchor = DoodleAnchor | 'bottomLeft' | 'bottomRight' | 'pillEnd';
       known only once its letters are fitted, so this point is where the default pill ends (it is centred): the
       renderer hangs the art from the end of the pill it draws, at the same offsets (Flyer.tsx), and a flyer that
       prints no pill prints none of this art (2026-10-13).
+    - askEnd: the right end of the ask's block of copy, at its top. The block is as wide as its copy, so this point
+      is where the widest block ends: the renderer hangs the art from the end of the block it draws, at the same
+      offsets (the hand-drawn look's pencil), and a flyer with no ask prints none of this art.
     placeArt() puts a piece there. */
 export function artAnchors(canvas: CanvasId, body: Body, geometry: Geometry): Record<ArtAnchor, ArtPoint> {
   const { width, height } = CANVASES[canvas];
@@ -428,6 +434,7 @@ export function artAnchors(canvas: CanvasId, body: Body, geometry: Geometry): Re
     bottomLeft: { x: 0, y: height, scale: art.cornerScale },
     bottomRight: { x: width, y: height, scale: art.cornerScale },
     pillEnd: { x: (width + DEFAULT_PILL_WIDTH) / 2, y: a.pill.top, scale: 1 },
+    askEnd: { x: a.ask.left + ASK_MAX_WIDTH, y: a.ask.top, scale: 1 },
   };
 }
 

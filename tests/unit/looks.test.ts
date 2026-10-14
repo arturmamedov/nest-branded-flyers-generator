@@ -1,10 +1,10 @@
-import { readdirSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 import { ROOT } from '../../scripts/gen-shared.js';
 import { SHARED_GEOMETRY } from '../../src/shared/layout.js';
 import { FIRST_LOOK, allLooks, lookIds, lookOf } from '../../src/shared/looks.js';
-import { DEFAULT_COLORS, HAND_DRAWN } from '../../src/shared/looks/handDrawn.js';
+import { DEFAULT_COLORS, DEFAULT_DOODLES, HAND_DRAWN, resolveDoodles } from '../../src/shared/looks/handDrawn.js';
 import { geometryProblems } from '../geometry.js';
 
 /** WCAG 2's contrast ratio of two #rrggbb colours. */
@@ -99,6 +99,27 @@ describe('the looks', () => {
         expect(ratio, `${line}: ${paint[t.ink]} on ${paint[t.on]}`).toBeGreaterThanOrEqual(look.rules.minContrast);
         expect(forbidden, `${line}: ${paint[t.ink]}`).not.toContain(paint[t.ink].toLowerCase());
       }
+    });
+  }
+
+  it('hand-drawn’s art is the flyer’s own arrangement, and its pencil at the end of the ask', () => {
+    // Artur's pick from the mock-ups (2026-10-12): "same size, higher", 14 px after the copy and 10 px above its top.
+    const pencil = { slug: 'doodle-pencil', anchor: 'askEnd', x: 14, y: -10, w: 104, rot: -4 };
+    expect(HAND_DRAWN.art({ doodles: DEFAULT_DOODLES })).toEqual([...resolveDoodles(DEFAULT_DOODLES), pencil]);
+    const arranged = DEFAULT_DOODLES.map((d, i) => (i === 2 ? { ...d, x: d.x + 1 } : d));
+    expect(HAND_DRAWN.art({ doodles: arranged })).toEqual([...arranged, pencil]);
+    expect(HAND_DRAWN.wordmark).toBe('assets/nest-logo-teal.png');
+  });
+
+  for (const look of allLooks()) {
+    it(`${look.id}: every art file it names is under assets/`, () => {
+      const files = [
+        ...Object.values(look.inline).map((name) => `assets/art/${name}.png`),
+        ...look.art({ doodles: DEFAULT_DOODLES }).map((d) => `assets/art/${d.slug}.png`),
+        look.wordmark,
+      ];
+      expect(files.length).toBeGreaterThan(10);
+      expect(files.filter((file) => !existsSync(join(ROOT, file)))).toEqual([]);
     });
   }
 

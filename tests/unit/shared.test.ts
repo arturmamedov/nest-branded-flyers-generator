@@ -140,6 +140,7 @@ describe('canvases', () => {
       bottomLeft: { x: 0, y: 1920, scale: 1 },
       bottomRight: { x: 1080, y: 1920, scale: 1 },
       pillEnd: { x: 832.5, y: 1544, scale: 1 },
+      askEnd: { x: 830, y: 1382, scale: 1 },
     });
     expect(artAnchors('story', 'band', G)).toEqual(artAnchors('story', 'bleed', G));
     expect(artAnchors('story', 'none', G)).toMatchObject({ photoLeft: { x: 240, y: 900, scale: 1 }, photoRight: { x: 840, y: 900, scale: 1 } });

@@ -101,6 +101,26 @@ export interface Look {
   readonly type: { readonly [L in LineName]: LineType };
   /** What its copy is held to: a contrast every line reaches on its ground, and inks no line may print in. */
   readonly rules: { readonly minContrast: number; readonly forbiddenInks: readonly string[] };
+  /** Its art for a flyer, each piece by the point it hangs from (layout.ts, artAnchors): the canvas, the photo's
+      corners, the bottom corners, the pill's end (drawn with the pill), the end of the ask's copy (drawn with the
+      ask). Hand-drawn's is the flyer's own arrangement (data.doodles, which only it reads) and its pencil. */
+  art(data: Pick<FlyerData, 'doodles'>): readonly ArtPlacement[];
+  /** The art drawn inside the blocks, by file name (assets/art/<name>.png). */
+  readonly inline: {
+    readonly eyebrowIcon: string;
+    readonly eyebrowRule: string;
+    /** The line that stands for the photo on a flyer with none. */
+    readonly photoRule: string;
+    readonly askRule: string;
+    readonly whenIcon: string;
+    readonly whereIcon: string;
+    /** Before the time, in the WHEN chip and in a week row. */
+    readonly clock: string;
+    /** Under the WHEN chip's day and each week row's day. */
+    readonly highlighter: string;
+  };
+  /** The Nests wordmark's file, at the eyebrow's right. The hostels' badges beside it are every look's. */
+  readonly wordmark: string;
 }
 
 /** What a flyer that names no look prints in, forever: the hand-drawn look. */

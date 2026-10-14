@@ -100,6 +100,10 @@ export function resolveDoodles(doodles: DoodlePlacement[]): ArtPlacement[] {
   return sameDoodles(doodles, DEFAULT_DOODLES) ? TEMPLATE_ART : doodles;
 }
 
+/** The pencil hangs from the end of the ask's copy: 14 px after it and 10 px above the block's top (it was 6 px below
+    it), at the size it always had. Artur's pick of two shapes from the mock-ups (2026-10-12): "same size, higher". */
+const PENCIL: ArtPlacement = { slug: 'doodle-pencil', anchor: 'askEnd', x: 14, y: -10, w: 104, rot: -4 };
+
 /** The orange of the website's "Book Now": never flyer ink (handoff README §3). */
 const BOOK_NOW_ORANGE = '#EA580C';
 
@@ -148,4 +152,16 @@ export const HAND_DRAWN: Look = {
   type: TYPE,
   // The handoff's: 4.5:1 for every line, the bright teal never copy (≈1.9:1 on cream), the orange never ink.
   rules: { minContrast: 4.5, forbiddenInks: [BRIGHT_TEAL, BOOK_NOW_ORANGE] },
+  art: ({ doodles }) => [...resolveDoodles(doodles), PENCIL],
+  inline: {
+    eyebrowIcon: 'icon-calendar',
+    eyebrowRule: 'rule-teal-wide',
+    photoRule: 'rule-teal-wide',
+    askRule: 'rule-teal-ask',
+    whenIcon: 'icon-calendar',
+    whereIcon: 'icon-pin',
+    clock: 'icon-clock',
+    highlighter: 'mark-yellow',
+  },
+  wordmark: 'assets/nest-logo-teal.png',
 };
