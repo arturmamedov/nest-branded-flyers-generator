@@ -69,8 +69,9 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
   export page. Nothing the browser loads imports `samples.ts` either: it imports `seed/hostels.json` for the
   hostels' names, and Vite would bundle the whole seed.
 - A flyer prints in a look (2026-10-14; the design is `docs/prompts/looks-seam.md`, the report
-  `docs/reports/looks.md`). Stages 1 and 2 of 7 are built: the hand-drawn look is a registry entry the one renderer
-  reads. No flyer stores a look yet (stage 3), and staff see nothing of it.
+  `docs/reports/looks.md`). Stages 1 to 4 of 7 are built: the hand-drawn look is a registry entry the one renderer
+  reads, a flyer stores its look, and a site names the looks its staff may pick. Staff see nothing of it: there is one
+  look, and no switch until stage 6.
   - **`src/shared/looks.ts` is the registry**, zod-free and DOM-free: a look is one entry, in its own file
     (`looks/handDrawn.ts`). `lookOf(data)` is the look a flyer prints in, read loosely: none, or an id this release
     does not know, is hand-drawn. `registerLook()` adds one only before anything reads the registry (the tests' own
@@ -91,6 +92,26 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
   - `tests/unit/looks.test.ts` holds every look: its boxes, its contrast, its art files, its faces (a family of
     `fonts.ts`, a pinned package, imported by `src/flyer/fonts.css`), its pill's tilt within `PILL_TILT_ROOM`.
   - The baseline (`tests/render/baseline.spec.ts`) shoots both canvases and flyers with their own colours.
+  - **`data.look` is an enum of the registry's ids**, default `FIRST_LOOK`, the last key of the data (after the
+    labels; PHP compares stored files key for key). `newFlyerData(template, look)` writes it, and hand-drawn's
+    `colors` and `doodles` whatever the look. Unlike a label it is held to the list: a look's id is never taken back,
+    so only going back meets one a release does not have. Then PHP opens it as stored (drawn hand-drawn) and refuses
+    its save at `data.look`; Node lists it and does not open it (`docs/deploy.md`, "Rolling back"). A flyer with no
+    look reads hand-drawn. No migration.
+  - **`schema.ts` reads `lookIds()` when it loads**, and `loadConfig()` when it runs: either seals the registry, so the
+    tests' proof look (stage 5) is registered before both.
+  - **A site names its looks**: `LOOKS=hand-drawn,…` in `.env` (`namedLooks`, `server/config.ts`), `'looks'` in
+    `config.php` (`php/src/SiteLooks.php`, the ids from `schema/shared.json`'s `looks` block). In the site's order,
+    the first a new flyer's; not set, the first look alone. A name the release does not have, a name twice or none is
+    refused by the setting's name, never its value (M3; PHP: 503). `tests/fixtures/looks-settings.json` holds both
+    loaders to one table, against two looks of its own (`known`): this release has one.
+  - **The list decides what the editor offers, never what a save accepts** (M2): a save is held to the registry.
+  - `GET api/config` answers `looks` (Node: `AppDeps.looks`, optional). The client reads it through `siteLooks()` in
+    `looks.ts`, loosely: none, or a look it does not have, is the first look alone. `App.tsx` hands the first to
+    `Editor` (both copies of `blankDraft`, or a new flyer opens unsaved) and to `AiPage` (`flyerFromBrief`'s fourth
+    argument). `flyers:post` asks the site through `siteFirstLook()` in `scripts/site.ts` (M6); `ai:smoke` stays
+    hand-drawn.
+  - `fitKey` in `Preview.tsx` does not hold the look yet: it comes with the switch (stage 6), with its spec.
 - `src/editor/` — editor + library UI. `render.html` + `src/render/` — the bare page headless Chromium shoots.
 - Each library card shows its flyer (`src/editor/FlyerThumb.tsx`, 2026-10-06): the same `<Flyer>`, on
   `DEFAULT_CANVAS` at its true size, scaled by a transform and prepared with `prepareFlyer()`. Never a stored
@@ -1075,9 +1096,10 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
   release refuses the store cleanly. A stored `pillEnd` piece would also need the renderer's rule for it (drawn
   with the pill, and not at all on a flyer that prints none), which today only the template set reaches, and
   step 9 decides whether staff may pick the four swapped inks (`SWAPPED_INKS`).
-- Built, stages 1 and 2 of 7: **looks, the seam for more than one flyer design** (2026-10-14, branch `feat/looks`,
+- Built, stages 1 to 4 of 7: **looks, the seam for more than one flyer design** (2026-10-14, branch `feat/looks`,
   cut from `feat/flyer-labels` at `a55589d`; the design `docs/prompts/looks-seam.md`, designed with Artur on
-  2026-10-13; the report `docs/reports/looks.md`). Eleven commits, `c1d7e29..4139d14`, not pushed.
+  2026-10-13; the report `docs/reports/looks.md`, one section per session). Stages 1 and 2: eleven commits,
+  `c1d7e29..4139d14`. Stages 3 and 4: five, `9a665cc..11773dc`, and their record. Nothing is pushed.
   - How it works is in the architecture section above ("A flyer prints in a look").
   - Artur's answers are in the design and the report, and are not to be reopened: among those of 2026-10-14, a look
     may give a box its own top and height, the photo's too (he struck "move only"), and M2 to M6 kept.
@@ -1086,9 +1108,17 @@ changes in a real browser (Chrome) — the preview and a downloaded export.
   - The gates at the end of stage 2: 782 unit, 299 in the `render` project, 75 in `ai`, 387 contract. PHP was not
     run: nothing it reads changed.
   - Also `0eadafa`: a flake in the labels work's own `library-labels.spec.ts`, fixed.
-  - **Next, on his go (given 2026-10-14): stages 3 and 4 in a new session**, `docs/prompts/looks-seam-stages-3-4.md`:
-    `data.look` on both backends, then the site's looks. Then the proof look, the switch, the docs. The real second
-    look is a later session still: data and art, once Claude Design's output is on the table.
+  - **Stages 3 and 4** (the same day, a session of their own): `data.look` on both backends with the two rollback
+    rules, `LOOKS` / `'looks'`, `api/config`'s `looks`, and a new flyer in the site's first look. Artur approved
+    the plan as written, with eight points where the code disagreed with the design (the report has them). Nothing
+    a staff member sees changed: the baseline byte-identical (36 cases) after every commit that touched `src/`.
+  - The gates at the end of stage 4: 809 unit, 387 contract, 374 in the browser (299 `render`, 75 `ai`), 958 PHP
+    (38 skipped, as before), 3 in the PHP smoke test.
+  - **For Artur to decide** (the report has each): `LOOKS=` with nothing is refused (`AI_FEATURES=` means none); a
+    look's name spelt exactly; the sample's `'looks'` commented out; the words in `docs/deploy.md`.
+  - **Next, on his go: stages 5 to 7 in a new session**, `docs/prompts/looks-seam-stages-5-7.md`: the proof look,
+    the switch, the docs. The real second look is a later session still: data and art, once Claude Design's output
+    is on the table.
 - Done: output canvases, Instagram story 9:16 + WhatsApp 3:4 (branch `feat/output-canvases`, 2026-09-23).
   The review is `docs/reports/output-canvases-review.md`, the report `docs/reports/output-canvases.md`.
 - Done: the PHP shared-hosting port, phases 2–5 (branch `feat/php-shared-hosting`): the seams, the PHP

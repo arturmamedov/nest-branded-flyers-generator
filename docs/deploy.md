@@ -248,6 +248,29 @@ file the release does not ship are left exactly as they were.
 - Which marks print, the wordmark, the badge or both, is one setting in the code
   (`EYEBROW_MARKS` in `src/shared/defaults.ts`): it changes with a release, never on the host.
 
+## The looks a flyer prints in
+
+A flyer prints in a look. Today there is one, **Hand-drawn**, and staff see no choice of it. Once a
+release brings a second, `config.php` names the looks staff may pick:
+
+```php
+'looks' => ['hand-drawn'],
+```
+
+- **In this order: a new flyer starts in the first**, in the editor, on "Create with AI" and in
+  `npm run flyers:post`. Left out (or `null`), a site offers Hand-drawn alone. Leave it out until
+  there is a second look to name.
+- **Only looks the release has.** A name it does not have (a typo, or a look of a later release)
+  refuses the whole file: every request answers 503 until it is fixed. The reason names `looks`
+  and the looks there are, never what was written, and it is in the host's own PHP error log.
+- **It decides what staff may pick, never what a save accepts.** A flyer in a look the site no
+  longer names still opens, prints and saves in it.
+- **The release first, the key second.** A release from before looks refuses the key (503). Upload
+  the release, see the app load, and only then add it. A new look goes into the Laragon copy's
+  `config.php` first, then into live's.
+- On a Node machine it is `LOOKS=hand-drawn` in `.env`, in the same order, separated by commas. A
+  name that is no look stops the server at start-up.
+
 ## The AI assistant
 
 The app can write a flyer from a staff member's own text ("✨ Create with AI", on the library's
@@ -412,6 +435,7 @@ them back later.
 
 | Going back to a release built | Take out |
 |---|---|
+| without looks (any built before the looks work of 2026-10-14) | `looks` |
 | with the picture read and without its page, "From a photo" | nothing: `'photo'` stays valid there. The page's second way in is gone until the newer release is back, and the server still reads a picture sent to it |
 | without the picture read (every release up to 2026-10-06, `2ad58f28364e` included) | `models`, from the `ai` block, and `'photo'` from its `features` |
 | on 2026-10-06 (`2ad58f28364e`) | `dailyLimits` as well |
@@ -475,6 +499,25 @@ the newer release. The same holds for a label taken off the list later.
 One thing would not go back cleanly: a flyer carries 8 labels at most, each a slug of 40 characters
 at most. If a later release raises either, a flyer saved with more behaves in an older release as a
 line of copy longer than it allows does, above.
+
+**A flyer's look** (releases after 2026-10-14). Every flyer stores the look it prints in; today every
+one is Hand-drawn. Going back:
+
+- **To a release from before looks: every flyer shows Hand-drawn,** on the host and on a Node
+  machine. The older release does not know the look and leaves it out of what it reads, so a Save
+  or a Download there drops it for good: the flyer is Hand-drawn again when the newer release is
+  back. While Hand-drawn is the only look, nothing changes on screen. Take `'looks'` out of
+  `config.php` first.
+- **To a release that knows looks, but not the one a flyer is in** (once there is a second): as a
+  line of copy longer than the older release allows, above. On the host it opens, drawn Hand-drawn,
+  and cannot be saved: Save, and every Download, answer "Some fields are not valid." for
+  `data.look`. On a Node machine it is listed and does not open. Nothing is lost: it opens in its
+  own look again in the newer release. Take that look's name out of `'looks'` first.
+
+Both halves of the second are held by tests (`php/tests/BootstrapTest.php`,
+`tests/storage/repositories.contract.ts`), and so is a flyer stored with no look opening Hand-drawn
+on every backend. A look's name is never taken back once a release accepts it, so only going back
+meets one.
 
 ## Locked out?
 
@@ -544,7 +587,8 @@ the site's `data/ai-usage/` file, which no address serves.
 | 500 on every page in the folder, the preflight page too (IONOS: 403, on its own page with a cookie banner) | the host refuses a line of `.htaccess`. Right after pasting a block, it is that block: take it out again (the lock's `<If …>` lines are the likely one). Right after an upload, put the previous release's `.htaccess` back and tell a developer |
 | photos alone answer 500 | the same, in `uploads/.htaccess` (IONOS accepts it as shipped) |
 | 503 `not_configured` | `config.php` is missing, has no access rule, or PHP could not read it (a typo): check it against the one the preflight page printed |
-| 503 on everything right after going back to an older release | `config.php` has a key the older release does not know: `dailyLimits`, `features` or `dailyLimit` in the `ai` block, or the whole block. Take it out (*Rolling back* has the dates) |
+| 503 on everything right after going back to an older release | `config.php` has a key the older release does not know: `looks`; `dailyLimits`, `features` or `dailyLimit` in the `ai` block; or the whole block. Take it out (*Rolling back* has the dates) |
+| 503 right after adding or changing `looks` | the release is from before looks (upload the current one first), or the list names a look the release does not have: a typo, a name in capitals, or a name twice. It is written `['hand-drawn']`, a list even for one. The reason names `looks` and is in the host's own PHP error log |
 | 503 right after adding or changing the `ai` block | the release is older than the key (`features` and `dailyLimit` need the release of 2026-10-06 (`2ad58f28364e`), `dailyLimits` the one after it: upload it first), or a typo in the block: a setting the sample does not have, a feature that is not `flyer`, `share` or `photo`, a `dailyLimit` that is not a whole number from 1 to 20, a `dailyLimits` that is not written `['share' => 10]` with such a number, or a value of the wrong kind. The reason names the setting, never its value. **It is in the host's own PHP error log** (the hosting panel's logs), not in `data/php-errors.log`: PHP's log moves into the data folder only once `config.php` has been read. "`ai.apiKey` must not hold spaces or line breaks" means the key was pasted with one: write it between single quotes, with nothing after its last character |
 | nothing of the AI shows | the AI is off: `config.php` has no `ai` block, the block has no `provider`, no `apiKey` or no `features`, or it says `'enabled' => false`. A provider and its key alone run nothing: name the features. `GET api/config` shows `"ai": {"enabled": false}` |
 | "✨ Write with AI" in the editor, but no "✨ Create with AI" on the bar | by design where `features` names `share` alone. `GET api/config` then lists one feature: `"features": [{"name": "share", "limit": 3, "remaining": 3}]` |

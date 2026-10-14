@@ -8,8 +8,9 @@ launch block's gate, his answers of that day (M1 is struck: a look may resize a 
 found wrong here. The order of the build was approved that day: it is "Commits, in order".
 
 **Stages 1 and 2 are built** (2026-10-14, the same session, on `feat/looks`: `c1d7e29..4139d14`; the report is
-`docs/reports/looks.md`). The block below launched them; it is kept as it was. **Stages 3 and 4 have their own
-prompt: `docs/prompts/looks-seam-stages-3-4.md`.** The design under the block stands for every stage.
+`docs/reports/looks.md`). The block below launched them; it is kept as it was. **Stages 3 and 4 are built** (the same
+day, launched by `docs/prompts/looks-seam-stages-3-4.md`; the report's second section). **Stages 5 to 7 have their own
+prompt: `docs/prompts/looks-seam-stages-5-7.md`.** The design under the block stands for every stage.
 
 Suggested run: Claude Opus 5.5 (`claude-opus-5-5`), effort **high**, started in plan mode.
 
@@ -354,7 +355,7 @@ listed), and for a key an older release drops, the stand-ins in `tests/storage/j
 ## Commits, in order (the stage each belongs to in brackets)
 
 Approved by Artur on 2026-10-14, a commit per piece, on his go-ahead for each stage. The notes dated 2026-10-14 are
-what reading the code added that day. 1 to 5 are built (`docs/reports/looks.md` has each commit); 6 and 7 are the
+what reading the code added that day. 1 to 7 are built (`docs/reports/looks.md` has each commit); 8 to 10 are the
 next session's.
 
 1. **Baseline** [1]: `tests/render/baseline.spec.ts` takes every canvas, plus a case with custom colours. Capture
@@ -392,7 +393,8 @@ next session's.
    - The pencil stays the last child of the ask's block, and the pill's spark the first of the pill's box.
 6. **Field** [3]: `schema.ts`, `defaults.ts`, `npm run gen`, the contract rows (`tests/contract/validation.test.ts`:
    filled when absent, unknown is `invalid` at `data.look`), the PHP twins, the rollback tests,
-   `docs/api-contract.md` (the defaulted keys), `docs/deploy.md`, `fitKey`.
+   `docs/api-contract.md` (the defaulted keys), `docs/deploy.md`. (`fitKey` moved to 9 on 2026-10-14, by the plan
+   Artur approved: no test can fail before an open editor can change its look.)
    - 2026-10-14: a new key changes four generated files: `schema/flyer.schema.json`, `schema/storage.schema.json`,
      `schema/ai.json` (its share request holds `data`) and `seed/samples.json`.
    - PHP writes keys in the schema's order, and `FlyerValidatorTest` compares every sample key for key. So
@@ -421,7 +423,8 @@ next session's.
    (`test:render` builds both), `scripts/build-php.ts`, `tests/unit/generated.test.ts`, `.gitignore`,
    `tests/render/looks.spec.ts`.
 9. **The switch** [6]: `Editor.tsx` (after the Template switch in the Flyer section), `fields.ts`, `sectionFolds.ts`
-   (the closed line names the look when the switch shows), `tests/editor.ts` (`lookButton`), the specs.
+   (the closed line names the look when the switch shows), `tests/editor.ts` (`lookButton`), the specs, and `fitKey`
+   in `Preview.tsx`, with a spec where a switch refreshes the offscreen canvas's cut-off warning.
    - 2026-10-14, before the types work, which changes this section (read it again): the closed line is pinned in
      `section-folds.test.ts` and in three places of `panel.spec.ts`. `sectionLine` is given the data, the hostel's
      name and whether there is a photo: it must also be told whether the switch shows. `templateButton` is the

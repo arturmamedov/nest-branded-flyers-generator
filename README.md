@@ -149,7 +149,7 @@ full WHEN line) — download the stress-test flyer and look.
 | `src/flyer/Flyer.tsx` | **the** renderer — used by the editor preview and the export page. Transcribed 1:1 from the prototype |
 | `src/flyer/fit.ts` | the two-pass shrink-to-fit, from the prototype's `_fit()`; its height pass keeps each line's floor |
 | `src/shared/` | DOM-free logic shared by client and server: schema, layout numbers, `·` parsing, crop maths, copy rules |
-| `src/shared/looks.ts`, `src/shared/looks/` | the looks a flyer can print in: one entry each, read by the one renderer. Today one, the hand-drawn look, whose colours, type, faces, art, frame and pill live in `looks/handDrawn.ts` (`docs/reports/looks.md`) |
+| `src/shared/looks.ts`, `src/shared/looks/` | the looks a flyer can print in: one entry each, read by the one renderer. Today one, the hand-drawn look, whose colours, type, faces, art, frame and pill live in `looks/handDrawn.ts` (`docs/reports/looks.md`). A flyer stores its look (`data.look`), and a site names the looks its staff may pick (`LOOKS`, below) |
 | `src/editor/` | the editor and library UI. The library's top bar is `<nest-nav tool="flyers">`, the bar every Nests tool shares; see below |
 | `render.html`, `src/render/` | the bare page headless Chromium screenshots: one flyer on one canvas (`?canvas=`) |
 | `server/` | Express API, migrations, photo processing, export renderer |
@@ -259,6 +259,7 @@ A new build changes the renderer's build id, so cached exports are re-rendered a
 | `STORAGE` | `sqlite` | `sqlite` or `json` — the same JSON store the PHP backend serves (`docs/json-storage.md`) |
 | `RENDER_ORIGIN` | `http://127.0.0.1:PORT` (or `http://HOST:PORT` for a specific IP) | where headless Chromium reaches the app |
 | `RENDER_TIMEOUT_MS` | `30000` | per export |
+| `LOOKS` | unset: `hand-drawn` alone | the looks staff may pick for a flyer, separated by commas, in the site's order: a new flyer starts in the first. Only looks the release has, each once; anything else is refused at start-up. Today there is one, so leave it unset. PHP: `'looks'` in `config.php` (`docs/deploy.md`, *The looks a flyer prints in*) |
 | `PHP_BIN` | `php` | only for the PHP tests: which interpreter to run (8.1+) |
 | `AI_PROVIDER` | unset: the AI is off | `openai`, `anthropic`, or `fake` (canned answers from the examples, for the tests and a demo; it needs no key) |
 | `AI_API_KEY` | unset | the provider's key. Server-side only: it never reaches `api/config`, a log line, the ledger or git |
@@ -317,6 +318,10 @@ npm run copy -- --from-sqlite ./data/flyers.db --to-json <folder>/data --uploads
 The source database is never opened: a snapshot is read, so the Node app can keep running. The
 same command works the other way (`--from-json <folder>/data --uploads-from <folder>/uploads
 --to-sqlite …`). A data folder is served by one backend at a time.
+
+**The looks on the PHP host** are `'looks'` in `config.php`, as `LOOKS` above: a list, in the site's order. Left
+out, a site offers Hand-drawn alone. A release from before looks refuses the key: it goes in after the release, and
+comes out before going back (`docs/deploy.md`, *Rolling back*).
 
 **The AI on the PHP host** is the `ai` block of `config.php` (`docs/deploy.md`, *The AI assistant*):
 `provider`, `apiKey` and `features`, and optionally `dailyLimit`, `dailyLimits`, `model`, `effort`,

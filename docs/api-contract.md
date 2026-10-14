@@ -118,7 +118,8 @@ path, is 404 `no_such_endpoint`.
   exporters: ['client'] | ['client', 'server'],
   limits: { maxUploadBytes, maxPhotoEdge },
   server: { …free-form diagnostics },
-  ai: { enabled: false } | { enabled: true, features: [{ name, limit, remaining }, …] } }
+  ai: { enabled: false } | { enabled: true, features: [{ name, limit, remaining }, …] },
+  looks: [id, …] }
 ```
 
 - The editor picks its exporter from `exporters`: server if it is listed, else client.
@@ -135,6 +136,13 @@ path, is 404 `no_such_endpoint`.
   - Never the provider, the model or the key.
   - It is `enabled: false` too when the AI's ledger cannot be read (the server's log says why): the editor loads
     nothing without this answer, so the AI's storage never makes it fail.
+- `looks` is the looks this site's staff may pick (`LOOKS` in `.env`, `'looks'` in `config.php`), in the site's
+  order, at least one and each once: a new flyer starts in the first. A site that names none answers the first look
+  alone (`FIRST_LOOK` in `src/shared/looks.ts`, `hand-drawn`).
+  - It says what the editor offers, never what a save accepts: a save is held to the looks the release has
+    (`data.look`, below), so a flyer in a look the site no longer names still saves.
+  - The editor reads it loosely (`siteLooks()` in `src/shared/looks.ts`): an answer without it, from a backend older
+    than the editor, or with a look the editor does not have, offers the first look alone.
 - `maxUploadBytes` is the largest upload this backend accepts. Node: 15 MiB. PHP: the smallest of 15 MiB,
   `upload_max_filesize`, and `post_max_size` minus 64 KiB.
 - `server` is diagnostics only: nothing reads it to decide anything. Node reports `node`. PHP reports `php`,
@@ -186,10 +194,15 @@ live in `src/shared/schema.ts`. How a backend applies them:
    `1e400` is invalid at its path.
 3. **Normalise.**
    - Missing defaulted keys are filled (`data.v`, `photoCrop`, `showPill`, `week`, `overrides`, `share`, `labels`,
-     override `dx`/`dy`/`scale`, doodle `rot`). `data.share` is the share text: saved with the flyer and never printed
-     (`src/shared/share.ts`). `data.labels` is the flyer's labels, never printed either (`src/shared/labels.ts`): at
-     most 8, each a slug (lower-case words and numbers joined by single hyphens, at most 40 characters). A label is
+     `look`, override `dx`/`dy`/`scale`, doodle `rot`). `data.share` is the share text: saved with the flyer and never
+     printed (`src/shared/share.ts`). `data.labels` is the flyer's labels, never printed either (`src/shared/labels.ts`):
+     at most 8, each a slug (lower-case words and numbers joined by single hyphens, at most 40 characters). A label is
      checked by that shape, never against the list: one that is off the list is saved, and is on no screen.
+   - `data.look` is the look the flyer prints in: one of the looks the release has (`src/shared/looks.ts`; the
+     generated schema's enum), `hand-drawn` when absent. Unlike a label it is held to the list: a look's id is never
+     taken back, so only going back to an older release meets one it does not have, and then it is `invalid` at
+     `data.look`. A read is held to the schema on Node, so there such a flyer is listed and its `GET` fails; PHP's read
+     shapes the data and keeps the look as stored (`docs/deploy.md`, *Rolling back*). It is the last key of `data`.
    - Unknown keys are dropped at every level, except inside `data.overrides`, which is a record keyed by block.
    - Then `src/shared/normalize.ts` applies: an empty `hostel` means chain-wide (null), the `template` column wins
      over `data.template`, and `data.labels` is saved in the list's order, once each, with any label off the list
