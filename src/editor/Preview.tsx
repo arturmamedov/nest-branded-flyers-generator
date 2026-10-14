@@ -94,9 +94,9 @@ export function Preview({ data, canvas, hostel, photo, showSafeZones, actualSize
 
   // The photo frame of the flyer's own look. No frame, no handle: "No photo", and a week flyer, whatever photo mode it
   // keeps for switching back.
-  const { geometry } = lookOf(data);
-  const frame = photoFrame(canvas, bodyOf(data), geometry);
-  const frameBox = activityGroups(canvas, data.photoMode, geometry).photo!;
+  const look = lookOf(data);
+  const frame = photoFrame(canvas, bodyOf(data), look.geometry);
+  const frameBox = activityGroups(canvas, data.photoMode, look.geometry).photo!;
   const drag = useRef<{ x: number; y: number; crop: Crop } | null>(null);
 
   // Moves start from the crop as this frame shows it, so a drag never has a dead zone.
@@ -146,7 +146,7 @@ export function Preview({ data, canvas, hostel, photo, showSafeZones, actualSize
           {frame && (
             <div
               className={'photo-handle' + (photo ? ' has-photo' : '')}
-              style={{ left: frameBox.left, top: frameBox.top, width: frameBox.width, height: frameBox.height, borderRadius: data.photoMode === 'band' ? 40 : 0 }}
+              style={{ left: frameBox.left, top: frameBox.top, width: frameBox.width, height: frameBox.height, borderRadius: data.photoMode === 'band' ? look.frame.photoRadius : 0 }}
               onPointerDown={onPointerDown}
               onPointerMove={onPointerMove}
               onPointerUp={onPointerUp}

@@ -100,6 +100,11 @@ export function resolveDoodles(doodles: DoodlePlacement[]): ArtPlacement[] {
   return sameDoodles(doodles, DEFAULT_DOODLES) ? TEMPLATE_ART : doodles;
 }
 
+/** The code-drawn wonky frame (handoff README §4, the team's choice over the drawn PNG frames, which wash out when
+    stretched): one path, a 5 px stroke at any size. */
+const WONKY_PATH =
+  'M46 9 C 200 4 380 13 540 7 C 700 2 830 12 914 8 C 944 7 954 26 951 54 C 954 96 949 142 952 164 C 954 186 932 197 902 193 C 690 198 410 189 154 195 C 84 197 9 192 11 166 C 7 122 13 72 9 48 C 7 22 22 10 46 9 Z';
+
 /** The pencil hangs from the end of the ask's copy: 14 px after it and 10 px above the block's top (it was 6 px below
     it), at the size it always had. Artur's pick of two shapes from the mock-ups (2026-10-12): "same size, higher". */
 const PENCIL: ArtPlacement = { slug: 'doodle-pencil', anchor: 'askEnd', x: 14, y: -10, w: 104, rot: -4 };
@@ -164,4 +169,6 @@ export const HAND_DRAWN: Look = {
     highlighter: 'mark-yellow',
   },
   wordmark: 'assets/nest-logo-teal.png',
+  // The photo in a frame has the handoff's 40 px corners (§3, Geometry).
+  frame: { path: WONKY_PATH, viewBox: '0 0 960 200', stroke: 5, photoRadius: 40 },
 };

@@ -121,6 +121,15 @@ export interface Look {
   };
   /** The Nests wordmark's file, at the eyebrow's right. The hostels' badges beside it are every look's. */
   readonly wordmark: string;
+  /** The frame round the chips, the week's rows and the photo in a frame: one SVG path stretched to its box, its
+      stroke never scaled with it, and the photo's own corners. */
+  readonly frame: {
+    readonly path: string;
+    readonly viewBox: string;
+    /** In px, whatever the box's size. */
+    readonly stroke: number;
+    readonly photoRadius: number;
+  };
 }
 
 /** What a flyer that names no look prints in, forever: the hand-drawn look. */

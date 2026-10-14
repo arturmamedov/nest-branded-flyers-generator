@@ -19,15 +19,12 @@ import { artUrl as art, assetUrl } from './urls';
    the art from defaults.ts, which record where the team's design pass departs
    from the prototype. */
 
-export const WONKY_PATH =
-  'M46 9 C 200 4 380 13 540 7 C 700 2 830 12 914 8 C 944 7 954 26 951 54 C 954 96 949 142 952 164 C 954 186 932 197 902 193 C 690 198 410 189 154 195 C 84 197 9 192 11 166 C 7 122 13 72 9 48 C 7 22 22 10 46 9 Z';
-
-/** The code-drawn wonky frame: one path, non-scaling 5px stroke. */
-export function WonkyBox({ fill, stroke }: { fill: string; stroke: string }) {
+/** The look's frame round a box: one path stretched to the box, its stroke never scaled with it. */
+export function WonkyBox({ frame, fill, stroke }: { frame: Look['frame']; fill: string; stroke: string }) {
   return (
     <svg
       data-deco="frame"
-      viewBox="0 0 960 200"
+      viewBox={frame.viewBox}
       preserveAspectRatio="none"
       style={{
         position: 'absolute',
@@ -38,7 +35,7 @@ export function WonkyBox({ fill, stroke }: { fill: string; stroke: string }) {
         pointerEvents: fill === 'none' ? 'none' : undefined,
       }}
     >
-      <path d={WONKY_PATH} fill={fill} stroke={stroke} strokeWidth={5} strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+      <path d={frame.path} fill={fill} stroke={stroke} strokeWidth={frame.stroke} strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
     </svg>
   );
 }
@@ -154,10 +151,10 @@ const DAY_BOX = 114;
 
 /** One row of the This week template (.dc.html's isWeek block). Every cell collapses when it has
     nothing to print: an empty highlighter or a lone clock would print as a mark with no copy. */
-function WeekRow({ slot, row, height, type, inline, paint }: { slot: number; row: PrintedRow; height: number; type: Lines; inline: Look['inline']; paint: Palette }) {
+function WeekRow({ slot, row, height, type, inline, frame, paint }: { slot: number; row: PrintedRow; height: number; type: Lines; inline: Look['inline']; frame: Look['frame']; paint: Palette }) {
   return (
     <div data-row={slot} style={{ position: 'relative', height }}>
-      <WonkyBox fill={paint.surface} stroke={paint.ink} />
+      <WonkyBox frame={frame} fill={paint.surface} stroke={paint.ink} />
       <div style={{ position: 'relative', zIndex: 1, height: '100%', boxSizing: 'border-box', padding: '0 34px', display: 'flex', alignItems: 'center', gap: 26 }}>
         {row.day && (
           /* The day wraps too, in its own box (a departure): a day too tall for it shrinks through the height pass
@@ -209,13 +206,13 @@ function WeekRow({ slot, row, height, type, inline, paint }: { slot: number; row
 }
 
 /** The week's rows, top-aligned in the five-row box (the owner's call, 2026-09-29). */
-function WeekRows({ rows, boxes, W, type, inline, paint }: { rows: PrintedRow[]; boxes: WeekBoxes; W: number; type: Lines; inline: Look['inline']; paint: Palette }) {
+function WeekRows({ rows, boxes, W, type, inline, frame, paint }: { rows: PrintedRow[]; boxes: WeekBoxes; W: number; type: Lines; inline: Look['inline']; frame: Look['frame']; paint: Palette }) {
   if (!rows.length) return null;
   const box = boxes.rows;
   return (
     <div data-group="rows" style={{ position: 'absolute', ...across(box, W), top: box.top, height: box.height, display: 'flex', flexDirection: 'column', gap: boxes.rowGap }}>
       {rows.map((row, slot) => (
-        <WeekRow key={slot} slot={slot} row={row} height={boxes.rowHeight} type={type} inline={inline} paint={paint} />
+        <WeekRow key={slot} slot={slot} row={row} height={boxes.rowHeight} type={type} inline={inline} frame={frame} paint={paint} />
       ))}
     </div>
   );
@@ -313,7 +310,7 @@ export function Flyer({ data, canvas, hostel, photo, showSafeZones = false, ref 
       {body === 'week' ? (
         <>
           <Headline group="title" box={WK.title} W={W} t={t} type={type} paint={paint} />
-          <WeekRows rows={printedRows(data.week)} boxes={WK} W={W} type={type} inline={look.inline} paint={paint} />
+          <WeekRows rows={printedRows(data.week)} boxes={WK} W={W} type={type} inline={look.inline} frame={look.frame} paint={paint} />
         </>
       ) : (
         <>
@@ -326,8 +323,8 @@ export function Flyer({ data, canvas, hostel, photo, showSafeZones = false, ref 
           )}
           {mode === 'band' && (
             <div data-group="photo" style={{ position: 'absolute', ...across(A.photoBand, W), top: A.photoBand.top, height: A.photoBand.height }}>
-              <div style={{ position: 'absolute', inset: 0, borderRadius: 40, overflow: 'hidden', background: photoGround }}>{img}</div>
-              <WonkyBox fill="none" stroke={paint.ink} />
+              <div style={{ position: 'absolute', inset: 0, borderRadius: look.frame.photoRadius, overflow: 'hidden', background: photoGround }}>{img}</div>
+              <WonkyBox frame={look.frame} fill="none" stroke={paint.ink} />
             </div>
           )}
           {mode === 'none' && (
@@ -348,7 +345,7 @@ export function Flyer({ data, canvas, hostel, photo, showSafeZones = false, ref 
                 const icon = chip.key === 'when' ? art(look.inline.whenIcon) : chip.key === 'where' ? art(look.inline.whereIcon) : null;
                 return (
                   <div key={chip.key} data-chip={chip.key} data-fit-box="1" style={{ position: 'relative', height: A.chips.height, overflow: 'hidden' }}>
-                    <WonkyBox fill={paint.surface} stroke={paint.ink} />
+                    <WonkyBox frame={look.frame} fill={paint.surface} stroke={paint.ink} />
                     <div style={{ position: 'relative', zIndex: 1, padding: '24px 26px 20px', display: 'flex', flexDirection: 'column', gap: 8 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10, height: 36 }}>
                         {icon && <img data-deco="icon" src={icon} alt="" style={{ height: 32, width: 'auto' }} />}

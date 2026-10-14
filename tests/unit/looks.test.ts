@@ -111,6 +111,12 @@ describe('the looks', () => {
     expect(HAND_DRAWN.wordmark).toBe('assets/nest-logo-teal.png');
   });
 
+  it('hand-drawn’s frame is the handoff’s code-drawn one: a 5 px stroke, and the photo’s 40 px corners', () => {
+    const { path, ...frame } = HAND_DRAWN.frame;
+    expect(frame).toEqual({ viewBox: '0 0 960 200', stroke: 5, photoRadius: 40 });
+    expect(path).toMatch(/^M46 9 C .* Z$/);
+  });
+
   for (const look of allLooks()) {
     it(`${look.id}: every art file it names is under assets/`, () => {
       const files = [
