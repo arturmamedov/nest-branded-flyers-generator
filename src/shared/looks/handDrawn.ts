@@ -1,4 +1,4 @@
-import { BODY_FONT, HEADLINE_FONT } from '../fonts.js';
+import { BODY_FAMILY, BODY_FONT, HEADLINE_FAMILY, HEADLINE_FONT } from '../fonts.js';
 import { SHARED_GEOMETRY, artAnchors, type ArtAnchor } from '../layout.js';
 import type { ArtPlacement, Look } from '../looks.js';
 import type { Colors, DoodlePlacement } from '../schema.js';
@@ -154,6 +154,12 @@ export const HAND_DRAWN: Look = {
     pillDot: BRIGHT_TEAL,
   }),
   body: BODY_FONT,
+  faces: [
+    { family: HEADLINE_FAMILY, weight: 700 },
+    { family: HEADLINE_FAMILY, weight: 800 },
+    { family: BODY_FAMILY, weight: 600 },
+    { family: BODY_FAMILY, weight: 700 },
+  ],
   type: TYPE,
   // The handoff's: 4.5:1 for every line, the bright teal never copy (≈1.9:1 on cream), the orange never ink.
   rules: { minContrast: 4.5, forbiddenInks: [BRIGHT_TEAL, BOOK_NOW_ORANGE] },

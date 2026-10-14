@@ -1,4 +1,4 @@
-import { FLYER_FACES } from '../shared/fonts';
+import { lookOf } from '../shared/looks';
 import { fitFlyer, type FitReport } from './fit';
 
 const frame = () => new Promise<void>((r) => requestAnimationFrame(() => r()));
@@ -21,10 +21,12 @@ function preload(url: string): Promise<void> {
 
 /** Load fonts for the actual copy (unicode-range subsets included), decode
     every image and background, then fit. Export must run this before the
-    screenshot or the PNG will not match the preview. */
+    screenshot or the PNG will not match the preview. The faces are those of the
+    look the flyer is drawn in, which its root names (data-look). */
 export async function prepareFlyer(root: HTMLElement): Promise<FitReport> {
   const sample = (root.textContent || '') + 'AaÁáÑñ€¡¿·—';
-  await Promise.all(FLYER_FACES.map((f) => document.fonts.load(`${f.weight} 40px "${f.family}"`, sample)));
+  const { faces } = lookOf({ look: root.dataset.look });
+  await Promise.all(faces.map((f) => document.fonts.load(`${f.weight} 40px "${f.family}"`, sample)));
   await document.fonts.ready;
   // A hostel's badge that fails to load gives way to the Nests wordmark (Flyer.tsx), which may still be on its way when
   // this round ends: decode again until every image is drawn. A broken image with nothing to take its place stays

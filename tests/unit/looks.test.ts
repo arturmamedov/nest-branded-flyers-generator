@@ -2,10 +2,16 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 import { ROOT } from '../../scripts/gen-shared.js';
+import * as fonts from '../../src/shared/fonts.js';
 import { CANVAS_IDS, PILL_TILT_ROOM, SHARED_GEOMETRY, pillBox } from '../../src/shared/layout.js';
 import { FIRST_LOOK, allLooks, lookIds, lookOf } from '../../src/shared/looks.js';
 import { DEFAULT_COLORS, DEFAULT_DOODLES, HAND_DRAWN, resolveDoodles } from '../../src/shared/looks/handDrawn.js';
 import { geometryProblems } from '../geometry.js';
+
+/** A family's self-hosted package: @fontsource names it in lower case, words joined by hyphens. */
+const fontPackage = (family: string) => `@fontsource/${family.toLowerCase().replace(/ /g, '-')}`;
+
+const PACKAGES = (JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8')) as { dependencies: Record<string, string> }).dependencies;
 
 /** WCAG 2's contrast ratio of two #rrggbb colours. */
 function contrast(a: string, b: string): number {
@@ -146,6 +152,27 @@ describe('the looks', () => {
       }
     });
   }
+
+  for (const look of allLooks()) {
+    it(`${look.id}: its faces are every face its type uses, each a family of fonts.ts, self-hosted from a pinned package`, () => {
+      const faceOf = (font: string, weight: number) => `${/^'([^']+)'/.exec(font)?.[1]} ${weight}`;
+      // Every line of copy sets its own font: the root's, look.body, prints none.
+      const used = new Set(Object.values(look.type).map((t) => faceOf(t.font, t.weight)));
+      const listed = look.faces.map((f) => `${f.family} ${f.weight}`);
+      expect([...used].filter((f) => !listed.includes(f)), 'a face the type uses and the export would not wait for').toEqual([]);
+      const families = Object.entries(fonts).filter(([name]) => name.endsWith('_FAMILY')).map(([, family]) => family);
+      for (const { family } of look.faces) {
+        expect(families, family).toContain(family);
+        expect(PACKAGES[fontPackage(family)], `${fontPackage(family)} pinned to one version`).toMatch(/^\d+\.\d+\.\d+$/);
+      }
+    });
+  }
+
+  it('src/flyer/fonts.css imports exactly the faces of the looks the app ships', () => {
+    const imported = [...readFileSync(join(ROOT, 'src/flyer/fonts.css'), 'utf8').matchAll(/@import '([^']+)';/g)].map((m) => m[1]).sort();
+    const faces = new Set(allLooks().flatMap((look) => look.faces.map((f) => `${fontPackage(f.family)}/${f.weight}.css`)));
+    expect(imported).toEqual([...faces].sort());
+  });
 
   it('hand-drawn’s rules are the handoff’s: 4.5:1, and neither the bright teal nor the orange as ink', () => {
     expect(HAND_DRAWN.rules).toEqual({ minContrast: 4.5, forbiddenInks: ['#53CED1', '#EA580C'] });

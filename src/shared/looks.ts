@@ -97,6 +97,8 @@ export interface Look {
   palette(data: Pick<FlyerData, 'colors'>): Palette;
   /** The flyer's own font stack, under every line (which each set their own). */
   readonly body: string;
+  /** Every face its type uses: the export waits for each (ready.ts), and src/flyer/fonts.css imports each. */
+  readonly faces: readonly { readonly family: string; readonly weight: number }[];
   /** Every line of copy. */
   readonly type: { readonly [L in LineName]: LineType };
   /** What its copy is held to: a contrast every line reaches on its ground, and inks no line may print in. */

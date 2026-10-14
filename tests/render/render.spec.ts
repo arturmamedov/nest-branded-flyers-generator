@@ -9,6 +9,7 @@ import sharp from 'sharp';
 import { apiError, type ApiErrorKey } from '../../src/shared/errors';
 import { flyerFilename } from '../../src/shared/filename';
 import { marksFor } from '../../src/shared/defaults';
+import { lookOf } from '../../src/shared/looks';
 import { resolveDoodles } from '../../src/shared/looks/handDrawn';
 import { CANVASES, CANVAS_IDS, DEFAULT_CANVAS, SHARED_GEOMETRY, artAnchors, boxesOf, placeArt, safeBox, weekRowRect, type CanvasId } from '../../src/shared/layout';
 import { SAMPLE_FLYERS } from '../../src/shared/samples';
@@ -247,7 +248,7 @@ for (const canvas of CANVAS_IDS) {
           for (const c of r.clips) expect(c.over, `${label}: how far the ${c.box} chip runs over`).toBeLessThanOrEqual(2);
           expect(r.fit.clippedBoxes, `${label}: clipped boxes reported`).toBe(r.clips.length);
           expect(r.fit.entries.filter((e) => e.overflowX).map((e) => e.text), `${label}: overflowing lines`).toEqual([]);
-          for (const face of ['Shantell Sans 700', 'Shantell Sans 800', 'Montserrat 600', 'Montserrat 700']) {
+          for (const face of lookOf(payload.flyer.data).faces.map((f) => `${f.family} ${f.weight}`)) {
             expect(r.faces, `${label}: ${face}`).toContain(face);
           }
           for (const mark of r.marks) expect(mark, `${label}: highlighter clone`).toBe('clone');

@@ -265,6 +265,7 @@ export function Flyer({ data, canvas, hostel, photo, showSafeZones = false, ref 
       ref={ref}
       data-flyer=""
       data-canvas={canvas}
+      data-look={look.id}
       style={{
         position: 'relative',
         width: W,
