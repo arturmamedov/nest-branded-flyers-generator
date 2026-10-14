@@ -73,16 +73,13 @@ final class FlyerLabels
      * A stored flyer's labels, read loosely by the storage driver, which lists a flyer whatever its data holds: a
      * flyer saved before labels has none, and a file edited by hand never stops the list.
      *
-     * @param mixed $data the flyer's data as decoded: an object, an array, or anything else
+     * @param mixed $data the flyer's data as the store decodes it: an object (objects stay objects, so a list is
+     *        told from an object with numbered keys, as JavaScript tells them), or whatever else a file held
      * @return list<string>
      */
     public static function stored(mixed $data): array
     {
-        $labels = match (true) {
-            is_object($data) => $data->labels ?? null,
-            is_array($data) => $data['labels'] ?? null,
-            default => null,
-        };
+        $labels = is_object($data) ? ($data->labels ?? null) : null;
         return is_array($labels) && array_is_list($labels) ? array_values(array_filter($labels, is_string(...))) : [];
     }
 }

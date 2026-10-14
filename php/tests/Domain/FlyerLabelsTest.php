@@ -80,9 +80,8 @@ final class FlyerLabelsTest extends TestCase
     #[DataProvider('storedCases')]
     public function testReadsAStoredFlyersLabelsLoosely(object $case): void
     {
+        // As the store decodes a flyer's file: objects as objects, so a list is told from numbered keys.
         self::assertSame($case->out, FlyerLabels::stored($case->data));
-        // The store hands a flyer's data over as an array where it was decoded as one.
-        self::assertSame($case->out, FlyerLabels::stored(json_decode((string) json_encode($case->data), true)));
     }
 
     public function testTheRealListComesFromTheGeneratedFile(): void

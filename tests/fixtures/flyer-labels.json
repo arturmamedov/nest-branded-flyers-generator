@@ -1,6 +1,6 @@
 {
-  "_note": "The rules for a flyer's labels (src/shared/labels.ts, php/src/Domain/FlyerLabels.php), replayed by Vitest and PHPUnit. The list here is the fixture's own, so the vectors outlive every change of the real list.",
-  "list": ["dinners", "masca", "teide", "excursions"],
+  "_note": "The rules for a flyer's labels (src/shared/labels.ts, php/src/Domain/FlyerLabels.php), replayed by Vitest and PHPUnit. The list here is the fixture's own, so the vectors outlive every change of the real list. Two of its slugs look like numbers: a language that reads \"0\" or \"42\" as one would tell them apart from the others.",
+  "list": ["dinners", "masca", "teide", "excursions", "42", "0"],
   "none": "none",
   "tidy": [
     { "why": "no labels", "labels": [], "out": [] },
@@ -9,13 +9,15 @@
     { "why": "a label off the list is kept, after the listed ones", "labels": ["old-one", "teide"], "out": ["teide", "old-one"] },
     { "why": "labels off the list keep the order they were stored in, once each", "labels": ["zebra", "apple", "zebra"], "out": ["zebra", "apple"] },
     { "why": "both kinds together", "labels": ["apple", "excursions", "zebra", "dinners"], "out": ["dinners", "excursions", "apple", "zebra"] },
-    { "why": "already tidy: nothing moves", "labels": ["dinners", "teide", "old-one"], "out": ["dinners", "teide", "old-one"] }
+    { "why": "already tidy: nothing moves", "labels": ["dinners", "teide", "old-one"], "out": ["dinners", "teide", "old-one"] },
+    { "why": "slugs that look like numbers are words: the list's order, not their size", "labels": ["0", "42", "7", "dinners"], "out": ["dinners", "42", "0", "7"] }
   ],
   "known": [
     { "why": "the listed ones, in the list's order", "labels": ["old-one", "teide", "dinners"], "out": ["dinners", "teide"] },
     { "why": "a label off the list is on no screen", "labels": ["old-one"], "out": [] },
     { "why": "once each", "labels": ["teide", "teide"], "out": ["teide"] },
-    { "why": "none", "labels": [], "out": [] }
+    { "why": "none", "labels": [], "out": [] },
+    { "why": "a slug that looks like a number, and one that is not on the list", "labels": ["0", "7"], "out": ["0"] }
   ],
   "matches": [
     { "why": "it carries the label", "labels": ["masca", "excursions"], "wanted": "masca", "out": true },
@@ -24,14 +26,22 @@
     { "why": "a listed label is not 'none'", "labels": ["masca"], "wanted": "none", "out": false },
     { "why": "only a label off the list: staff see none, so it is 'none'", "labels": ["old-one"], "wanted": "none", "out": true },
     { "why": "a label off the list is still found by its own slug", "labels": ["old-one"], "wanted": "old-one", "out": true },
-    { "why": "a slug no flyer carries", "labels": ["masca"], "wanted": "no-such", "out": false }
+    { "why": "a slug no flyer carries", "labels": ["masca"], "wanted": "no-such", "out": false },
+    { "why": "a slug that looks like a number is found by itself alone", "labels": ["42"], "wanted": "42", "out": true },
+    { "why": "and by no other number", "labels": ["42"], "wanted": "0", "out": false },
+    { "why": "'0' is a label like any other: its flyer is not among the ones with none", "labels": ["0"], "wanted": "none", "out": false },
+    { "why": "a flyer that stores the filter's own word, which no list has, shows no label: it is among the ones with none", "labels": ["none"], "wanted": "none", "out": true }
   ],
   "stored": [
     { "why": "a flyer saved before labels has no key", "data": { "share": "" }, "out": [] },
     { "why": "as saved", "data": { "labels": ["teide", "old-one"] }, "out": ["teide", "old-one"] },
+    { "why": "as stored, whatever a save would tidy: twice, and an empty one", "data": { "labels": ["teide", "teide", ""] }, "out": ["teide", "teide", ""] },
     { "why": "a file edited by hand: not a list", "data": { "labels": "teide" }, "out": [] },
+    { "why": "a file edited by hand: numbered keys are no list", "data": { "labels": { "0": "teide" } }, "out": [] },
     { "why": "a file edited by hand: a list of other things", "data": { "labels": ["teide", 7, null, { "slug": "masca" }, "masca"] }, "out": ["teide", "masca"] },
     { "why": "null", "data": { "labels": null }, "out": [] },
-    { "why": "no data at all", "data": null, "out": [] }
+    { "why": "no data at all", "data": null, "out": [] },
+    { "why": "data that is a list", "data": ["teide"], "out": [] },
+    { "why": "data that is a word", "data": "teide", "out": [] }
   ]
 }
