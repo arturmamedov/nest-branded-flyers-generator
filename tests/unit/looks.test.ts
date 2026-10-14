@@ -4,9 +4,21 @@ import { describe, expect, it, vi } from 'vitest';
 import { ROOT } from '../../scripts/gen-shared.js';
 import { SHARED_GEOMETRY } from '../../src/shared/layout.js';
 import { FIRST_LOOK, allLooks, lookIds, lookOf } from '../../src/shared/looks.js';
-import { HAND_DRAWN } from '../../src/shared/looks/handDrawn.js';
+import { DEFAULT_COLORS, HAND_DRAWN } from '../../src/shared/looks/handDrawn.js';
 import { geometryProblems } from '../geometry.js';
 
+/** WCAG 2's contrast ratio of two #rrggbb colours. */
+function contrast(a: string, b: string): number {
+  const luminance = (hex: string) => {
+    const [r, g, bl] = [1, 3, 5].map((i) => {
+      const c = parseInt(hex.slice(i, i + 2), 16) / 255;
+      return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+    });
+    return 0.2126 * r + 0.7152 * g + 0.0722 * bl;
+  };
+  const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+  return (hi + 0.05) / (lo + 0.05);
+}
 
 /* The registry of looks (src/shared/looks.ts): what every look must be, the resolver, and the one way to add a look.
    The proof look (tests/proof/) runs through the same tests in its own build. */
@@ -42,10 +54,56 @@ describe('the looks', () => {
       accent: '#7A2E5C',
       muted: '#3A3A34',
       surface: '#ffffff',
+      highlight: '#FAC213',
       placeholder: '#E7E0CE',
       pillText: '#ffffff',
       pillDot: '#53CED1',
     });
+  });
+
+  it('hand-drawn sets each line of copy at the size and floor the renderer had (docs/prompts/looks-seam.md, the table)', () => {
+    const sizes = Object.fromEntries(Object.entries(HAND_DRAWN.type).map(([line, t]) => [line, t.floor === undefined ? t.size : [t.size, t.floor]]));
+    expect(sizes).toEqual({
+      eyebrow: 36,
+      headline1: [92, 0.5],
+      headline2: [124, 0.5],
+      spanish: [36, 0.8],
+      chipLabel: 26,
+      costGlyph: 36,
+      chipBig: [46, 0.6],
+      chipBigMarked: [46, 0.6],
+      chipTime: [40, 0.7],
+      chipSmall: [32, 0.7],
+      extras: [30, 0.8],
+      askEn: [62, 0.66],
+      askEs: [34, 0.8],
+      pill: [34, 0.7],
+      weekDay: [34, 0.7],
+      weekName: [44, 0.6],
+      weekTime: [34, 0.7],
+      weekPrice: [26, 0.7],
+    });
+    expect(HAND_DRAWN.type.extras.gap).toBe(16);
+  });
+
+  // Each look declares its inks and the grounds under them, and is held to its own minimum (the owner's answer 10:
+  // another look's numbers are decided when its design arrives). Hand-drawn keeps the handoff's 4.5:1, and never prints
+  // copy in the bright teal or in the website's orange. This holds the registry, not a stored flyer: hand-drawn's
+  // three flyer colours are checked as a new flyer has them.
+  for (const look of allLooks()) {
+    it(`${look.id}: every line of copy reaches its contrast on the ground it sits on, in no ink the look forbids`, () => {
+      const paint = look.palette({ colors: DEFAULT_COLORS });
+      const forbidden = look.rules.forbiddenInks.map((c) => c.toLowerCase());
+      for (const [line, t] of Object.entries(look.type)) {
+        const ratio = contrast(paint[t.ink], paint[t.on]);
+        expect(ratio, `${line}: ${paint[t.ink]} on ${paint[t.on]}`).toBeGreaterThanOrEqual(look.rules.minContrast);
+        expect(forbidden, `${line}: ${paint[t.ink]}`).not.toContain(paint[t.ink].toLowerCase());
+      }
+    });
+  }
+
+  it('hand-drawn’s rules are the handoff’s: 4.5:1, and neither the bright teal nor the orange as ink', () => {
+    expect(HAND_DRAWN.rules).toEqual({ minContrast: 4.5, forbiddenInks: ['#53CED1', '#EA580C'] });
   });
 
   it('a flyer prints in the look it names; one that names none, or a look this release does not know, prints hand-drawn', () => {

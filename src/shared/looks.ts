@@ -28,6 +28,9 @@ export interface Palette {
   readonly muted: string;
   /** Inside the chips and the week's rows. */
   readonly surface: string;
+  /** The highlighter's colour, under the WHEN chip's day and each week row's day. The highlighter is art: this is the
+      colour that copy is checked against (looks.test.ts), never paint the renderer draws. */
+  readonly highlight: string;
   /** An empty photo frame. */
   readonly placeholder: string;
   /** The pill's letters. */
@@ -35,6 +38,52 @@ export interface Palette {
   /** The dot between the handle and the tag. */
   readonly pillDot: string;
 }
+
+/** A colour of the palette, by its name. */
+export type PaletteRole = keyof Palette;
+
+/** One line of copy as a look sets it. A fitted line's size is also its fit's start (data-fit): one number for both. */
+export interface LineType {
+  /** A font stack from fonts.ts, where every family name lives. */
+  readonly font: string;
+  readonly weight: number;
+  /** In px. */
+  readonly size: number;
+  /** Unitless. Absent: the browser's own. */
+  readonly lineHeight?: number;
+  /** letter-spacing, as '0.1em'. */
+  readonly spacing?: string;
+  readonly upper?: boolean;
+  /** A fitted line's floor, as a share of its size (data-fit-min): fit.ts shrinks it no further. Absent: not fitted. */
+  readonly floor?: number;
+  /** A fitted row of parts' gap, which shrinks first (data-fit-gap): the extras. */
+  readonly gap?: number;
+  /** The colour it prints in, and the one it sits on: the contrast its look holds it to (looks.test.ts). */
+  readonly ink: PaletteRole;
+  readonly on: PaletteRole;
+}
+
+/** Every line of copy a flyer prints, by its place. The WHEN chip's big line is chipBigMarked: it sits on the
+    highlighter, taller. */
+export type LineName =
+  | 'eyebrow'
+  | 'headline1'
+  | 'headline2'
+  | 'spanish'
+  | 'chipLabel'
+  | 'costGlyph'
+  | 'chipBig'
+  | 'chipBigMarked'
+  | 'chipTime'
+  | 'chipSmall'
+  | 'extras'
+  | 'askEn'
+  | 'askEs'
+  | 'pill'
+  | 'weekDay'
+  | 'weekName'
+  | 'weekTime'
+  | 'weekPrice';
 
 /** One look: what it is called, and what it decides about how a flyer prints. */
 export interface Look {
@@ -46,6 +95,12 @@ export interface Look {
   readonly geometry: Geometry;
   /** Its colours for a flyer. Hand-drawn takes three of them from the flyer itself (data.colors), which only it reads. */
   palette(data: Pick<FlyerData, 'colors'>): Palette;
+  /** The flyer's own font stack, under every line (which each set their own). */
+  readonly body: string;
+  /** Every line of copy. */
+  readonly type: { readonly [L in LineName]: LineType };
+  /** What its copy is held to: a contrast every line reaches on its ground, and inks no line may print in. */
+  readonly rules: { readonly minContrast: number; readonly forbiddenInks: readonly string[] };
 }
 
 /** What a flyer that names no look prints in, forever: the hand-drawn look. */

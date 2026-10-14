@@ -2,9 +2,9 @@ import { Fragment, useState, type CSSProperties, type ReactNode, type Ref } from
 import { deriveChips, DEFAULT_CHIP_ORDER } from '../shared/chips';
 import { marksFor } from '../shared/defaults';
 import { printedExtras } from '../shared/extras';
-import { BODY_FONT, HEADLINE_FONT } from '../shared/fonts';
+import { BODY_FONT } from '../shared/fonts';
 import { CANVASES, artAnchors, bodyOf, boxesOf, photoFrame, pillBox, placeArt, safeBox, type ArtAnchor, type ArtPoint, type CanvasId, type Rect, type WeekBoxes } from '../shared/layout';
-import { lookOf, type ArtPlacement, type Palette } from '../shared/looks';
+import { lookOf, type ArtPlacement, type LineType, type Look, type Palette } from '../shared/looks';
 import { resolveDoodles } from '../shared/looks/handDrawn';
 import { coverRect } from '../shared/photo';
 import type { FlyerData, FlyerText, Hostel, PhotoInfo } from '../shared/schema';
@@ -44,8 +44,23 @@ export function WonkyBox({ fill, stroke }: { fill: string; stroke: string }) {
   );
 }
 
-const HL: CSSProperties = { fontFamily: HEADLINE_FONT };
-const BODY: CSSProperties = { fontFamily: BODY_FONT };
+/** A line of copy as its look sets it, in the look's colours. */
+function typeStyle(line: LineType, paint: Palette): CSSProperties {
+  return {
+    fontFamily: line.font,
+    fontWeight: line.weight,
+    fontSize: line.size,
+    lineHeight: line.lineHeight,
+    letterSpacing: line.spacing,
+    textTransform: line.upper ? 'uppercase' : undefined,
+    color: paint[line.ink],
+  };
+}
+
+/** A fitted line's start and floor, for fit.ts: its size is where the fit starts. */
+const fitOf = (line: LineType) => ({ 'data-fit': String(line.size), 'data-fit-min': String(line.floor) });
+
+type Lines = Look['type'];
 
 /** How a piece is turned and flipped about its own centre, and how solid it is: the same wherever it hangs. */
 function doodleLook(d: ArtPlacement): CSSProperties {
@@ -90,17 +105,17 @@ function Marks({ hostel }: { hostel: Hostel | null }) {
 const across = (r: Rect, width: number) => ({ left: r.left, right: width - r.left - r.width });
 
 /** The headline's three lines: the Activity headline, and the week's title in its own box. */
-function Headline({ group, box, W, t, paint }: { group: 'headline' | 'title'; box: Rect; W: number; t: FlyerText; paint: Palette }) {
+function Headline({ group, box, W, t, type, paint }: { group: 'headline' | 'title'; box: Rect; W: number; t: FlyerText; type: Lines; paint: Palette }) {
   return (
     <div data-group={group} data-fit-box="1" style={{ position: 'absolute', ...across(box, W), top: box.top, height: box.height, overflow: 'hidden' }}>
       {t.headline1 && (
-        <div data-fit="92" data-fit-min="0.5" style={{ ...HL, fontWeight: 800, fontSize: 92, lineHeight: 1.04, color: paint.ink, whiteSpace: 'nowrap' }}>{t.headline1}</div>
+        <div {...fitOf(type.headline1)} style={{ ...typeStyle(type.headline1, paint), whiteSpace: 'nowrap' }}>{t.headline1}</div>
       )}
       {t.headline2 && (
-        <div data-fit="124" data-fit-min="0.5" style={{ ...HL, fontWeight: 800, fontSize: 124, lineHeight: 1, color: paint.accent, whiteSpace: 'nowrap' }}>{t.headline2}</div>
+        <div {...fitOf(type.headline2)} style={{ ...typeStyle(type.headline2, paint), whiteSpace: 'nowrap' }}>{t.headline2}</div>
       )}
       {t.headlineEs && (
-        <div data-fit="36" data-fit-min="0.8" style={{ ...BODY, fontWeight: 600, fontSize: 36, lineHeight: 1.26, color: paint.muted, marginTop: 16 }}>{t.headlineEs}</div>
+        <div {...fitOf(type.spanish)} style={{ ...typeStyle(type.spanish, paint), marginTop: 16 }}>{t.headlineEs}</div>
       )}
     </div>
   );
@@ -145,7 +160,7 @@ const DAY_BOX = 114;
 
 /** One row of the This week template (.dc.html's isWeek block). Every cell collapses when it has
     nothing to print: an empty highlighter or a lone clock would print as a mark with no copy. */
-function WeekRow({ slot, row, height, paint }: { slot: number; row: PrintedRow; height: number; paint: Palette }) {
+function WeekRow({ slot, row, height, type, paint }: { slot: number; row: PrintedRow; height: number; type: Lines; paint: Palette }) {
   return (
     <div data-row={slot} style={{ position: 'relative', height }}>
       <WonkyBox fill={paint.surface} stroke={paint.ink} />
@@ -156,7 +171,7 @@ function WeekRow({ slot, row, height, paint }: { slot: number; row: PrintedRow; 
              doesn't clip, since the highlighter reaches 8 px left of the cell, and the cell keeps the column's width,
              so the width pass still sees a word too long for it. */
           <div data-fit-box="day" style={{ flex: `0 0 ${DAY_WIDTH}px`, height: DAY_BOX, display: 'flex', alignItems: 'center' }}>
-            <div data-cell="day" data-fit="34" data-fit-min="0.7" style={{ flex: `0 0 ${DAY_WIDTH}px`, ...HL, fontWeight: 700, fontSize: 34, lineHeight: 1.1, color: paint.ink }}>
+            <div data-cell="day" {...fitOf(type.weekDay)} style={{ flex: `0 0 ${DAY_WIDTH}px`, ...typeStyle(type.weekDay, paint) }}>
               <Highlight>{row.day}</Highlight>
             </div>
           </div>
@@ -166,7 +181,7 @@ function WeekRow({ slot, row, height, paint }: { slot: number; row: PrintedRow; 
           {row.name && (
             /* minWidth 0 on the name itself (a departure): a flex item otherwise grows to its longest word, so a
                word too long for the box would be clipped by it with no width pass and no cut-off warning. */
-            <div data-cell="name" data-fit="44" data-fit-min="0.6" style={{ ...HL, fontWeight: 800, fontSize: 44, lineHeight: 1.06, color: paint.accent, textWrap: 'pretty', minWidth: 0 }}>
+            <div data-cell="name" {...fitOf(type.weekName)} style={{ ...typeStyle(type.weekName, paint), textWrap: 'pretty', minWidth: 0 }}>
               {row.name}
             </div>
           )}
@@ -181,14 +196,14 @@ function WeekRow({ slot, row, height, paint }: { slot: number; row: PrintedRow; 
             {row.time && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, maxWidth: '100%' }}>
                 <img data-deco="clock" src={art('icon-clock')} alt="" style={{ height: 30, width: 'auto', flex: '0 0 auto' }} />
-                <div data-cell="time" data-fit="34" data-fit-min="0.7" style={{ ...HL, fontWeight: 700, fontSize: 34, lineHeight: 1.1, color: paint.ink, whiteSpace: 'nowrap', minWidth: 0 }}>
+                <div data-cell="time" {...fitOf(type.weekTime)} style={{ ...typeStyle(type.weekTime, paint), whiteSpace: 'nowrap', minWidth: 0 }}>
                   {row.time}
                 </div>
               </div>
             )}
             {/* A price with a · takes two lines, as the COST chip's big and small line (the owner's call, 2026-09-29). */}
             {row.cost.map((line, i) => (
-              <div key={i} data-cell="cost" data-fit="26" data-fit-min="0.7" style={{ ...BODY, fontWeight: 600, fontSize: 26, lineHeight: 1.2, color: paint.muted, whiteSpace: 'nowrap', maxWidth: '100%' }}>
+              <div key={i} data-cell="cost" {...fitOf(type.weekPrice)} style={{ ...typeStyle(type.weekPrice, paint), whiteSpace: 'nowrap', maxWidth: '100%' }}>
                 {line}
               </div>
             ))}
@@ -200,13 +215,13 @@ function WeekRow({ slot, row, height, paint }: { slot: number; row: PrintedRow; 
 }
 
 /** The week's rows, top-aligned in the five-row box (the owner's call, 2026-09-29). */
-function WeekRows({ rows, boxes, W, paint }: { rows: PrintedRow[]; boxes: WeekBoxes; W: number; paint: Palette }) {
+function WeekRows({ rows, boxes, W, type, paint }: { rows: PrintedRow[]; boxes: WeekBoxes; W: number; type: Lines; paint: Palette }) {
   if (!rows.length) return null;
   const box = boxes.rows;
   return (
     <div data-group="rows" style={{ position: 'absolute', ...across(box, W), top: box.top, height: box.height, display: 'flex', flexDirection: 'column', gap: boxes.rowGap }}>
       {rows.map((row, slot) => (
-        <WeekRow key={slot} slot={slot} row={row} height={boxes.rowHeight} paint={paint} />
+        <WeekRow key={slot} slot={slot} row={row} height={boxes.rowHeight} type={type} paint={paint} />
       ))}
     </div>
   );
@@ -225,6 +240,7 @@ export interface FlyerProps {
 export function Flyer({ data, canvas, hostel, photo, showSafeZones = false, ref }: FlyerProps) {
   const look = lookOf(data);
   const paint = look.palette(data);
+  const type = look.type;
   const t = data.text;
   const mode = data.photoMode;
   // A week flyer keeps its photo mode and photo for switching back, and draws neither.
@@ -249,7 +265,6 @@ export function Flyer({ data, canvas, hostel, photo, showSafeZones = false, ref 
     ) : null;
   // Behind a zoomed-out photo the flyer ground shows; the beige is only for an empty slot.
   const photoGround = img ? paint.ground : paint.placeholder;
-  const pillText: CSSProperties = { ...HL, fontWeight: 700, fontSize: 34, letterSpacing: '0.04em', color: paint.pillText, lineHeight: 1 };
   const pillPrints = data.showPill && !!(t.handle || t.tag);
   // The art that hangs from the pill's end is drawn with the pill, and only with it: a flyer that prints no pill
   // prints no spark off the end of nothing (Artur, 2026-10-13; it was kept where the default pill would end).
@@ -268,7 +283,7 @@ export function Flyer({ data, canvas, hostel, photo, showSafeZones = false, ref 
         overflow: 'hidden',
         background: paint.ground,
         color: paint.ink,
-        ...BODY,
+        fontFamily: look.body,
         // Isolate from whatever page hosts the flyer: preview must equal export.
         fontSize: 16,
         fontWeight: 400,
@@ -291,7 +306,7 @@ export function Flyer({ data, canvas, hostel, photo, showSafeZones = false, ref 
           <img data-deco="icon" src={art('icon-calendar')} alt="" style={{ height: 62, width: 'auto' }} />
           {t.eyebrow && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              <div style={{ ...HL, fontWeight: 700, fontSize: 36, letterSpacing: '0.1em', color: paint.ink, lineHeight: 1, whiteSpace: 'nowrap' }}>{t.eyebrow}</div>
+              <div style={{ ...typeStyle(type.eyebrow, paint), whiteSpace: 'nowrap' }}>{t.eyebrow}</div>
               <div data-deco="rule" style={{ height: 16, background: `url(${art('rule-teal-wide')}) left center/100% 100% no-repeat` }} />
             </div>
           )}
@@ -301,12 +316,12 @@ export function Flyer({ data, canvas, hostel, photo, showSafeZones = false, ref 
 
       {body === 'week' ? (
         <>
-          <Headline group="title" box={WK.title} W={W} t={t} paint={paint} />
-          <WeekRows rows={printedRows(data.week)} boxes={WK} W={W} paint={paint} />
+          <Headline group="title" box={WK.title} W={W} t={t} type={type} paint={paint} />
+          <WeekRows rows={printedRows(data.week)} boxes={WK} W={W} type={type} paint={paint} />
         </>
       ) : (
         <>
-          <Headline group="headline" box={head} W={W} t={t} paint={paint} />
+          <Headline group="headline" box={head} W={W} t={t} type={type} paint={paint} />
 
           {mode === 'bleed' && (
             <div data-group="photo" style={{ position: 'absolute', ...across(A.photoBleed, W), top: A.photoBleed.top, height: A.photoBleed.height, overflow: 'hidden', background: photoGround }}>
@@ -341,26 +356,26 @@ export function Flyer({ data, canvas, hostel, photo, showSafeZones = false, ref 
                     <div style={{ position: 'relative', zIndex: 1, padding: '24px 26px 20px', display: 'flex', flexDirection: 'column', gap: 8 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10, height: 36 }}>
                         {icon && <img data-deco="icon" src={icon} alt="" style={{ height: 32, width: 'auto' }} />}
-                        {!icon && <span data-deco="icon" style={{ ...HL, fontWeight: 800, fontSize: 36, lineHeight: 1, color: paint.accent }}>€</span>}
-                        <span style={{ ...BODY, fontWeight: 700, fontSize: 26, letterSpacing: '0.13em', textTransform: 'uppercase', color: paint.accent }}>{chip.label}</span>
+                        {!icon && <span data-deco="icon" style={typeStyle(type.costGlyph, paint)}>€</span>}
+                        <span style={typeStyle(type.chipLabel, paint)}>{chip.label}</span>
                       </div>
                       {when ? (
-                        <div data-fit="46" data-fit-min="0.6" style={{ ...HL, fontWeight: 700, fontSize: 46, lineHeight: 1.3, color: paint.ink }}>
+                        <div {...fitOf(type.chipBigMarked)} style={typeStyle(type.chipBigMarked, paint)}>
                           <Highlight>{chip.big}</Highlight>
                         </div>
                       ) : (
-                        <div data-fit="46" data-fit-min="0.6" style={{ ...HL, fontWeight: 700, fontSize: 46, lineHeight: 1.1, color: paint.ink }}>{chip.big}</div>
+                        <div {...fitOf(type.chipBig)} style={typeStyle(type.chipBig, paint)}>{chip.big}</div>
                       )}
                       {chip.sub && when && (
                         /* The time is one line that shrinks, as a week row's is: left to wrap, a browser could break a
                            range after its hyphen ("09:15-" over "14:00") and the chip clipped the second line. */
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                           <img data-deco="clock" src={art('icon-clock')} alt="" style={{ height: 36, width: 'auto', flex: '0 0 auto' }} />
-                          <div data-fit="40" data-fit-min="0.7" style={{ ...HL, fontWeight: 700, fontSize: 40, lineHeight: 1.1, color: paint.ink, whiteSpace: 'nowrap', minWidth: 0 }}>{chip.sub}</div>
+                          <div {...fitOf(type.chipTime)} style={{ ...typeStyle(type.chipTime, paint), whiteSpace: 'nowrap', minWidth: 0 }}>{chip.sub}</div>
                         </div>
                       )}
                       {chip.sub && !when && (
-                        <div data-fit="32" data-fit-min="0.7" style={{ ...BODY, fontWeight: 600, fontSize: 32, lineHeight: 1.22, color: paint.ink }}>{chip.sub}</div>
+                        <div {...fitOf(type.chipSmall)} style={typeStyle(type.chipSmall, paint)}>{chip.sub}</div>
                       )}
                     </div>
                   </div>
@@ -372,10 +387,9 @@ export function Flyer({ data, canvas, hostel, photo, showSafeZones = false, ref 
           {extras.length > 0 && (
             <div
               data-group="extras"
-              data-fit="30"
-              data-fit-gap="16"
-              data-fit-min="0.8"
-              style={{ position: 'absolute', ...across(A.extras, W), top: A.extras.top, height: A.extras.height, display: 'flex', flexWrap: 'nowrap', alignItems: 'center', gap: 16, ...HL, fontWeight: 700, fontSize: 30, letterSpacing: '0.02em', textTransform: 'uppercase', color: paint.ink, whiteSpace: 'nowrap', overflow: 'hidden' }}
+              {...fitOf(type.extras)}
+              data-fit-gap={String(type.extras.gap)}
+              style={{ position: 'absolute', ...across(A.extras, W), top: A.extras.top, height: A.extras.height, display: 'flex', flexWrap: 'nowrap', alignItems: 'center', gap: type.extras.gap, ...typeStyle(type.extras, paint), whiteSpace: 'nowrap', overflow: 'hidden' }}
             >
               {extras.map((text, i) => (
                 <Fragment key={i}>
@@ -393,11 +407,11 @@ export function Flyer({ data, canvas, hostel, photo, showSafeZones = false, ref 
           {/* The block is as wide as the longer of its two lines, and the underline with it. */}
           <div style={{ position: 'relative', display: 'inline-block', maxWidth: 760 }}>
             {t.askEn && (
-              <div data-fit="62" data-fit-min="0.66" style={{ ...HL, fontWeight: 800, fontSize: 62, lineHeight: 1.08, color: paint.ink, whiteSpace: 'nowrap' }}>{t.askEn}</div>
+              <div {...fitOf(type.askEn)} style={{ ...typeStyle(type.askEn, paint), whiteSpace: 'nowrap' }}>{t.askEn}</div>
             )}
             <div data-deco="rule" style={{ height: 22, marginTop: 2, background: `url(${art('rule-teal-ask')}) left center/100% 100% no-repeat` }} />
             {t.askEs && (
-              <div data-fit="34" data-fit-min="0.8" style={{ ...BODY, fontWeight: 600, fontSize: 34, lineHeight: 1.2, color: paint.muted, marginTop: 10, whiteSpace: 'nowrap' }}>{t.askEs}</div>
+              <div {...fitOf(type.askEs)} style={{ ...typeStyle(type.askEs, paint), marginTop: 10, whiteSpace: 'nowrap' }}>{t.askEs}</div>
             )}
             {/* The pencil hangs from the end of the copy, a little above it (Artur, 2026-10-12; it sat at the column's
                 right edge, wherever the copy ended). From the block's end, not the English line's: the pencil is
@@ -425,7 +439,7 @@ export function Flyer({ data, canvas, hostel, photo, showSafeZones = false, ref 
               data-group="pill"
               style={{ display: 'flex', alignItems: 'center', boxSizing: 'border-box', maxWidth: pillBox(canvas, geometry).width - PILL_TILT_ROOM, overflowX: 'clip', background: paint.accent, borderRadius: 20, padding: '17px 38px 19px', transform: 'rotate(-0.6deg)' }}
             >
-              <div data-fit="34" data-fit-min="0.7" style={{ ...pillText, display: 'flex', alignItems: 'center', gap: 18, minWidth: 0, whiteSpace: 'nowrap' }}>
+              <div {...fitOf(type.pill)} style={{ ...typeStyle(type.pill, paint), display: 'flex', alignItems: 'center', gap: 18, minWidth: 0, whiteSpace: 'nowrap' }}>
                 {t.handle && <span>{t.handle}</span>}
                 {t.handle && t.tag && <span data-deco="dot" style={{ flex: '0 0 auto', width: 14, height: 14, borderRadius: '50%', background: paint.pillDot }} />}
                 {t.tag && <span>{t.tag}</span>}
@@ -451,7 +465,7 @@ function SafeZoneOverlay({ canvas }: { canvas: CanvasId }) {
       <div style={{ ...common, left: 0, right: 0, bottom: 0, height: safe.bottom, background: 'rgba(234,88,12,0.14)', borderTop: '2px dashed rgba(234,88,12,0.75)' }} />
       <div style={{ ...common, left: 0, top: safe.top, bottom: safe.bottom, width: safe.side, background: 'rgba(234,88,12,0.1)', borderRight: '2px dashed rgba(234,88,12,0.6)' }} />
       <div style={{ ...common, right: 0, top: safe.top, bottom: safe.bottom, width: safe.side, background: 'rgba(234,88,12,0.1)', borderLeft: '2px dashed rgba(234,88,12,0.6)' }} />
-      <div style={{ ...common, left: box.left + 8, top: box.top + 8, ...BODY, fontWeight: 700, fontSize: 22, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#B03A06' }}>
+      <div style={{ ...common, left: box.left + 8, top: box.top + 8, fontFamily: BODY_FONT, fontWeight: 700, fontSize: 22, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#B03A06' }}>
         {`Safe zone · ${box.width} × ${box.height}`}
       </div>
     </>

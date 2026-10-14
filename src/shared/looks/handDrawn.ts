@@ -1,3 +1,4 @@
+import { BODY_FONT, HEADLINE_FONT } from '../fonts.js';
 import { SHARED_GEOMETRY, artAnchors, type ArtAnchor } from '../layout.js';
 import type { ArtPlacement, Look } from '../looks.js';
 import type { Colors, DoodlePlacement } from '../schema.js';
@@ -99,6 +100,34 @@ export function resolveDoodles(doodles: DoodlePlacement[]): ArtPlacement[] {
   return sameDoodles(doodles, DEFAULT_DOODLES) ? TEMPLATE_ART : doodles;
 }
 
+/** The orange of the website's "Book Now": never flyer ink (handoff README §3). */
+const BOOK_NOW_ORANGE = '#EA580C';
+
+/** Every line of copy, as the handoff's type table (§2, §3) and the team's passes set it: Shantell Sans for the
+    marker lines, Montserrat for the Spanish lines and the labels. A fitted line's size and floor are the fit's
+    (handoff §5); the floors are the owner's (2026-09-30: each line stops at its own). */
+const TYPE: Look['type'] = {
+  eyebrow: { font: HEADLINE_FONT, weight: 700, size: 36, lineHeight: 1, spacing: '0.1em', ink: 'ink', on: 'ground' },
+  headline1: { font: HEADLINE_FONT, weight: 800, size: 92, lineHeight: 1.04, floor: 0.5, ink: 'ink', on: 'ground' },
+  headline2: { font: HEADLINE_FONT, weight: 800, size: 124, lineHeight: 1, floor: 0.5, ink: 'accent', on: 'ground' },
+  spanish: { font: BODY_FONT, weight: 600, size: 36, lineHeight: 1.26, floor: 0.8, ink: 'muted', on: 'ground' },
+  chipLabel: { font: BODY_FONT, weight: 700, size: 26, spacing: '0.13em', upper: true, ink: 'accent', on: 'surface' },
+  costGlyph: { font: HEADLINE_FONT, weight: 800, size: 36, lineHeight: 1, ink: 'accent', on: 'surface' },
+  chipBig: { font: HEADLINE_FONT, weight: 700, size: 46, lineHeight: 1.1, floor: 0.6, ink: 'ink', on: 'surface' },
+  // Taller, to clear the highlighter's stroke (handoff §2).
+  chipBigMarked: { font: HEADLINE_FONT, weight: 700, size: 46, lineHeight: 1.3, floor: 0.6, ink: 'ink', on: 'highlight' },
+  chipTime: { font: HEADLINE_FONT, weight: 700, size: 40, lineHeight: 1.1, floor: 0.7, ink: 'ink', on: 'surface' },
+  chipSmall: { font: BODY_FONT, weight: 600, size: 32, lineHeight: 1.22, floor: 0.7, ink: 'ink', on: 'surface' },
+  extras: { font: HEADLINE_FONT, weight: 700, size: 30, spacing: '0.02em', upper: true, floor: 0.8, gap: 16, ink: 'ink', on: 'ground' },
+  askEn: { font: HEADLINE_FONT, weight: 800, size: 62, lineHeight: 1.08, floor: 0.66, ink: 'ink', on: 'ground' },
+  askEs: { font: BODY_FONT, weight: 600, size: 34, lineHeight: 1.2, floor: 0.8, ink: 'muted', on: 'ground' },
+  pill: { font: HEADLINE_FONT, weight: 700, size: 34, lineHeight: 1, spacing: '0.04em', floor: 0.7, ink: 'pillText', on: 'accent' },
+  weekDay: { font: HEADLINE_FONT, weight: 700, size: 34, lineHeight: 1.1, floor: 0.7, ink: 'ink', on: 'highlight' },
+  weekName: { font: HEADLINE_FONT, weight: 800, size: 44, lineHeight: 1.06, floor: 0.6, ink: 'accent', on: 'surface' },
+  weekTime: { font: HEADLINE_FONT, weight: 700, size: 34, lineHeight: 1.1, floor: 0.7, ink: 'ink', on: 'surface' },
+  weekPrice: { font: BODY_FONT, weight: 600, size: 26, lineHeight: 1.2, floor: 0.7, ink: 'muted', on: 'surface' },
+};
+
 export const HAND_DRAWN: Look = {
   id: 'hand-drawn',
   name: 'Hand-drawn',
@@ -110,8 +139,13 @@ export const HAND_DRAWN: Look = {
     accent: colors.accent,
     muted: MUTED,
     surface: '#ffffff',
+    highlight: YELLOW,
     placeholder: PHOTO_PLACEHOLDER,
     pillText: '#ffffff',
     pillDot: BRIGHT_TEAL,
   }),
+  body: BODY_FONT,
+  type: TYPE,
+  // The handoff's: 4.5:1 for every line, the bright teal never copy (≈1.9:1 on cream), the orange never ink.
+  rules: { minContrast: 4.5, forbiddenInks: [BRIGHT_TEAL, BOOK_NOW_ORANGE] },
 };
