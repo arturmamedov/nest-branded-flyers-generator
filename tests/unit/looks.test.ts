@@ -7,6 +7,7 @@ import { FIRST_LOOK, allLooks, lookIds, lookOf } from '../../src/shared/looks.js
 import { HAND_DRAWN } from '../../src/shared/looks/handDrawn.js';
 import { geometryProblems } from '../geometry.js';
 
+
 /* The registry of looks (src/shared/looks.ts): what every look must be, the resolver, and the one way to add a look.
    The proof look (tests/proof/) runs through the same tests in its own build. */
 
@@ -33,6 +34,20 @@ describe('the looks', () => {
     });
   }
 
+  it('hand-drawn paints in the flyer’s own ink, accent and ground, and in its own colours the rest', () => {
+    const own = { bg: '#EEF3E2', ink: '#2B1D3A', accent: '#7A2E5C', mark: '#7FB800' };
+    expect(HAND_DRAWN.palette({ colors: own })).toEqual({
+      ground: '#EEF3E2',
+      ink: '#2B1D3A',
+      accent: '#7A2E5C',
+      muted: '#3A3A34',
+      surface: '#ffffff',
+      placeholder: '#E7E0CE',
+      pillText: '#ffffff',
+      pillDot: '#53CED1',
+    });
+  });
+
   it('a flyer prints in the look it names; one that names none, or a look this release does not know, prints hand-drawn', () => {
     expect(lookOf({ look: 'hand-drawn' })).toBe(HAND_DRAWN);
     expect(lookOf({})).toBe(HAND_DRAWN);
@@ -43,12 +58,12 @@ describe('the looks', () => {
   it('a look is added only before anything reads the registry, and only once', async () => {
     vi.resetModules();
     const fresh = await import('../../src/shared/looks.js');
-    const extra = { id: 'extra', name: 'Extra', geometry: {} };
+    const extra = { ...HAND_DRAWN, id: 'extra', name: 'Extra' };
     fresh.registerLook(extra);
     expect(() => fresh.registerLook({ ...extra })).toThrow(/a look with that id exists/);
     expect(fresh.lookIds()).toEqual(['hand-drawn', 'extra']);
     expect(fresh.lookOf({ look: 'extra' })).toBe(extra);
-    expect(() => fresh.registerLook({ id: 'late', name: 'Late', geometry: {} })).toThrow(/already read/);
+    expect(() => fresh.registerLook({ ...HAND_DRAWN, id: 'late', name: 'Late' })).toThrow(/already read/);
     vi.resetModules();
   });
 });

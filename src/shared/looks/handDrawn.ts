@@ -103,4 +103,15 @@ export const HAND_DRAWN: Look = {
   id: 'hand-drawn',
   name: 'Hand-drawn',
   geometry: SHARED_GEOMETRY,
+  // The flyer's own ink, accent and ground, as stored (data.colors, which only this look reads); the rest are fixed.
+  palette: ({ colors }) => ({
+    ground: colors.bg,
+    ink: colors.ink,
+    accent: colors.accent,
+    muted: MUTED,
+    surface: '#ffffff',
+    placeholder: PHOTO_PLACEHOLDER,
+    pillText: '#ffffff',
+    pillDot: BRIGHT_TEAL,
+  }),
 };

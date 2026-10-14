@@ -1,6 +1,6 @@
 import type { ArtAnchor, Geometry } from './layout.js';
 import { HAND_DRAWN } from './looks/handDrawn.js';
-import type { DoodlePlacement } from './schema.js';
+import type { DoodlePlacement, FlyerData } from './schema.js';
 
 /* The looks a flyer can print in (docs/prompts/looks-seam.md; the owner's answers, 2026-10-13 and 2026-10-14). One
    renderer draws every look: a look is an entry here, which the renderer reads through lookOf(), and never a branch
@@ -16,6 +16,26 @@ export interface ArtPlacement extends Omit<DoodlePlacement, 'anchor'> {
   anchor?: ArtAnchor;
 }
 
+/** A look's colours, by what each one paints. */
+export interface Palette {
+  /** The flyer's background. */
+  readonly ground: string;
+  /** Most copy, and the frames' strokes. */
+  readonly ink: string;
+  /** The headline's second line, the chips' labels, the week's names, the extras' dots, the pill's ground. */
+  readonly accent: string;
+  /** The Spanish lines under the English ones. */
+  readonly muted: string;
+  /** Inside the chips and the week's rows. */
+  readonly surface: string;
+  /** An empty photo frame. */
+  readonly placeholder: string;
+  /** The pill's letters. */
+  readonly pillText: string;
+  /** The dot between the handle and the tag. */
+  readonly pillDot: string;
+}
+
 /** One look: what it is called, and what it decides about how a flyer prints. */
 export interface Look {
   /** Stored in data.look, so forever once a release accepts it. */
@@ -24,6 +44,8 @@ export interface Look {
   readonly name: string;
   /** What it changes of the shared boxes, canvas by canvas (layout.ts). */
   readonly geometry: Geometry;
+  /** Its colours for a flyer. Hand-drawn takes three of them from the flyer itself (data.colors), which only it reads. */
+  palette(data: Pick<FlyerData, 'colors'>): Palette;
 }
 
 /** What a flyer that names no look prints in, forever: the hand-drawn look. */
