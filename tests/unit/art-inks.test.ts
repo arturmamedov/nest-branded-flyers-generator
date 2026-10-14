@@ -4,7 +4,7 @@ import { PNG } from 'pngjs';
 import { describe, expect, it } from 'vitest';
 import { ART_DIR, EDGE, INK_ALPHA, derive, inkOf, nearInk } from '../../scripts/art-inks.js';
 import { ROOT } from '../../scripts/gen-shared.js';
-import { SWAPPED_INKS } from '../../src/shared/defaults.js';
+import { SWAPPED_INKS } from '../../src/shared/looks/handDrawn.js';
 
 /* The corner blobs print in each other's ink (Artur, 2026-10-12), and so do the two sparks on the photo's corners
    (2026-10-13). The four files that do it are derived from the designer's drawings by scripts/art-inks.ts (npm run

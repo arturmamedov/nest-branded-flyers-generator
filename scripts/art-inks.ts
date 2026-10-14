@@ -2,7 +2,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { PNG } from 'pngjs';
-import { SWAPPED_INKS } from '../src/shared/defaults.js';
+import { SWAPPED_INKS } from '../src/shared/looks/handDrawn.js';
 import { ROOT } from './gen-shared.js';
 
 /* The template's corner blobs, and the sparks on the photo's corners, in each other's ink (defaults.ts,

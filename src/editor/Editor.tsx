@@ -5,7 +5,8 @@ import { FLYER_LABELS, LABELS_MAX, knownLabels, tidyLabels, toggleLabel } from '
 import { ACCEPTED_PHOTO_TYPES } from '../shared/limits';
 import { lintFlyer } from '../shared/copyRules';
 import { followHostel, marksFor, newFlyerData, switchTemplate, weekTitle, withPhoto } from '../shared/defaults';
-import { CANVASES, CANVAS_IDS, SHARED_GEOMETRY, bodyOf, photoFrame, type CanvasId, type PhotoMode } from '../shared/layout';
+import { CANVASES, CANVAS_IDS, bodyOf, photoFrame, type CanvasId, type PhotoMode } from '../shared/layout';
+import { lookOf } from '../shared/looks';
 import { DEFAULT_CROP, ZOOM_MAX, ZOOM_MIN, clampCrop, wholePhotoZoom, zoomCrop } from '../shared/photo';
 import type { AiFeature, AiFeatureOn } from '../shared/ai';
 import type { Chip, ChipKey, Crop, FlyerData, FlyerInput, FlyerListItem, FlyerText, Hostel, PhotoInfo, Template, WeekRow } from '../shared/schema';
@@ -912,7 +913,7 @@ const fromSlider = (v: number) => (Math.abs(v) < 0.025 ? 1 : ZOOM_BASE ** v); //
 /* The frame is the one on screen. Every canvas's frame has the same aspect for
    a mode (layout.ts), so the stored crop shows the same picture on all of them. */
 function PhotoControls({ photo, data, canvas, onCrop }: { photo: PhotoInfo; data: FlyerData; canvas: CanvasId; onCrop: (fn: (c: Crop) => Crop) => void }) {
-  const frame = photoFrame(canvas, bodyOf(data), SHARED_GEOMETRY);
+  const frame = photoFrame(canvas, bodyOf(data), lookOf(data).geometry);
   if (!frame) return null;
   const zoom = data.photoCrop.zoom;
   return (

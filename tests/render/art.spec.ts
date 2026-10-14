@@ -1,7 +1,7 @@
 import type { Locator, Page } from '@playwright/test';
 import { PNG } from 'pngjs';
 import { expect, test } from '../browser';
-import { DEFAULT_DOODLES, resolveDoodles } from '../../src/shared/defaults';
+import { DEFAULT_DOODLES, resolveDoodles } from '../../src/shared/looks/handDrawn';
 import { CANVASES, CANVAS_IDS, SHARED_GEOMETRY, artAnchors, bodyOf, boxesOf, placeArt } from '../../src/shared/layout';
 import type { FlyerText } from '../../src/shared/schema';
 import { WEEK_ROWS_MAX } from '../../src/shared/week';

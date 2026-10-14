@@ -1,9 +1,11 @@
 import { Fragment, useState, type CSSProperties, type ReactNode, type Ref } from 'react';
 import { deriveChips, DEFAULT_CHIP_ORDER } from '../shared/chips';
-import { BRIGHT_TEAL, MUTED, PHOTO_PLACEHOLDER, marksFor, resolveDoodles, type ArtPlacement } from '../shared/defaults';
+import { marksFor } from '../shared/defaults';
 import { printedExtras } from '../shared/extras';
 import { BODY_FONT, HEADLINE_FONT } from '../shared/fonts';
-import { CANVASES, SHARED_GEOMETRY, artAnchors, bodyOf, boxesOf, photoFrame, pillBox, placeArt, safeBox, type ArtAnchor, type ArtPoint, type CanvasId, type Rect, type WeekBoxes } from '../shared/layout';
+import { CANVASES, artAnchors, bodyOf, boxesOf, photoFrame, pillBox, placeArt, safeBox, type ArtAnchor, type ArtPoint, type CanvasId, type Rect, type WeekBoxes } from '../shared/layout';
+import { lookOf, type ArtPlacement } from '../shared/looks';
+import { BRIGHT_TEAL, MUTED, PHOTO_PLACEHOLDER, resolveDoodles } from '../shared/looks/handDrawn';
 import { coverRect } from '../shared/photo';
 import type { FlyerData, FlyerText, Hostel, PhotoInfo } from '../shared/schema';
 import { printedRows, type PrintedRow } from '../shared/week';
@@ -227,8 +229,9 @@ export function Flyer({ data, canvas, hostel, photo, showSafeZones = false, ref 
   // A week flyer keeps its photo mode and photo for switching back, and draws neither.
   const body = bodyOf(data);
   const { width: W, height: H } = CANVASES[canvas];
-  // The boxes the flyer's look draws in: the hand-drawn look's are the shared table.
-  const geometry = SHARED_GEOMETRY;
+  const look = lookOf(data);
+  // The boxes the flyer's look draws in.
+  const geometry = look.geometry;
   const { activity: A, week: WK } = boxesOf(canvas, geometry);
   const anchors = artAnchors(canvas, body, geometry);
   const chips = deriveChips(data.chips, hostel?.name ?? null, data.overrides.chips?.order ?? DEFAULT_CHIP_ORDER);

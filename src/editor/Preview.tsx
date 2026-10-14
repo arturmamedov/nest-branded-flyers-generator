@@ -1,7 +1,8 @@
 import { useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent, type RefObject } from 'react';
 import { fitFlyer, type FitReport } from '../flyer/fit';
 import { Flyer } from '../flyer/Flyer';
-import { CANVASES, CANVAS_IDS, SHARED_GEOMETRY, activityGroups, bodyOf, photoFrame, type CanvasId } from '../shared/layout';
+import { CANVASES, CANVAS_IDS, activityGroups, bodyOf, photoFrame, type CanvasId } from '../shared/layout';
+import { lookOf } from '../shared/looks';
 import type { Lint } from '../shared/copyRules';
 import { clampCrop, panCrop } from '../shared/photo';
 import type { Crop, FlyerData, Hostel, PhotoInfo } from '../shared/schema';
@@ -91,9 +92,11 @@ export function Preview({ data, canvas, hostel, photo, showSafeZones, actualSize
   const refit = useFit(flyerRef, canvas, onFit);
   useLayoutEffect(refit, [data, hostel, refit]);
 
-  // No frame, no handle: "No photo", and a week flyer, whatever photo mode it keeps for switching back.
-  const frame = photoFrame(canvas, bodyOf(data), SHARED_GEOMETRY);
-  const frameBox = activityGroups(canvas, data.photoMode, SHARED_GEOMETRY).photo!;
+  // The photo frame of the flyer's own look. No frame, no handle: "No photo", and a week flyer, whatever photo mode it
+  // keeps for switching back.
+  const { geometry } = lookOf(data);
+  const frame = photoFrame(canvas, bodyOf(data), geometry);
+  const frameBox = activityGroups(canvas, data.photoMode, geometry).photo!;
   const drag = useRef<{ x: number; y: number; crop: Crop } | null>(null);
 
   // Moves start from the crop as this frame shows it, so a drag never has a dead zone.

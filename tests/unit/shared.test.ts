@@ -3,19 +3,9 @@ import { PNG } from 'pngjs';
 import { describe, expect, it } from 'vitest';
 import { deriveChips, splitBigSub, splitDot } from '../../src/shared/chips.js';
 import { MAX_EXCLAMATIONS, lintFlyer } from '../../src/shared/copyRules.js';
-import {
-  DEFAULT_DOODLES,
-  DEFAULT_PHOTO_MODE,
-  DEFAULT_TEXT,
-  PROTOTYPE_DOODLES,
-  SWAPPED_INKS,
-  newFlyerData,
-  resolveDoodles,
-  sameDoodles,
-  switchTemplate,
-  withPhoto,
-  type ArtPlacement,
-} from '../../src/shared/defaults.js';
+import { DEFAULT_PHOTO_MODE, DEFAULT_TEXT, newFlyerData, switchTemplate, withPhoto } from '../../src/shared/defaults.js';
+import type { ArtPlacement } from '../../src/shared/looks.js';
+import { DEFAULT_DOODLES, PROTOTYPE_DOODLES, SWAPPED_INKS, resolveDoodles, sameDoodles } from '../../src/shared/looks/handDrawn.js';
 import {
   CANVASES,
   CANVAS_IDS,

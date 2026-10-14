@@ -5,7 +5,7 @@ import { basename, join } from 'node:path';
 import type { APIRequestContext, BrowserContext, Page } from '@playwright/test';
 import { KIT_URL, expect, test } from '../browser';
 import { PNG } from 'pngjs';
-import { PROTOTYPE_DOODLES } from '../../src/shared/defaults';
+import { PROTOTYPE_DOODLES } from '../../src/shared/looks/handDrawn';
 import { CANVASES, CANVAS_IDS, type CanvasId, type Rect } from '../../src/shared/layout';
 import { SAMPLE_FLYERS } from '../../src/shared/samples';
 import type { Colors, Crop, DoodlePlacement, FlyerData, FlyerListItem, FlyerPayload, FlyerSaved } from '../../src/shared/schema';
