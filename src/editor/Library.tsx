@@ -239,7 +239,6 @@ export function Library({ hostels, exporter }: { hostels: Hostel[]; exporter: Fl
                 aria-label="Search"
                 placeholder="Name, label, share text…"
                 value={query}
-                maxLength={80}
                 spellCheck={false}
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={(e) => {
