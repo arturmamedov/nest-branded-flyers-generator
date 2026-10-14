@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import { FLYER_LABELS, LABEL_SLUGS, knownLabels, labelNames, storedLabels, tidyLabels } from '../../src/shared/labels.js';
-import { SiteFlyerSchema, type SiteCall } from '../site.js';
+import { FLYER_LABELS, LABEL_SLUGS, NO_LABEL, labelNames, storedLabels, tidyLabels } from '../../src/shared/labels.js';
+import { RawFlyerSchema, SiteFlyerSchema, siteKeeps, type SiteCall } from '../site.js';
 
 /* The two halves of `npm run flyers:labels` (labels.ts runs them), with no file and no command line here, so a test
    drives them on a stand-in for a site.
@@ -8,20 +8,11 @@ import { SiteFlyerSchema, type SiteCall } from '../site.js';
    - describeFlyers: every flyer of a site, as much of it as says what kind it is. Reads only.
    - applyLabels: a table of labels, written by someone who read that description (Artur's answer, 2026-10-14:
      "Classify the flyers, I trust you": the session reads each flyer and chooses, with no keyword rules), put on the
-     site's flyers through its API, as the editor would. It fills flyers that carry none and never changes one. */
+     site's flyers through its API, as the editor would. It fills flyers that carry none and never changes one.
 
-/** A flyer as a site sends it, its data unparsed: the site may run another release than this checkout, and a PUT
-    hands its data back as it came, with the labels added. */
-const RawPayloadSchema = z.object({
-  flyer: z.object({
-    title: z.string(),
-    hostel: z.string().nullable(),
-    template: z.string(),
-    data: z.record(z.string(), z.unknown()),
-    photoId: z.number().nullable(),
-    updatedAt: z.string(),
-  }),
-});
+   What it cannot guard (the API has no version check): a save replaces the whole flyer, so someone who saves a
+   flyer in an editor they opened before the run puts it back without its labels. Run it when nobody is editing, and
+   run the same table again afterwards: it fills what is still empty and leaves the rest. */
 
 /** What a save answers, as far as the check after it reads. */
 const SavedSchema = z.object({ flyer: z.object({ data: z.object({ labels: z.array(z.string()).optional() }) }) });
@@ -48,30 +39,42 @@ export interface DescribedFlyer {
   caption: string;
   /** The labels it carries today, by slug. */
   labels: string[];
+  /** Why it could not be opened, where it could not: the library lists such a flyer, so the print names it too. */
+  unread?: string;
 }
 
 const text = (value: unknown): string => (typeof value === 'string' ? value.trim() : '');
+const said = (e: unknown): string => (e instanceof Error ? e.message : String(e));
+
+/** A flyer's labels as a person reads them: the listed ones by name, then the ones this checkout's list does not
+    have by their slug. */
+const named = (labels: string[]): string => [...labelNames(labels), ...labels.filter((slug) => !LABEL_SLUGS.includes(slug))].join(', ');
 
 /** Every flyer of the site, newest first as its library lists them. */
 export async function describeFlyers(call: SiteCall): Promise<DescribedFlyer[]> {
   const list = await call('GET', 'api/flyers', z.array(SiteFlyerSchema));
   const flyers: DescribedFlyer[] = [];
   for (const item of list) {
-    const { flyer } = await call('GET', `api/flyers/${item.id}`, RawPayloadSchema);
-    const lines = (flyer.data.text ?? {}) as Record<string, unknown>;
-    const week = Array.isArray(flyer.data.week) ? (flyer.data.week as Record<string, unknown>[]) : [];
-    flyers.push({
-      id: item.id,
-      template: flyer.template,
-      hostel: flyer.hostel,
-      title: flyer.title,
-      updatedAt: flyer.updatedAt,
-      headline: [text(lines.headline1), text(lines.headline2)].filter(Boolean).join(' / '),
-      spanish: text(lines.headlineEs),
-      rows: week.map((row) => text(row?.name)).filter(Boolean),
-      caption: text(flyer.data.share).replace(/\s+/g, ' ').slice(0, 200),
-      labels: storedLabels(flyer.data),
-    });
+    try {
+      const { flyer } = await call('GET', `api/flyers/${item.id}`, RawFlyerSchema);
+      const lines = (flyer.data.text ?? {}) as Record<string, unknown>;
+      const week = Array.isArray(flyer.data.week) ? (flyer.data.week as Record<string, unknown>[]) : [];
+      flyers.push({
+        id: item.id,
+        template: flyer.template,
+        hostel: flyer.hostel,
+        title: flyer.title,
+        updatedAt: flyer.updatedAt,
+        headline: [text(lines.headline1), text(lines.headline2)].filter(Boolean).join(' / '),
+        spanish: text(lines.headlineEs),
+        rows: week.map((row) => text(row?.name)).filter(Boolean),
+        caption: text(flyer.data.share).replace(/\s+/g, ' ').slice(0, 200),
+        labels: storedLabels(flyer.data),
+      });
+    } catch (e) {
+      // The library lists a flyer whose own file is damaged: one such flyer does not stop the print.
+      flyers.push({ id: item.id, template: '', hostel: item.hostel, title: item.title, updatedAt: item.updatedAt, headline: '', spanish: '', rows: [], caption: '', labels: [], unread: said(e) });
+    }
   }
   return flyers;
 }
@@ -80,8 +83,9 @@ export async function describeFlyers(call: SiteCall): Promise<DescribedFlyer[]> 
 export interface LabelOutcome {
   id: number;
   title: string;
-  /** `labelled`: written. `would`: a dry run would write it. The rest say why nothing was written. */
-  result: 'labelled' | 'would' | 'has-labels' | 'not-listed' | 'renamed' | 'moved' | 'nothing-to-add' | 'failed';
+  /** `labelled`: written. `would`: a dry run would write it. `unlisted`: written, and the site shows none of it.
+      The rest say why nothing was written. */
+  result: 'labelled' | 'would' | 'unlisted' | 'has-labels' | 'not-listed' | 'renamed' | 'moved' | 'nothing-to-add' | 'failed';
   labels: string[];
   note: string;
 }
@@ -102,16 +106,15 @@ export function tableProblem(table: LabelTable, siteRoot: string): string | null
     in the library, so the labelled ones keep their order among themselves. Nothing is written on a dry run. */
 export async function applyLabels(call: SiteCall, table: LabelTable, { dry = false }: { dry?: boolean } = {}): Promise<LabelOutcome[]> {
   const list = await call('GET', 'api/flyers', z.array(SiteFlyerSchema));
-  // A release from before labels answers 200 to a save and drops them without a word (unknown keys are stripped):
-  // ask a saved flyer first. Every read fills today's defaults, so a site that knows the field returns it on any flyer.
-  if (list.length > 0 && !('labels' in (await call('GET', `api/flyers/${list[0].id}`, RawPayloadSchema)).flyer.data)) {
+  if ((await siteKeeps(call, 'labels', list)) === false) {
     throw new Error('this site runs a release from before labels and would drop them: upload the current release first (npm run build:php, docs/deploy.md).');
   }
   const byId = new Map(list.map((item) => [item.id, item]));
   const oldestFirst = [...table.flyers].sort((a, b) => (byId.get(a.id)?.updatedAt ?? '').localeCompare(byId.get(b.id)?.updatedAt ?? '') || a.id - b.id);
   const outcomes: LabelOutcome[] = [];
   for (const row of oldestFirst) {
-    const done = (result: LabelOutcome['result'], note: string) => outcomes.push({ id: row.id, title: row.title, result, labels: tidyLabels(row.labels), note });
+    const labels = tidyLabels(row.labels);
+    const done = (result: LabelOutcome['result'], note: string) => outcomes.push({ id: row.id, title: row.title, result, labels, note });
     const item = byId.get(row.id);
     if (!item) {
       done('not-listed', 'not in the site’s library (archived, or another site’s id)');
@@ -121,28 +124,29 @@ export async function applyLabels(call: SiteCall, table: LabelTable, { dry = fal
       done('renamed', `it is called “${item.title}” on the site now: read the site again`);
       continue;
     }
-    if (row.labels.length === 0) {
+    if (labels.length === 0) {
       done('nothing-to-add', 'no label chosen for it');
       continue;
     }
     try {
       // Read again right before the save: a flyer someone saved since the list was read is left to them.
-      const { flyer } = await call('GET', `api/flyers/${row.id}`, RawPayloadSchema);
+      const { flyer } = await call('GET', `api/flyers/${row.id}`, RawFlyerSchema);
       if (flyer.updatedAt !== item.updatedAt || flyer.title !== row.title) {
         done('moved', 'saved by someone while this ran: left as it is');
         continue;
       }
-      const has = knownLabels(storedLabels(flyer.data));
+      // Any label it stores, one this checkout's list does not have too: the site's own list may have it (a site on
+      // a later release), and a flyer that has a label is never changed.
+      const has = storedLabels(flyer.data);
       if (has.length > 0) {
-        done('has-labels', `already carries ${labelNames(has).join(', ')}: never changed`);
+        done('has-labels', `already carries ${named(has)}: never changed`);
         continue;
       }
-      // Its own labels that are off the list stay, after the new ones.
-      const labels = tidyLabels([...row.labels, ...storedLabels(flyer.data)]);
       if (dry) {
-        done('would', labelNames(labels).join(', '));
+        done('would', named(labels));
         continue;
       }
+      // Its data goes back as it came, a key this checkout does not know included: the save replaces the whole flyer.
       const saved = await call('PUT', `api/flyers/${row.id}`, SavedSchema, {
         title: flyer.title,
         hostel: flyer.hostel,
@@ -153,10 +157,31 @@ export async function applyLabels(call: SiteCall, table: LabelTable, { dry = fal
       // The same labels, in whatever order the site's own list puts them.
       const kept = saved.flyer.data.labels ?? [];
       if (kept.length !== labels.length || !labels.every((slug) => kept.includes(slug))) throw new Error(`the site saved ${JSON.stringify(kept)}, not ${JSON.stringify(labels)}`);
-      done('labelled', labelNames(labels).join(', '));
+      done('labelled', named(labels));
     } catch (e) {
-      done('failed', e instanceof Error ? e.message : String(e));
+      done('failed', said(e));
     }
   }
+  await markUnlisted(call, outcomes);
   return outcomes;
+}
+
+/** A site checks a label by its shape, never against its list, so one whose release is behind this checkout's list
+    saves a label it does not know and shows the flyer with none. Its own "No label" filter says which: a flyer just
+    labelled that is still among them carries nothing that site lists. (A flyer with one label the site knows and
+    one it does not is not told apart: the second shows once the site's release has it.) */
+async function markUnlisted(call: SiteCall, outcomes: LabelOutcome[]): Promise<void> {
+  const labelled = outcomes.filter((o) => o.result === 'labelled');
+  if (labelled.length === 0) return;
+  let bare: Set<number>;
+  try {
+    bare = new Set((await call('GET', `api/flyers?label=${NO_LABEL}`, z.array(SiteFlyerSchema))).map((item) => item.id));
+  } catch {
+    return; // the saves stand; only this last look could not be had
+  }
+  for (const outcome of labelled) {
+    if (!bare.has(outcome.id)) continue;
+    outcome.result = 'unlisted';
+    outcome.note = `saved ${outcome.note}, and this site’s release lists none of them: it shows it with no label until a release that has them is up`;
+  }
 }

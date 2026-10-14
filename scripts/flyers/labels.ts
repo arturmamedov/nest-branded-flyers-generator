@@ -1,7 +1,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { parseArgs } from 'node:util';
 import { z } from 'zod';
-import { labelNames } from '../../src/shared/labels.js';
+import { LABEL_SLUGS, labelNames } from '../../src/shared/labels.js';
 import { flyersTarget, type RemoteSite } from '../env.js';
 import { appRoot, issues, siteAt, siteCaller } from '../site.js';
 import { LabelTableSchema, applyLabels, describeFlyers, tableProblem } from './labelTable.js';
@@ -19,6 +19,10 @@ import { LabelTableSchema, applyLabels, describeFlyers, tableProblem } from './l
       would do and writes nothing; with `--write` it does it. It fills flyers that carry no label, oldest first, and
       never changes one that has any. Each flyer it fills moves to the top of the library with today's date, as after
       any save.
+
+   Run it from the checkout the site's release was built from, when nobody is editing: a save replaces the whole
+   flyer, so an editor opened before the run puts a flyer back without its labels (labelTable.ts says more). Running
+   the same table again fills what is still empty and changes nothing else.
 
    The rules are labelTable.ts's. The site is FLYERS_BASE_URL in .env, or `--to`. */
 
@@ -50,8 +54,13 @@ async function main() {
     const flyers = await describeFlyers(call);
     console.log(`Site ${target.baseUrl}: ${flyers.length} flyer(s), newest first. Nothing is written.`);
     for (const f of flyers) {
+      if (f.unread !== undefined) {
+        console.log(`#${f.id} ${f.hostel ?? 'chain-wide'} | ${f.title} | could not be opened: ${f.unread}`);
+        continue;
+      }
       const about = [f.headline, f.rows.length ? `rows: ${f.rows.join('; ')}` : '', f.spanish].filter(Boolean).join(' | ');
-      console.log(`#${f.id} [${f.template}] ${f.hostel ?? 'chain-wide'} | ${f.title} | ${about}${f.labels.length ? ` | labels: ${labelNames(f.labels).join(', ') || f.labels.join(', ')}` : ''}`);
+      const labels = [...labelNames(f.labels), ...f.labels.filter((slug) => !LABEL_SLUGS.includes(slug))].join(', ');
+      console.log(`#${f.id} [${f.template}] ${f.hostel ?? 'chain-wide'} | ${f.title} | ${about}${labels ? ` | labels: ${labels}` : ''}`);
     }
     if (values.out !== undefined) {
       writeFileSync(values.out, `${JSON.stringify({ site: target.baseUrl, readAt: new Date().toISOString(), flyers }, null, 2)}\n`);
@@ -64,16 +73,23 @@ async function main() {
   const problem = tableProblem(table, target.baseUrl);
   if (problem) throw new Error(`${values.apply}: ${problem}`);
   const dry = !values.write;
-  console.log(`Site ${target.baseUrl}${dry ? ': a dry run, nothing is written (add --write to do it)' : ': writing. Each flyer it labels moves to the top of the library with today’s date.'}`);
+  console.log(
+    `Site ${target.baseUrl}${
+      dry
+        ? ': a dry run, nothing is written (add --write to do it)'
+        : ': writing. Each flyer it labels moves to the top of the library with today’s date. A flyer someone saves from an editor they opened before this run loses its labels again: run this table once more afterwards.'
+    }`,
+  );
   const outcomes = await applyLabels(call, table, { dry });
   for (const o of outcomes) {
-    const mark = o.result === 'labelled' ? '✓' : o.result === 'failed' ? '✗' : '·';
+    const mark = o.result === 'labelled' ? '✓' : o.result === 'failed' ? '✗' : o.result === 'unlisted' ? '!' : '·';
     const said = o.result === 'labelled' ? `labelled ${o.note}` : o.result === 'would' ? `would label ${o.note}` : o.note;
     console.log(`${mark} #${o.id} ${o.title}: ${said}`);
   }
   const count = (result: string) => outcomes.filter((o) => o.result === result).length;
-  console.log(`${count(dry ? 'would' : 'labelled')} ${dry ? 'to label' : 'labelled'}, ${outcomes.length - count('would') - count('labelled') - count('failed')} left as they are, ${count('failed')} failed.`);
-  if (count('failed') > 0) process.exitCode = 1;
+  const wrong = count('failed') + count('unlisted');
+  console.log(`${count(dry ? 'would' : 'labelled')} ${dry ? 'to label' : 'labelled'}, ${outcomes.length - count('would') - count('labelled') - wrong} left as they are, ${count('unlisted')} saved and not shown by this site, ${count('failed')} failed.`);
+  if (wrong > 0) process.exitCode = 1;
 }
 
 main().catch((e) => {

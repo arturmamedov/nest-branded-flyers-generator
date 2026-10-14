@@ -29,6 +29,34 @@ export type SiteCall = <S extends z.ZodType>(method: string, path: string, schem
 export const SiteFlyerSchema = z.object({ id: z.number().int().positive(), title: z.string(), hostel: z.string().nullable(), updatedAt: z.string() });
 export type SiteFlyer = z.infer<typeof SiteFlyerSchema>;
 
+/** A flyer as a site sends it, its data unparsed: parsing would fill the very defaults a script looks for, and a
+    script that saves a flyer back hands its data over as it came, keys this checkout does not know included. */
+export const RawFlyerSchema = z.object({
+  flyer: z.object({
+    title: z.string(),
+    hostel: z.string().nullable(),
+    template: z.string(),
+    data: z.record(z.string(), z.unknown()),
+    photoId: z.number().nullable(),
+    updatedAt: z.string(),
+  }),
+});
+
+/** Whether this site's release keeps `key` in a flyer's data. A release from before a field answers 200 to a save
+    and drops the field without a word (unknown keys are stripped), so a script that writes one asks first. It asks
+    the first listed flyer that opens: every read fills today's defaults, so a site that knows a field returns it on
+    any flyer, and a flyer that cannot be opened is not the one to ask. null when there is none to ask. */
+export async function siteKeeps(call: SiteCall, key: string, listed?: SiteFlyer[]): Promise<boolean | null> {
+  for (const item of listed ?? (await call('GET', 'api/flyers', z.array(SiteFlyerSchema)))) {
+    try {
+      return key in (await call('GET', `api/flyers/${item.id}`, RawFlyerSchema)).flyer.data;
+    } catch {
+      continue;
+    }
+  }
+  return null;
+}
+
 /** What failed a schema (an answer, or a file a script was given), each bad field by its dotted path, as the API names them. */
 export const issues = (e: z.ZodError): string => e.issues.map((i) => `${i.path.join('.') || '_'}: ${i.message}`).join('; ');
 

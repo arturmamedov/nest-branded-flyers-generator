@@ -6,7 +6,7 @@ import { flyerFromBrief } from '../../src/shared/brief.js';
 import { lintFlyer } from '../../src/shared/copyRules.js';
 import { AiExampleSchema, FlyerInputSchema, FlyerSavedSchema, HostelSchema, type AiExample } from '../../src/shared/schema.js';
 import { flyersTarget, type RemoteSite } from '../env.js';
-import { SiteFlyerSchema, issues, siteCaller } from '../site.js';
+import { SiteFlyerSchema, issues, siteCaller, siteKeeps } from '../site.js';
 
 /* npm run flyers:post -- <example files or folders…> [--to <app root>] [--dry-run]
 
@@ -14,9 +14,6 @@ import { SiteFlyerSchema, issues, siteCaller } from '../site.js';
    it and picks the id, so a flyer a manager saves meanwhile is never overwritten. Text only: photos are added in the
    editor. Each file is a record of docs/ai-flyers/examples (README there): the staff text as sent, and the brief
    written from it. A brief already on the site is skipped, so a folder can be sent again. */
-
-/** A flyer as the site sends it, its data unparsed: parsing would fill the very defaults the check looks for. */
-const RawPayloadSchema = z.object({ flyer: z.object({ data: z.record(z.string(), z.unknown()) }) });
 
 const LOOPBACK = new Set(['127.0.0.1', 'localhost', '[::1]']);
 
@@ -55,9 +52,10 @@ async function main() {
 
   const hostels = await call('GET', 'api/hostels', z.array(HostelSchema));
   const onSite = await call('GET', 'api/flyers', z.array(SiteFlyerSchema));
-  // A release older than the share text drops it without a word (unknown keys are stripped), so ask a saved flyer
-  // first: every read fills today's defaults, so a site that knows the field returns it on any flyer.
-  const keepsShare = onSite.length === 0 ? null : 'share' in (await call('GET', `api/flyers/${onSite[0].id}`, RawPayloadSchema)).flyer.data;
+  // A release older than the share text, or than labels, drops them without a word (unknown keys are stripped), so
+  // a saved flyer is asked first (siteKeeps).
+  const keepsShare = await siteKeeps(call, 'share', onSite);
+  const keepsLabels = await siteKeeps(call, 'labels', onSite);
   let failed = 0;
 
   for (const file of exampleFiles(positionals)) {
@@ -84,6 +82,9 @@ async function main() {
       }
       if (input.data.share && keepsShare === false) {
         throw new Error('this site runs a release older than the share text, and would drop it: upload the current release (npm run build:php, docs/deploy.md) first');
+      }
+      if (input.data.labels.length > 0 && keepsLabels === false) {
+        throw new Error('this site runs a release from before labels, and would drop them: upload the current release (npm run build:php, docs/deploy.md) first');
       }
       for (const lint of lintFlyer(input.data)) console.log(`  ! ${label}: ${lint.message}`);
       if (dry) {
