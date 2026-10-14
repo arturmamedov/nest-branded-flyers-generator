@@ -218,7 +218,7 @@ Both POSTs need the write header (`src/shared/writeGuard.ts`) and pass through t
    - `docs/deploy.md`: the `config.php` `ai` block and where the key goes on IONOS.
    - `docs/ai-flyers/README.md`: the rules now live in `ai/prompts/`, and how a ledger record becomes an example.
    - A report, `docs/reports/ai-assistant.md`.
-   - `CLAUDE.md`'s architecture and Status.
+   - `docs/architecture.md` and `docs/status.md`.
 
 ## Done means
 

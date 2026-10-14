@@ -61,5 +61,5 @@ Read `CLAUDE.md`, then `docs/prompts/ai-flyer-from-photo.md` (the brief) and
 
 **Waiting, and not part of this stage**
 
-- A second shape for the share text, "one mixed caption", behind a switch Artur wants to add (`CLAUDE.md`,
+- A second shape for the share text, "one mixed caption", behind a switch Artur wants to add (`docs/status.md`,
   "Waiting"). Don't build it.

@@ -28,7 +28,7 @@ HOW TO WORK
   npm run test:php and npm run test:php-smoke (PHP changes here). Look at it in a browser at 1440, 1280, 390 and
   360 px. A flyer's drawing must not change: the baseline stays byte-identical (the capture is the temp folder
   nest-ux4c-baseline; take a new one first if it is gone).
-- Record it: a section in CLAUDE.md in the style of the others, and docs/reports/flyer-types.md.
+- Record it: a section in docs/architecture.md and an entry in docs/status.md in the style of the others, and docs/reports/flyer-types.md.
 
 PART A: THE OPEN DECISIONS (ask, one question each, then build the answers)
 

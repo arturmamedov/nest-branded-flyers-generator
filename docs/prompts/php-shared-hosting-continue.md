@@ -271,7 +271,7 @@ Everything below keeps the Node app working exactly as today, except the two del
   - Check that `data/*.json`, `src/`, `vendor/`, `schema/`, `seed/`, `config.php` and a planted
     `uploads/x.php` all return 403 or 404, and never execute.
   - Look at the editor in real Chrome: the preview, and a downloaded PNG and JPG.
-- Update the Status section of `CLAUDE.md` and the brief's status.
+- Update `docs/status.md` and the brief's status.
 - **Final report:** what was verified, what wasn't, and the known trade-offs. Client export renders on each
   staff member's browser: layout and fit match the preview by construction, glyph anti-aliasing can differ
   between Windows and macOS, and Chrome or Edge stays required.

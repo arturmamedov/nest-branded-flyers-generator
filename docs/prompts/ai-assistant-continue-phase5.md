@@ -120,9 +120,9 @@ contract is broken. Keep 12: when the service adds its note, the model's last as
     - Haiku 4.5 retires no sooner than 2026-10-15;
     - IONOS's FastCGI time limit stays unmeasured until a live call.
 - `CLAUDE.md`:
-  - the architecture: `server/ai/`, `php/src/Ai/`, the client files above, the render suite's two projects;
+  - the architecture (`docs/architecture.md`): `server/ai/`, `php/src/Ai/`, the client files above, the render suite's two projects;
   - Commands: `ai:smoke`;
-  - Status: rewrite the AI entry, which still says Phase 3 is next.
+  - Status (`docs/status.md`): rewrite the AI entry, which still says Phase 3 is next.
 - `README.md`: the `AI_*` settings, `ai:smoke`, and what `config.php`'s `ai` block does. `.env.example` already lists
   the six `AI_*` settings (`tests/unit/ai-config.test.ts` pins them).
 

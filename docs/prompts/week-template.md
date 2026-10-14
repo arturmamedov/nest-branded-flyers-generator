@@ -71,7 +71,7 @@ misbehaves, compare its markup with the prototype first.
 
 §6 still holds: a row's `name` is the **whole** event name, never `headline2` alone, and a long join gets the row's
 own `shortName`. §12's copy rules cover the rows too, with the owner's exclamation budget (`MAX_EXCLAMATIONS`,
-CLAUDE.md).
+docs/design-decisions.md).
 
 ## Part 0 — settle these with Artur (before any code)
 Ask him briefly, in Italian. The recommendation is in brackets. Record his answers in the report.
@@ -152,7 +152,7 @@ Then **stop and wait for his go-ahead.**
 - Probably no schema change: the fields exist. If Part 0 adds one (an art anchor, say), it's a data change:
   - `npm run gen`;
   - a new SQLite migration if a column changes (migrations are append-only);
-  - a JSON-store migration id, so an older release refuses the store cleanly (CLAUDE.md, step 9's note).
+  - a JSON-store migration id, so an older release refuses the store cleanly (docs/status.md, step 9's note).
 - An older release draws a week flyer as an Activity one, because it ignores the template. Say in the report whether
   that's acceptable.
 - PHP needs nothing beyond `npm run gen`: it has no renderer, and the browser does the export there.
@@ -181,7 +181,7 @@ Then **stop and wait for his go-ahead.**
   downloaded as PNG and JPG at the exact size. Do this on the dev server, and on the Laragon PHP deploy after
   `npm run build:php`.
 - Artur has signed off the WhatsApp week numbers.
-- `CLAUDE.md` Status says step 8 is done, and a line under “Design decisions already made” says §3's 22 px is
+- `docs/status.md` says step 8 is done, and a line in `docs/design-decisions.md` says §3's 22 px is
   superseded.
 - A short report, `docs/reports/week-template.md`: what changed, the WhatsApp numbers, Part 0's answers, what was
   verified and how, and anything left open.

@@ -6,7 +6,7 @@ session with no memory of it. Artur's go for these two stages was given that day
 Suggested run: Claude Opus 5.5 (`claude-opus-5-5`), effort **high**, started in plan mode.
 
 ```
-Read CLAUDE.md (its "A flyer prints in a look" and the looks status entry), then docs/prompts/looks-seam.md whole
+Read CLAUDE.md, docs/architecture.md ("Looks") and the looks entry of docs/status.md's history, then docs/prompts/looks-seam.md whole
 (the design: decided; its "Commits, in order" 6 and 7 are this session's, with their notes of 2026-10-14), then
 docs/reports/looks.md (what stages 1 and 2 built, and what reading the code found), README.md.
 
@@ -29,7 +29,7 @@ HOW TO WORK
   one from 4139d14 first (a build of that commit, outside this tree).
 - Before calling it done: npm run typecheck && npm test && npm run test:contract && npm run test:render, then
   npm run test:php and npm run test:php-smoke, and the baseline.
-- Then stop, and record it: a section in docs/reports/looks.md, CLAUDE.md (the looks entry and its status),
+- Then stop, and record it: a section in docs/reports/looks.md, docs/architecture.md ("Looks") and docs/status.md,
   docs/deploy.md (the 'looks' setting, and the two rules under "Rolling back"), docs/api-contract.md, README.md, and
   the launch prompt for stages 5 to 7 (docs/prompts/looks-seam-stages-5-7.md). Then tell me what is left that is mine.
 

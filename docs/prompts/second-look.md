@@ -8,7 +8,7 @@ mock-ups, the art, the fonts' names. Then paste the block below.
 Suggested run: Claude Opus 5.5 (`claude-opus-5-5`), effort **high**, started in plan mode.
 
 ```
-Read CLAUDE.md (its "A flyer prints in a look" and the looks status entry), then docs/adding-a-look.md whole (the
+Read CLAUDE.md, docs/architecture.md ("Looks") and the looks entry of docs/status.md's history, then docs/adding-a-look.md whole (the
 checklist: follow it), the answers in docs/prompts/looks-seam.md (decided: don't reopen them), and
 docs/prompts/claude-design-brief.md (what Claude Design was asked for). Then read design_handoff_new_look/ whole: it
 is Claude Design's handoff for the second look.
@@ -39,8 +39,8 @@ HOW TO WORK
 - Before calling it done: npm run typecheck && npm test && npm run test:contract && npm run test:render, then
   npm run test:php and npm run test:php-smoke; the baseline; and the editor in Chrome with both looks (the switch,
   the preview, the library card, one download per look per canvas).
-- Then stop and record it: docs/reports/ (a report of its own), CLAUDE.md (architecture, decisions, status) in the
-  style of its other entries, README.md, docs/deploy.md, and docs/adding-a-look.md where it was wrong or short. Tell
+- Then stop and record it: docs/reports/ (a report of its own), docs/architecture.md and docs/design-decisions.md
+  in the style of their other entries (CLAUDE.md's map where it changes), a line in docs/status.md, README.md, docs/deploy.md, and docs/adding-a-look.md where it was wrong or short. Tell
   me what is left that is mine: the release, then 'looks' in config.php (the Laragon copy first, then live).
 
 NOT NOW

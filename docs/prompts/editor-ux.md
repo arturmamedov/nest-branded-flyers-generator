@@ -56,7 +56,7 @@ next part's prompt, so he never has to come back here for one.
   connected, else Playwright's Chrome.
 - End with a fresh-context review of the part's diff, and fix what it finds, each with its test first.
 - Write the part's section in `docs/reports/editor-ux.md` (one section per part: what was built, what the review
-  found, what is left for Artur to decide), and bring CLAUDE.md's status up to date.
+  found, what is left for Artur to decide), and bring docs/status.md up to date.
 - Push nothing. Build no release. Don't touch the live site or the Laragon copy.
 - **End by handing over the next part** (Artur's ask, 2026-10-07: "ask each session to come back with next
   session standalone prompt at the end for follow up always untill the end the work").
@@ -352,7 +352,7 @@ Label anything the spike builds as throwaway.
 - A copied picture is the canvas on screen at its exact size, on both backends.
 - "Copy text" and "Copy image" both say so when they could not copy, and why.
 - Artur has tried it on the live https site from his phone, or the report says that is still his to do.
-- CLAUDE.md's waiting item about "Copy text" on the phone is closed.
+- docs/status.md's waiting item about "Copy text" on the phone is closed.
 
 ---
 
@@ -405,7 +405,7 @@ The only part that changes what a flyer prints. It can be built at any point bet
 - **Generated files.** `npm run gen` carries the limit to `schema/*.json`, `schema/ai.json` among them. PHP reads
   them at runtime, so the rule is never copied into PHP by hand. An AI fixture changes first, then the code.
 - **Anthropic's first call after the answer's schema changes is the slow one** (about 20 s of the 25 s limit,
-  in CLAUDE.md's known limits). Say so in the report.
+  in docs/status.md's known limits). Say so in the report.
 - A release has to go up whole for this part to reach the live site. Building and uploading it is Artur's.
 
 ### The proof sheet

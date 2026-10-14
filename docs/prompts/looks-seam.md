@@ -60,7 +60,7 @@ HOW TO WORK
   build (no switch, the app as it was).
 - A natural stop is after the field (stage 3): up to there nothing changes and the work is whole by itself. If the
   session runs long, stop there, record it, and write the launch prompt for stages 4 to 7.
-- Record it: CLAUDE.md (architecture, decisions, status) in the style of its other entries, README.md,
+- Record it: docs/architecture.md, docs/design-decisions.md and docs/status.md in the style of their other entries, README.md,
   docs/deploy.md, docs/reports/looks.md, and docs/adding-a-look.md, the checklist for the session that ports the
   real look.
 
@@ -349,7 +349,7 @@ listed), and for a key an older release drops, the stand-ins in `tests/storage/j
 - A look nobody touched on a flyer prints its own art. A doodle a look does not have is simply not there.
 - A switch never deletes: an arrangement waits for the switch back, as rows and photo do on a template switch.
 - "Reset to template" resets the look on screen and the block moves; other looks' arrangements stay.
-- Step 7's per-look store is a new defaulted key with its own rollback rule, as CLAUDE.md already asks of step 9.
+- Step 7's per-look store is a new defaulted key with its own rollback rule, as docs/status.md already asks of step 9.
 - Step 9's picker offers the art of the look on screen. The dormant `doodle` table has no look yet: the renderer
   draws `assets/art/<slug>.png` and never asks the table.
 - Still step 7's, unchanged by looks: how one block move applies to two canvases.

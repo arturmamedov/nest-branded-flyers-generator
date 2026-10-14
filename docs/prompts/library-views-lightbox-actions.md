@@ -26,7 +26,7 @@ HOW TO WORK
 - Before calling it done: npm run typecheck && npm test && npm run test:contract && npm run test:render, and
   npm run test:php-smoke; and look at it in a real browser (Chrome) at 1440, 1280, 390 and 360 px, with a real
   copy and a real download. A flyer's drawing must not change: the baseline stays byte-identical.
-- Record it: a section in CLAUDE.md in the style of the editor-UX entries, and docs/reports/library-views.md.
+- Record it: a section in docs/architecture.md and an entry in docs/status.md in the style of the editor-UX entries, and docs/reports/library-views.md.
 
 WHAT I ASKED FOR (decided)
 
@@ -58,7 +58,7 @@ WHAT EXISTS (read before planning)
   - The list view's boxes keep their sizes (120 x 160, 96 x 128 on a phone): those specs are your regression guard.
   - Touch: the icon is no smaller than 44 px to hit (it may be drawn smaller), and it is visible on a phone, where
     there is no hover to reveal it. On a desktop it may be always shown or appear on hover and focus (open point).
-- The ways out are built and tested; reuse them, never copy their logic. CLAUDE.md, "The flyer leaves the editor as
+- The ways out are built and tested; reuse them, never copy their logic. docs/architecture.md, "The flyer leaves the editor as
   a picture four ways", has every rule and its measured reason; read it whole.
   - exportActions.ts: which button is first (Copy image on a desktop, Share… on a phone), what is behind Download.
   - clipboard.ts: copyImage() must be called INSIDE the tap, with a promise for the PNG; a browser refuses a write

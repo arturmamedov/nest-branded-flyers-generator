@@ -65,7 +65,7 @@ not design the real one.
 5. Prove the seam: a TEST-ONLY second style (obviously different inks and fonts, same boxes). Specs: it renders in
    the editor, in the thumbnail, in server export and in client export (fidelity.spec), on both canvases and both
    templates, with the safe-zone and copy-rule checks passing. It is not shipped in the registry the app uses.
-6. Docs: CLAUDE.md (architecture + decisions), README, docs/deploy.md "Rolling back", a report in docs/reports/, and
+6. Docs: docs/architecture.md and docs/design-decisions.md, README, docs/deploy.md "Rolling back", a report in docs/reports/, and
    the "how to add a style" checklist, written so the next session only supplies the new design's tokens and art.
 
 ## Out of scope

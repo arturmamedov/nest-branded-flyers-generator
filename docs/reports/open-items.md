@@ -112,7 +112,7 @@ wordmark 5.3.
   width pass, `floor` from `data-fit-min` through a shared `floorOf`) and stops when the box fits, when `g` reaches
   0.55, or when every line sits at its floor; a box still too tall clips and counts in `clippedBoxes`. A box whose
   lines all stay above their floors takes the same steps to the same sizes as before (`base × s × g` is computed as
-  it was). The header's "nothing drops below its floor" is now true; "ported verbatim" is not, and CLAUDE.md and
+  it was). The header's "nothing drops below its floor" is now true; "ported verbatim" is not, and docs/architecture.md and
   `README.md` say so.
 - **What changed on the flyers** (every case exported on both canvases, against the untouched build): 23 of 64
   exports, exactly the ones named in advance.

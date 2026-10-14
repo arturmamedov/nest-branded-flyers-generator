@@ -272,7 +272,7 @@ Anything he declines goes under "Left open" in the report.
     record.
 
   This is the codebase's first JSON import. Keep `samples.ts` out of the browser: nothing the browser loads may
-  import it (nothing does today), or Vite would bundle the whole seed file. Say so in CLAUDE.md's `src/shared`
+  import it (nothing does today), or Vite would bundle the whole seed file. Say so in docs/architecture.md's `src/shared`
   bullet.
 - **Test** (red first), in `week.test.ts` after the pin (216).
   - Re-import `samples.ts` against a changed seed, with `vi.resetModules()` and
@@ -677,7 +677,7 @@ Anything he declines goes under "Left open" in the report.
   - the new counts.
 
   Mark the deferred bullets (122–133) done, and put anything declined under "Left open".
-- `CLAUDE.md`:
+- `docs/architecture.md` and `docs/status.md`:
   - the `src/shared` bullet names `samples.ts`, kept out of the browser because it imports `seed/hostels.json`;
   - lines 76-77 say PHP reads `seed/samples.json` at runtime, but only its tests do; its runtime reads `schema/`.
     Correct them;

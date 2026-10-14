@@ -10,7 +10,7 @@ start, check it after every commit that touches `src/`.
 
 ## Before anything
 
-- Read `CLAUDE.md` ("A flyer prints in a look"), `docs/prompts/looks-seam.md` (Artur's answers: not to be reopened),
+- Read `docs/architecture.md` ("Looks"), `docs/prompts/looks-seam.md` (Artur's answers: not to be reopened),
   and the `Look` interface in `src/shared/looks.ts`. Every token there has a comment saying what it paints.
 - Take the baseline: `RENDER_BASELINE=capture RENDER_BASELINE_DIR=<a temp folder>` on `tests/render/baseline.spec.ts`
   from the commit you start on (36 cases, both canvases). Check it with `RENDER_BASELINE=check` after each commit.

@@ -149,13 +149,13 @@ Default recommendation: 1, 2, 3 and 5; 4 only if he wants the label moved. Then 
 - Anything visible was looked at in Chrome, on a scratch instance: the preview and a downloaded export of both
   canvases.
 - A dated "Follow-up" section appended to `docs/reports/output-canvases.md`: what was done, any new WhatsApp
-  numbers with their why, and what was verified and how. Update CLAUDE.md's Status if something there changed.
+  numbers with their why, and what was verified and how. Update docs/status.md if something there changed.
 - Commits on a branch `feat/output-canvases-followup`, off `feat/output-canvases`, only when Artur asks.
   Logical commits, in the style of the existing history. Never push.
 
 ## Out of scope
 
-- Handoff steps 7–9: drag/nudge, This week, the doodle picker. CLAUDE.md says what each must decide about canvases
+- Handoff steps 7–9: drag/nudge, This week, the doodle picker. docs/status.md ("Waiting") says what each must decide about canvases
   when it starts.
 - The real login (Supabase or the Laravel app), and going live on IONOS.
 - The pencil and headline-spacing tweaks: Artur does those himself.

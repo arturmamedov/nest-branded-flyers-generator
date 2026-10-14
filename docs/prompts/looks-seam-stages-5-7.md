@@ -9,7 +9,7 @@ it was launched.
 Suggested run: Claude Opus 5.5 (`claude-opus-5-5`), effort **high**, started in plan mode.
 
 ```
-Read CLAUDE.md (its "A flyer prints in a look" and the looks status entry), then docs/prompts/looks-seam.md whole
+Read CLAUDE.md, docs/architecture.md ("Looks") and the looks entry of docs/status.md's history, then docs/prompts/looks-seam.md whole
 (the design: decided; its "Commits, in order" 8 to 10 are this session's, with their notes of 2026-10-14, and "The
 throwaway look"), then docs/reports/looks.md (what stages 1 to 4 built, and what reading the code found), README.md,
 and docs/prompts/design-style-switcher.md (the first brief: its word "style" is "look" now).
@@ -39,7 +39,7 @@ HOW TO WORK
   npm run test:php and npm run test:php-smoke; the baseline; and look at it in a real browser (Chrome): the tests'
   build with two looks (the switch, the preview, the library card, one download per look) and the release build
   (no switch, the app as it was).
-- Then stop, and record it: docs/reports/looks.md, CLAUDE.md (architecture, decisions, status) in the style of its
+- Then stop, and record it: docs/reports/looks.md, docs/architecture.md, docs/design-decisions.md and docs/status.md in the style of their
   other entries, README.md, docs/deploy.md, docs/adding-a-look.md (the checklist for the session that ports the real
   look). Then tell me what is left that is mine.
 

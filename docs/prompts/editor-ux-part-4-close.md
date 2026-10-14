@@ -112,7 +112,7 @@ THE ORDER (a commit per piece, test first)
 6. Docs: docs/deploy.md "Rolling back" (a release from before this part refuses, on Node's two drivers, a flyer
    saved with a tag over 12, because the read parses the schema; the older PHP reads it with no length check, so
    it opens and prints unfitted and its Save is refused until the tag is shortened: prove the PHP half with a test
-   or say it was read from the code); CLAUDE.md (the fitted pill and the art decisions with their dates, the
+   or say it was read from the code); docs/design-decisions.md (the fitted pill and the art decisions with their dates), docs/status.md (the
    status); the Part 4 section of docs/reports/editor-ux.md; the brief's "Where it stands".
 7. Gates: npm run typecheck && npm test && npm run test:contract && npm run test:render, then npm run test:php
    (the schema changed) and npm run test:php-smoke. A fresh-context review of the diff, each finding fixed with

@@ -433,7 +433,7 @@ wherever reality differs, and leave a committed record so the next session does 
   `.htaccess` variant is in place, the release version and the date.
 - **Correct `docs/deploy.md`** wherever a step was wrong; append a "Deploy rehearsal" section to
   `docs/reports/php-port.md` and move what this session closed out of "Not verified here", leaving each
-  genuinely host-blocked item with the single URL or command that closes it; shrink CLAUDE.md's open-items
+  genuinely host-blocked item with the single URL or command that closes it; shrink docs/status.md's open-items
   list to what is still genuinely open. Delete the rehearsal folder.
 
 **Gate:** from a cold empty folder every step of `docs/deploy.md` was performed in order and produced the

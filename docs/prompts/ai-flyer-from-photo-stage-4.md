@@ -162,5 +162,5 @@ Each is in the report under stage 3's "For Artur to decide":
 - The page's words that are mine; that Read the picture waits with no flyer left; the leave question's words
   where there is no flyer yet; whether a generation on its way is guarded as a read is.
 - The first example's "Free"; the time limit once IONOS is measured; the phone's two pictures as eval cases.
-- A second shape for the share text, "one mixed caption" (`CLAUDE.md`, "Waiting").
+- A second shape for the share text, "one mixed caption" (`docs/status.md`, "Waiting").
 - The release to IONOS, its `config.php` and its smoke: Artur's.

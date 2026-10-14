@@ -28,7 +28,7 @@ What Parts 1 to 3 left that the brief does not know:
   The schema and the editor's inputs both read it, so the tag's 12 is one number there. The brief's "Mine" point
   about one home is done for the text lines. Still typed in Editor.tsx: the chips' 90 and the extras' 32 and 4.
 - The same commit made the Spanish line 260 characters, and the WHEN chip's time one line that shrinks. Both are
-  in CLAUDE.md's design decisions.
+  in docs/design-decisions.md.
 - The editor's form folds (Part 2). On a saved flyer "Top and tag pill" starts closed: a spec that fills Handle or
   Tag there calls openSection(page, 'Top and tag pill') first (tests/editor.ts). A closed section shows one line
   of what is inside, and that section's line names the handle and the tag: a longer tag is cut there with "…".

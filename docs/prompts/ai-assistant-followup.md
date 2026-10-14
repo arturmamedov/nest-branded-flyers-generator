@@ -205,7 +205,7 @@ Left as they are, on purpose (the report's "Known limits"):
 
 - `docs/reports/ai-assistant.md`: a "Follow-up" section. What the review found and what was done about each finding,
   what the browser showed, the items above, the gates' numbers.
-- `CLAUDE.md`: `deploy:update` in the commands, and the status.
+- `CLAUDE.md`: `deploy:update` in the commands; `docs/status.md`: the status.
 - `README.md`: the checks table. `docs/deploy.md`: the tag line, and `deploy:update` for local copies.
 
 ## Done means

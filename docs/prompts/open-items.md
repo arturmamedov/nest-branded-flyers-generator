@@ -252,7 +252,7 @@ Items 4 and 5 need no answer. Anything he declines goes under "Left open" in the
     others keep shrinking while `g > 0.55`.
   - Stop when the box fits, when `g` reaches 0.55, or when every child is at its floor. A box still too tall counts in
     `clippedBoxes`.
-  - Correct the header comment, and add a why-comment where the port departs from `_fit()`. Say so in CLAUDE.md's
+  - Correct the header comment, and add a why-comment where the port departs from `_fit()`. Say so in docs/architecture.md's
     `fit.ts` bullet and in `README.md:132` ("ported verbatim").
   - If Artur answers 26 px instead, stop and propose the new floors first: it is a layout pass, not a fit change.
 - **Item 1 bis** [if yes]:
@@ -260,7 +260,7 @@ Items 4 and 5 need no answer. Anything he declines goes under "Left open" in the
     width pass again from its current size, down to its floor.
   - The long day then ends inside its column. `render.spec.ts`'s long-day test goes back to "nothing cut sideways"
     and loses its accepted-note comment and its 10.5 px allowance.
-  - Update the report's "Left open" and CLAUDE.md's row departures, which describe the accepted note.
+  - Update the report's "Left open" and docs/design-decisions.md's row departures, which describe the accepted note.
 - **Tests** (red first). There is no DOM in vitest, so these are render tests, in `render.spec.ts`:
   - On every canvas, every sample in every body: no fitted line ends below its floor. Read each `[data-fit]`'s final
     size against `data-fit` × `data-fit-min`, as the measurement above did.
@@ -404,7 +404,7 @@ Items 4 and 5 need no answer. Anything he declines goes under "Left open" in the
   - the new counts.
 
   Mark the items done in `docs/reports/week-template.md`'s "Left open", with a pointer to it.
-- `CLAUDE.md`:
+- `docs/architecture.md`, `docs/design-decisions.md` and `docs/status.md`:
   - the `fit.ts` bullet (no longer verbatim, and why) and the row departures (if item 1 bis);
   - the logos (where they live, how they reach a deploy), and "Open: per-hostel logos" removed;
   - the Status.
