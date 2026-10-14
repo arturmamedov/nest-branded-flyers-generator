@@ -327,7 +327,7 @@ export function fewShotFor(bundle: Pick<AiBundle, 'examples'>, example: SmokeExa
   return bundle.examples.filter((e) => e.text !== example.text);
 }
 
-/** One generation straight to the provider the settings name, composed as server/index.ts composes it: the seed's
+/** One generation straight to the provider the settings name, composed as server/start.ts composes it: the seed's
     hostels and a real ledger, both in memory, the real clock, and the bundle with the text being sent held out. */
 export async function runDirect(settings: AiSettings, example: SmokeExample, share: boolean, bundle: AiBundle = loadBundle()): Promise<DirectOutcome> {
   const fewShot = fewShotFor(bundle, example);

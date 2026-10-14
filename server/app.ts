@@ -57,6 +57,9 @@ export interface AppDeps {
   /** The looks this site offers, as the LOOKS setting named them (server/config.ts checked them); absent, as in most
       tests, the first look alone. */
   looks?: readonly string[];
+  /** The built client it serves when there is no Vite: dist/ unless told otherwise. The tests' own build
+      (tests/proof/server.ts) serves dist-proof/, which carries the proof look. */
+  distDir?: string;
 }
 
 const idParam = (req: Request) => {
@@ -234,8 +237,8 @@ export function createApp(deps: AppDeps) {
 
   if (deps.vite) {
     app.use(deps.vite.middlewares);
-  } else if (existsSync(DIST_DIR)) {
-    app.use(express.static(DIST_DIR, { index: 'index.html' }));
+  } else if (existsSync(deps.distDir ?? DIST_DIR)) {
+    app.use(express.static(deps.distDir ?? DIST_DIR, { index: 'index.html' }));
   }
 
   const onError: ErrorRequestHandler = (err: unknown, _req: Request, res: Response, _next: NextFunction) => {
@@ -263,8 +266,8 @@ export function createApp(deps: AppDeps) {
 }
 
 /** Hash of the built render page: any renderer change busts the export cache. */
-export function computeBuildId(isProd: boolean): string {
-  const renderHtml = join(DIST_DIR, 'render.html');
+export function computeBuildId(isProd: boolean, distDir = DIST_DIR): string {
+  const renderHtml = join(distDir, 'render.html');
   if (isProd && existsSync(renderHtml)) {
     return renderKey([readFileSync(renderHtml, 'utf8')]);
   }

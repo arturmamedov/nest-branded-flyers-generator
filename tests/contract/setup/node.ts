@@ -40,7 +40,7 @@ export default async function setup(project: TestProject) {
   // The fake provider is wired the way the real ones are, through the same settings and composition, with every
   // feature named: a provider alone runs nothing. One feature off is proved in process (tests/unit/ai-app.test.ts).
   const env = { AI_PROVIDER: settings.ai, AI_FEATURES: AI_FEATURES.join(',') } as NodeJS.ProcessEnv;
-  // The pictures a read keeps go to the data folder, as server/index.ts wires them: the suite looks for them there.
+  // The pictures a read keeps go to the data folder, as server/start.ts wires them: the suite looks for them there.
   const aiPictures = createFileAiPictures(data.root);
   const ai = settings.ai ? createAiService(loadConfig(env).ai, { hostels: repos.hostels, usage: repos.aiUsage, clock: systemClock, pictures: aiPictures }) : undefined;
   const server = createServer(createApp({ repos, storage, uploadsDir: data.uploads, buildId: 'contract', ai, aiPictures }));

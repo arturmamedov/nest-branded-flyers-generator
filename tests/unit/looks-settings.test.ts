@@ -57,7 +57,7 @@ describe('api/config lists the site’s looks', () => {
   afterEach(() => {
     for (const repos of open.splice(0)) repos.close();
   });
-  /** api/config of an app given these looks (server/index.ts gives it the setting's), or none. */
+  /** api/config of an app given these looks (server/start.ts gives it the setting's), or none. */
   async function looksOf(looks?: string[]) {
     const repos = createSqliteRepositories({ file: ':memory:' });
     open.push(repos);

@@ -21,7 +21,7 @@ import { AI_PICTURE_PATH } from '../../src/shared/storage.js';
 import { WRITE_HEADERS } from '../../src/shared/writeGuard.js';
 
 /* The whole Node app, in process, with the AI as a site's own settings set it up: the same loader and composition
-   as server/index.ts, the fake provider, a store in memory. One feature is switched off at a time, so the proof
+   as server/start.ts, the fake provider, a store in memory. One feature is switched off at a time, so the proof
    needs no server per case; php/tests/BootstrapTest.php loops over the same generated names for the PHP backend.
    The contract suite (tests/contract/ai.test.ts) holds the two states it has a server for: off, and every feature on. */
 
