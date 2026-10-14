@@ -1,0 +1,4 @@
+/* The proof look's face, self-hosted as the shipped looks' are (src/flyer/fonts.css), and imported by the tests'
+   own build alone (tests/proof/client.ts). A devDependency: no release carries it. */
+@import '@fontsource/space-mono/400.css';
+@import '@fontsource/space-mono/700.css';

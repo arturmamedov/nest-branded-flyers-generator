@@ -1,35 +1,24 @@
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 import { ROOT } from '../../scripts/gen-shared.js';
 import * as fonts from '../../src/shared/fonts.js';
-import { CANVAS_IDS, PILL_TILT_ROOM, SHARED_GEOMETRY, pillBox } from '../../src/shared/layout.js';
+import { SHARED_GEOMETRY } from '../../src/shared/layout.js';
 import { FIRST_LOOK, allLooks, lookIds, lookOf, siteLooks } from '../../src/shared/looks.js';
-import { DEFAULT_COLORS, DEFAULT_DOODLES, HAND_DRAWN, resolveDoodles } from '../../src/shared/looks/handDrawn.js';
-import { geometryProblems } from '../geometry.js';
-
-/** A family's self-hosted package: @fontsource names it in lower case, words joined by hyphens. */
-const fontPackage = (family: string) => `@fontsource/${family.toLowerCase().replace(/ /g, '-')}`;
+import { DEFAULT_DOODLES, HAND_DRAWN, resolveDoodles } from '../../src/shared/looks/handDrawn.js';
+import { fontPackage, lookContract } from '../lookContract.js';
 
 const PACKAGES = (JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8')) as { dependencies: Record<string, string> }).dependencies;
 
-/** WCAG 2's contrast ratio of two #rrggbb colours. */
-function contrast(a: string, b: string): number {
-  const luminance = (hex: string) => {
-    const [r, g, bl] = [1, 3, 5].map((i) => {
-      const c = parseInt(hex.slice(i, i + 2), 16) / 255;
-      return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
-    });
-    return 0.2126 * r + 0.7152 * g + 0.0722 * bl;
-  };
-  const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
-  return (hi + 0.05) / (lo + 0.05);
-}
+/* The registry of looks (src/shared/looks.ts): what every look must be (tests/lookContract.ts), the resolver, and the
+   one way to add a look. The proof look (tests/proof/) runs through the same checks in tests/unit/proof-look.test.ts. */
 
-/* The registry of looks (src/shared/looks.ts): what every look must be, the resolver, and the one way to add a look.
-   The proof look (tests/proof/) runs through the same tests in its own build. */
+/** The families a shipped look may name: src/shared/fonts.ts's. */
+const FAMILIES = Object.entries(fonts).filter(([name]) => name.endsWith('_FAMILY')).map(([, family]) => family);
 
 describe('the looks', () => {
+  for (const look of allLooks()) lookContract(look, { families: FAMILIES, packages: PACKAGES });
+
   it('the first look is hand-drawn, called "Hand-drawn", and prints the shared boxes', () => {
     expect(FIRST_LOOK).toBe('hand-drawn');
     expect(allLooks()[0]).toBe(HAND_DRAWN);
@@ -45,12 +34,6 @@ describe('the looks', () => {
       expect(look.name.trim(), look.id).not.toBe('');
     }
   });
-
-  for (const look of allLooks()) {
-    it(`${look.id}: its boxes keep every rule a look's boxes must keep (tests/geometry.ts)`, () => {
-      expect(geometryProblems(look.geometry)).toEqual([]);
-    });
-  }
 
   it('hand-drawn paints in the flyer’s own ink, accent and ground, and in its own colours the rest', () => {
     const own = { bg: '#EEF3E2', ink: '#2B1D3A', accent: '#7A2E5C', mark: '#7FB800' };
@@ -92,22 +75,6 @@ describe('the looks', () => {
     expect(HAND_DRAWN.type.extras.gap).toBe(16);
   });
 
-  // Each look declares its inks and the grounds under them, and is held to its own minimum (the owner's answer 10:
-  // another look's numbers are decided when its design arrives). Hand-drawn keeps the handoff's 4.5:1, and never prints
-  // copy in the bright teal or in the website's orange. This holds the registry, not a stored flyer: hand-drawn's
-  // three flyer colours are checked as a new flyer has them.
-  for (const look of allLooks()) {
-    it(`${look.id}: every line of copy reaches its contrast on the ground it sits on, in no ink the look forbids`, () => {
-      const paint = look.palette({ colors: DEFAULT_COLORS });
-      const forbidden = look.rules.forbiddenInks.map((c) => c.toLowerCase());
-      for (const [line, t] of Object.entries(look.type)) {
-        const ratio = contrast(paint[t.ink], paint[t.on]);
-        expect(ratio, `${line}: ${paint[t.ink]} on ${paint[t.on]}`).toBeGreaterThanOrEqual(look.rules.minContrast);
-        expect(forbidden, `${line}: ${paint[t.ink]}`).not.toContain(paint[t.ink].toLowerCase());
-      }
-    });
-  }
-
   it('hand-drawn’s art is the flyer’s own arrangement, and its pencil at the end of the ask', () => {
     // Artur's pick from the mock-ups (2026-10-12): "same size, higher", 14 px after the copy and 10 px above its top.
     const pencil = { slug: 'doodle-pencil', anchor: 'askEnd', x: 14, y: -10, w: 104, rot: -4 };
@@ -123,50 +90,9 @@ describe('the looks', () => {
     expect(path).toMatch(/^M46 9 C .* Z$/);
   });
 
-  for (const look of allLooks()) {
-    it(`${look.id}: every art file it names is under assets/`, () => {
-      const files = [
-        ...Object.values(look.inline).map((name) => `assets/art/${name}.png`),
-        ...look.art({ doodles: DEFAULT_DOODLES }).map((d) => `assets/art/${d.slug}.png`),
-        look.wordmark,
-      ];
-      expect(files.length).toBeGreaterThan(10);
-      expect(files.filter((file) => !existsSync(join(ROOT, file)))).toEqual([]);
-    });
-  }
-
   it('hand-drawn’s pill is the handoff’s: 20 px corners, -0.6°, its padding, a 14 px dot 18 px from the words', () => {
     expect(HAND_DRAWN.pill).toEqual({ radius: 20, tilt: -0.6, padding: '17px 38px 19px', gap: 18, dot: 14 });
   });
-
-  // A tilted pill as wide as its column reaches past its sides by (height × sin θ − width × (1 − cos θ)) / 2. The
-  // renderer holds the pill PILL_TILT_ROOM inside its column, so a look's tilt may lift it no further: the safe zone is
-  // a hard limit. Hand-drawn's -0.6° lifts it 0.35 px on the story.
-  for (const look of allLooks()) {
-    it(`${look.id}: its pill's tilt keeps a full-width pill inside the safe zone`, () => {
-      const θ = (Math.abs(look.pill.tilt) * Math.PI) / 180;
-      for (const canvas of CANVAS_IDS) {
-        const { width, height } = pillBox(canvas, look.geometry);
-        const lift = (height * Math.sin(θ) - width * (1 - Math.cos(θ))) / 2;
-        expect(lift, canvas).toBeLessThanOrEqual(PILL_TILT_ROOM);
-      }
-    });
-  }
-
-  for (const look of allLooks()) {
-    it(`${look.id}: its faces are every face its type uses, each a family of fonts.ts, self-hosted from a pinned package`, () => {
-      const faceOf = (font: string, weight: number) => `${/^'([^']+)'/.exec(font)?.[1]} ${weight}`;
-      // Every line of copy sets its own font: the root's, look.body, prints none.
-      const used = new Set(Object.values(look.type).map((t) => faceOf(t.font, t.weight)));
-      const listed = look.faces.map((f) => `${f.family} ${f.weight}`);
-      expect([...used].filter((f) => !listed.includes(f)), 'a face the type uses and the export would not wait for').toEqual([]);
-      const families = Object.entries(fonts).filter(([name]) => name.endsWith('_FAMILY')).map(([, family]) => family);
-      for (const { family } of look.faces) {
-        expect(families, family).toContain(family);
-        expect(PACKAGES[fontPackage(family)], `${fontPackage(family)} pinned to one version`).toMatch(/^\d+\.\d+\.\d+$/);
-      }
-    });
-  }
 
   it('src/flyer/fonts.css imports exactly the faces of the looks the app ships', () => {
     const imported = [...readFileSync(join(ROOT, 'src/flyer/fonts.css'), 'utf8').matchAll(/@import '([^']+)';/g)].map((m) => m[1]).sort();
