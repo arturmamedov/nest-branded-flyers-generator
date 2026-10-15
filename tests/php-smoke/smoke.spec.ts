@@ -2,7 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import type { APIRequestContext, Page, Response as PwResponse } from '@playwright/test';
 import { expect, test } from '../browser';
-import { POOL_PARTY, apiCall, backToLibrary, cardMore, clipboardPng, copyImage, download, dropFile, filterLibrary, grantClipboard, libraryCard as card, openSection, rowField, saveNew, searchLibrary, status, templateButton, toast, type FilePayload } from '../editor';
+import { POOL_PARTY, apiCall, backToLibrary, cardMore, clipboardPng, copyImage, download, dropFile, filterLibrary, grantClipboard, libraryCard as card, libraryFilter, librarySearch, openSection, rowField, saveNew, searchLibrary, status, templateButton, toast, type FilePayload } from '../editor';
 import sharp from 'sharp';
 import { PHOTO_MODE_LABEL } from '../../src/editor/photoModes';
 import { TEMPLATE_LABEL } from '../../src/editor/templates';
@@ -311,6 +311,18 @@ test('the editor on the PHP backend: create, photos, crop, reopen, library, down
     await expect(mine.locator('.card-why mark')).toHaveText(['terrace']);
     await searchLibrary(page, '');
     await expect(mine.locator('.card-why')).toHaveCount(0);
+
+    // A library link carries its filters and its search (libraryUrl.ts), pasted into a new tab: the hash is the
+    // browser's own, so this backend serves the page as it is and answers the label's list. (The tab shares this
+    // browser's memory; the filters chosen below write over what it remembered.)
+    const tab = await page.context().newPage();
+    const link = new URL(`#/?label=${secondLabel.slug}&q=terrace`, page.url()).href;
+    await Promise.all([tab.waitForResponse(apiCall('GET', 'flyers', `?label=${secondLabel.slug}`)), tab.goto(link)]);
+    await expect(libraryFilter(tab, 'Label')).toHaveValue(secondLabel.slug);
+    await expect(librarySearch(tab)).toHaveValue('terrace');
+    await expect(card(tab, title).locator('.card-why')).toHaveText(`Where: ${COPY.where}`);
+    expect(tab.url(), 'the URL as it was sent').toBe(link);
+    await tab.close();
 
     // The card's picture is the flyer itself, drawn in the browser from what this backend answers for the flyer:
     // its copy, on the canvas a viewer who never chose sees, with its photo (tests/render/library.spec.ts has the rest).
