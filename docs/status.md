@@ -5,7 +5,7 @@ What is open on top, in short lines; then a log, one line per session; then the 
 
 ## Now
 
-- `main` is ahead of origin (`8e14547`) by the library's search (`cbbb511..9f7b7ea`) and the faster sessions; nothing
+- `main` is ahead of origin (`8e14547`) by the library's search (`cbbb511..9f7b7ea`), the faster sessions and the library's URL; nothing
   of it is pushed. Origin has everything before, looks stages 5 to 7 included: the history's "`main` is still at
   `a96d1bf`" is from before that push.
 - Next: the real second look, from Claude Design's handoff (`docs/prompts/second-look.md`). After it is signed, the
@@ -83,7 +83,7 @@ Each report's "For Artur to decide" has the reasons.
   `docs/design-decisions.md` and this file), `test:render` and `test:php-smoke` build only when their inputs changed
   (`docs/reports/faster-sessions.md`).
 - 2026-10-15, the library's URL: its filters, search and view in the hash, a choice a step of the history, on
-  `feat/library-url`, unmerged (`docs/reports/library-url.md`).
+  `feat/library-url`, merged into `main` (`docs/reports/library-url.md`).
 
 ## History
 

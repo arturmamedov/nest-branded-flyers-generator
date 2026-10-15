@@ -1,6 +1,6 @@
 # Report: the library's filters, search and view in its URL
 
-2026-10-15, on `feat/library-url` from `main` (`844444b`), unmerged. The brief is `docs/prompts/library-url.md`. Tier
+2026-10-15, on `feat/library-url` from `main` (`844444b`), merged into `main` by fast-forward. The brief is `docs/prompts/library-url.md`. Tier
 **Medium**: the editor's client alone. Nothing changed in `server/`, `php/`, `schema/`, `src/shared/` or `src/flyer/`.
 Nothing is pushed, no release was built, and the live site and the Laragon copy were not touched.
 
