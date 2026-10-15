@@ -82,6 +82,8 @@ Each report's "For Artur to decide" has the reasons.
 - 2026-10-14, faster sessions: ceremony tiers, CLAUDE.md a map (with `docs/architecture.md`,
   `docs/design-decisions.md` and this file), `test:render` and `test:php-smoke` build only when their inputs changed
   (`docs/reports/faster-sessions.md`).
+- 2026-10-15, the library's URL: its filters, search and view in the hash, a choice a step of the history, on
+  `feat/library-url`, unmerged (`docs/reports/library-url.md`).
 
 ## History
 

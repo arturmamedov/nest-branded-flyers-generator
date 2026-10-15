@@ -151,6 +151,29 @@
   - **The view** is `src/editor/libraryView.ts`, pure and tested by itself: list for someone who never chose,
     stored as `library.view`, and a stored value that is neither view is ignored. The switch is a `.seg` beside
     the filters, two buttons with `aria-pressed`.
+  - **The URL** carries the three filters, the box and the view (2026-10-15; Artur's ask and answers in
+    `docs/reports/library-url.md`): `#/?hostel=&template=&label=&q=&view=grid`, a part at its default left out, so
+    nothing chosen is `#/`. A library link opens the same page for anyone. The browser alone: the hash never reaches a
+    backend.
+    - **The rule is `src/editor/libraryUrl.ts`**, pure and tested by itself. One reader serves the URL and the
+      browser's memory (`library.hostel`, `.template`, `.label`, `.search`, `.view`): `labelFilterFrom`, `viewFrom`,
+      `isTemplate`, and a hostel of the list `App.tsx` hands the library, or `none`. A value it doesn't know is
+      ignored, the URL is rewritten without it by a replace, and an unknown key is dropped. A URL with one of the keys
+      is the whole state.
+    - **`src/editor/useLibraryUrl.ts` keeps the state and the URL together.** The Library is not keyed on `nav`, and
+      every library hash is one page to the router (`pageOf`), so a move between two library URLs reaches no one else:
+      it listens to `hashchange` itself and ignores a hash that is not the library's.
+    - A filter, the view or Clear is a step (`go`): Back undoes it, Forward redoes it. A state that is already on
+      screen is not pushed. Typing (and Escape) rewrites the step on screen through `replaceHash`, so Back undoes a
+      choice, never a letter. `replaceUrl` in `route.ts` swallows a refused `replaceState` (Safari limits them).
+    - **A bare `#/` is read by when it is reached.** When the library opens on it (a new tab, "← Library", the bar's
+      link from another page, the AI page's way out, Back from the editor), it is the library as remembered,
+      completed by a replace with no step. Reached while the library is on screen (Back, Forward, the bar's Library),
+      it is every flyer: Clear writes `#/`, and Forward must redo it. Never make a bare `#/` mean "as remembered" on
+      a `hashchange`.
+    - Opening a link is choosing what it holds: what the library shows is remembered. Only a part that differs
+      from what is remembered is written, so a library opened as remembered writes nothing.
+    - Browser spec `library-url.spec.ts`, unit test `library-url.test.ts`, and a step of the PHP smoke test.
   - The picture's width on screen is `--thumb-w`, set on `.card` (not on the picture: the zoom button is placed
     by it too): 120 in the list, 96 on a phone, 252 in the grid, 136 in a phone's grid. The grid's columns have the
     card's own width (278 px, three to a row in the 900 px column with a scrollbar beside it; 154 px, two to a row

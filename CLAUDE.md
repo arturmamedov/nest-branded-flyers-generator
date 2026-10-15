@@ -69,8 +69,8 @@ A map: each area in a line or two. Its full text, every rule with its date and i
 - **[The reception flyer](docs/architecture.md#the-reception-flyer)**: the printed poster under the cards, as PNG and
   PDF from `assets/main-flyers/` (`MAIN_FLYER` in `Library.tsx`). No card, never filtered.
 - **[Library views](docs/architecture.md#library-views)**: list or grid (`libraryView.ts`), the lightbox
-  (`Lightbox.tsx`), the editor's ways out on every card (`pictureActions.ts`, `WaysOut.tsx`). One fetch per card;
-  never add the caption to the list.
+  (`Lightbox.tsx`), the editor's ways out on every card (`pictureActions.ts`, `WaysOut.tsx`), the filters, search and
+  view in the URL (`libraryUrl.ts`, `useLibraryUrl.ts`). One fetch per card; never add the caption to the list.
 - **[Labels](docs/architecture.md#labels)**: `FLYER_LABELS` in `src/shared/labels.ts`, never printed, one rule on both
   backends. A label is held to a slug's shape, never to the list: never make `data.labels` an enum. No grouping.
 - **[Library search](docs/architecture.md#library-search)**: `librarySearch.ts` (the rule) and `libraryFlyers.ts` (one
