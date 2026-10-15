@@ -7,18 +7,19 @@ import { canCopyImage } from './clipboard';
 import type { FlyerExporter } from './export';
 import { NO_PHOTO, TOUCH_QUERY, exportActions, type ExportAction } from './exportActions';
 import { LibraryCard, lacksPhoto, type Busy, type CardAction, type Target } from './LibraryCard';
-import { ALL_LABELS, LABEL_FILTER_OPTIONS, LABEL_PREF, labelFilterFrom } from './libraryLabel';
+import { ALL_LABELS, LABEL_FILTER_OPTIONS, labelFilterFrom } from './libraryLabel';
 import { flyerAnswers } from './libraryFlyers';
-import { SEARCH_PREF, findFlyers, searchWords, type Found } from './librarySearch';
-import { LIBRARY_VIEWS, VIEW_LABEL, VIEW_PREF, viewFrom, type LibraryView } from './libraryView';
+import { findFlyers, searchWords, type Found } from './librarySearch';
+import { LIBRARY_VIEWS, VIEW_LABEL, type LibraryView } from './libraryView';
 import { Lightbox } from './Lightbox';
 import { useOneAction } from './oneAction';
 import { pictureActions, type Answer } from './pictureActions';
 import { go, onPage } from './route';
-import { localStorageGet, localStorageSet, savedCanvas } from './prefs';
+import { savedCanvas } from './prefs';
 import { canShareFiles } from './shareSheet';
 import { TEMPLATE_LABEL, isTemplate } from './templates';
 import { Toasts } from './Toasts';
+import { useLibraryUrl } from './useLibraryUrl';
 import { useMedia } from './useMedia';
 import { WaysOut } from './WaysOut';
 
@@ -27,11 +28,6 @@ import { WaysOut } from './WaysOut';
 const MAIN_FLYER = {
   png: { path: 'assets/main-flyers/V7-check.png', name: 'Nest QR flyer V7.png' },
   pdf: { path: 'assets/main-flyers/Simple QR flyer for Nest V7.pdf', name: 'Nest QR flyer V7.pdf' },
-};
-
-const savedTemplate = (): Template | '' => {
-  const v = localStorageGet('library.template');
-  return isTemplate(v) ? v : '';
 };
 
 const NO_WARNINGS: never[] = [];
@@ -54,20 +50,18 @@ function ViewIcon({ view }: { view: LibraryView }) {
 }
 
 export function Library({ hostels, exporter }: { hostels: Hostel[]; exporter: FlyerExporter }) {
-  const [filter, setFilter] = useState<string>(() => localStorageGet('library.hostel') ?? '');
-  const [template, setTemplate] = useState<Template | ''>(savedTemplate);
-  // One label's flyers, the ones with none, or all (libraryLabel.ts): the server filters, as for the other two.
-  const [label, setLabel] = useState(() => labelFilterFrom(localStorageGet(LABEL_PREF)));
-  // The flyers as a list or as a grid: how this viewer looks at them (libraryView.ts).
-  const [view, setView] = useState<LibraryView>(() => viewFrom(localStorageGet(VIEW_PREF)));
+  // The three filters, the box and the view, in the URL so a library link opens the same page for anyone, and
+  // remembered (useLibraryUrl.ts). The hostel, the template and the label (libraryLabel.ts) are the server's to
+  // filter; the box narrows the list in the page (librarySearch.ts); the view is a list or a grid (libraryView.ts).
+  const slugs = useMemo(() => hostels.map((h) => h.slug), [hostels]);
+  const { state, choose, type } = useLibraryUrl(slugs);
+  const { hostel: filter, template, label, q: query, view } = state;
   const [items, setItems] = useState<FlyerListItem[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   // The library scrolls inside itself (editor.css): each card's nearness is measured against this.
   const scroller = useRef<HTMLDivElement>(null);
   // Each flyer's own answer, for this visit: the cards' pictures and ways out, and the search (libraryFlyers.ts).
   const [flyers] = useState(() => flyerAnswers(api.flyer));
-  // The search narrows the list the filters gave, in the page (librarySearch.ts), and is remembered as they are.
-  const [query, setQuery] = useState(() => localStorageGet(SEARCH_PREF) ?? '');
   const words = useMemo(() => searchWords(query), [query]);
   const searching = words.length > 0;
 
@@ -125,15 +119,12 @@ export function Library({ hostels, exporter }: { hostels: Hostel[]; exporter: Fl
     );
   };
 
+  // A filter chosen, or a step of the history with others: the list for them, as for a choice by hand.
   useEffect(() => {
-    localStorageSet('library.hostel', filter);
-    localStorageSet('library.template', template);
-    localStorageSet(LABEL_PREF, label);
     setItems(null);
     load();
   }, [filter, template, label]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  useEffect(() => localStorageSet(SEARCH_PREF, query), [query]);
   // A search reads every listed flyer, a few at a time; the list redraws as their answers land, and only then.
   // Cleared, or the library left: no more of its reads (a library of a hundred flyers is not read behind the editor).
   useEffect(() => {
@@ -148,22 +139,15 @@ export function Library({ hostels, exporter }: { hostels: Hostel[]; exporter: Fl
 
   const filtered = filter !== '' || template !== '' || label !== ALL_LABELS;
   const box = useRef<HTMLInputElement>(null);
-  // One way back to every flyer: the search emptied, and the filters set back to all (the owner's answer). Both its
-  // buttons leave once it is done, so the focus goes to the box, where the next search starts.
+  // One way back to every flyer: the search emptied, and the filters set back to all (the owner's answer), in one
+  // step of the history. Both its buttons leave once it is done, so the focus goes to the box, where the next search
+  // starts.
   const clearAll = () => {
     box.current?.focus();
-    setQuery('');
-    setFilter('');
-    setTemplate('');
-    setLabel(ALL_LABELS);
+    choose({ q: '', hostel: '', template: '', label: ALL_LABELS });
   };
   const found = searching && items ? findFlyers(items, words, (item) => flyers.answer(item.id, item.updatedAt)) : null;
   const shown: { item: FlyerListItem; found: Found | null }[] = found?.found ?? items?.map((item) => ({ item, found: null })) ?? [];
-
-  const chooseView = (v: LibraryView) => {
-    setView(v);
-    localStorageSet(VIEW_PREF, v);
-  };
 
   // A flyer's ways out. It is saved, so its picture is the export alone: no save first, as the editor's needs.
   const waysOf = (target: Target) => {
@@ -229,7 +213,7 @@ export function Library({ hostels, exporter }: { hostels: Hostel[]; exporter: Fl
             <h1>Flyer library</h1>
             <div className="seg view-switch" role="group" aria-label="View">
               {LIBRARY_VIEWS.map((v) => (
-                <button key={v} type="button" className={view === v ? 'on' : ''} aria-pressed={view === v} onClick={() => chooseView(v)}>
+                <button key={v} type="button" className={view === v ? 'on' : ''} aria-pressed={view === v} onClick={() => choose({ view: v })}>
                   <ViewIcon view={v} />
                   {VIEW_LABEL[v]}
                 </button>
@@ -247,11 +231,11 @@ export function Library({ hostels, exporter }: { hostels: Hostel[]; exporter: Fl
                 placeholder="Name, label, share text…"
                 value={query}
                 spellCheck={false}
-                onChange={(e) => setQuery(e.target.value)}
+                onChange={(e) => type(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key !== 'Escape' || query === '') return;
                   e.preventDefault();
-                  setQuery('');
+                  type('');
                 }}
               />
               <button type="button" className="btn btn-quiet" hidden={query === '' && !filtered} onClick={clearAll}>
@@ -260,7 +244,7 @@ export function Library({ hostels, exporter }: { hostels: Hostel[]; exporter: Fl
             </div>
             <label className="filter">
               <span>Hostel</span>
-              <select value={filter} onChange={(e) => setFilter(e.target.value)}>
+              <select value={filter} onChange={(e) => choose({ hostel: e.target.value })}>
                 <option value="">All hostels</option>
                 <option value="none">Chain-wide only</option>
                 {hostels.map((h) => (
@@ -272,7 +256,7 @@ export function Library({ hostels, exporter }: { hostels: Hostel[]; exporter: Fl
             </label>
             <label className="filter">
               <span>Template</span>
-              <select value={template} onChange={(e) => setTemplate(isTemplate(e.target.value) ? e.target.value : '')}>
+              <select value={template} onChange={(e) => choose({ template: isTemplate(e.target.value) ? e.target.value : '' })}>
                 <option value="">All templates</option>
                 {(Object.entries(TEMPLATE_LABEL) as [Template, string][]).map(([key, name]) => (
                   <option key={key} value={key}>
@@ -283,7 +267,7 @@ export function Library({ hostels, exporter }: { hostels: Hostel[]; exporter: Fl
             </label>
             <label className="filter">
               <span>Label</span>
-              <select value={label} onChange={(e) => setLabel(labelFilterFrom(e.target.value))}>
+              <select value={label} onChange={(e) => choose({ label: labelFilterFrom(e.target.value) })}>
                 {LABEL_FILTER_OPTIONS.map((option) => (
                   <option key={option.value} value={option.value}>
                     {option.text}

@@ -108,8 +108,25 @@ describe('what this browser remembers of the library', () => {
   it('is written under those keys, and reads back the same', () => {
     const written: Record<string, string> = {};
     const s: LibraryState = { hostel: 'none', template: 'activity', label: NO_LABEL, q: 'café', view: 'grid' };
-    rememberLibrary((key, value) => (written[key] = value), s);
+    rememberLibrary({ get: store(written), set: (key, value) => (written[key] = value) }, s, HOSTELS);
     expect(written).toEqual({ 'library.hostel': 'none', 'library.template': 'activity', [LABEL_PREF]: NO_LABEL, [SEARCH_PREF]: 'café', [VIEW_PREF]: 'grid' });
     expect(rememberedLibrary(store(written), HOSTELS)).toEqual(s);
+  });
+
+  it('writes only a part that is not already remembered: the defaults write nothing to an empty store', () => {
+    const written: Record<string, string> = {};
+    const remember = (s: LibraryState) => rememberLibrary({ get: store(written), set: (key, value) => (written[key] = value) }, s, HOSTELS);
+    remember(LIBRARY_DEFAULTS);
+    expect(written).toEqual({});
+    remember(state({ view: 'grid' }));
+    expect(written).toEqual({ [VIEW_PREF]: 'grid' });
+    remember(LIBRARY_DEFAULTS);
+    expect(written, 'back to the list is written: the store said grid').toEqual({ [VIEW_PREF]: 'list' });
+  });
+
+  it('writes over a stored value it does not know when the state says otherwise, and leaves it while it reads as the same', () => {
+    const written: Record<string, string> = { [VIEW_PREF]: 'tiles', 'library.hostel': 'gone' };
+    rememberLibrary({ get: store(written), set: (key, value) => (written[key] = value) }, state({ hostel: 'ashavana' }), HOSTELS);
+    expect(written).toEqual({ [VIEW_PREF]: 'tiles', 'library.hostel': 'ashavana' });
   });
 });

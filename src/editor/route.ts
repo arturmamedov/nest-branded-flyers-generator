@@ -129,7 +129,14 @@ export function createMoveGuard(deps: {
 }
 
 let guard: ReturnType<typeof createMoveGuard> | null = null;
-const replaceUrl = (hash: string) => history.replaceState(null, '', hash);
+const replaceUrl = (hash: string) => {
+  try {
+    history.replaceState(null, '', hash);
+  } catch {
+    // Safari refuses a page more than about 100 in 10 seconds (the library's box rewrites its URL at every key): the
+    // URL is a key behind until the next one.
+  }
+};
 
 /** Rewrites the URL of the entry on screen from `from` to `to` without a move, if it still shows
     `from`: a new flyer's first save makes its URL reopenable, unless the user has moved on. */

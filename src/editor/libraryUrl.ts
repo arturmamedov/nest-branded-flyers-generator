@@ -68,9 +68,11 @@ export function libraryHash(state: LibraryState): string {
 /** What this browser remembers, read by the URL's rule. */
 export const rememberedLibrary = (get: (key: string) => string | null, hostels: readonly string[]): LibraryState => readLibrary(({ pref }) => get(pref), hostels);
 
-/** Remembers a state, as if each part had been chosen by hand. */
-export function rememberLibrary(set: (key: string, value: string) => void, state: LibraryState) {
-  for (const { part, pref } of PARTS) set(pref, state[part]);
+/** Remembers a state, as if each part had been chosen by hand. A part that is already what this browser remembers
+    is not written: the library opened as remembered writes nothing, and a view nobody chose stays unstored. */
+export function rememberLibrary(store: { get: (key: string) => string | null; set: (key: string, value: string) => void }, state: LibraryState, hostels: readonly string[]) {
+  const now = rememberedLibrary(store.get, hostels);
+  for (const { part, pref } of PARTS) if (now[part] !== state[part]) store.set(pref, state[part]);
 }
 
 export const sameLibrary = (a: LibraryState, b: LibraryState) => PARTS.every(({ part }) => a[part] === b[part]);
