@@ -1,3 +1,4 @@
+import type { EyebrowMarks } from './defaults.js';
 import type { ArtAnchor, Geometry } from './layout.js';
 import { HAND_DRAWN } from './looks/handDrawn.js';
 import type { DoodlePlacement, FlyerData } from './schema.js';
@@ -143,6 +144,10 @@ export interface Look {
   };
   /** The Nests wordmark's file, at the eyebrow's right. The hostels' badges beside it are every look's. */
   readonly wordmark: string;
+  /** Which marks print at the eyebrow's right (the wordmark, the hostel's badge, or both: defaults.ts) and how tall, in
+      px. Absent: the app's setting (EYEBROW_MARKS) at the wordmark's height (EYEBROW_MARK), hand-drawn's. Read through
+      marksOf(). */
+  readonly marks?: { readonly which: EyebrowMarks; readonly height: number };
   /** The frame round the chips, the week's rows and the photo in a frame: one SVG path stretched to its box, its
       stroke never scaled with it, and the photo's own corners. */
   readonly frame: {

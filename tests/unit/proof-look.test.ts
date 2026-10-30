@@ -4,6 +4,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { ROOT } from '../../scripts/gen-shared.js';
+import { marksOf } from '../../src/shared/defaults.js';
 import { CANVAS_IDS, photoFrame, SHARED_GEOMETRY } from '../../src/shared/layout.js';
 import { allLooks, lookIds, lookOf, looksToPick, type LineType, type Look } from '../../src/shared/looks.js';
 import { DEFAULT_COLORS, DEFAULT_DOODLES, HAND_DRAWN } from '../../src/shared/looks/handDrawn.js';
@@ -84,6 +85,11 @@ describe('the proof look', () => {
         it('its files: art, inline art and the wordmark', () => {
           const files = (look: typeof PROOF_LOOK) => [...Object.values(look.inline).filter((f) => f !== null), ...look.art({ doodles: DEFAULT_DOODLES }).map((d) => d.slug), look.wordmark];
           expect(shared(files(PROOF_LOOK), files(theirs))).toEqual([]);
+        });
+
+        it('its marks: which print, and how tall', () => {
+          expect(marksOf(PROOF_LOOK).which).not.toBe(marksOf(theirs).which);
+          expect(marksOf(PROOF_LOOK).height).not.toBe(marksOf(theirs).height);
         });
 
         it('its frame, its pill and its rules', () => {

@@ -142,6 +142,8 @@ export const PROOF_LOOK: Look = {
     highlighter: 'frame-box-sm',
   },
   wordmark: 'assets/nest-logo-white.png',
+  // The badge alone, smaller: neither the app's setting nor its height.
+  marks: { which: 'hostel', height: 48 },
   // A plain box, a thin stroke, square corners on the photo.
   frame: { path: 'M6 6 H 954 V 194 H 6 Z', viewBox: '0 0 960 200', stroke: 3, photoRadius: 0 },
   pill: { radius: 0, tilt: 0.4, padding: '12px 30px 14px', gap: 12, dot: 10 },

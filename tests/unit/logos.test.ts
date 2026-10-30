@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { ROOT } from '../../scripts/gen-shared.js';
 import { SEED_FILE } from '../../server/paths.js';
-import { marksFor, type EyebrowMarks } from '../../src/shared/defaults.js';
+import { EYEBROW_MARK, EYEBROW_MARKS, marksFor, marksOf, type EyebrowMarks } from '../../src/shared/defaults.js';
 import { SeedFileSchema } from '../../src/shared/seed.js';
 
 /* The marks at the eyebrow's right (the owner's call, 2026-09-30): one setting for every flyer, set in the code and
@@ -18,6 +18,14 @@ describe('the eyebrow’s marks', () => {
 
   it('chain-wide, or at a hostel with no badge, prints the Nests wordmark whatever the setting', () => {
     for (const marks of ['hostel', 'nests', 'both'] satisfies EyebrowMarks[]) expect(marksFor(false, marks)).toEqual(['nests']);
+  });
+
+  // A look may say which marks print and how tall (Look.marks); one that says nothing prints the app's setting at the
+  // Nests wordmark's size, as before looks.
+  it('a look’s marks are its own, or the app’s setting at the wordmark’s height', () => {
+    expect(marksOf({})).toEqual({ which: EYEBROW_MARKS, height: EYEBROW_MARK.height });
+    expect(marksOf({ marks: undefined })).toEqual({ which: EYEBROW_MARKS, height: 56 });
+    expect(marksOf({ marks: { which: 'hostel', height: 48 } })).toEqual({ which: 'hostel', height: 48 });
   });
 });
 

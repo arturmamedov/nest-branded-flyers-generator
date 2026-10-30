@@ -2,7 +2,8 @@ import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, it } from 'vitest';
 import { ROOT } from '../scripts/gen-shared.js';
-import { CANVAS_IDS, PILL_TILT_ROOM, pillBox } from '../src/shared/layout.js';
+import { EYEBROW_MARK, marksOf } from '../src/shared/defaults.js';
+import { CANVAS_IDS, PILL_TILT_ROOM, boxesOf, pillBox } from '../src/shared/layout.js';
 import type { Look } from '../src/shared/looks.js';
 import { DEFAULT_COLORS, DEFAULT_DOODLES } from '../src/shared/looks/handDrawn.js';
 import { geometryProblems } from './geometry.js';
@@ -85,6 +86,13 @@ export function lookContract(look: Look, faces: FaceSources): void {
       const lift = (height * Math.sin(θ) - width * (1 - Math.cos(θ))) / 2;
       expect(lift, canvas).toBeLessThanOrEqual(PILL_TILT_ROOM);
     }
+  });
+
+  // The marks sit in the eyebrow's row, EYEBROW_MARK.top below its top: a look's marks are no taller than its eyebrow box
+  // leaves them on any canvas, or they would reach into the headline.
+  it(`${look.id}: its marks fit its eyebrow box on every canvas`, () => {
+    const need = marksOf(look).height + EYEBROW_MARK.top;
+    for (const canvas of CANVAS_IDS) expect(boxesOf(canvas, look.geometry).activity.eyebrow.height, `${canvas}: ${need} px of marks`).toBeGreaterThanOrEqual(need);
   });
 
   it(`${look.id}: its faces are every face its type uses, each a family it may name, self-hosted from a pinned package`, () => {

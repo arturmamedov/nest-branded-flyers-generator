@@ -2,6 +2,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 import { ROOT } from '../../scripts/gen-shared.js';
+import { EYEBROW_MARKS, marksOf } from '../../src/shared/defaults.js';
 import * as fonts from '../../src/shared/fonts.js';
 import { SHARED_GEOMETRY } from '../../src/shared/layout.js';
 import { FIRST_LOOK, allLooks, lookIds, lookOf, siteLooks } from '../../src/shared/looks.js';
@@ -103,6 +104,11 @@ describe('the looks', () => {
       clock: 'icon-clock',
       highlighter: 'mark-yellow',
     });
+  });
+
+  it('hand-drawn’s marks are the app’s setting, at the wordmark’s height', () => {
+    expect(HAND_DRAWN.marks).toBeUndefined();
+    expect(marksOf(HAND_DRAWN)).toEqual({ which: EYEBROW_MARKS, height: 56 });
   });
 
   it('hand-drawn’s frame is the handoff’s code-drawn one: a 5 px stroke, and the photo’s 40 px corners', () => {

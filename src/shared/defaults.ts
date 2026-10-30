@@ -1,5 +1,5 @@
 import type { PhotoMode } from './layout.js';
-import { FIRST_LOOK } from './looks.js';
+import { FIRST_LOOK, type Look } from './looks.js';
 import { DEFAULT_COLORS, DEFAULT_DOODLES } from './looks/handDrawn.js';
 import { DEFAULT_CROP } from './photo.js';
 import type { FlyerData, FlyerText, Template } from './schema.js';
@@ -20,6 +20,16 @@ export const EYEBROW_MARKS: EyebrowMarks = 'both';
 export function marksFor(hasBadge: boolean, marks: EyebrowMarks = EYEBROW_MARKS): ('badge' | 'nests')[] {
   if (!hasBadge || marks === 'nests') return ['nests'];
   return marks === 'hostel' ? ['badge'] : ['badge', 'nests'];
+}
+
+/** A mark at the eyebrow's right, as the renderer draws it: the Nests wordmark's height, and the air above it in the
+    eyebrow's row. A look may set another height (Look.marks); tests/lookContract.ts holds it to the eyebrow box. */
+export const EYEBROW_MARK = { height: 56, top: 6 } as const;
+
+/** The marks a look prints and their height: its own (Look.marks), or the app's setting at the wordmark's height, as
+    every look printed before a look could say (2026-10-30). */
+export function marksOf(look: Pick<Look, 'marks'>): { which: EyebrowMarks; height: number } {
+  return look.marks ?? { which: EYEBROW_MARKS, height: EYEBROW_MARK.height };
 }
 
 /** Each template's eyebrow on a new flyer. Switching template swaps it while it is still this. */

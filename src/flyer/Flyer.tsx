@@ -1,6 +1,6 @@
 import { Fragment, useState, type CSSProperties, type ReactNode, type Ref } from 'react';
 import { deriveChips, DEFAULT_CHIP_ORDER } from '../shared/chips';
-import { marksFor } from '../shared/defaults';
+import { EYEBROW_MARK, marksFor, marksOf } from '../shared/defaults';
 import { printedExtras } from '../shared/extras';
 import { BODY_FONT } from '../shared/fonts';
 import { ASK_MAX_WIDTH, CANVASES, PILL_TILT_ROOM, artAnchors, bodyOf, boxesOf, photoFrame, pillBox, placeArt, safeBox, type ArtAnchor, type ArtPoint, type CanvasId, type Rect, type WeekBoxes } from '../shared/layout';
@@ -79,21 +79,23 @@ function followStyle(d: ArtPlacement): CSSProperties {
   return { ...doodleLook(d), left: `calc(100% + ${d.x}px)`, top: d.y, width: d.w };
 }
 
-/** A mark at the eyebrow's right: 56 px tall, the Nests wordmark's size. A long eyebrow leaves the marks less room than
-    they need (18 of the widest letters): they shrink in their row, their art contained, rather than leave the box. */
-const MARK: CSSProperties = { height: 56, width: 'auto', flex: '0 1 auto', minWidth: 0, objectFit: 'contain', marginTop: 6 };
+/** A mark at the eyebrow's right, at the look's height (the Nests wordmark's 56 px unless the look says). A long eyebrow
+    leaves the marks less room than they need (18 of the widest letters): they shrink in their row, their art
+    contained, rather than leave the box. */
+const mark = (height: number): CSSProperties => ({ height, width: 'auto', flex: '0 1 auto', minWidth: 0, objectFit: 'contain', marginTop: EYEBROW_MARK.top });
 
-/** The eyebrow's marks, as the setting in defaults.ts asks: the Nests wordmark, the hostel's badge, or the badge beside
-    the wordmark. A badge that fails to load drops out, so an export never shows a broken image; ready.ts waits for
-    the wordmark that may then come in its place. */
-function Marks({ hostel, wordmark }: { hostel: Hostel | null; wordmark: string }) {
+/** The eyebrow's marks, as the look asks (marksOf: the app's setting in defaults.ts unless the look says): the Nests
+    wordmark, the hostel's badge, or the badge beside the wordmark. A badge that fails to load drops out, so an export
+    never shows a broken image; ready.ts waits for the wordmark that may then come in its place. */
+function Marks({ hostel, look }: { hostel: Hostel | null; look: Look }) {
   const badge = hostel?.logoPath ? assetUrl(hostel.logoPath) : null;
   const [failed, setFailed] = useState<string | null>(null);
-  const marks = marksFor(badge !== null && failed !== badge).map((m) =>
+  const { which, height } = marksOf(look);
+  const marks = marksFor(badge !== null && failed !== badge, which).map((m) =>
     m === 'badge' ? (
-      <img key="badge" data-logo="hostel" src={badge!} alt={hostel!.name} onError={() => setFailed(badge)} style={{ ...MARK, width: 56 }} />
+      <img key="badge" data-logo="hostel" src={badge!} alt={hostel!.name} onError={() => setFailed(badge)} style={{ ...mark(height), width: height }} />
     ) : (
-      <img key="nests" data-logo="nests" src={assetUrl(wordmark)} alt="Nests Hostels" style={MARK} />
+      <img key="nests" data-logo="nests" src={assetUrl(look.wordmark)} alt="Nests Hostels" style={mark(height)} />
     ),
   );
   // One mark sits in the eyebrow row where the wordmark always has; two share a row of their own, 20 px apart.
@@ -310,7 +312,7 @@ export function Flyer({ data, canvas, hostel, photo, showSafeZones = false, ref 
             </div>
           )}
         </div>
-        <Marks hostel={hostel} wordmark={look.wordmark} />
+        <Marks hostel={hostel} look={look} />
       </div>
 
       {body === 'week' ? (

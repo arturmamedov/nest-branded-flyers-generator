@@ -4,7 +4,7 @@ import { EXTRA_MAX, EXTRAS_MAX } from '../shared/extras';
 import { FLYER_LABELS, LABELS_MAX, knownLabels, tidyLabels, toggleLabel } from '../shared/labels';
 import { ACCEPTED_PHOTO_TYPES } from '../shared/limits';
 import { lintFlyer } from '../shared/copyRules';
-import { followHostel, marksFor, newFlyerData, switchTemplate, weekTitle, withPhoto } from '../shared/defaults';
+import { followHostel, marksFor, marksOf, newFlyerData, switchTemplate, weekTitle, withPhoto } from '../shared/defaults';
 import { CANVASES, CANVAS_IDS, bodyOf, photoFrame, type CanvasId, type PhotoMode } from '../shared/layout';
 import { lookOf, looksToPick } from '../shared/looks';
 import { DEFAULT_CROP, ZOOM_MAX, ZOOM_MIN, clampCrop, wholePhotoZoom, zoomCrop } from '../shared/photo';
@@ -482,7 +482,7 @@ export function Editor({
             )}
             <Field
               label={FIELD.hostel}
-              help={`${hostel?.logoPath && marksFor(true).includes('badge') ? 'Its badge prints at the top. ' : ''}${week ? 'Named in the Spanish title line, and tags the flyer in the library' : 'Prints in the WHERE block and tags the flyer in the library'}`}
+              help={`${hostel?.logoPath && marksFor(true, marksOf(lookOf(draft.data)).which).includes('badge') ? 'Its badge prints at the top. ' : ''}${week ? 'Named in the Spanish title line, and tags the flyer in the library' : 'Prints in the WHERE block and tags the flyer in the library'}`}
             >
               <select aria-label={FIELD.hostel} value={draft.hostel ?? ''} onChange={(e) => chooseHostel(e.target.value || null)}>
                 <option value="">All hostels (chain-wide)</option>

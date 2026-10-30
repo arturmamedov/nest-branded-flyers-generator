@@ -3,7 +3,7 @@ import { expect } from '../browser';
 import { drawPayload } from './drawn';
 import { bodiesOf, groupsOf, highlighterWrapSample } from './pixels';
 import { DEFAULT_CHIP_ORDER, deriveChips } from '../../src/shared/chips';
-import { marksFor } from '../../src/shared/defaults';
+import { marksFor, marksOf } from '../../src/shared/defaults';
 import { CANVASES, artAnchors, bodyOf, placeArt, safeBox, weekRowRect, type Body, type CanvasId } from '../../src/shared/layout';
 import { lookOf, type Look } from '../../src/shared/looks';
 import { SAMPLE_FLYERS } from '../../src/shared/samples';
@@ -119,6 +119,7 @@ export async function checkDrawn(page: Page, payload: FlyerPayload, canvas: Canv
     const logos = [...document.querySelectorAll<HTMLImageElement>('[data-group=eyebrow] img[data-logo]')].map((img) => ({
       logo: img.dataset.logo,
       right: img.getBoundingClientRect().right,
+      height: img.getBoundingClientRect().height,
     }));
     // The inline art, by slot: what each block drew where the look names a file, and nothing where it names none.
     const eyebrow = document.querySelector('[data-group=eyebrow]')!;
@@ -202,9 +203,15 @@ export async function checkDrawn(page: Page, payload: FlyerPayload, canvas: Canv
     ] as const)
       expect(Math.abs(g[edge] - value), `${label}: ${g.name} ${edge}`).toBeLessThanOrEqual(0.5);
   }
-  // The marks the setting asks for at this flyer's hostel (defaults.ts), ending inside the safe box.
-  expect(r.logos.map((m) => m.logo), `${label}: the eyebrow's marks`).toEqual(marksFor(!!payload.hostel?.logoPath).map((m) => (m === 'badge' ? 'hostel' : 'nests')));
-  for (const m of r.logos) expect(m.right, `${label}: the ${m.logo} mark ends inside the safe box`).toBeLessThanOrEqual(safe.left + safe.width + 0.5);
+  // The marks the look asks for at this flyer's hostel (the app's setting unless the look says), at the look's height or
+  // less (a long eyebrow shrinks them), ending inside the safe box.
+  const marks = marksOf(look);
+  expect(r.logos.map((m) => m.logo), `${label}: the eyebrow's marks`).toEqual(marksFor(!!payload.hostel?.logoPath, marks.which).map((m) => (m === 'badge' ? 'hostel' : 'nests')));
+  for (const m of r.logos) {
+    expect(m.right, `${label}: the ${m.logo} mark ends inside the safe box`).toBeLessThanOrEqual(safe.left + safe.width + 0.5);
+    expect(m.height, `${label}: the ${m.logo} mark's height`).toBeGreaterThan(0);
+    expect(m.height, `${label}: the ${m.logo} mark's height`).toBeLessThanOrEqual(marks.height + 0.5);
+  }
 
   // The inline art is drawn where the look names a file, and nowhere it names none: the eyebrow's icon and rule, each
   // chip's icon (the € glyph stands in on the COST chip when the look has no cost icon), the WHEN chip's clock and
