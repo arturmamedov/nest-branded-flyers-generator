@@ -23,6 +23,7 @@ import {
   safeBox,
   weekGroups,
   weekRowRect,
+  wordSlot,
   type Body,
   type CanvasId,
   type Geometry,
@@ -203,6 +204,21 @@ describe('canvases', () => {
     // A canvas the look leaves alone is the shared table's, the bleed too.
     expect(boxesOf('whatsapp', g).activity.headline).toEqual(boxesOf('whatsapp', G).activity.headline);
     expect(photoFrame('story', 'bleed', g)).toEqual(photoFrame('story', 'bleed', G));
+  });
+
+  // A staggered headline's word (the Sunset look, README §1.1): centred dx from the canvas's middle, as wide as the room
+  // to the nearer safe edge allows, twice, less its margin, and never past its cap.
+  it('a staggered word’s slot: centred at its point, fitted to its room to the nearer safe edge', () => {
+    const word1 = { dx: -70.19, cap: 840, margin: 50 };
+    const word2 = { dx: 222.97, cap: 560, margin: 20 };
+    // The story: word 1 is 399.81 from the left edge of the safe box, word 2 247.03 from the right one.
+    expect(wordSlot('story', word1)).toEqual({ left: expect.closeTo(469.81 - 749.62 / 2, 6), width: expect.closeTo(749.62, 6) });
+    expect(wordSlot('story', word2)).toEqual({ left: expect.closeTo(762.97 - 474.06 / 2, 6), width: expect.closeTo(474.06, 6) });
+    // WhatsApp's margin is 40: 30 more room on each side.
+    expect(wordSlot('whatsapp', word1).width).toBeCloseTo(809.62, 6);
+    expect(wordSlot('whatsapp', word2).width).toBeCloseTo(534.06, 6);
+    // The cap: a word at the middle has 2 × 470 − 50 = 890 of room on the story, and keeps 840.
+    expect(wordSlot('story', { dx: 0, cap: 840, margin: 50 })).toEqual({ left: 120, width: 840 });
   });
 
   // The Sunset look (Artur's decision 1 and answers 6 and 7, 2026-10-30): the photo is background art behind everything,

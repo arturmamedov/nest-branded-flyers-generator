@@ -3,8 +3,8 @@ import { deriveChips, DEFAULT_CHIP_ORDER } from '../shared/chips';
 import { EYEBROW_MARK, marksFor, marksOf } from '../shared/defaults';
 import { printedExtras } from '../shared/extras';
 import { BODY_FONT } from '../shared/fonts';
-import { ASK_MAX_WIDTH, CANVASES, PILL_TILT_ROOM, artAnchors, bodyOf, boxesOf, photoFrame, pillBox, placeArt, safeBox, type ArtPoints, type CanvasId, type Rect, type WeekBoxes } from '../shared/layout';
-import { lookOf, type ArtPlacement, type LineType, type Look, type Palette } from '../shared/looks';
+import { ASK_MAX_WIDTH, CANVASES, PILL_TILT_ROOM, artAnchors, bodyOf, boxesOf, photoFrame, pillBox, placeArt, safeBox, wordSlot, type ArtPoints, type CanvasId, type Rect, type WeekBoxes } from '../shared/layout';
+import { lookOf, type ArtPlacement, type LineType, type Look, type Palette, type StaggeredHeadline, type StaggeredWord } from '../shared/looks';
 import { coverRect } from '../shared/photo';
 import type { FlyerData, FlyerText, Hostel, PhotoInfo } from '../shared/schema';
 import { printedRows, type PrintedRow } from '../shared/week';
@@ -107,18 +107,70 @@ function Marks({ hostel, look }: { hostel: Hostel | null; look: Look }) {
 /** A block's horizontal edges as left/right insets, the way the story has always been written. */
 const across = (r: Rect, width: number) => ({ left: r.left, right: width - r.left - r.width });
 
-/** The headline's three lines: the Activity headline, and the week's title in its own box. */
+/** A line's type with its turn left out: the stacked kind sets its lines one under the other, and a turned 145 px
+    word would lie on the line under it and leave the box (the staggered kind draws the turn, about the baseline). */
+function upright(line: LineType, paint: Palette): CSSProperties {
+  const { transform: _turn, ...style } = typeStyle(line, paint);
+  return style;
+}
+
+/** The headline's three lines stacked: the Activity headline in a look with no headline kind of its own, and the
+    week's title in its own box (every look's, until the plan's stage 6). */
 function Headline({ group, box, W, t, type, paint }: { group: 'headline' | 'title'; box: Rect; W: number; t: FlyerText; type: Lines; paint: Palette }) {
   return (
     <div data-group={group} data-fit-box="1" style={{ position: 'absolute', ...across(box, W), top: box.top, height: box.height, overflow: 'hidden' }}>
       {t.headline1 && (
-        <div {...fitOf(type.headline1)} style={{ ...typeStyle(type.headline1, paint), whiteSpace: 'nowrap' }}>{t.headline1}</div>
+        <div {...fitOf(type.headline1)} style={{ ...upright(type.headline1, paint), whiteSpace: 'nowrap' }}>{t.headline1}</div>
       )}
       {t.headline2 && (
-        <div {...fitOf(type.headline2)} style={{ ...typeStyle(type.headline2, paint), whiteSpace: 'nowrap' }}>{t.headline2}</div>
+        <div {...fitOf(type.headline2)} style={{ ...upright(type.headline2, paint), whiteSpace: 'nowrap' }}>{t.headline2}</div>
       )}
       {t.headlineEs && (
         <div {...fitOf(type.spanish)} style={{ ...typeStyle(type.spanish, paint), marginTop: 16 }}>{t.headlineEs}</div>
+      )}
+    </div>
+  );
+}
+
+/** The staggered headline kind (the Sunset look, 2026-10-30): each word centred at its own point and turned about its
+    baseline centre, the Spanish line centred at its own top. A word's slot is its room to the nearer safe edge
+    (layout.ts, wordSlot), and the word is fitted to it. Its baseline centre lands on the slot's top-middle: the line
+    box is turned about that point (the baseline's share of the line, rise) and then moved up by the same share, in em,
+    so the fit's size carries it. The words are out of the flow, so a long Spanish line never moves them; a turned
+    word's line box still counts in the box's height (the height pass), and the box clips at the safe column. */
+function StaggeredHeadlineBlock({ box, canvas, W, t, type, paint, kind }: { box: Rect; canvas: CanvasId; W: number; t: FlyerText; type: Lines; paint: Palette; kind: StaggeredHeadline }) {
+  const word = (key: 1 | 2, line: LineType, text: string, w: StaggeredWord) => {
+    const slot = wordSlot(canvas, w);
+    // The line's own turn is drawn here, about the baseline centre, not about the box's centre as typeStyle draws it.
+    return (
+      <div
+        data-word={key}
+        {...fitOf(line)}
+        style={{
+          ...upright(line, paint),
+          position: 'absolute',
+          left: slot.left - box.left,
+          top: w.y,
+          width: slot.width,
+          lineHeight: 1,
+          textAlign: 'center',
+          whiteSpace: 'nowrap',
+          transformOrigin: `50% ${w.rise * 100}%`,
+          transform: `translateY(${-w.rise}em)${line.rotate ? ` rotate(${line.rotate}deg)` : ''}`,
+        }}
+      >
+        {text}
+      </div>
+    );
+  };
+  return (
+    <div data-group="headline" data-fit-box="1" style={{ position: 'absolute', ...across(box, W), top: box.top, height: box.height, overflow: 'hidden' }}>
+      {t.headline1 && word(1, type.headline1, t.headline1, kind.word1)}
+      {t.headline2 && word(2, type.headline2, t.headline2, kind.word2)}
+      {t.headlineEs && (
+        <div {...fitOf(type.spanish)} style={{ ...typeStyle(type.spanish, paint), position: 'absolute', left: 0, right: 0, top: kind.spanishTop, textAlign: 'center', textWrap: 'balance' }}>
+          {t.headlineEs}
+        </div>
       )}
     </div>
   );
@@ -336,7 +388,11 @@ export function Flyer({ data, canvas, hostel, photo, showSafeZones = false, ref 
         </>
       ) : (
         <>
-          <Headline group="headline" box={head} W={W} t={t} type={type} paint={paint} />
+          {look.headline ? (
+            <StaggeredHeadlineBlock box={head} canvas={canvas} W={W} t={t} type={type} paint={paint} kind={look.headline} />
+          ) : (
+            <Headline group="headline" box={head} W={W} t={t} type={type} paint={paint} />
+          )}
 
           {!behind && mode === 'bleed' && (
             <div data-group="photo" style={{ position: 'absolute', ...across(A.photoBleed, W), top: A.photoBleed.top, height: A.photoBleed.height, overflow: 'hidden', background: photoGround }}>

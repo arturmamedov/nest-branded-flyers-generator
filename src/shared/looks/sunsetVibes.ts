@@ -1,6 +1,6 @@
 import { ARCHIVO_BLACK_FAMILY, ARCHIVO_BLACK_FONT, BODY_FAMILY, BODY_FONT, CAVEAT_BRUSH_FAMILY, CAVEAT_BRUSH_FONT } from '../fonts.js';
 import type { Geometry } from '../layout.js';
-import type { ArtPlacement, Look, Palette } from '../looks.js';
+import type { ArtPlacement, Look, Palette, StaggeredHeadline } from '../looks.js';
 
 /* The Sunset Vibes look: Duque Nest's sunset flyer (Sunset Merge v2), ported from Claude Design's handoff
    (design_handoff_new_look/design_handoff_sunset_vibes/README.md) by the stages of docs/prompts/sunset-vibes-look.md,
@@ -134,14 +134,14 @@ const PALETTE: Palette = {
 const M = BODY_FONT;
 
 /** Every line of copy, as the handoff's type table sets it (README §4), Day's inks. The headline words are fitted
-    (floor 0.6) and held to 3:1 (§7.14); the labels, the asks and the row text are never shrunk (§7.17: no floor), the
-    Spanish line keeps a floor of 0.8 for its 260 characters. Until the kinds that place them arrive: the words print
-    upright and stacked (their tilt comes with the staggered kind), the extras as today's fitted row (floor 0.8, the
-    notes line later), the pill with today's kind. */
+    (floor 0.6), turned (−9.5° and −6.5°, §1.1, drawn by the staggered kind about their baseline centres) and held to
+    3:1 (§7.14); the labels, the asks and the row text are never shrunk (§7.17: no floor), the Spanish line keeps a
+    floor of 0.8 for its 260 characters. Until the kinds that place them arrive: the extras print as today's fitted row
+    (floor 0.8, the notes line later), the pill with today's kind. */
 const TYPE: Look['type'] = {
   eyebrow: { font: M, weight: 600, size: 24.3, lineHeight: 1, spacing: '0.1em', upper: true, ink: 'ink', on: 'ground' },
-  headline1: { font: ARCHIVO_BLACK_FONT, weight: 400, size: 144.64, lineHeight: 1, spacing: '-0.02em', upper: true, floor: 0.6, minContrast: 3, ink: 'hot', on: 'ground' },
-  headline2: { font: CAVEAT_BRUSH_FONT, weight: 400, size: 188.17, lineHeight: 1, spacing: '-0.02em', floor: 0.6, minContrast: 3, ink: 'accent', on: 'ground' },
+  headline1: { font: ARCHIVO_BLACK_FONT, weight: 400, size: 144.64, lineHeight: 1, spacing: '-0.02em', upper: true, floor: 0.6, rotate: -9.5, minContrast: 3, ink: 'hot', on: 'ground' },
+  headline2: { font: CAVEAT_BRUSH_FONT, weight: 400, size: 188.17, lineHeight: 1, spacing: '-0.02em', floor: 0.6, rotate: -6.5, minContrast: 3, ink: 'accent', on: 'ground' },
   spanish: { font: M, weight: 500, size: 22, lineHeight: 1.2, spacing: '0.2em', upper: true, floor: 0.8, ink: 'muted', on: 'ground' },
   chipLabel: { font: M, weight: 700, size: 22, lineHeight: 1.2045, upper: true, ink: 'ink', on: 'surface' },
   // Unused while the COST chip has its icon: the € as the design's value, should an ink ever lack the file.
@@ -159,6 +159,21 @@ const TYPE: Look['type'] = {
   weekTime: { font: M, weight: 700, size: 34, lineHeight: 1.15, spacing: '-0.03em', floor: 0.6, ink: 'ink', on: 'surface' },
   weekPrice: { font: M, weight: 700, size: 20, lineHeight: 1.2, spacing: '0.02em', upper: true, ink: 'ink', on: 'surface' },
   weekPriceSub: { font: M, weight: 500, size: 18, lineHeight: 1.2222, upper: true, ink: 'muted', on: 'surface' },
+};
+
+/** The headline staggered (README §1.1, against the photo's bottom, PB): SUNSET centred 70.19 left of the canvas's
+    middle with its baseline 41.97 above PB, Vibes 222.97 right of it and 61.12 lower. The headline box starts 193
+    above PB (SUNSET's ink top), so the baselines sit 151.03 and 212.15 into it on both canvases; the Spanish line 24
+    under the headline's ink, 248.93 into the box. Each word's baseline falls 0.86 (Archivo Black) and 0.83 (Caveat
+    Brush) into its line at line-height 1, as Chrome lays the face out (measured 2026-10-30): what the kind turns the
+    word about. Fitted to min(cap, 2 × the room to the nearer safe edge − margin): cap 840 / 560, margin 50 / 20. The
+    design measures the ink to place the Spanish line; the app's tops are fixed, so a short second word leaves a little
+    more room above the Spanish line than the design would. */
+const HEADLINE: StaggeredHeadline = {
+  kind: 'staggered',
+  word1: { dx: -70.19, y: 151.03, rise: 0.86, cap: 840, margin: 50 },
+  word2: { dx: 222.97, y: 212.15, rise: 0.83, cap: 560, margin: 20 },
+  spanishTop: 248.93,
 };
 
 /** The art, in the handoff's draw order (README §1.1, §5), over the photo behind everything: the splash in the ground
@@ -194,6 +209,7 @@ export const SUNSET_VIBES: Look = {
     { family: BODY_FAMILY, weight: 700 },
   ],
   type: TYPE,
+  headline: HEADLINE,
   // 4.5:1 for the copy, 3:1 where a line says so (the headline words); no ink forbidden: the orange is its own.
   rules: { minContrast: 4.5, forbiddenInks: [] },
   art: () => ART,

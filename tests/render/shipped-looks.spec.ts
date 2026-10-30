@@ -7,7 +7,7 @@ import { checkDrawn, drawnSamples, samples } from './drawnChecks';
 import { pixel, serverPng } from './exports';
 import { compare, failures, regionsOf } from './pixels';
 import { sampleCopy } from './proofFlyers';
-import { CANVASES, CANVAS_IDS, DEFAULT_CANVAS, boxesOf, type CanvasId } from '../../src/shared/layout';
+import { CANVASES, CANVAS_IDS, DEFAULT_CANVAS, boxesOf, wordSlot, type CanvasId } from '../../src/shared/layout';
 import { FIRST_LOOK, allLooks, type Look } from '../../src/shared/looks';
 import { DEFAULT_COLORS } from '../../src/shared/looks/handDrawn';
 import type { FlyerPayload } from '../../src/shared/schema';
@@ -32,14 +32,23 @@ const CLIPS: Record<string, string[]> = {};
     its why. The editor says such a line is cut off; the samples' copy is kept as it is (the owner's call for the
     WHERE chip, 2026-09-30, holds here too). */
 const CUT: Record<string, string[]> = {};
-// Sunset Vibes: the stress test's headline, 18 characters, in Archivo Black at the floor of its 144.64 px (86.8 px)
-// is wider than the safe column on both canvases: the design's headline face holds about 14 of its upper-case
-// letters in the column. The staggered kind (stage 2) fits each word by itself to its own room; whether the floor
-// stays at 0.6 is Artur's (docs/reports/sunset-vibes.md, stage 1). The Highlighter wrap record is the stress test
-// with its WHEN line wrapped: the same headline.
-for (const canvas of CANVAS_IDS)
-  for (const title of ['Long copy · stress test', 'Highlighter wrap'])
-    for (const body of ['bleed', 'band', 'none']) CUT[`sunset-vibes | ${canvas} | ${title} / ${body}`] = ['Sunrise hike above'];
+// Sunset Vibes: the headline words are staggered (stage 2), each fitted to its own slot (layout.ts, wordSlot): on the
+// story 749.62 px for the first word and 474.06 for the second, on WhatsApp 809.62 and 534.06; at the floor of 0.6 the
+// first word prints at 86.78 px in Archivo Black (about 14 upper-case letters in its slot) and the second at 112.9 px in
+// Caveat Brush (about 9 letters on the story, 11 on WhatsApp). The stress test's 18 and 18 characters are cut on both
+// canvases; on the story alone a 13-letter second word ("every Friday.", "of fun waves.") and the 14-letter "Family
+// dinner," are cut too. The editor says so; the samples' copy is kept, and whether the floor stays at 0.6 is Artur's
+// (docs/reports/sunset-vibes.md, stages 1 and 2). The Highlighter wrap record is the stress test with its WHEN line
+// wrapped: the same headline.
+const SUNSET_CUTS: [readonly CanvasId[], string, string[]][] = [
+  [CANVAS_IDS, 'Long copy · stress test', ['Sunrise hike above', 'the sea of clouds.']],
+  [CANVAS_IDS, 'Highlighter wrap', ['Sunrise hike above', 'the sea of clouds.']],
+  [['story'], 'Pizza · weekly', ['Family dinner,', 'every Friday.']],
+  [['story'], 'Surf lesson', ['of fun waves.']],
+  [['story'], 'Pizza night', ['Family dinner,']],
+];
+for (const [canvases, title, lines] of SUNSET_CUTS)
+  for (const canvas of canvases) for (const body of ['bleed', 'band', 'none']) CUT[`sunset-vibes | ${canvas} | ${title} / ${body}`] = lines;
 
 /** A pixel of the look's ground on a canvas: the top-left corner, unless the photo lies behind everything there; then
     a point on the splash, 60 px above the photo's bottom in the side margin (left of the headline's ink and clear of
@@ -170,6 +179,59 @@ for (const look of SHIPPED) {
         const none = await serverPng(request, (await sampleCopy(request, 'Pool party', 'none', keep, look.id)).id, canvas);
         expect(pixel(none, 2, Math.max(0, box.top) + 2), `${canvas}: the placeholder where the photo would be`).toBe(paint.placeholder.toUpperCase());
         expect(pixel(none, groundAt(look, canvas).x, groundAt(look, canvas).y), `${canvas}: the splash over the photo's bottom`).toBe(paint.ground.toUpperCase());
+      }
+    });
+  }
+
+  if (look.headline) {
+    const kind = look.headline;
+    /* The staggered headline (README §1.1): each word in its slot (layout.ts, wordSlot), its baseline centre on the
+       slot's top-middle, turned by its line's rotate about that point; the Spanish line centred at its own top. */
+    test(`${look.id}: the headline staggered: each word in its slot, turned about its baseline centre; the Spanish line centred at its top`, async ({ page, request }) => {
+      const pool = (await samples(request)).find((p) => p.flyer.title === 'Pool party')!;
+      for (const canvas of CANVAS_IDS) {
+        await drawPayload(page, inLook(pool, look), canvas);
+        const box = boxesOf(canvas, look.geometry).activity.headline;
+        const r = await page.evaluate(() => {
+          const read = (el: HTMLElement) => {
+            const s = getComputedStyle(el);
+            // matrix(a, b, c, d, tx, ty): a turn by θ has a = cos θ, b = sin θ; the move after it is (tx, ty).
+            const m = s.transform === 'none' ? [1, 0, 0, 1, 0, 0] : s.transform.replace(/^matrix\(|\)$/g, '').split(',').map(Number);
+            return { text: el.textContent, left: el.offsetLeft, top: el.offsetTop, width: el.offsetWidth, height: el.offsetHeight, size: parseFloat(el.style.fontSize), angle: (Math.atan2(m[1], m[0]) * 180) / Math.PI, tx: m[4], ty: m[5], origin: s.transformOrigin, align: s.textAlign };
+          };
+          return {
+            words: [...document.querySelectorAll<HTMLElement>('[data-group=headline] [data-word]')].map(read),
+            spanish: [...document.querySelectorAll<HTMLElement>('[data-group=headline] [data-fit]:not([data-word])')].map(read),
+          };
+        });
+        const t = pool.flyer.data.text;
+        expect(r.words.map((w) => w.text), `${canvas}: the two words`).toEqual([t.headline1, t.headline2]);
+        for (const [i, w] of ([kind.word1, kind.word2] as const).entries()) {
+          const drawn = r.words[i];
+          const slot = wordSlot(canvas, w);
+          const line = i === 0 ? look.type.headline1 : look.type.headline2;
+          const label = `${canvas}: word ${i + 1}`;
+          // The slot, in the box (offsets are whole pixels).
+          expect(Math.abs(drawn.left - (slot.left - box.left)), `${label}: its slot's left`).toBeLessThanOrEqual(1);
+          expect(Math.abs(drawn.width - slot.width), `${label}: its slot's width`).toBeLessThanOrEqual(1);
+          expect(Math.abs(drawn.top - w.y), `${label}: its baseline's row`).toBeLessThanOrEqual(1);
+          // One line, line-height 1: the box is the fitted size tall; fitted to the slot, never below the floor.
+          expect(Math.abs(drawn.height - drawn.size), `${label}: one line`).toBeLessThanOrEqual(1);
+          expect(drawn.size, `${label}: fitted`).toBeLessThanOrEqual(line.size + 0.01);
+          expect(drawn.size, `${label}: at or above its floor`).toBeGreaterThanOrEqual(line.size * line.floor! - 0.01);
+          // Turned by its line's rotate about its baseline centre (the slot's middle, rise into the line), then moved
+          // up by the baseline's share of the line, so the baseline centre lands on the slot's top.
+          expect(drawn.angle, `${label}: its turn`).toBeCloseTo(line.rotate!, 3);
+          const [ox, oy] = drawn.origin.replace(/px/g, '').split(' ').map(Number);
+          expect(Math.abs(ox - drawn.width / 2), `${label}: turned about the slot's middle`).toBeLessThanOrEqual(0.5);
+          expect(Math.abs(oy - w.rise * drawn.size), `${label}: turned about its baseline`).toBeLessThanOrEqual(0.5);
+          expect(Math.abs(drawn.ty + w.rise * drawn.size), `${label}: moved up to its baseline`).toBeLessThanOrEqual(0.5);
+          expect(Math.abs(drawn.tx), `${label}: not moved sideways`).toBeLessThanOrEqual(0.5);
+        }
+        expect(r.spanish.map((s) => s.text), `${canvas}: the Spanish line`).toEqual([t.headlineEs]);
+        expect(Math.abs(r.spanish[0].top - kind.spanishTop), `${canvas}: the Spanish line's top`).toBeLessThanOrEqual(1);
+        expect(r.spanish[0].align, `${canvas}: the Spanish line centred`).toBe('center');
+        expect(r.spanish[0].width, `${canvas}: the Spanish line across the box`).toBe(box.width);
       }
     });
   }

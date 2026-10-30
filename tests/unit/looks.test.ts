@@ -205,7 +205,8 @@ describe('the Sunset Vibes look (stage 1: the look as data, docs/prompts/sunset-
     // The headline words: Archivo Black and Caveat Brush, tilted later, held to 3:1 (§7.14); the rest Montserrat.
     expect(SUNSET_VIBES.type.headline1).toMatchObject({ font: "'Archivo Black', sans-serif", weight: 400, upper: true, minContrast: 3, ink: 'hot' });
     expect(SUNSET_VIBES.type.headline2).toMatchObject({ font: "'Caveat Brush', cursive", weight: 400, minContrast: 3, ink: 'accent' });
-    expect(SUNSET_VIBES.type.headline1.rotate, 'the tilt comes with the staggered kind').toBeUndefined();
+    // The words turn about their baseline centres in the staggered kind (README §1.1: SUNSET −9.5°, Vibes −6.5°).
+    expect([SUNSET_VIBES.type.headline1.rotate, SUNSET_VIBES.type.headline2.rotate]).toEqual([-9.5, -6.5]);
     for (const [line, t] of Object.entries(SUNSET_VIBES.type)) if (!line.startsWith('headline')) expect(t.font, line).toBe("'Montserrat', sans-serif");
     expect(SUNSET_VIBES.type.chipBig.ink).toBe('value');
     expect(SUNSET_VIBES.type.weekDay).toMatchObject({ ink: 'value', on: 'highlight' });
@@ -310,6 +311,22 @@ describe('the Sunset Vibes look (stage 1: the look as data, docs/prompts/sunset-
     expect(placeArt(splash, artAnchors('story', 'band', SUNSET_VIBES.geometry))).toEqual({ left: 0, top: 948 - 448.81, width: 1080 });
     expect(placeArt(splash, artAnchors('whatsapp', 'none', SUNSET_VIBES.geometry))!.top).toBeCloseTo(-318.8 + 948 - 448.81, 6);
     expect(placeArt(splash, artAnchors('story', 'week', SUNSET_VIBES.geometry)), 'the week draws no photo until stage 6').toBeNull();
+  });
+
+  // The plan's numbers (README §1.1 against the photo's bottom, PB): word 1 centred 70.19 left of the canvas's middle
+  // with its baseline 41.97 above PB, word 2 222.97 right of it and 61.12 lower; the box starts 193 above PB, so the
+  // baselines sit 151.03 and 212.15 into it on both canvases; the Spanish line 24 under the headline's ink, at 248.93.
+  // Each word's baseline falls 0.86 (Archivo Black) and 0.83 (Caveat Brush) into its line at line-height 1, as Chrome
+  // lays the face out (measured 2026-10-30): what turns a word about its baseline centre. Fitted to min(cap, 2 × the
+  // room to the nearer safe edge − margin): cap 840 / 560, margin 50 / 20.
+  it('places its headline staggered: each word centred at its own point, turned, the Spanish line centred under the ink (stage 2)', () => {
+    expect(SUNSET_VIBES.headline).toEqual({
+      kind: 'staggered',
+      word1: { dx: -70.19, y: 151.03, rise: 0.86, cap: 840, margin: 50 },
+      word2: { dx: 222.97, y: 212.15, rise: 0.83, cap: 560, margin: 20 },
+      spanishTop: 248.93,
+    });
+    expect(HAND_DRAWN.headline, 'hand-drawn stacks its lines').toBeUndefined();
   });
 
   it('draws no frame, today’s pill with no corners and no tilt (its line kind comes later), and the marks as hand-drawn', () => {

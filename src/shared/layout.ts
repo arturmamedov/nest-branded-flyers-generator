@@ -475,6 +475,17 @@ export function placeArt(d: { anchor?: ArtAnchor; x: number; y: number; w: numbe
   return { left: o.x + d.x * o.scale, top: o.y + d.y * o.scale, width: d.w * o.scale };
 }
 
+/** A staggered headline word's slot on a canvas (looks.ts, StaggeredWord): centred dx from the canvas's middle, as
+    wide as twice its distance to the nearer safe edge less its margin, never past its cap. The renderer fits the word
+    to it; the safe zone holds by construction. */
+export function wordSlot(canvas: CanvasId, word: { dx: number; cap: number; margin: number }): { left: number; width: number } {
+  const safe = safeBox(canvas);
+  const centre = CANVASES[canvas].width / 2 + word.dx;
+  const room = Math.min(centre - safe.left, safe.left + safe.width - centre);
+  const width = Math.min(word.cap, 2 * room - word.margin);
+  return { left: centre - width / 2, width };
+}
+
 /** Photo frame size per canvas and body, in a look's boxes, for crop maths. No photo, and a week flyer, have none. */
 export function photoFrame(canvas: CanvasId, body: Body, geometry: Geometry): { width: number; height: number } | null {
   const a = boxesOf(canvas, geometry).activity;

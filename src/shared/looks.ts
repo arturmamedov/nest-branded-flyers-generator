@@ -68,7 +68,8 @@ export interface LineType {
   readonly floor?: number;
   /** A fitted row of parts' gap, which shrinks first (data-fit-gap): the extras. */
   readonly gap?: number;
-  /** Turned about its own centre, in degrees, as drawn (the Sunset look's tilted words). Absent: upright. */
+  /** Turned in degrees, as drawn: about its own centre, or about its baseline centre for a word of a staggered
+      headline. The stacked headline kind leaves it (a turned word would lie on the line under it). Absent: upright. */
   readonly rotate?: number;
   /** Its own contrast minimum on its ground, where the look's rule does not fit the line (the Sunset handoff's 3:1 at
       headline scale, README §7.14). Absent: the look's (rules.minContrast). Held by tests/lookContract.ts. */
@@ -102,6 +103,28 @@ export type LineName =
   | 'weekPrice'
   | 'weekPriceSub';
 
+/** One word of a staggered headline (the Sunset look, README §1.1): where its centre sits (dx, from the canvas's
+    middle), where its baseline falls in the headline box (y, from the box's top, canvas px), where its baseline falls
+    in its own line at line-height 1 (rise, a share of the line from its top: the face's own, as Chrome lays it out,
+    measured once), and its room: it is fitted to min(cap, 2 × its distance to the nearer safe edge − margin), at its
+    line's floor (layout.ts, wordSlot). It turns by its line's rotate, about its baseline centre. */
+export interface StaggeredWord {
+  readonly dx: number;
+  readonly y: number;
+  readonly rise: number;
+  readonly cap: number;
+  readonly margin: number;
+}
+
+/** The headline's lines placed apart: each word at its own point and turned, the Spanish line centred at its own top
+    in the box (spanishTop, from the box's top), wrapping balanced. */
+export interface StaggeredHeadline {
+  readonly kind: 'staggered';
+  readonly word1: StaggeredWord;
+  readonly word2: StaggeredWord;
+  readonly spanishTop: number;
+}
+
 /** One look: what it is called, and what it decides about how a flyer prints. */
 export interface Look {
   /** Stored in data.look, so forever once a release accepts it. */
@@ -118,6 +141,10 @@ export interface Look {
   readonly faces: readonly { readonly family: string; readonly weight: number }[];
   /** Every line of copy. */
   readonly type: { readonly [L in LineName]: LineType };
+  /** How the Activity headline's lines are placed in their box. Absent: stacked, hand-drawn's (each line under the
+      last, the Spanish line 16 px under them). Staggered: the Sunset look's (2026-10-30). The week's title is stacked
+      in every look until This week B (the plan's stage 6). */
+  readonly headline?: StaggeredHeadline;
   /** What its copy is held to: a contrast every line reaches on its ground, and inks no line may print in. */
   readonly rules: { readonly minContrast: number; readonly forbiddenInks: readonly string[] };
   /** Its art for a flyer, each piece by the point it hangs from (layout.ts, artAnchors): the canvas, the photo's
