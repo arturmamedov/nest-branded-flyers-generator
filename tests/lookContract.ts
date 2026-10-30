@@ -52,6 +52,13 @@ export function lookContract(look: Look, faces: FaceSources): void {
     }
   });
 
+  // The icons and the rules are art in the look's files, drawn in its line colour: no line of copy declares it, so it is
+  // held here, to the minimum the Sunset handoff gives graphics (README §3.1: 3:1 on the ground).
+  it(`${look.id}: its line colour, the icons' and the rules', reaches 3:1 on the ground`, () => {
+    const paint = look.palette({ colors: DEFAULT_COLORS });
+    expect(contrast(paint.line, paint.ground), `${paint.line} on ${paint.ground}`).toBeGreaterThanOrEqual(3);
+  });
+
   it(`${look.id}: every art file it names is under assets/`, () => {
     const files = [
       ...Object.values(look.inline).map((name) => `assets/art/${name}.png`),

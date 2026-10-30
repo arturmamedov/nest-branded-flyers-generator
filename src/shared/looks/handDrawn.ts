@@ -152,6 +152,11 @@ export const HAND_DRAWN: Look = {
     placeholder: PHOTO_PLACEHOLDER,
     pillText: '#ffffff',
     pillDot: BRIGHT_TEAL,
+    // The three roles the Sunset look brought (2026-10-30): hand-drawn prints none of them apart, so each is the colour
+    // its lines have there anyway, and its rules draw in the text teal.
+    hot: colors.accent,
+    value: colors.ink,
+    line: DEEP_TEAL,
   }),
   body: BODY_FONT,
   faces: [

@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { ROOT } from '../../scripts/gen-shared.js';
 import { CANVAS_IDS, photoFrame, SHARED_GEOMETRY } from '../../src/shared/layout.js';
-import { lookIds, lookOf, looksToPick } from '../../src/shared/looks.js';
+import { allLooks, lookIds, lookOf, looksToPick } from '../../src/shared/looks.js';
 import { DEFAULT_COLORS, DEFAULT_DOODLES, HAND_DRAWN } from '../../src/shared/looks/handDrawn.js';
 import { fontPackage, lookContract } from '../lookContract.js';
 import { PROOF_LOOK_ID } from '../proof/id.js';
@@ -51,46 +51,67 @@ describe('the proof look', () => {
     expect(files.filter((f) => readFileSync(join(ROOT, 'src', f), 'utf8').includes(PROOF_LOOK_ID))).toEqual([]);
   });
 
-  describe('differs from hand-drawn in every token', () => {
+  // Against every look the release ships, not hand-drawn alone (docs/adding-a-look.md: a second shipped look arrived on
+  // 2026-10-30): a value the proof look shares with any of them is a value the renderer could read from the wrong look
+  // unseen.
+  describe('differs from every shipped look in every token', () => {
+    const shipped = allLooks().filter((l) => l.id !== PROOF_LOOK_ID);
     const lower = (values: Iterable<string>) => new Set([...values].map((v) => v.toLowerCase()));
     const shared = <T,>(a: Iterable<T>, b: Iterable<T>) => [...a].filter((v) => new Set(b).has(v));
 
-    it('its colours', () => {
-      const mine = lower(Object.values(PROOF_LOOK.palette({ colors: DEFAULT_COLORS })));
-      const theirs = lower(Object.values(HAND_DRAWN.palette({ colors: DEFAULT_COLORS })));
-      expect(shared(mine, theirs)).toEqual([]);
+    it('the shipped looks are the registry without it, hand-drawn first', () => {
+      expect(shipped[0]).toBe(HAND_DRAWN);
+      expect(shipped.map((l) => l.id)).toEqual(lookIds().filter((id) => id !== PROOF_LOOK_ID));
     });
 
-    it('its faces, and the font of every line', () => {
-      expect(shared(PROOF_LOOK.faces.map((f) => f.family), HAND_DRAWN.faces.map((f) => f.family))).toEqual([]);
-      expect(PROOF_LOOK.body).not.toBe(HAND_DRAWN.body);
-      for (const [line, t] of Object.entries(PROOF_LOOK.type)) {
-        const theirs = HAND_DRAWN.type[line as keyof typeof HAND_DRAWN.type];
-        expect(t.font, line).not.toBe(theirs.font);
-        expect(t.size, line).not.toBe(theirs.size);
-      }
-    });
+    for (const theirs of shipped) {
+      describe(`against ${theirs.id}`, () => {
+        it('its colours', () => {
+          const mine = lower(Object.values(PROOF_LOOK.palette({ colors: DEFAULT_COLORS })));
+          expect(shared(mine, lower(Object.values(theirs.palette({ colors: DEFAULT_COLORS }))))).toEqual([]);
+        });
 
-    it('its files: art, inline art and the wordmark', () => {
-      const files = (look: typeof PROOF_LOOK) => [...Object.values(look.inline), ...look.art({ doodles: DEFAULT_DOODLES }).map((d) => d.slug), look.wordmark];
-      expect(shared(files(PROOF_LOOK), files(HAND_DRAWN))).toEqual([]);
-    });
+        it('its faces, and the font and size of every line', () => {
+          expect(shared(PROOF_LOOK.faces.map((f) => f.family), theirs.faces.map((f) => f.family))).toEqual([]);
+          expect(PROOF_LOOK.body).not.toBe(theirs.body);
+          for (const [line, t] of Object.entries(PROOF_LOOK.type)) {
+            const other = theirs.type[line as keyof typeof theirs.type];
+            expect(t.font, line).not.toBe(other.font);
+            expect(t.size, line).not.toBe(other.size);
+          }
+        });
 
-    it('its frame and its pill', () => {
-      for (const key of ['path', 'stroke', 'photoRadius'] as const) expect(PROOF_LOOK.frame[key], key).not.toBe(HAND_DRAWN.frame[key]);
-      for (const key of Object.keys(HAND_DRAWN.pill) as (keyof typeof HAND_DRAWN.pill)[]) expect(PROOF_LOOK.pill[key], key).not.toBe(HAND_DRAWN.pill[key]);
-      expect(PROOF_LOOK.rules).not.toEqual(HAND_DRAWN.rules);
-    });
+        it('its files: art, inline art and the wordmark', () => {
+          const files = (look: typeof PROOF_LOOK) => [...Object.values(look.inline), ...look.art({ doodles: DEFAULT_DOODLES }).map((d) => d.slug), look.wordmark];
+          expect(shared(files(PROOF_LOOK), files(theirs))).toEqual([]);
+        });
 
-    it('its boxes on every canvas, the photo’s shape among them', () => {
-      for (const canvas of CANVAS_IDS) {
-        expect(PROOF_LOOK.geometry[canvas]?.boxes, canvas).toBeDefined();
+        it('its frame, its pill and its rules', () => {
+          for (const key of ['path', 'stroke', 'photoRadius'] as const) expect(PROOF_LOOK.frame[key], key).not.toBe(theirs.frame[key]);
+          for (const key of Object.keys(theirs.pill) as (keyof typeof theirs.pill)[]) expect(PROOF_LOOK.pill[key], key).not.toBe(theirs.pill[key]);
+          expect(PROOF_LOOK.rules).not.toEqual(theirs.rules);
+        });
+
+        it('its boxes on every canvas, the photo’s shape among them', () => {
+          for (const canvas of CANVAS_IDS) {
+            expect(PROOF_LOOK.geometry[canvas]?.boxes, canvas).toBeDefined();
+            for (const mode of ['bleed', 'band'] as const) {
+              const mine = photoFrame(canvas, mode, PROOF_LOOK.geometry)!;
+              const other = photoFrame(canvas, mode, theirs.geometry)!;
+              expect(mine.width / mine.height, `${canvas} / ${mode}`).not.toBeCloseTo(other.width / other.height, 2);
+            }
+          }
+        });
+      });
+    }
+
+    it('its boxes are not the shared table’s either', () => {
+      for (const canvas of CANVAS_IDS)
         for (const mode of ['bleed', 'band'] as const) {
           const mine = photoFrame(canvas, mode, PROOF_LOOK.geometry)!;
           const theirs = photoFrame(canvas, mode, SHARED_GEOMETRY)!;
           expect(mine.width / mine.height, `${canvas} / ${mode}`).not.toBeCloseTo(theirs.width / theirs.height, 2);
         }
-      }
     });
   });
 });

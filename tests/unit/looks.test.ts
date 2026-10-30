@@ -47,6 +47,10 @@ describe('the looks', () => {
       placeholder: '#E7E0CE',
       pillText: '#ffffff',
       pillDot: '#53CED1',
+      // The three roles the Sunset look brought (2026-10-30), each the colour hand-drawn prints there anyway.
+      hot: '#7A2E5C',
+      value: '#2B1D3A',
+      line: '#0D6F82',
     });
   });
 

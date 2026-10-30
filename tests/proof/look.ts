@@ -94,6 +94,9 @@ export const PROOF_LOOK: Look = {
     placeholder: '#33445C',
     pillText: '#1B2A41',
     pillDot: '#8FE3C0',
+    hot: '#FF9DC4',
+    value: '#9BE7FF',
+    line: '#B8F2A5',
   }),
   body: MONO,
   faces: [

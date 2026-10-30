@@ -37,6 +37,14 @@ export interface Palette {
   readonly pillText: string;
   /** The dot between the handle and the tag. */
   readonly pillDot: string;
+  /** The headline's first word, where a look prints it hotter than its accent (Sunset Vibes, 2026-10-30). Hand-drawn's is
+      its accent. */
+  readonly hot: string;
+  /** The chips' big lines and the week's days, where a look sets them apart from the ink. Hand-drawn's is its ink. */
+  readonly value: string;
+  /** The icons and the rules, which are art in the look's files: the colour they are held to (3:1 on the ground,
+      tests/lookContract.ts), never paint the renderer mixes. */
+  readonly line: string;
 }
 
 /** A colour of the palette, by its name. */
