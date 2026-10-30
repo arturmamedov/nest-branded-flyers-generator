@@ -66,6 +66,11 @@ export interface LineType {
   readonly floor?: number;
   /** A fitted row of parts' gap, which shrinks first (data-fit-gap): the extras. */
   readonly gap?: number;
+  /** Turned about its own centre, in degrees, as drawn (the Sunset look's tilted words). Absent: upright. */
+  readonly rotate?: number;
+  /** Its own contrast minimum on its ground, where the look's rule does not fit the line (the Sunset handoff's 3:1 at
+      headline scale, README §7.14). Absent: the look's (rules.minContrast). Held by tests/lookContract.ts. */
+  readonly minContrast?: number;
   /** The colour it prints in, and the one it sits on: the contrast its look holds it to (looks.test.ts). */
   readonly ink: PaletteRole;
   readonly on: PaletteRole;

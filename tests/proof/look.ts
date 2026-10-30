@@ -104,10 +104,11 @@ export const PROOF_LOOK: Look = {
     { family: PROOF_FAMILY, weight: 700 },
   ],
   type: {
-    eyebrow: { font: MONO, weight: 700, size: 32, lineHeight: 1.1, spacing: '0.06em', upper: true, ink: 'ink', on: 'ground' },
+    // Turned a little, and the Spanish line held to a minimum of its own: tokens a line may set, which no shipped look sets there.
+    eyebrow: { font: MONO, weight: 700, size: 32, lineHeight: 1.1, spacing: '0.06em', upper: true, rotate: 2, ink: 'ink', on: 'ground' },
     headline1: { font: MONO, weight: 700, size: 84, lineHeight: 1.1, floor: 0.45, ink: 'ink', on: 'ground' },
     headline2: { font: MONO, weight: 700, size: 108, lineHeight: 1.05, floor: 0.45, ink: 'accent', on: 'ground' },
-    spanish: { font: MONO, weight: 400, size: 32, lineHeight: 1.3, floor: 0.75, ink: 'muted', on: 'ground' },
+    spanish: { font: MONO, weight: 400, size: 32, lineHeight: 1.3, floor: 0.75, minContrast: 6, ink: 'muted', on: 'ground' },
     chipLabel: { font: MONO, weight: 400, size: 24, spacing: '0.2em', upper: true, ink: 'accent', on: 'surface' },
     costGlyph: { font: MONO, weight: 700, size: 34, lineHeight: 1.1, ink: 'accent', on: 'surface' },
     chipBig: { font: MONO, weight: 700, size: 38, lineHeight: 1.15, floor: 0.5, ink: 'ink', on: 'surface' },

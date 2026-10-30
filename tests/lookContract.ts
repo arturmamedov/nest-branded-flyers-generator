@@ -42,12 +42,14 @@ export function lookContract(look: Look, faces: FaceSources): void {
   // Each look declares its inks and the grounds under them, and is held to its own minimum (the owner's answer 10:
   // another look's numbers are decided when its design arrives). This holds the registry, not a stored flyer:
   // hand-drawn's three flyer colours are checked as a new flyer has them.
+  // A line may carry a minimum of its own (the Sunset handoff's 3:1 at headline scale, README §7.14): it is held to that.
   it(`${look.id}: every line of copy reaches its contrast on the ground it sits on, in no ink the look forbids`, () => {
     const paint = look.palette({ colors: DEFAULT_COLORS });
     const forbidden = look.rules.forbiddenInks.map((c) => c.toLowerCase());
     for (const [line, t] of Object.entries(look.type)) {
       const ratio = contrast(paint[t.ink], paint[t.on]);
-      expect(ratio, `${line}: ${paint[t.ink]} on ${paint[t.on]}`).toBeGreaterThanOrEqual(look.rules.minContrast);
+      const need = t.minContrast ?? look.rules.minContrast;
+      expect(ratio, `${line}: ${paint[t.ink]} on ${paint[t.on]}, held to ${need}`).toBeGreaterThanOrEqual(need);
       expect(forbidden, `${line}: ${paint[t.ink]}`).not.toContain(paint[t.ink].toLowerCase());
     }
   });

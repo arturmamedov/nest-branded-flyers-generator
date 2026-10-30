@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { ROOT } from '../../scripts/gen-shared.js';
 import { CANVAS_IDS, photoFrame, SHARED_GEOMETRY } from '../../src/shared/layout.js';
-import { allLooks, lookIds, lookOf, looksToPick } from '../../src/shared/looks.js';
+import { allLooks, lookIds, lookOf, looksToPick, type LineType, type Look } from '../../src/shared/looks.js';
 import { DEFAULT_COLORS, DEFAULT_DOODLES, HAND_DRAWN } from '../../src/shared/looks/handDrawn.js';
 import { fontPackage, lookContract } from '../lookContract.js';
 import { PROOF_LOOK_ID } from '../proof/id.js';
@@ -104,6 +104,17 @@ describe('the proof look', () => {
         });
       });
     }
+
+    // A token a line may set or leave (its turn, its own contrast minimum): the proof look sets each on a line where no
+    // shipped look does, so a renderer that read it from the wrong look would show in its specs.
+    it('its lines turn, and hold their own minimum, where no shipped look’s do', () => {
+      const lines = Object.entries(PROOF_LOOK.type) as [keyof Look['type'], LineType][];
+      for (const token of ['rotate', 'minContrast'] as const) {
+        const set = lines.filter(([, t]) => t[token] !== undefined);
+        expect(set.length, token).toBeGreaterThan(0);
+        for (const [line, t] of set) for (const theirs of shipped) expect(t[token], `${line}: ${token}, as ${theirs.id}`).not.toBe(theirs.type[line][token]);
+      }
+    });
 
     it('its boxes are not the shared table’s either', () => {
       for (const canvas of CANVAS_IDS)

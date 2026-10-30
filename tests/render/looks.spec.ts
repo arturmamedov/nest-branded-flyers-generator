@@ -53,6 +53,17 @@ for (const canvas of CANVAS_IDS) {
   });
 }
 
+test('a line the look turns is drawn turned: the proof look’s eyebrow', async ({ page, request }) => {
+  const pool = (await samples(request)).find((p) => p.flyer.title === 'Pool party')!;
+  await drawPayload(page, inProof(pool), 'story');
+  const turn = PROOF_LOOK.type.eyebrow.rotate!;
+  expect(turn, 'the proof look turns its eyebrow').not.toBe(0);
+  // The computed transform is a matrix(a, b, c, d, tx, ty): a rotation by θ has a = cos θ and b = sin θ.
+  const matrix = await page.getByText(pool.flyer.data.text.eyebrow, { exact: true }).evaluate((el) => getComputedStyle(el).transform);
+  const [a, b] = matrix.replace(/^matrix\(|\)$/g, '').split(',').map(Number);
+  expect((Math.atan2(b, a) * 180) / Math.PI).toBeCloseTo(turn, 3);
+});
+
 /** Runs in the page: every paint the flyer draws with, by what it is (a colour, a font, a file), the photo aside. */
 function paints() {
   const file = (url: string) => url.split('/').pop()!.split('?')[0];

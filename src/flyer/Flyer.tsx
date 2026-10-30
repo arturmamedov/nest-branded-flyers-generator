@@ -50,6 +50,7 @@ function typeStyle(line: LineType, paint: Palette): CSSProperties {
     letterSpacing: line.spacing,
     textTransform: line.upper ? 'uppercase' : undefined,
     color: paint[line.ink],
+    transform: line.rotate ? `rotate(${line.rotate}deg)` : undefined,
   };
 }
 
