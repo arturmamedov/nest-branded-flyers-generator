@@ -165,12 +165,19 @@ export async function checkDrawn(page: Page, payload: FlyerPayload, canvas: Canv
         file: file(el),
       };
     });
+    // The streaks over the headline words: each slot (the point a streak hangs from) and each streak shown, a picture
+    // made and decoded.
+    const streaks = {
+      slots: document.querySelectorAll('[data-group=headline] [data-streak]').length,
+      shown: [...document.querySelectorAll<HTMLImageElement>('[data-flyer] img[data-deco=streak]')].filter((i) => i.style.display !== 'none' && i.src.startsWith('data:image/png') && i.naturalWidth > 0).length,
+    };
     return {
       art,
       pillArt,
       inline,
       clips,
       unhooked,
+      streaks,
       drawn: document.querySelector<HTMLElement>('[data-flyer]')!.dataset.canvas,
       drawnLook: document.querySelector<HTMLElement>('[data-flyer]')!.dataset.look,
       groups,
@@ -246,6 +253,12 @@ export async function checkDrawn(page: Page, payload: FlyerPayload, canvas: Canv
       };
     }),
   );
+
+  // The streaks (looks.ts, Streaks): one over each headline word the look streaks and the flyer prints, drawn by the
+  // staggered kind alone (the week's title is stacked, and hand-drawn stacks everything), each shown; a word cut at its
+  // floor is streaked as drawn. A look with none, and a week flyer, show none.
+  const streaked = look.headline && look.streaks && body !== 'week' ? (['headline1', 'headline2'] as const).filter((l) => look.streaks![l] && t[l]).length : 0;
+  expect(r.streaks, `${label}: the streaks over the headline words`).toEqual({ slots: streaked, shown: streaked });
 
   // The art where the look hangs it, from data that went through the store: hand-drawn's template set is
   // recognised and follows the canvas (the blobs to its corners, in each other's ink). The art at the end of the

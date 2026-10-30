@@ -1,5 +1,6 @@
 import { lookOf } from '../shared/looks';
 import { fitFlyer, type FitReport } from './fit';
+import { streakFlyer } from './streaks';
 
 const frame = () => new Promise<void>((r) => requestAnimationFrame(() => r()));
 
@@ -20,9 +21,10 @@ function preload(url: string): Promise<void> {
 }
 
 /** Load fonts for the actual copy (unicode-range subsets included), decode
-    every image and background, then fit. Export must run this before the
-    screenshot or the PNG will not match the preview. The faces are those of the
-    look the flyer is drawn in, which its root names (data-look). */
+    every image and background, then fit, then draw the streaks over the words
+    as fitted (streaks.ts; a look with none costs nothing). Export must run this
+    before the screenshot or the PNG will not match the preview. The faces are
+    those of the look the flyer is drawn in, which its root names (data-look). */
 export async function prepareFlyer(root: HTMLElement): Promise<FitReport> {
   const sample = (root.textContent || '') + 'AaÁáÑñ€¡¿·—';
   const { faces } = lookOf({ look: root.dataset.look });
@@ -40,6 +42,7 @@ export async function prepareFlyer(root: HTMLElement): Promise<FitReport> {
   fitFlyer(root);
   await frame();
   const report = fitFlyer(root);
+  await streakFlyer(root);
   await frame();
   await frame();
   return report;

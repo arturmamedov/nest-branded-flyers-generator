@@ -1,7 +1,9 @@
 import { readFileSync } from 'node:fs';
+import type { Page } from '@playwright/test';
 import { PNG } from 'pngjs';
 import { expect, test } from '../browser';
-import { EDITOR_VIEWPORT, canvasButton, clientOnlyEditor, download, exportFit, libraryCard } from '../editor';
+import { EDITOR_VIEWPORT, canvasButton, clientOnlyEditor, download, exportFit, libraryCard, openSection } from '../editor';
+import { FIELD } from '../../src/editor/fields';
 import { drawPayload } from './drawn';
 import { checkDrawn, drawnSamples, samples } from './drawnChecks';
 import { pixel, serverPng } from './exports';
@@ -236,6 +238,123 @@ for (const look of SHIPPED) {
     });
   }
 
+  if (look.headline && look.streaks) {
+    const kind = look.headline;
+    const streaks = look.streaks;
+    /** What the page shows of each streak: its slot, its picture and the word it lies over. */
+    const readStreaks = (page: Page) =>
+      page.evaluate(() => {
+        const box = document.querySelector<HTMLElement>('[data-group=headline]')!.getBoundingClientRect();
+        return [...document.querySelectorAll<HTMLElement>('[data-group=headline] [data-streak]')].map((slot) => {
+          const img = slot.querySelector('img')!;
+          const word = slot.parentElement!.querySelector<HTMLElement>(`[data-word="${slot.dataset.streak}"]`)!;
+          const at = img.getBoundingClientRect();
+          const of = word.getBoundingClientRect();
+          const s = getComputedStyle(slot);
+          return {
+            word: slot.dataset.streak,
+            key: slot.dataset.streakKey,
+            ink: slot.dataset.streakInk,
+            cover: slot.dataset.streakCover,
+            minD: slot.dataset.streakMin,
+            slot: { left: slot.offsetLeft, top: slot.offsetTop, width: slot.offsetWidth, height: slot.offsetHeight, contain: s.contain },
+            hook: img.dataset.deco,
+            shown: img.style.display !== 'none',
+            src: img.src,
+            natural: { width: img.naturalWidth, height: img.naturalHeight },
+            rect: { left: at.left - box.left, top: at.top - box.top, width: at.width, height: at.height },
+            wordRect: { left: of.left - box.left, top: of.top - box.top, width: of.width, height: of.height },
+            wordWidth: word.offsetWidth,
+            size: parseFloat(word.style.fontSize),
+          };
+        });
+      });
+
+    /* The streaks (README §1.1 layers 17 and 19; Artur's answer 8): a dry-brush knock-out over each word, made at render
+       from the word as fitted, in the ground colour, at 2×, hung from the word's baseline centre (the slot's top-middle),
+       the same every time the flyer is drawn. The slot is a point of no size laid out by itself, so the picture counts
+       in no box's overflow (the fit's height pass reads it). */
+    test(`${look.id}: a dry-brush streak over each headline word: in the ground colour at 2×, from the word's baseline centre, the same twice`, async ({ page, request }) => {
+      test.setTimeout(120_000);
+      const pool = (await samples(request)).find((p) => p.flyer.title === 'Pool party')!;
+      const ground = look.palette({ colors: DEFAULT_COLORS }).ground.toUpperCase();
+      for (const canvas of CANVAS_IDS) {
+        await drawPayload(page, inLook(pool, look), canvas);
+        const box = boxesOf(canvas, look.geometry).activity.headline;
+        const first = await readStreaks(page);
+        expect(first.map((s) => s.word), `${canvas}: a streak per word`).toEqual(['1', '2']);
+        for (const s of first) {
+          const w = s.word === '1' ? kind.word1 : kind.word2;
+          const spec = s.word === '1' ? streaks.headline1! : streaks.headline2!;
+          const label = `${canvas}: word ${s.word}`;
+          const slot = wordSlot(canvas, w);
+          // The slot: the word's baseline centre, no size, laid out by itself; the look's numbers on it.
+          expect(Math.abs(s.slot.left - (slot.left - box.left + slot.width / 2)), `${label}: the slot at the slot's middle`).toBeLessThanOrEqual(1);
+          expect(Math.abs(s.slot.top - w.y), `${label}: the slot on the baseline's row`).toBeLessThanOrEqual(1);
+          expect([s.slot.width, s.slot.height, s.slot.contain], `${label}: a point laid out by itself`).toEqual([0, 0, 'layout']);
+          expect({ ink: s.ink, cover: s.cover, minD: s.minD }, `${label}: the look's streak`).toEqual({ ink: ground, cover: String(spec.cover), minD: String(spec.minD) });
+          // The picture: shown, hooked as a decoration, a PNG at twice its size, over the word, the baseline centre inside it.
+          expect(s.hook, `${label}: hooked`).toBe('streak');
+          expect(s.shown, `${label}: shown`).toBe(true);
+          expect(s.src.startsWith('data:image/png;base64,'), `${label}: a PNG`).toBe(true);
+          expect(s.natural, `${label}: at 2×`).toEqual({ width: Math.round(2 * s.rect.width), height: Math.round(2 * s.rect.height) });
+          expect(s.rect.left <= s.slot.left + 1 && s.slot.left <= s.rect.left + s.rect.width + 1, `${label}: the baseline centre inside the streak, across`).toBe(true);
+          expect(s.rect.top <= s.slot.top + 1 && s.slot.top <= s.rect.top + s.rect.height + 1, `${label}: the baseline centre inside the streak, down`).toBe(true);
+          // As wide as the word's ink, give or take the turn and the 4 px round it: never wider than the box, never a sliver.
+          expect(s.rect.width, `${label}: over the word`).toBeGreaterThan(s.size * 2);
+          expect(s.rect.width, `${label}: no wider than the box`).toBeLessThanOrEqual(box.width + 8);
+          // Every painted pixel is the ground; some of the word is knocked out, most of it is not.
+          const png = PNG.sync.read(Buffer.from(s.src.slice('data:image/png;base64,'.length), 'base64'));
+          let painted = 0;
+          let covered = 0;
+          const wrong = new Set<string>();
+          for (let p = 0; p < png.data.length; p += 4) {
+            const a = png.data[p + 3];
+            if (!a) continue;
+            painted++;
+            covered += a / 255;
+            const hex = `#${[png.data[p], png.data[p + 1], png.data[p + 2]].map((v) => v.toString(16).padStart(2, '0')).join('')}`.toUpperCase();
+            if (hex !== ground) wrong.add(hex);
+          }
+          expect([...wrong], `${label}: the streak's ink`).toEqual([]);
+          expect(painted, `${label}: knocked out`).toBeGreaterThan(0);
+          expect(covered / (png.width * png.height), `${label}: a share of the word, not the word`).toBeLessThan(0.3);
+        }
+        // Deterministic: drawn again, the same pictures (the seed is the word, its face, size, spacing and turn).
+        await drawPayload(page, inLook(pool, look), canvas);
+        const again = await readStreaks(page);
+        expect(again.map((s) => [s.key, s.src]), `${canvas}: the same twice`).toEqual(first.map((s) => [s.key, s.src]));
+        expect(first[0].key, `${canvas}: seeded by the word, its font, its size and its turn`).toContain(`${first[0].size}px`);
+      }
+      // A word cut at its floor is streaked as drawn: the stress test's first word is wider than its slot, and so is its streak.
+      const stress = (await samples(request)).find((p) => p.flyer.title === 'Long copy · stress test')!;
+      await drawPayload(page, inLook(stress, look), 'story');
+      const cut = await readStreaks(page);
+      expect(cut.map((s) => s.shown)).toEqual([true, true]);
+      expect(cut[0].rect.width, 'the cut word, streaked as drawn').toBeGreaterThan(cut[0].wordWidth);
+    });
+
+    test(`${look.id}: the preview draws the streaks, and draws them again as a word is typed`, async ({ page, request }) => {
+      await page.setViewportSize(EDITOR_VIEWPORT);
+      const { id } = await sampleCopy(request, 'Pool party', 'band', keep, look.id);
+      await page.goto(`/#/flyers/${id}`);
+      const shown = page.locator('.stage-canvas [data-flyer] img[data-deco=streak]');
+      await expect(shown).toHaveCount(2);
+      for (const i of [0, 1]) await expect(shown.nth(i)).toBeVisible();
+      const before = await shown.first().getAttribute('src');
+      await openSection(page, FIELD.headline);
+      await page.getByLabel(FIELD.line1).fill('Sunset');
+      const slot = page.locator('.stage-canvas [data-flyer] [data-streak="1"]');
+      await expect(slot).toHaveAttribute('data-streak-key', /^SUNSET\|/);
+      await expect(shown.first()).toBeVisible();
+      await expect.poll(() => shown.first().getAttribute('src')).not.toBe(before);
+      // Emptied, no streak over nothing.
+      await page.getByLabel(FIELD.line1).fill('');
+      await expect(page.locator('.stage-canvas [data-flyer] [data-streak="1"]')).toHaveCount(0);
+      await expect(shown).toHaveCount(1);
+    });
+  }
+
   test(`${look.id}: a library card shows its flyer in it, fitted as the export fits it`, async ({ page, request }) => {
     await page.setViewportSize(EDITOR_VIEWPORT);
     const { id, title } = await sampleCopy(request, 'Long copy · stress test', 'band', keep, look.id);
@@ -247,5 +366,8 @@ for (const look of SHIPPED) {
     const flyer = card.locator('.card-thumb [data-flyer]');
     await expect(flyer).toHaveAttribute('data-look', look.id);
     expect(await flyer.evaluate((root) => [...root.querySelectorAll<HTMLElement>('[data-fit]')].map((el) => el.style.fontSize)), 'card = export').toEqual(want);
+    // The card carries the streaks the export carries (the stress test's words, cut at their floor, streaked as drawn).
+    const streaked = look.streaks ? Object.keys(look.streaks).length : 0;
+    expect(await flyer.evaluate((root) => [...root.querySelectorAll<HTMLImageElement>('img[data-deco=streak]')].filter((i) => i.style.display !== 'none' && i.src.startsWith('data:image/png')).length), 'the card’s streaks').toBe(streaked);
   });
 }

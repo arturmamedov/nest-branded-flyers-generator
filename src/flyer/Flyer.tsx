@@ -4,7 +4,7 @@ import { EYEBROW_MARK, marksFor, marksOf } from '../shared/defaults';
 import { printedExtras } from '../shared/extras';
 import { BODY_FONT } from '../shared/fonts';
 import { ASK_MAX_WIDTH, CANVASES, PILL_TILT_ROOM, artAnchors, bodyOf, boxesOf, photoFrame, pillBox, placeArt, safeBox, wordSlot, type ArtPoints, type CanvasId, type Rect, type WeekBoxes } from '../shared/layout';
-import { lookOf, type ArtPlacement, type LineType, type Look, type Palette, type StaggeredHeadline, type StaggeredWord } from '../shared/looks';
+import { lookOf, type ArtPlacement, type LineType, type Look, type Palette, type StaggeredHeadline, type StaggeredWord, type Streaks } from '../shared/looks';
 import { coverRect } from '../shared/photo';
 import type { FlyerData, FlyerText, Hostel, PhotoInfo } from '../shared/schema';
 import { printedRows, type PrintedRow } from '../shared/week';
@@ -137,36 +137,55 @@ function Headline({ group, box, W, t, type, paint }: { group: 'headline' | 'titl
     (layout.ts, wordSlot), and the word is fitted to it. Its baseline centre lands on the slot's top-middle: the line
     box is turned about that point (the baseline's share of the line, rise) and then moved up by the same share, in em,
     so the fit's size carries it. The words are out of the flow, so a long Spanish line never moves them; a turned
-    word's line box still counts in the box's height (the height pass), and the box clips at the safe column. */
-function StaggeredHeadlineBlock({ box, canvas, W, t, type, paint, kind }: { box: Rect; canvas: CanvasId; W: number; t: FlyerText; type: Lines; paint: Palette; kind: StaggeredHeadline }) {
-  const word = (key: 1 | 2, line: LineType, text: string, w: StaggeredWord) => {
+    word's line box still counts in the box's height (the height pass), and the box clips at the safe column.
+    A word the look streaks (Streaks) gets a slot after it: a point of no size at its baseline centre, laid out by
+    itself (contain: layout), holding the streak's picture, which streaks.ts makes after the fit from the word as fitted
+    and writes in, as fit.ts writes a line's size. From the slot the picture counts in no box's overflow: the fit's
+    height pass reads that, and would shrink the word under its own streak. */
+function StaggeredHeadlineBlock({ box, canvas, W, t, type, paint, kind, streaks }: { box: Rect; canvas: CanvasId; W: number; t: FlyerText; type: Lines; paint: Palette; kind: StaggeredHeadline; streaks: Streaks | undefined }) {
+  const word = (key: 1 | 2, name: 'headline1' | 'headline2', text: string, w: StaggeredWord) => {
+    const line = type[name];
     const slot = wordSlot(canvas, w);
+    const streak = streaks?.[name];
     // The line's own turn is drawn here, about the baseline centre, not about the box's centre as typeStyle draws it.
     return (
-      <div
-        data-word={key}
-        {...fitOf(line)}
-        style={{
-          ...upright(line, paint),
-          position: 'absolute',
-          left: slot.left - box.left,
-          top: w.y,
-          width: slot.width,
-          lineHeight: 1,
-          textAlign: 'center',
-          whiteSpace: 'nowrap',
-          transformOrigin: `50% ${w.rise * 100}%`,
-          transform: `translateY(${-w.rise}em)${line.rotate ? ` rotate(${line.rotate}deg)` : ''}`,
-        }}
-      >
-        {text}
-      </div>
+      <Fragment key={key}>
+        <div
+          data-word={key}
+          {...fitOf(line)}
+          style={{
+            ...upright(line, paint),
+            position: 'absolute',
+            left: slot.left - box.left,
+            top: w.y,
+            width: slot.width,
+            lineHeight: 1,
+            textAlign: 'center',
+            whiteSpace: 'nowrap',
+            transformOrigin: `50% ${w.rise * 100}%`,
+            transform: `translateY(${-w.rise}em)${line.rotate ? ` rotate(${line.rotate}deg)` : ''}`,
+          }}
+        >
+          {text}
+        </div>
+        {streak && (
+          <div
+            data-streak={key}
+            data-streak-cover={streak.cover}
+            data-streak-min={streak.minD}
+            data-streak-ink={paint.ground}
+            style={{ position: 'absolute', left: slot.left - box.left + slot.width / 2, top: w.y, width: 0, height: 0, contain: 'layout' }}
+          >
+            <img data-deco="streak" alt="" style={{ position: 'absolute', display: 'none', maxWidth: 'none', pointerEvents: 'none' }} />
+          </div>
+        )}
+      </Fragment>
     );
   };
   return (
     <div data-group="headline" data-fit-box="1" style={{ position: 'absolute', ...across(box, W), top: box.top, height: box.height, overflow: 'hidden' }}>
-      {t.headline1 && word(1, type.headline1, t.headline1, kind.word1)}
-      {t.headline2 && word(2, type.headline2, t.headline2, kind.word2)}
+      {t.headline1 && word(1, 'headline1', t.headline1, kind.word1)}
+      {t.headline2 && word(2, 'headline2', t.headline2, kind.word2)}
       {t.headlineEs && (
         <div {...fitOf(type.spanish)} style={{ ...typeStyle(type.spanish, paint), position: 'absolute', left: 0, right: 0, top: kind.spanishTop, textAlign: 'center', textWrap: 'balance' }}>
           {t.headlineEs}
@@ -389,7 +408,7 @@ export function Flyer({ data, canvas, hostel, photo, showSafeZones = false, ref 
       ) : (
         <>
           {look.headline ? (
-            <StaggeredHeadlineBlock box={head} canvas={canvas} W={W} t={t} type={type} paint={paint} kind={look.headline} />
+            <StaggeredHeadlineBlock box={head} canvas={canvas} W={W} t={t} type={type} paint={paint} kind={look.headline} streaks={look.streaks} />
           ) : (
             <Headline group="headline" box={head} W={W} t={t} type={type} paint={paint} />
           )}

@@ -1,5 +1,6 @@
 import { useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent, type RefObject } from 'react';
 import { fitFlyer, type FitReport } from '../flyer/fit';
+import { streakFlyer } from '../flyer/streaks';
 import { Flyer } from '../flyer/Flyer';
 import { CANVASES, CANVAS_IDS, activityGroups, bodyOf, photoFrame, type CanvasId } from '../shared/layout';
 import { lookOf } from '../shared/looks';
@@ -56,11 +57,15 @@ interface Props {
 
 /** Refits whenever a font subset arrives (the copy's glyphs change width) and
     returns refit: the caller refits on content changes, before paint on screen,
-    deferred offscreen. */
-function useFit(ref: RefObject<HTMLDivElement | null>, canvas: CanvasId, onFit: FitCallback) {
+    deferred offscreen. The canvas on screen draws its streaks after each fit
+    (streaks.ts: a streak made before shows at once, a new word's once made); a
+    canvas nobody sees skips them, since its fit alone is what the editor reads. */
+function useFit(ref: RefObject<HTMLDivElement | null>, canvas: CanvasId, onFit: FitCallback, shown = false) {
   const refit = useCallback(() => {
-    if (ref.current) onFit(canvas, fitFlyer(ref.current));
-  }, [ref, canvas, onFit]);
+    if (!ref.current) return;
+    onFit(canvas, fitFlyer(ref.current));
+    if (shown) void streakFlyer(ref.current);
+  }, [ref, canvas, onFit, shown]);
   useEffect(() => {
     document.fonts.ready.then(refit);
     document.fonts.addEventListener('loadingdone', refit);
@@ -89,7 +94,7 @@ export function Preview({ data, canvas, hostel, photo, showSafeZones, actualSize
   }, []);
 
   // The canvas on screen fits before paint, so the preview never shows unfitted copy.
-  const refit = useFit(flyerRef, canvas, onFit);
+  const refit = useFit(flyerRef, canvas, onFit, true);
   useLayoutEffect(refit, [data, hostel, refit]);
 
   // The photo frame of the flyer's own look. No frame, no handle: "No photo", and a week flyer, whatever photo mode it
