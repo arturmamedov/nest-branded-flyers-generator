@@ -15,7 +15,8 @@ import { Lightbox } from './Lightbox';
 import { useOneAction } from './oneAction';
 import { pictureActions, type Answer } from './pictureActions';
 import { go, onPage } from './route';
-import { savedCanvas } from './prefs';
+import { browserMemory, localStorageGet, savedCanvas } from './prefs';
+import { RECENT_PREF, byRecent, forgetFlyer, recentFrom, rememberOpened, type Recent } from './recentFlyers';
 import { canShareFiles } from './shareSheet';
 import { TEMPLATE_LABEL, isTemplate } from './templates';
 import { Toasts } from './Toasts';
@@ -57,6 +58,9 @@ export function Library({ hostels, exporter }: { hostels: Hostel[]; exporter: Fl
   const { state, choose, type } = useLibraryUrl(slugs);
   const { hostel: filter, template, label, q: query, view } = state;
   const [items, setItems] = useState<FlyerListItem[] | null>(null);
+  // The flyers this browser opened last (recentFlyers.ts), as they were when the list loaded: one opened from a card
+  // meanwhile is remembered at once, and moves up at the next load. Nothing moves under the staff member's hand.
+  const [recent, setRecent] = useState<Recent[]>([]);
   const [error, setError] = useState<string | null>(null);
   // The library scrolls inside itself (editor.css): each card's nearness is measured against this.
   const scroller = useRef<HTMLDivElement>(null);
@@ -111,6 +115,7 @@ export function Library({ hostels, exporter }: { hostels: Hostel[]; exporter: Fl
       (list) => {
         if (n !== latest.current) return;
         setItems(list);
+        setRecent(recentFrom(localStorageGet(RECENT_PREF)));
         setError(null);
       },
       (e) => {
@@ -146,16 +151,20 @@ export function Library({ hostels, exporter }: { hostels: Hostel[]; exporter: Fl
     box.current?.focus();
     choose({ q: '', hostel: '', template: '', label: ALL_LABELS });
   };
-  const found = searching && items ? findFlyers(items, words, (item) => flyers.answer(item.id, item.updatedAt)) : null;
-  const shown: { item: FlyerListItem; found: Found | null }[] = found?.found ?? items?.map((item) => ({ item, found: null })) ?? [];
+  // The recent ones first, then newest first; a search keeps that order within each of its ranks.
+  const ordered = useMemo(() => byRecent(items ?? [], recent), [items, recent]);
+  const found = searching && items ? findFlyers(ordered.items, words, (item) => flyers.answer(item.id, item.updatedAt)) : null;
+  const shown: { item: FlyerListItem; found: Found | null }[] = found?.found ?? ordered.items.map((item) => ({ item, found: null }));
 
   // A flyer's ways out. It is saved, so its picture is the export alone: no save first, as the editor's needs.
   const waysOf = (target: Target) => {
     const { id } = target.item;
+    // A way out that worked (the page says so) makes the flyer one of the ones opened last (the owner's answer).
     const start = (kind: ExportAction | CardAction, fn: () => Promise<Answer>) =>
       void run({ id, kind }, async () => {
         const answer = await fn();
         setOwner(target);
+        if (answer) rememberOpened(browserMemory, id, Date.now());
         return answer;
       });
     return pictureActions({
@@ -163,6 +172,7 @@ export function Library({ hostels, exporter }: { hostels: Hostel[]; exporter: Fl
       say: (m) => {
         setOwner(target);
         setMessage(m);
+        if (m.kind === 'ok') rememberOpened(browserMemory, id, Date.now());
       },
       picture: (format) => exporter.export({ id, format, canvas }),
       caption: target.payload.flyer.data.share,
@@ -191,6 +201,7 @@ export function Library({ hostels, exporter }: { hostels: Hostel[]; exporter: Fl
     if (!confirm(`Archive "${item.title}"? It disappears from the library.`)) return;
     void run({ id: item.id, kind: 'archive' }, async () => {
       await api.archive(item.id);
+      forgetFlyer(browserMemory, item.id);
       await load();
     });
   };
@@ -312,7 +323,7 @@ export function Library({ hostels, exporter }: { hostels: Hostel[]; exporter: Fl
         {shown.length > 0 && (
           <ul className={`cards cards-${view}`}>
             {shown.map(({ item: f, found: hit }) => (
-              <LibraryCard key={f.id} item={f} words={words} why={hit?.why ?? null} scroller={scroller} flyers={flyers} canvas={canvas} offer={offer} busy={busy} ways={waysOf} onZoom={zoom} onDuplicate={duplicate} onArchive={archive} />
+              <LibraryCard key={f.id} item={f} openedAt={ordered.openedAt.get(f.id) ?? null} words={words} why={hit?.why ?? null} scroller={scroller} flyers={flyers} canvas={canvas} offer={offer} busy={busy} ways={waysOf} onZoom={zoom} onDuplicate={duplicate} onArchive={archive} />
             ))}
           </ul>
         )}

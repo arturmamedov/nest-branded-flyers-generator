@@ -8,6 +8,7 @@ import { FlyerThumb, flyerSize, useNearFlyer } from './FlyerThumb';
 import type { FlyerAnswers } from './libraryFlyers';
 import { marked, metaOf, type Part, type Why } from './librarySearch';
 import { Menu } from './Menu';
+import { openedAgo } from './recentFlyers';
 import { go } from './route';
 import { WaysOut } from './WaysOut';
 
@@ -61,6 +62,7 @@ function ZoomIcon() {
 
 export function LibraryCard({
   item,
+  openedAt,
   words,
   why,
   scroller,
@@ -74,6 +76,8 @@ export function LibraryCard({
   onArchive,
 }: {
   item: FlyerListItem;
+  /** When this browser opened it, for one of the flyers opened last (recentFlyers.ts); null for the rest. */
+  openedAt: number | null;
   /** The words searched for, marked where the card shows them; none when nothing is searched. */
   words: readonly string[];
   /** Why the flyer is found, where the card shows none of the words: its "why" line. */
@@ -117,6 +121,9 @@ export function LibraryCard({
             </span>
             <span className="card-meta">
               <Marked parts={marked(meta.hostel, words)} /> · <Marked parts={marked(meta.template, words)} /> · {when(item.updatedAt)}
+              {/* A line of its own (the owner's pick from pictures, 2026-10-15): at the end of the line it grew a
+                  desktop card and wrapped mid-phrase in a phone's grid. Never searched: it is not the flyer's. */}
+              {openedAt !== null && <span className="card-opened">{openedAgo(openedAt, Date.now())}</span>}
             </span>
             {/* One line, cut at the card's edge (the owner's answer), for a flyer found by its share text or its copy. */}
             {why && (

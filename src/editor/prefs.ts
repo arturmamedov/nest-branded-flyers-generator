@@ -20,6 +20,9 @@ export function localStorageSet(key: string, value: string) {
   }
 }
 
+/** The same two, as one store: what the pure rules that remember (libraryUrl.ts, recentFlyers.ts) are handed. */
+export const browserMemory = { get: localStorageGet, set: localStorageSet };
+
 /** The canvas on screen is how this viewer likes to work, never flyer data: the one they last chose in the editor,
     else the default. The library's lightbox and its ways out make the same one. */
 export const CANVAS_PREF = 'editor.canvas';

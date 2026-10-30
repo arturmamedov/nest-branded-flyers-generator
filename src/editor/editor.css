@@ -1567,6 +1567,11 @@ nest-nav > nav a.ai-entry .ai-count {
   font-size: 13px;
 }
 
+/* One of the flyers this browser opened last: "Opened 2 h ago", a line of its own in the meta line's grey. */
+.card-opened {
+  display: block;
+}
+
 /* A flyer's labels, under its line: small pills, in the list's order (the owner's pick of two, 2026-10-14). They wrap
    inside the card. */
 .card-labels {

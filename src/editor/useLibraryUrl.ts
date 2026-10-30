@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { LIBRARY_DEFAULTS, libraryFromHash, libraryHash, rememberLibrary, rememberedLibrary, sameLibrary, type LibraryState } from './libraryUrl';
-import { localStorageGet, localStorageSet } from './prefs';
+import { browserMemory, localStorageGet } from './prefs';
 import { go, parseHash, replaceHash } from './route';
 
 /* The library's state, kept in its URL (libraryUrl.ts holds the rule). The Library is not keyed on the route's moves
@@ -34,7 +34,7 @@ export function useLibraryUrl(hostels: readonly string[]) {
     return () => window.removeEventListener('hashchange', follow);
   }, [hostels]);
 
-  useEffect(() => rememberLibrary({ get: localStorageGet, set: localStorageSet }, state, hostels), [state, hostels]);
+  useEffect(() => rememberLibrary(browserMemory, state, hostels), [state, hostels]);
 
   /** A choice: a step of its own, unless it changes nothing. */
   const choose = (change: Partial<LibraryState>) => {

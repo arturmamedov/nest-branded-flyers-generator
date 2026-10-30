@@ -27,7 +27,8 @@ import { PHOTO_MODE_LABEL, PHOTO_UPLOADING } from './photoModes';
 import { pictureActions } from './pictureActions';
 import { preparePhoto, type PhotoLimits } from './photoPrep';
 import { onPage, replaceHash } from './route';
-import { CANVAS_PREF, localStorageGet, localStorageSet, savedCanvas } from './prefs';
+import { CANVAS_PREF, browserMemory, localStorageGet, localStorageSet, savedCanvas } from './prefs';
+import { rememberOpened } from './recentFlyers';
 import { SECTIONS, SECTIONS_PREF, allOpen, flaggedSections, openAtStart, opened, sectionLine, sectionsOf, storeOpen, toggled, type SectionId } from './sectionFolds';
 import { Preview, copyWarnings, useFitReports } from './Preview';
 import { ShareCopy, ShareFab } from './share';
@@ -203,6 +204,8 @@ export function Editor({
         setDraft(d);
         setCaptionOf(captionDetails(d));
         setSavedJson(JSON.stringify(toInput(d, hostels)));
+        // One of the flyers this browser opened last, first in the library (recentFlyers.ts).
+        rememberOpened(browserMemory, id, Date.now());
       },
       (e) => setLoadError(e instanceof ApiError && e.status === 404 ? 'This flyer does not exist or was archived.' : String(e.message)),
     );
@@ -277,6 +280,7 @@ export function Editor({
     if (d.title.trim() === '') set({ title: input.title });
     if (flyerId == null) {
       setFlyerId(res.id);
+      rememberOpened(browserMemory, res.id, Date.now()); // a new flyer counts once it is first saved
       // Keep this editor mounted; just make the URL reopenable. Only while the new flyer is still the page
       // on screen: a save that answers after the user has moved on leaves their URL alone.
       replaceHash('#/new', `#/flyers/${res.id}`);
