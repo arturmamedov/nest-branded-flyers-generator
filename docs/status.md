@@ -10,9 +10,10 @@ What is open on top, in short lines; then a log, one line per session; then the 
   `a96d1bf`" is from before that push.
 - Next: the Sunset Vibes look, by stages (`docs/prompts/sunset-vibes-look.md`, the master plan from Claude Design's
   handoff; it replaces `second-look.md`), on `feat/second-look`, unmerged: stages 1 (the look as data inside the
-  seam) and 2 (the photo behind, the staggered headline) are built; stage 3 (the streaks) is next, its block in the
-  plan. Stage 2 ran unattended: its "For Artur to strike" table in `docs/reports/sunset-vibes.md` is his to read
-  first. After the look is signed, the faster tests (`docs/prompts/speed-tests.md`).
+  seam), 2 (the photo behind, the staggered headline) and 3 (the streaks) are built; stage 4 (the blocks) is next,
+  its block in the plan. Stages 2 and 3 ran unattended: their "For Artur to strike" tables in
+  `docs/reports/sunset-vibes.md` are his to read first. After the look is signed, the faster tests
+  (`docs/prompts/speed-tests.md`).
 
 ## Live
 
@@ -98,6 +99,12 @@ Each report's "For Artur to decide" has the reasons.
   as the placeholder), the staggered, turned headline kind (`Look.headline`, `wordSlot`), the look's Activity geometry
   on both canvases; Hand-drawn byte-identical; the recommendations taken in Artur's place listed for him to strike,
   with pictures in `backups/second-look/`; on `feat/second-look`, unmerged (`docs/reports/sunset-vibes.md`).
+- 2026-10-30, the Sunset Vibes look, stage 3 (unattended, overnight): the dry-brush streaks over the staggered
+  headline's words (`Look.streaks`; `src/flyer/streaks.ts`, the handoff's generator ported with its maths unchanged,
+  deterministic per word, size and face, cached, awaited by both exports and the library cards, drawn by the preview
+  after each fit; a 0 × 0 slot with `contain: layout` keeps the picture out of the fit's overflow); 0.2–0.45 s per
+  flyer, once; Hand-drawn byte-identical; the recommendations taken in Artur's place listed for him to strike, with
+  pictures in `backups/second-look/`; on `feat/second-look`, unmerged (`docs/reports/sunset-vibes.md`).
 
 ## History
 

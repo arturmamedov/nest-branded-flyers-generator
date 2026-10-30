@@ -238,3 +238,128 @@ sees changes: no site names the look.
 
 Stage 3's block is in the plan file, brought up to date (the staggered kind's markup and hooks, the words' slots and
 fit, the cuts). Suggested run: Claude Fable 5.1 (`claude-fable-5-1`), effort **high**, started in plan mode.
+
+## Stage 3: the streaks (2026-10-30, unattended)
+
+Run overnight, unattended, on `feat/second-look` from `d4250cc`: nobody answered, so where the block says "I answer
+from them", "build nothing before I say go" or "for Artur to decide" the plan's recommendation was taken, and each is
+listed below with the picture that shows it. Settled for the night before it began: the headline floor stays 0.6,
+stage 2's open points stay as stage 2 left them, and the columns' order for stage 4 is icon · big · small · label.
+Two commits of code, `863eaf4` and `d38e806`, and the record's after them; nothing pushed, no release built, the
+live site and the Laragon copy untouched. Every word of a Sunset Vibes headline now prints with the design's dry-brush
+knock-out over it, made at render for the word as fitted, the same on both exports and on the library's cards.
+Hand-drawn did not move by a pixel. Nothing a staff member sees changes: no site names the look.
+
+### The plan of the night, as built
+
+| # | Piece | Seam change | Commit |
+|---|---|---|---|
+| 1 | The token | `Look.streaks?: Streaks`, by line (`Streak`: `cover`, the share of the word's ink knocked out; `minD`, the px from the ink's edge left whole); Sunset's 0.13 / 4 and 0.10 / 3, the handoff's masks' numbers; hand-drawn none; the contract holds streaks to a staggered headline; the proof look keeps the stacked kind and sets none (the kinds are two-valued) | `863eaf4` |
+| 2 | The generator, the slot, both exports, the cards, the preview | `src/flyer/streaks.ts` (the port); a slot after each streaked word in `StaggeredHeadlineBlock`; `prepareFlyer()` awaits `streakFlyer()` after the fit; the preview draws them after each fit of the canvas on screen; `drawnChecks` counts them on every sample in every look; `shipped-looks.spec` holds them | `d38e806` |
+| 3 | The record | This section, the plan file, the status lines | after it |
+
+**What a streak costs** (`backups/second-look/tmp/streak-cost.mts`, the render page in headless Chromium, both
+canvases, the User-Timing measure each streak writes): a first word (Archivo Black, 750–1030 px of ink) 120–260 ms, a
+second (Caveat Brush, 460–650 px) 64–204 ms; a flyer's pair 0.2–0.45 s on the main thread, once per word, size and
+face, then cached for the page's life. A render page with two streaks is ready in 0.5–1.7 s where it was about 0.4 s.
+**What the library's cards do meanwhile:** a card shows only once prepared (`prepareFlyer()`, the streaks included),
+so no card ever shows a Sunset flyer without its streaks; each Sunset card nearing the screen costs its pair once,
+on the main thread, and the lightbox and the editor's preview reuse what the card made (the same word, size and
+face). Hand-drawn cards cost nothing: `streakFlyer()` finds no slot and resolves at once.
+
+### What was built, commit by commit
+
+- **`863eaf4`, the token.** `Look.streaks` is the streaks a look knocks out of its headline words, by line; absent,
+  none. `tests/lookContract.ts` holds every look's streaks to a staggered headline (the stacked kind draws none) and
+  to a share of the ink; `looks.test.ts` pins Sunset's; `proof-look.test.ts` records why the proof look sets none.
+- **`d38e806`, the streaks.** `src/flyer/streaks.ts` is `sm-streaks.js` with its maths unchanged: for one word as
+  fitted (its text upper-cased as its line is, its computed face and weight, its fitted size from `style.fontSize`,
+  its letter spacing in px, its turn from the word's own transform) the word's ink is drawn on a canvas of the
+  word's own about its baseline centre; a distance field from the ink's edge, blurred, gives a flow along the strokes
+  (the structure tensor's minor axis); noise seeded by the job's key is smeared along that flow; the lightest `cover`
+  of the ink at least `minD` from the edge is knocked out, as an alpha mask at 2×, coloured with the ground and laid
+  over the word from its baseline centre. The key (the word, font, size, spacing, turn, cover and minD) is the seed and
+  the cache's key; the coloured picture is cached per key and colour as a data-URL PNG. In the renderer, the staggered
+  kind puts a **slot** after each streaked word: a `div[data-streak]` of no size at the word's baseline centre (the
+  slot's top-middle), laid out by itself (`contain: layout`), holding an `img[data-deco=streak]`. `streakFlyer(root)`
+  runs after the fit (where `ready.ts` and the preview call it), reads each slot's word as fitted, shows a streak
+  already made at once and the rest once made, unless the slot has moved on to another word (it keeps the job's key),
+  and resolves once every streak is shown and decoded. `prepareFlyer()` awaits it, so the server export, the client
+  export and the library cards all carry the streaks; the preview draws them after each fit of the canvas on screen
+  (the offscreen fits skip them: the editor reads their fit alone). `drawnChecks` expects, on every sample in every
+  look, a slot and a shown streak per streaked word (none in hand-drawn, none on a week flyer, a word cut at its floor
+  streaked as drawn). `shipped-looks.spec.ts` reads each streak back: the slot at the slot's middle on the baseline's
+  row, 0 × 0 and `contain: layout`, carrying the look's numbers and the ground; the picture shown, a PNG at exactly 2×,
+  wider than two letters and no wider than the box, the baseline centre inside it, every painted pixel the ground,
+  some of the word knocked out and under 30 % of the picture's box; the same key and bytes when the page is drawn
+  again; the stress test's cut first word with a streak wider than its slot; the preview's streaks redrawn as "Sunset"
+  is typed and gone when the line is emptied; the library card's two streaks.
+
+### How it was held
+
+- **The drawing did not move.** The baseline (`nest-sunset-baseline`, captured from `7443305`, 36 cases on both
+  canvases) checked byte-identical before anything at `d4250cc`, then at `863eaf4` and `d38e806`: 36 compared, 0
+  skipped, every time.
+- **Each piece's gate** on a fresh build: the unit suite (965), then for `d38e806` the `render` project's
+  `shipped-looks.spec`, `render.spec`, `art.spec` and `editor.spec` (94 passed, 3.1 min, first run), the proof look's
+  `looks.spec` on `dist-proof/` (12 passed), then the baseline. The client export matched the server's within 0.5 % on
+  the four cases in the look (Pool party in the band and the bleed, Paragliding with no photo, the week stress test),
+  streaks included, on both canvases.
+- **The gates at the end**, at `d38e806`: `npm run typecheck && npm test && npm run test:contract && npm run
+  test:render`, all green: 965 unit tests (58 files), 390 in the contract suite (235 skipped: the projects that need
+  a deployment, as always here), 435 in the browser (the `render`, `ai` and `looks` projects; one skipped, as before;
+  9.9 min).
+- **Chrome** (the installed one, driven by Playwright from `backups/second-look/tmp/chrome3.mts`, a headed window
+  off-screen so the clipboard is Chrome's own): the editor with a Pool party copy in the look, the preview on both
+  canvases with both streaks shown (their pictures 1496 × 370 and 942 × 334 on the story, 1616 × 400 and 1042 × 368
+  on WhatsApp, at 2×); one PNG download per canvas, 1080 × 1920 and 1080 × 1440, kept beside the screenshots; the
+  copy to the clipboard, read back as a 1080 × 1920 PNG of 1.2 MB; the library as a grid with four Sunset cards, each
+  with its two streaks, and a hand-drawn card with none; the preview's and the cards' twelve streaks cost 37–318 ms
+  each in Chrome (a headless check, `tmp/library-keys.mts`, read the library's eight keys back: one pair per card).
+  `backups/second-look/stage-3-chrome-{story,whatsapp}-{preview,download}.png`, `stage-3-chrome-story-copied.png`,
+  `stage-3-chrome-library.png`.
+- **The pictures** (outside git, drawn by the server's export of the built app through `backups/second-look/sheet.ts`,
+  never beside a browser run):
+  - `backups/second-look/stage-3-streaks.png`: Pool party and the Long copy stress test in the three photo modes and
+    the This week stress test, Hand-drawn above Sunset Vibes, both canvases, the streaks over every word.
+  - `backups/second-look/stage-3-cuts.png`: Pizza night, Surf lesson, Pizza · weekly and Paragliding in Full bleed
+    (the samples whose headline the kind cuts on the story, and one it does not): a cut word streaked as drawn.
+  - `backups/second-look/stage-3-closeup.png`: the headline at 1 : 1 from a full-size export, where the streaks can be
+    seen.
+
+### For Artur to strike (each a recommendation taken in his place; the picture shows it)
+
+| Decision | Taken | Picture |
+|---|---|---|
+| Where the streak is made and laid: the block says in the box from the slot's top-middle, the tilt an input of the generator (the design's way: one mask per turned word in board space). | As the block says: the generator draws the turned word and the picture lies in the headline box, upright, from the word's baseline centre. (The other way, a streak made for the upright word and turned by the word's own transform, would read the same and let the picture live inside the word's box; it would then count in the word's `scrollWidth`, which the fit's width pass reads, and shrink the word under its streak. Not taken.) | `stage-3-closeup.png` |
+| The slot: how a picture is laid over copy without the fit reading it. An absolutely positioned image in the headline box counts in the box's `scrollHeight` (391 of 320 in the trial), and the fit's height pass would shrink both words under their streaks, round after round. | A point of no size at the baseline centre with `contain: layout`, holding the picture: Chrome then counts its overflow as ink, not scrollable overflow (320 of 320), and still paints it. The pattern is there for any decoration a kind lays over fitted copy (stage 4's pen above the ask, stage 5's blob). | — |
+| The seed: the block says "the word, its size and its face". | The word, its font (face and weight), its fitted size, its letter spacing, its turn, the cover and minD: everything that changes the ink the streak is cut from, so two prints of one flyer agree and a changed turn or spacing (a later look's) gets its own streak. | — |
+| The main thread or a worker: the design runs the pixel loops on the main thread ("native speed"); a worker would need the look's faces loaded in it and the ink shipped across. | The main thread, as the design, with the design's 20 ms yield before a streak is made so the typed letter paints first. Measured: 0.2–0.45 s per flyer, once. If the library feels sticky with many Sunset cards, or typing a headline does (each keystroke makes a new word and so a new pair, about 0.3 s each, spread over the keystrokes), the next step is a debounce in the preview (streak once the typing pauses) before a worker. | `stage-3-chrome-library.png` |
+| The offscreen canvases in the editor (the other canvas, fitted for the cut-off note). | No streaks there: the editor reads their fit alone, and the streaks count in no fit. The canvas on screen draws them after each fit. | `stage-3-chrome-story-preview.png` |
+| A word cut at its floor (the CUT table). | Streaked as drawn, as the block says: the streak follows the ink, wider than the slot, and the box clips both alike. | `stage-3-cuts.png` (the stress test in `stage-3-streaks.png`) |
+| The cost's measure, `performance.measure('streak')` in shipped code. | Kept: one line, readable from any page (`performance.getEntriesByName('streak')`), no console noise; it is how the numbers above were read and how a later session reads them again. | — |
+| A streak's picture while a new word's is on its way (the preview on a keystroke). | The slot hides its picture at once and shows the new one once made, so no streak of another word ever lies over the typed one; a word typed back to one made before shows at once. | — |
+
+### Found on the way
+
+- **`contain: layout` on a point of no size** keeps what it holds out of every ancestor's scrollable overflow and still
+  paints it (`backups/second-look/tmp/contain.mts`, Chromium 153): the one way found to lay a picture over fitted copy
+  without `fit.ts` reading it. A plain absolutely positioned image counts (391 of 320).
+- **Canvas `letterSpacing`** is in Chromium 153 (the design relied on it); the word's computed `letter-spacing` is
+  read in px and set on the context as the design did.
+- **The generator's bounding canvas** is the word's own (its measured width plus a size's margin all round, taller by
+  the turn's lift), not the design's 1080 × 1620 board: the field's corner comes out from the baseline centre and the
+  picture is placed from the slot, the handoff's "word origin + (−324.81, −155)" made general.
+- **The fidelity mask held the streaks**: both exports make the same picture (the same engine, the same seed), so the
+  headline box in the `text` metric showed no difference beyond the threshold on any case.
+- **Everything passed first run**: the token's unit tests, the browser specs, the proof look, the baseline. The
+  night's one failure was the Chrome throwaway's own (a promise passed unawaited), fixed and rerun.
+- The data-URL PNG of a streak at 2× is 0.3–0.6 MB of text per word in the page; the cache holds one per word, size,
+  face and colour for the page's life. A library with many Sunset cards holds one pair per card. Not measured as a
+  problem; worth a look if the library ever grows slow.
+
+### Next: stage 4
+
+Stage 4's block is in the plan file, brought up to date (the columns' order settled, the slot pattern for the pen,
+the night's conventions). Suggested run: Claude Fable 5.1 (`claude-fable-5-1`), effort **high**, started in plan
+mode.

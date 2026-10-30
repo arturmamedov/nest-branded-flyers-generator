@@ -126,7 +126,7 @@ The streaks (stage 3), the chips, ask, extras, pill and lower art (stage 4), the
 week B (stage 6), the colour sets, the fields, the release.
 ```
 
-## Stage 3's block (paste; brought up to date by stage 2 on 2026-10-30): the streaks
+## Stage 3's block (brought up to date by stage 2 on 2026-10-30; built that night, unattended, `863eaf4..d38e806`: the report's "Stage 3")
 
 ```
 Read CLAUDE.md, docs/prompts/sunset-vibes-look.md whole (decided points and Artur's answers not reopened; "What
@@ -179,42 +179,56 @@ colour sets, the fields, the release, and stage 2's open points (the floor, the 
 answers them first.
 ```
 
-## Stage 4's block (paste; stage 3 brings it up to date): the blocks
+## Stage 4's block (paste; brought up to date by stage 3 on 2026-10-30): the blocks
 
 ```
-Read CLAUDE.md, docs/prompts/sunset-vibes-look.md whole (decided points and Artur's answers not reopened),
-docs/reports/sunset-vibes.md, docs/adding-a-look.md, src/shared/looks.ts, src/shared/looks/sunsetVibes.ts,
-src/shared/layout.ts, src/flyer/Flyer.tsx, scripts/art-inks.ts, tests/geometry.ts, tests/render/drawnChecks.ts, and
-the handoff's README §1.2, §1.3, §5 ("Inline slots"), §6.1 and §7.6–7.10, 7.12, 7.15–7.17. For any number,
-reference/source/SunsetInfoBoard v4.dc.html.
+Read CLAUDE.md, docs/prompts/sunset-vibes-look.md whole (decided points and Artur's answers not reopened; "What
+stage 2 found", "What stage 3 found"), docs/reports/sunset-vibes.md (stages 2 and 3 ran unattended: their "For Artur
+to strike" tables, and what he struck or kept of them since), docs/adding-a-look.md, src/shared/looks.ts,
+src/shared/looks/sunsetVibes.ts (GEOMETRY, TYPE, ART, the inline slots), src/shared/layout.ts (boxesOf, artAnchors,
+ASK_MAX_WIDTH), src/flyer/Flyer.tsx (the chips, the extras, the ask and the pill as drawn today; StaggeredHeadlineBlock's
+streak slot, the pattern for a decoration laid over fitted copy), src/flyer/fit.ts, scripts/art-sunset-icons.ts,
+tests/geometry.ts, tests/render/drawnChecks.ts (the chips' inline art, the pill's art, the streaks), and the
+handoff's README §1.2, §1.3, §5 ("Inline slots"), §6.1 and §7.6–7.10, 7.12, 7.15–7.17. For any number,
+reference/source/SunsetInfoBoard v4.dc.html. The pictures of stages 2 and 3 are backups/second-look/stage-*.png.
 
 Build stage 4 of the plan: the columns chip kind (icon above, the chip's lines centred, 1.2 px rules between
-columns, no frame; the icons are the PNG files stage 1 made, in the line colour: look.inline.whenIcon, whereIcon,
-costIcon), the centred ask kind (the pen above, look.inline.askIcon, both lines centred and wrapping, no rule), the
-extras as the design's notes line (answer 5: Montserrat 400 · 17 · muted, no floor once it wraps), the pill as a
-plain line in the footer's slot (answer 4: a pill kind; Montserrat 700 · 22 · upper, ink on the ground, the dot in
-the line colour; the type's pill line then ink on ground), the lower ferns on the bodyBottom anchors at bodyScale
-(answer 9: 0.87 on WhatsApp), and both column orders drawn for Artur to pick (answer 10). The band is placed since
-stage 1. Hand-drawn must not change by one pixel.
+columns in the line colour, no frame; the icons are the PNG files stage 1 made, in the line colour:
+look.inline.whenIcon, whereIcon, costIcon; the order is settled, Artur's answer of 2026-10-30: icon · big · small ·
+label, not to be reopened), the centred ask kind (the pen above, look.inline.askIcon, both lines centred and
+wrapping, no rule; the pen is a decoration over no copy, so it may sit in the flow; a decoration laid over fitted
+copy goes in a 0 × 0 slot with contain: layout, as the streaks do, or the fit reads it), the extras as the design's
+notes line (answer 5: Montserrat 400 · 17 · muted, no floor once it wraps), the pill as a plain line in the footer's
+slot (answer 4: a pill kind; Montserrat 700 · 22 · upper, ink on the ground, the dot in the line colour; the type's
+pill line then ink on ground), and the lower ferns on the bodyBottom anchors at bodyScale (answer 9: 0.87 on
+WhatsApp). The band is placed since stage 1; the streaks are the headline's and stay as stage 3 left them. Hand-drawn
+must not change by one pixel.
 
 HOW TO WORK
 
-- Start in plan mode; check git (feat/second-look, clean; else stop and ask); stage by path; warn before a
-  src/shared/ edit if npm run dev may be running. The baseline (nest-sunset-baseline) before anything and after
-  every commit that touches src/.
-- A SHORT table of the changes in order; build nothing before I say go; tests first, a commit per piece.
+- Start in plan mode; check git (feat/second-look, clean beyond design_handoff_new_look/; else stop and ask); stage
+  by path; warn before a src/shared/ edit if npm run dev may be running. The baseline (nest-sunset-baseline, captured
+  from 7443305) before anything and after every commit that touches src/: `npm run build`, then
+  `RENDER_BASELINE=check RENDER_BASELINE_DIR=<the folder> npx playwright test --project=render tests/render/baseline.spec.ts`
+  (`--project=render` with the equals sign). A browser run reads the specs live and the app from dist/: never edit
+  tests/render, tests/proof or src/ while one runs. Throwaway scripts go in backups/second-look/tmp/ (git-ignored;
+  gate-piece.sh runs one piece's gate, sheet.ts draws a sheet by name, chrome3.mts drives the installed Chrome).
+- A SHORT table of the changes in order; build nothing before I say go; tests first, a commit per piece
+  (shipped-looks.spec.ts holds every sample in the look: its CLIPS and CUT tables take what a sample is known to clip
+  or cut, each with its why; drawnChecks counts each block's inline art as the look has it).
 - Pictures from the real renderer at each kind: the six Activity samples in the new look beside Hand-drawn, both
-  canvases, the chips in both orders (icon · big · small · label, and icon · label · big · small); the order and the
-  ask are answered from them.
-- Before calling it done: typecheck, test, test:contract, test:render; the baseline; Chrome (the preview and one
-  download per canvas).
+  canvases (`npx tsx backups/second-look/sheet.ts stage-4-<topic>`, after npm run build and never beside a browser
+  run); the ask is answered from them.
+- Before calling it done: typecheck, test, test:contract, test:render (fidelity and shipped-looks included); the
+  baseline; Chrome (the preview and one download per canvas).
 - Record it (report section, status line, the plan file with stage 5's block brought up to date). End with stage
   5's block, the model and the effort.
 
 NOT NOW
 
 The eyebrow and the blob (stage 5), This week B (stage 6), the second ask and the footer (fields, later), the colour
-sets, the release.
+sets, the release, the streaks' numbers, and stages 2 and 3's open points (the floor, the Spanish line's place, a
+debounce or a worker for the streaks) unless Artur answers them first.
 ```
 
 ## Stage 5's block (paste; stage 4 brings it up to date): the eyebrow
@@ -602,6 +616,24 @@ copies `assets/` whole).
   in every metric: stage 3's streaks are held by it.
 - `placeArt()` answers null for an anchor the body lacks; a look's art list may name `photoBottom` freely.
 - The export under load failed again (a sheet beside a browser run): draw the sheets between runs.
+
+## What stage 3 found that changes the later stages (2026-10-30, unattended; the report's "Stage 3" section)
+
+- **The streaks are a token and a pass.** `Look.streaks` (by line: `cover`, `minD`) is read by the staggered kind
+  alone, which puts a slot after each streaked word; `src/flyer/streaks.ts` is the handoff's generator with its maths
+  unchanged, run after the fit by `prepareFlyer()` (both exports, the cards) and by the preview's fit of the canvas
+  on screen. Deterministic per word, font, size, spacing and turn; cached per key and colour. Stage 6's week title
+  through the staggered kind gets streaks by the same token, nothing to add.
+- **A decoration over fitted copy goes in a slot**: a 0 × 0 `div` at the point it hangs from, `contain: layout`, so
+  the fit's passes never read it (an absolutely positioned picture in a fit box counts in its `scrollHeight`, and the
+  height pass would shrink the copy under it). Stage 4's pen sits above the ask in the flow (over no copy), so it
+  needs none; stage 5's blob is art on an anchor, outside every fit box.
+- **The cost**: 0.2–0.45 s per flyer on the main thread, once, in the render page and in Chrome; a Sunset card
+  shows once its streaks are made; typing a headline makes a new pair about every keystroke. Open for Artur: a
+  debounce in the preview, or a worker, if it ever feels sticky; neither built.
+- **The columns' order is settled** (Artur, 2026-10-30, relayed for the night): icon · big · small · label. Stage 4
+  draws that order alone; answer 10's "both orders" is closed.
+- The export under load did not fail tonight: the sheets and Chrome ran between the browser runs, one after the other.
 
 ## Traps found while planning
 

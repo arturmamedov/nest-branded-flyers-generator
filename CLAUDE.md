@@ -173,7 +173,8 @@ tier.
 ## Status
 
 - Now: `main`, ahead of origin by the library's search, the faster sessions and the library's URL, unpushed. The Sunset
-  Vibes look, by stages (`docs/prompts/sunset-vibes-look.md`), on `feat/second-look`: stages 1 and 2 built (stage 2
-  unattended: its "For Artur to strike" table in the report is his to read first), stage 3 (the streaks) next.
+  Vibes look, by stages (`docs/prompts/sunset-vibes-look.md`), on `feat/second-look`: stages 1 to 3 built (stages 2
+  and 3 unattended: their "For Artur to strike" tables in the report are his to read first), stage 4 (the blocks)
+  next.
 - Live: IONOS runs release `81639a1deb21` (from `74b6761`), unlocked; it goes public only once a real login exists.
 - Everything else, open, waiting, Artur's to do and to decide, and the history: [docs/status.md](docs/status.md).
