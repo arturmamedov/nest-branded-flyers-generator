@@ -84,6 +84,8 @@ Each report's "For Artur to decide" has the reasons.
   (`docs/reports/faster-sessions.md`).
 - 2026-10-15, the library's URL: its filters, search and view in the hash, a choice a step of the history, on
   `feat/library-url`, merged into `main` (`docs/reports/library-url.md`).
+- 2026-10-15, the flyers opened last: this browser's last 5 first in the library, each with "Opened 2 h ago", on
+  `feat/recent-flyers`, unmerged (`docs/reports/recent-flyers.md`).
 
 ## History
 

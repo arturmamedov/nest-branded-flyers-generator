@@ -174,6 +174,23 @@
     - Opening a link is choosing what it holds: what the library shows is remembered. Only a part that differs
       from what is remembered is written, so a library opened as remembered writes nothing.
     - Browser spec `library-url.spec.ts`, unit test `library-url.test.ts`, and a step of the PHP smoke test.
+  - **The flyers opened last go first** (2026-10-15; Artur's ask and answers in `docs/reports/recent-flyers.md`). Per
+    browser, since there is no login: the last 5 (`RECENT_MAX`), the last opened on top, then the rest newest first.
+    - **The rule is `src/editor/recentFlyers.ts`**, pure and tested by itself. `library.recent` holds `{id, at}`,
+      read loosely (damaged is none). `byRecent` is the order, `openedAgo` the card's words.
+    - **Opened** is a flyer loaded in the editor, a new one at its first save (`Editor.tsx`), and a card's or the
+      lightbox's way out that worked: an answer from `run`, or an `ok` from `say` (`Library.tsx`). Zooming alone is
+      not. A share counts once the sheet says it was shared. Archiving from the library forgets the flyer.
+    - **The order is taken when the list loads** (`load()`), never during a visit: a picture copied from the 7th card
+      is remembered at once and moves up at the next load. Never reorder under the staff member's hand.
+    - Filters narrow first, and the recent ones among what is left go first. **A search keeps its rank**: it is
+      handed the list in this order and its sort is stable, so within a rank the recent ones come first.
+      `librarySearch.ts` knows nothing of it.
+    - The card's line is `.card-opened`: "Opened 2 h ago", a block inside `.card-meta`, never searched or marked. It
+      is his pick from pictures over the end of the meta line, which grew a desktop card and wrapped mid-phrase in a
+      phone's grid.
+    - Not in the URL: a shared link opens with the colleague's own recent flyers first.
+    - Browser spec `library-recent.spec.ts`, unit test `recent-flyers.test.ts`, and a step of the PHP smoke test.
   - The picture's width on screen is `--thumb-w`, set on `.card` (not on the picture: the zoom button is placed
     by it too): 120 in the list, 96 on a phone, 252 in the grid, 136 in a phone's grid. The grid's columns have the
     card's own width (278 px, three to a row in the 900 px column with a scrollbar beside it; 154 px, two to a row
