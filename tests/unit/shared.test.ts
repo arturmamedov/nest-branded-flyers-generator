@@ -205,6 +205,57 @@ describe('canvases', () => {
     expect(photoFrame('story', 'bleed', g)).toEqual(photoFrame('story', 'bleed', G));
   });
 
+  // The Sunset look (Artur's decision 1 and answers 6 and 7, 2026-10-30): the photo is background art behind everything,
+  // drawn first, free of the safe zone and the stack; every photo mode draws the bleed box (In a frame prints as Full
+  // bleed; No photo prints the placeholder there).
+  describe('the photo behind everything (photoBehind)', () => {
+    const boxes = { headline: { top: 755, height: 320 }, headlineNoPhoto: { top: 755, height: 320 }, photoBleed: { top: 0, height: 948 } };
+    const g: Geometry = {
+      photoBehind: true,
+      story: { boxes },
+      // The photo starts above the canvas, so what shows is its bottom part; the headline on it.
+      whatsapp: { boxes: { ...boxes, headline: { top: 436, height: 320 }, headlineNoPhoto: { top: 436, height: 320 }, photoBleed: { top: -318.8, height: 948 } } },
+    };
+
+    for (const canvas of CANVAS_IDS) {
+      it(`${canvas}: every photo mode draws the bleed box, and the band's frame is the bleed's shape; no photo has no frame`, () => {
+        const { activity } = boxesOf(canvas, g);
+        const bleed = { left: 0, top: canvas === 'story' ? 0 : -318.8, width: 1080, height: 948 };
+        expect(activity.photoBleed).toEqual(bleed);
+        expect(activity.photoBand, 'the band is the bleed').toEqual(bleed);
+        expect(activity.noPhotoRule, 'no photo draws in the same box').toEqual(bleed);
+        for (const mode of MODES) expect(activityGroups(canvas, mode, g).photo, mode).toEqual(bleed);
+        expect(photoFrame(canvas, 'bleed', g)).toEqual({ width: 1080, height: 948 });
+        expect(photoFrame(canvas, 'band', g), 'one crop serves both modes').toEqual({ width: 1080, height: 948 });
+        expect(photoFrame(canvas, 'none', g), 'nothing to crop').toBeNull();
+      });
+
+      it(`${canvas}: the photo's bottom is an anchor with no photo too (the placeholder's box), and never on a week flyer`, () => {
+        const y = canvas === 'story' ? 948 : 629.2;
+        for (const mode of MODES) expect(artAnchors(canvas, mode, g).photoBottom, mode).toEqual({ x: 0, y: expect.closeTo(y, 6), scale: 1 });
+        expect(artAnchors(canvas, 'week', g).photoBottom).toBeUndefined();
+      });
+    }
+
+    it('keeps every rule for the text boxes, and lets the photo be: above the canvas, under the headline', () => {
+      expect(geometryProblems(g)).toEqual([]);
+      // The same boxes with the photo in the stack are refused: that is what the flag changes.
+      const inStack = geometryProblems({ story: g.story, whatsapp: g.whatsapp });
+      expect(inStack).toContain('story / bleed: headline overlaps photo');
+      expect(inStack).toContain('whatsapp / bleed: photo leaves the safe zone');
+      // A text box out of the safe zone is still named, photo behind or not.
+      expect(geometryProblems({ ...g, story: { boxes: { ...boxes, headline: { top: 240, height: 320 } } } })).toContain('story / bleed: headline leaves the safe zone');
+      // The photo still runs from edge to edge, in one shape on every canvas, and ends above the chips.
+      expect(geometryProblems({ ...g, whatsapp: { boxes: { ...g.whatsapp!.boxes, photoBleed: { top: -300, height: 930 } } } })).toContain("whatsapp: the bleed photo's shape is not the story's");
+      expect(geometryProblems({ ...g, story: { boxes: { ...boxes, photoBleed: { top: 200, height: 948 } } } })).toContain('story: the photo runs into the chips');
+    });
+
+    it('the shared table, and a look that leaves the flag out, keep the photo in the stack', () => {
+      expect(G.photoBehind).toBeUndefined();
+      expect(boxesOf('story', { story: { boxes } }).activity.photoBand).toEqual(boxesOf('story', G).activity.photoBand);
+    });
+  });
+
   for (const canvas of CANVAS_IDS) {
     it(`${canvas}: the pill's box is the safe column, the one both templates draw it in, and the one it fits`, () => {
       const box = pillBox(canvas, G);

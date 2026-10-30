@@ -249,6 +249,9 @@ export function Flyer({ data, canvas, hostel, photo, showSafeZones = false, ref 
   // The boxes the flyer's look draws in.
   const geometry = look.geometry;
   const { activity: A, week: WK } = boxesOf(canvas, geometry);
+  // The photo as background art (layout.ts, photoBehind): drawn first, in the bleed box whatever the mode, the
+  // placeholder in it with no photo. Else the photo is a block of the stack, drawn in its mode's own box.
+  const behind = !!geometry.photoBehind;
   const anchors = artAnchors(canvas, body, geometry);
   const chips = deriveChips(data.chips, hostel?.name ?? null, data.overrides.chips?.order ?? DEFAULT_CHIP_ORDER);
   const extras = printedExtras(data.extras);
@@ -299,6 +302,12 @@ export function Flyer({ data, canvas, hostel, photo, showSafeZones = false, ref 
         boxSizing: 'content-box',
       }}
     >
+      {behind && body !== 'week' && (
+        <div data-group="photo" style={{ position: 'absolute', ...across(A.photoBleed, W), top: A.photoBleed.top, height: A.photoBleed.height, overflow: 'hidden', background: photoGround }}>
+          {img}
+        </div>
+      )}
+
       {pieces.map((d, i) => {
         const style = pillArt.includes(d) || askArt.includes(d) ? null : doodleStyle(d, anchors);
         return style && <img key={i} data-art="" data-anchor={d.anchor ?? 'canvas'} src={art(d.slug)} alt="" style={style} />;
@@ -329,18 +338,18 @@ export function Flyer({ data, canvas, hostel, photo, showSafeZones = false, ref 
         <>
           <Headline group="headline" box={head} W={W} t={t} type={type} paint={paint} />
 
-          {mode === 'bleed' && (
+          {!behind && mode === 'bleed' && (
             <div data-group="photo" style={{ position: 'absolute', ...across(A.photoBleed, W), top: A.photoBleed.top, height: A.photoBleed.height, overflow: 'hidden', background: photoGround }}>
               {img}
             </div>
           )}
-          {mode === 'band' && (
+          {!behind && mode === 'band' && (
             <div data-group="photo" style={{ position: 'absolute', ...across(A.photoBand, W), top: A.photoBand.top, height: A.photoBand.height }}>
               <div style={{ position: 'absolute', inset: 0, borderRadius: look.frame.photoRadius, overflow: 'hidden', background: photoGround }}>{img}</div>
               <WonkyBox frame={look.frame} fill="none" stroke={paint.ink} />
             </div>
           )}
-          {mode === 'none' && (
+          {!behind && mode === 'none' && (
             /* The block stays where the rule would be, so the flyer has every block of its template; a look with no
                rule draws nothing in it. */
             <div

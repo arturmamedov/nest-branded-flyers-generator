@@ -20,6 +20,9 @@ export function geometryProblems(geometry: Geometry): string[] {
   const say = (where: string, ok: boolean, what: string) => {
     if (!ok) out.push(`${where}: ${what}`);
   };
+  // The photo as background art (the Sunset look, 2026-10-30): every mode draws the bleed box, which may leave the safe
+  // zone, the top included, and lie under the text boxes. The text boxes keep every rule.
+  const behind = !!geometry.photoBehind;
   for (const canvas of CANVAS_IDS) {
     const safe = safeBox(canvas);
     const floor = bottom(safe);
@@ -30,16 +33,20 @@ export function geometryProblems(geometry: Geometry): string[] {
       const groups = Object.entries(body === 'week' ? weekGroups(canvas, geometry) : activityGroups(canvas, body, geometry)) as [string, Rect][];
       for (const [name, r] of groups) {
         say(where, r.height > 0, `${name} has no height`);
-        if (name === 'photo' && body === 'bleed') {
-          // The one sanctioned exception, sideways: edge to edge, and inside the safe zone from top to bottom.
+        if (name === 'photo' && (body === 'bleed' || behind)) {
+          // The one sanctioned exception, sideways: edge to edge, and inside the safe zone from top to bottom unless
+          // the photo is behind everything.
           say(where, r.left === 0 && r.width === CANVASES[canvas].width, 'the bleed photo does not run from edge to edge');
-          say(where, inside({ ...r, left: safe.left, width: 1 }, safe), 'photo leaves the safe zone');
+          if (!behind) say(where, inside({ ...r, left: safe.left, width: 1 }, safe), 'photo leaves the safe zone');
           continue;
         }
         say(where, inside(r, safe), `${name} leaves the safe zone`);
       }
       for (let i = 0; i < groups.length; i++)
-        for (let j = i + 1; j < groups.length; j++) say(where, !overlaps(groups[i][1], groups[j][1]), `${groups[i][0]} overlaps ${groups[j][0]}`);
+        for (let j = i + 1; j < groups.length; j++) {
+          if (behind && (groups[i][0] === 'photo' || groups[j][0] === 'photo')) continue;
+          say(where, !overlaps(groups[i][1], groups[j][1]), `${groups[i][0]} overlaps ${groups[j][0]}`);
+        }
     }
 
     // The bottom of the canvas is allocated upward from the floor, and the pill, tilted, needs 4 px under it.

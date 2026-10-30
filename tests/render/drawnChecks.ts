@@ -56,6 +56,8 @@ export async function drawnSamples(request: APIRequestContext): Promise<{ title:
     on this canvas (at their floor, still wider than their box: the editor says so), by their text. */
 export async function checkDrawn(page: Page, payload: FlyerPayload, canvas: CanvasId, label: string, clips: string[] = [], look: Look = lookOf(payload.flyer.data), cut: string[] = []): Promise<void> {
   const geometry = look.geometry;
+  // The photo as background art (layout.ts): the bleed box in every mode, free of the safe zone and the stack.
+  const behind = !!geometry.photoBehind;
   const body = bodyOf(payload.flyer.data);
   const { width: W, height: HT } = CANVASES[canvas];
   const safe = safeBox(canvas);
@@ -227,7 +229,7 @@ export async function checkDrawn(page: Page, payload: FlyerPayload, canvas: Canv
   const printed = body === 'week' ? printedRows(payload.flyer.data.week) : [];
   const asks = !!(t.askEn || t.askEs);
   expect(r.inline.eyebrowIcons, `${label}: the eyebrow's icon`).toBe(slots.eyebrowIcon ? 1 : 0);
-  expect(r.inline.rules, `${label}: the rules drawn`).toBe((slots.eyebrowRule ? 1 : 0) + (asks && slots.askRule ? 1 : 0) + (body === 'none' && slots.photoRule ? 1 : 0));
+  expect(r.inline.rules, `${label}: the rules drawn`).toBe((slots.eyebrowRule ? 1 : 0) + (asks && slots.askRule ? 1 : 0) + (body === 'none' && !behind && slots.photoRule ? 1 : 0));
   const chips = body === 'week' ? [] : deriveChips(payload.flyer.data.chips, payload.hostel?.name ?? null, payload.flyer.data.overrides.chips?.order ?? DEFAULT_CHIP_ORDER);
   expect(
     r.inline.chips,
@@ -271,9 +273,12 @@ export async function checkDrawn(page: Page, payload: FlyerPayload, canvas: Canv
     expect(a.width, `${label}: the pill's spark, its width`).toBe(onPill[i].w);
   });
 
+  // Every block inside the safe box, the bleed photo sideways excepted; a photo behind everything is free of it, and
+  // may lie under the blocks.
   for (const g of r.groups) {
-    const bleed = g.name === 'photo' && body === 'bleed';
-    if (!bleed) {
+    const photo = g.name === 'photo';
+    if (photo && behind) continue;
+    if (!(photo && body === 'bleed')) {
       expect(g.left, `${label}: ${g.name} left`).toBeGreaterThanOrEqual(safe.left - 0.5);
       expect(g.right, `${label}: ${g.name} right`).toBeLessThanOrEqual(safe.left + safe.width + 0.5);
     }
@@ -284,6 +289,7 @@ export async function checkDrawn(page: Page, payload: FlyerPayload, canvas: Canv
     for (let j = i + 1; j < r.groups.length; j++) {
       const a = r.groups[i];
       const b = r.groups[j];
+      if (behind && (a.name === 'photo' || b.name === 'photo')) continue;
       const overlap = a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
       expect(overlap, `${label}: ${a.name} overlaps ${b.name}`).toBe(false);
     }

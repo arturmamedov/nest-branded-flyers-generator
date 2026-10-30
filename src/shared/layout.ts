@@ -272,8 +272,16 @@ export interface CanvasGeometry {
   artDrop?: number;
 }
 
-/** A look's geometry: what it changes, canvas by canvas. */
-export type Geometry = { readonly [C in CanvasId]?: CanvasGeometry };
+/** A look's geometry: what it changes, canvas by canvas, and whether its photo lies behind everything. */
+export type Geometry = { readonly [C in CanvasId]?: CanvasGeometry } & {
+  /** The photo as background art (the Sunset look; Artur's decision 1 and answers 6 and 7, 2026-10-30): drawn first,
+      under the art and the copy, in the bleed box in every photo mode (In a frame prints exactly as Full bleed, and
+      No photo the placeholder in the same box), free to leave the safe zone, the top included, and to lie under the
+      eyebrow and the headline. The band's and the no-photo rule's boxes are then the bleed's (boxesOf), so the crop,
+      the groups and the anchors follow; tests/geometry.ts holds the text boxes as ever and lets the photo be. Absent:
+      the photo is a block of the stack, hand-drawn's. */
+  readonly photoBehind?: boolean;
+};
 
 /** Nothing changed: the shared table, the boxes the hand-drawn look prints. */
 export const SHARED_GEOMETRY: Geometry = {};
@@ -281,8 +289,8 @@ export const SHARED_GEOMETRY: Geometry = {};
 /** A canvas's boxes as a look draws them: the shared table, with what the look's geometry changes on that canvas. */
 export function boxesOf(canvas: CanvasId, geometry: Geometry): CanvasBoxes {
   const shared = SHARED_BOXES[canvas];
-  const g = geometry[canvas];
-  if (!g) return shared;
+  const g: CanvasGeometry = geometry[canvas] ?? {};
+  if (!geometry[canvas] && !geometry.photoBehind) return shared;
   const box = <R extends { top: number; height: number }>(name: BoxName, r: R): R => {
     const change = g.boxes?.[name];
     return change ? { ...r, top: change.top ?? r.top, height: change.height ?? r.height } : r;
@@ -291,14 +299,17 @@ export function boxesOf(canvas: CanvasId, geometry: Geometry): CanvasBoxes {
   const w = shared.week;
   const rowHeight = g.rowHeight ?? w.rowHeight;
   const rowGap = g.rowGap ?? w.rowGap;
+  const photoBleed = box('photoBleed', a.photoBleed);
   return {
     activity: {
       eyebrow: box('eyebrow', a.eyebrow),
       headline: box('headline', a.headline),
       headlineNoPhoto: box('headlineNoPhoto', a.headlineNoPhoto),
-      photoBleed: box('photoBleed', a.photoBleed),
-      photoBand: box('photoBand', a.photoBand),
-      noPhotoRule: box('noPhotoRule', a.noPhotoRule),
+      photoBleed,
+      // With the photo behind everything, every mode draws the bleed box: the band's frame is its shape (one crop
+      // serves both), and no photo prints the placeholder in it.
+      photoBand: geometry.photoBehind ? photoBleed : box('photoBand', a.photoBand),
+      noPhotoRule: geometry.photoBehind ? photoBleed : box('noPhotoRule', a.noPhotoRule),
       chips: box('chips', a.chips),
       chipGap: g.chipGap ?? a.chipGap,
       extras: box('extras', a.extras),
@@ -430,6 +441,8 @@ export function artAnchors(canvas: CanvasId, body: Body, geometry: Geometry): Ar
     const r = a.noPhotoRule;
     photoLeft = { x: r.left, y: r.top, scale: 1 };
     photoRight = { x: r.left + r.width, y: r.top, scale: 1 };
+    // Behind everything, no photo still draws the photo box (the placeholder), so the splash and its botanicals hang.
+    if (geometry.photoBehind) photoBottom = { x: 0, y: r.top + r.height, scale: 1 };
   } else if (body === 'week') {
     const y = w.rows.top + w.artDrop;
     photoLeft = { x: w.rows.left + art.photoInset, y, scale: 1 };

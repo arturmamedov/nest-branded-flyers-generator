@@ -119,12 +119,17 @@ function fill({ W, H, px }: Mask, r: Rect, value: 0 | 1, grow = 0) {
 }
 
 /** The photo's pixels, left out of every metric but `inside`: no photo, and a week flyer, mask nothing. The box is
-    the one the page drew, so the mask is the photo frame of the flyer's own look. */
+    the one the page drew, so the mask is the photo frame of the flyer's own look. A photo behind everything (the
+    Sunset look) lies under the eyebrow and the headline: those boxes stay in every metric, so a word drawn wrong over
+    the photo is still seen (hand-drawn's photo meets no other box, so nothing changes there). */
 function photoMask(canvas: CanvasId, body: Body, regions: Regions): Uint8Array {
   const { width, height } = CANVASES[canvas];
   const m = mask(width, height);
   const photo = regions.groups.find((g) => g.name === 'photo');
-  if ((body === 'bleed' || body === 'band') && photo) fill(m, photo, 1);
+  if ((body === 'bleed' || body === 'band') && photo) {
+    fill(m, photo, 1);
+    for (const g of regions.groups) if (g.name !== 'photo') fill(m, g, 0);
+  }
   return m.px;
 }
 
