@@ -1,6 +1,5 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import type { APIRequestContext } from '@playwright/test';
 import { PNG } from 'pngjs';
 import { expect, test } from '../browser';
 import sharp from 'sharp';
@@ -15,8 +14,9 @@ import { filesNaming } from '../../scripts/build-php';
 import { APP_ROOT } from '../../server/paths';
 import { PROOF_LOOK_ID } from '../proof/id';
 import { PROOF_LOOK } from '../proof/look';
+import { pixel, serverPng } from './exports';
 import { CANVASES, CANVAS_IDS, DEFAULT_CANVAS, type Body, type CanvasId } from '../../src/shared/layout';
-import { FIRST_LOOK } from '../../src/shared/looks';
+import { FIRST_LOOK, allLooks } from '../../src/shared/looks';
 import { DEFAULT_COLORS } from '../../src/shared/looks/handDrawn';
 import type { FlyerPayload } from '../../src/shared/schema';
 import { WRITE_HEADERS } from '../../src/shared/writeGuard';
@@ -83,8 +83,11 @@ function paints() {
   return [...new Set(out)];
 }
 
-test('the canary: nothing the proof look draws is one of hand-drawn’s colours, fonts or files, on any canvas or body', async ({ page, request }) => {
+test('the canary: nothing the proof look draws is a colour, font or file of any shipped look’s, on any canvas or body', async ({ page, request }) => {
   const all = await samples(request);
+  // Every look the release ships (docs/adding-a-look.md: the canary compares with each, not hand-drawn alone).
+  const shipped = allLooks().filter((l) => l.id !== PROOF_LOOK_ID);
+  expect(shipped.map((l) => l.id)).toContain(FIRST_LOOK);
   // No hostel: its badge is every look's (EYEBROW_MARKS). No photo: the photo is the flyer's own.
   const activity = { ...all.find((p) => p.flyer.title === 'Pool party')!, photo: null, hostel: null };
   const week = { ...all.find((p) => p.flyer.title === 'This week · Duque Nest')!, hostel: null };
@@ -94,27 +97,20 @@ test('the canary: nothing the proof look draws is one of hand-drawn’s colours,
       payload.flyer.hostel = null;
       if (body !== 'week') payload.flyer.data.photoMode = body;
       payload.flyer.data.colors = DEFAULT_COLORS;
-      await drawPayload(page, { ...payload, flyer: { ...payload.flyer, data: { ...payload.flyer.data, look: FIRST_LOOK } } }, canvas);
-      const theirs = await page.evaluate(paints);
+      const theirs: string[] = [];
+      for (const look of shipped) {
+        await drawPayload(page, { ...payload, flyer: { ...payload.flyer, data: { ...payload.flyer.data, look: look.id } } }, canvas);
+        await expect(page.locator('[data-flyer]')).toHaveAttribute('data-look', look.id);
+        theirs.push(...(await page.evaluate(paints)));
+      }
       await drawPayload(page, inProof(payload), canvas);
       await expect(page.locator('[data-flyer]')).toHaveAttribute('data-look', PROOF_LOOK_ID);
       const mine = await page.evaluate(paints);
       expect(mine.length, `${canvas} / ${body}: what the proof look paints`).toBeGreaterThan(10);
-      expect(mine.filter((p) => theirs.includes(p)), `${canvas} / ${body}: hand-drawn's, left in the proof look`).toEqual([]);
+      expect(mine.filter((p) => theirs.includes(p)), `${canvas} / ${body}: a shipped look's, left in the proof look`).toEqual([]);
     }
   }
 });
-
-/** A server export of a saved flyer, as a PNG. */
-async function serverPng(request: APIRequestContext, id: number, canvas: CanvasId): Promise<PNG> {
-  const res = await request.post(`/api/render/${id}`, { headers: WRITE_HEADERS, data: { format: 'png', canvas } });
-  expect(res.status(), `server export ${canvas}`).toBe(200);
-  return PNG.sync.read(await res.body());
-}
-
-/** A pixel of a PNG, as #rrggbb. */
-const pixel = (png: PNG, x: number, y: number) =>
-  `#${[0, 1, 2].map((c) => png.data[(y * png.width + x) * 4 + c].toString(16).padStart(2, '0')).join('')}`.toUpperCase();
 
 for (const [sample, body] of [['Pool party', 'band'], ['Pool party', 'bleed'], ['Paragliding', 'none'], ['This week · stress test', 'week']] as const) {
   test(`the client export matches the server's in the proof look: ${sample} / ${body}, on every canvas`, async ({ browser, baseURL, page, request }) => {

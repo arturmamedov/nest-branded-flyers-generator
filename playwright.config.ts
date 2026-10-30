@@ -22,8 +22,9 @@ const AI_PORT = 8798;
 const AI_DATA_DIR = './test-results/render-ai-data';
 const LOOKS_PORT = 8796;
 const LOOKS_DATA_DIR = './test-results/render-looks-data';
-/** The looks specs: looks.spec.ts and any looks-….spec.ts. */
-const LOOKS_SPECS = /looks[^/\\]*\.spec\.ts$/;
+/** The proof look's specs: looks.spec.ts and any looks-….spec.ts, by a file name that starts with "looks" (a spec on the
+    shipped looks, shipped-looks.spec.ts, runs on the release's build). */
+const LOOKS_SPECS = /[/\\]looks[^/\\]*\.spec\.ts$/;
 
 const server = { NODE_ENV: 'production', HOST: '127.0.0.1' };
 

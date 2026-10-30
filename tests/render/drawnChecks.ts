@@ -52,8 +52,9 @@ export async function drawnSamples(request: APIRequestContext): Promise<{ title:
 /** Draws the payload on the render page and holds it to every rule a printed flyer keeps. `clips` are the fit boxes
     this flyer is known to clip on this canvas (each by 2 px at most), by name. `look` is the look the page draws it in:
     the flyer's own, as this process's registry reads it, unless the page's build has a look this process does not
-    (the proof look, in dist-proof/ alone). */
-export async function checkDrawn(page: Page, payload: FlyerPayload, canvas: CanvasId, label: string, clips: string[] = [], look: Look = lookOf(payload.flyer.data)): Promise<void> {
+    (the proof look, in dist-proof/ alone). `cut` are the lines this flyer is known to cut off sideways in that look
+    on this canvas (at their floor, still wider than their box: the editor says so), by their text. */
+export async function checkDrawn(page: Page, payload: FlyerPayload, canvas: CanvasId, label: string, clips: string[] = [], look: Look = lookOf(payload.flyer.data), cut: string[] = []): Promise<void> {
   const geometry = look.geometry;
   const body = bodyOf(payload.flyer.data);
   const { width: W, height: HT } = CANVASES[canvas];
@@ -87,6 +88,12 @@ export async function checkDrawn(page: Page, payload: FlyerPayload, canvas: Canv
         name: el.querySelector('[data-cell=name]')?.textContent ?? '',
         time: el.querySelector('[data-cell=time]')?.textContent ?? '',
         cost: [...el.querySelectorAll('[data-cell=cost]')].map((c) => c.textContent ?? ''),
+        // The time and each cost line as laid out: the text's own width (past a clip too) and the cell's.
+        lines: [...el.querySelectorAll<HTMLElement>('[data-cell=time], [data-cell=cost]')].map((c) => {
+          const range = document.createRange();
+          range.selectNodeContents(c);
+          return { text: (c.textContent ?? '').trim(), textWidth: range.getBoundingClientRect().width, cellWidth: c.getBoundingClientRect().width };
+        }),
         // Each cost line's size before the fit: the price's, then the price sub-line's (a line the look does not fit prints at its size).
         costSizes: [...el.querySelectorAll<HTMLElement>('[data-cell=cost]')].map((c) => parseFloat(c.dataset.fit ?? getComputedStyle(c).fontSize)),
         clocks: el.querySelectorAll('[data-deco=clock]').length,
@@ -290,7 +297,7 @@ export async function checkDrawn(page: Page, payload: FlyerPayload, canvas: Canv
   expect(r.clips.map((c) => c.box), `${label}: clipped boxes`).toEqual(clips);
   for (const c of r.clips) expect(c.over, `${label}: how far the ${c.box} chip runs over`).toBeLessThanOrEqual(2);
   expect(r.fit.clippedBoxes, `${label}: clipped boxes reported`).toBe(r.clips.length);
-  expect(r.fit.entries.filter((e) => e.overflowX).map((e) => e.text), `${label}: overflowing lines`).toEqual([]);
+  expect(r.fit.entries.filter((e) => e.overflowX).map((e) => e.text), `${label}: lines cut off sideways`).toEqual(cut);
   for (const face of look.faces.map((f) => `${f.family} ${f.weight}`)) {
     expect(r.faces, `${label}: ${face}`).toContain(face);
   }
@@ -330,15 +337,21 @@ export async function checkDrawn(page: Page, payload: FlyerPayload, canvas: Canv
   if (payload.flyer.title === 'This week · stress test') {
     expect(r.rows[1].name, `${label}: a long name prints its short name`).toBe('Catamaran to Los Gigantes');
     expect(r.rows[0].cost, `${label}: a price with a · prints on two lines`).toEqual(['25€', '18€ without breakfast']);
-    // The cap is what shrinks them: sized to their copy, both would print at full size and squeeze the name. A line
-    // the look never shrinks (no floor) is not fitted, so there is no entry to read: the cap clips it instead.
+    // The cap is what shrinks them: sized to their copy, both would print at full size and squeeze the name. In a face
+    // wide enough (hand-drawn's) each is wider than its cell at its size, and shrinks; in a narrower one it fits as it is,
+    // and nothing shrinks it. A line the look never shrinks (no floor) is not fitted, so there is no entry to read: the
+    // cap clips it instead.
     for (const [text, line] of [
       ['10:00 – 13:00', 'weekTime'],
       ['18€ without breakfast', 'weekPriceSub'],
     ] as const) {
       if (look.type[line].floor === undefined) continue;
       const entry = r.fit.entries.find((e) => e.text === text)!;
-      expect(entry.finalPx, `${label}: "${text}" shrinks in its capped column`).toBeLessThan(entry.base);
+      const drawn = r.rows.flatMap((x) => x.lines).find((l) => l.text === text)!;
+      // How wide the line would be at its size: its width as drawn, scaled back from its final size.
+      const natural = (drawn.textWidth * entry.base) / entry.finalPx;
+      if (natural > drawn.cellWidth + 0.5) expect(entry.finalPx, `${label}: "${text}" shrinks in its capped column`).toBeLessThan(entry.base);
+      else expect(entry.finalPx, `${label}: "${text}" fits its column at its size, so nothing shrinks it`).toBe(entry.base);
     }
   }
 }
