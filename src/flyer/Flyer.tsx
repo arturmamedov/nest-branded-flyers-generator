@@ -54,8 +54,10 @@ function typeStyle(line: LineType, paint: Palette): CSSProperties {
   };
 }
 
-/** A fitted line's start and floor, for fit.ts: its size is where the fit starts. */
-const fitOf = (line: LineType) => ({ 'data-fit': String(line.size), 'data-fit-min': String(line.floor) });
+/** A fitted line's start and floor, for fit.ts: its size is where the fit starts. A line with no floor is never shrunk,
+    so it is not fitted at all: it carries no data-fit (one that read "undefined" was no shrink to fit.ts and a floor
+    to the checks), and wraps or clips as its block lets it. */
+const fitOf = (line: LineType) => (line.floor === undefined ? {} : { 'data-fit': String(line.size), 'data-fit-min': String(line.floor) });
 
 type Lines = Look['type'];
 

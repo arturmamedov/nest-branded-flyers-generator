@@ -270,8 +270,10 @@ export async function checkDrawn(page: Page, payload: FlyerPayload, canvas: Canv
       expect(overlap, `${label}: ${a.name} overlaps ${b.name}`).toBe(false);
     }
 
-  // Each line stops at its own floor, in the height pass too (the owner's call, 2026-09-30).
-  expect(r.floors.filter((f) => f.min === null).map((f) => f.text), `${label}: fitted lines without a floor`).toEqual([]);
+  // Each line stops at its own floor, in the height pass too (the owner's call, 2026-09-30). A line the look gives no
+  // floor is not fitted at all: it carries no data-fit, rather than a floor that reads as none (the Sunset look's
+  // labels, asks and row text, README §7.17).
+  expect(r.floors.filter((f) => f.min === null || Number.isNaN(f.floor)).map((f) => f.text), `${label}: fitted lines without a floor`).toEqual([]);
   expect(
     r.floors.filter((f) => f.px < f.floor - 0.005).map((f) => `${f.text}: ${f.px} px, floor ${f.floor.toFixed(2)}`),
     `${label}: lines below their floor`,
