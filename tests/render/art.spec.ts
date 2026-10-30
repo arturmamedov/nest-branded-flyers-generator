@@ -79,7 +79,7 @@ test.describe('the spark off the pill’s end hangs from the pill', () => {
     test(`${canvas}: beside the default pill the spark is where the design pass put it`, async ({ page }) => {
       const payload = newPayload('activity');
       const spark = resolveDoodles(payload.flyer.data.doodles).find((d) => d.anchor === 'pillEnd')!;
-      const at = placeArt(spark, artAnchors(canvas, bodyOf(payload.flyer.data), SHARED_GEOMETRY));
+      const at = placeArt(spark, artAnchors(canvas, bodyOf(payload.flyer.data), SHARED_GEOMETRY))!;
       await drawPayload(page, payload, canvas);
       const [drawn] = (await page.evaluate(readSpark)).withPill;
       // The default pill is 585 px to within a pixel (pill.spec.ts), so its end is the registry's point to half of one.
@@ -239,7 +239,7 @@ test.describe('art someone arranged is drawn as stored', () => {
       const anchors = artAnchors(canvas, bodyOf(payload.flyer.data), SHARED_GEOMETRY);
       expect(drawn.onFlyer.map((a) => a.file)).toEqual(['spark-teal.png', 'spark-yellow.png', 'blob-yellow.png', 'blob-teal.png', 'spark-teal.png']);
       drawn.onFlyer.forEach((a, i) => {
-        const want = placeArt(arranged[i], anchors);
+        const want = placeArt(arranged[i], anchors)!;
         for (const key of ['left', 'top', 'width'] as const) expect(a[key], `piece ${i} ${key}`).toBeCloseTo(want[key], 1);
       });
       // The pieces with no anchor of their own are in canvas px, whatever the canvas.

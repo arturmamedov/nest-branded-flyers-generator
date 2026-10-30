@@ -141,9 +141,28 @@ describe('canvases', () => {
       bottomRight: { x: 1080, y: 1920, scale: 1 },
       pillEnd: { x: 832.5, y: 1544, scale: 1 },
       askEnd: { x: 830, y: 1382, scale: 1 },
+      photoBottom: { x: 0, y: 1092, scale: 1 },
     });
     expect(artAnchors('story', 'band', G)).toEqual(artAnchors('story', 'bleed', G));
     expect(artAnchors('story', 'none', G)).toMatchObject({ photoLeft: { x: 240, y: 900, scale: 1 }, photoRight: { x: 840, y: 900, scale: 1 } });
+  });
+
+  // The Sunset look's splash and the botanicals at the photo's edge hang from the photo's bottom (2026-10-30, stage 2).
+  it('the photo’s bottom-left is an anchor where the body draws a photo box; a piece hung from an anchor the body lacks has no place', () => {
+    const piece: ArtPlacement = { slug: 'blob-teal', anchor: 'photoBottom', x: 10, y: -40, w: 100, rot: 0 };
+    for (const canvas of CANVAS_IDS) {
+      const { activity } = boxesOf(canvas, G);
+      for (const mode of ['bleed', 'band'] as const) {
+        const anchors = artAnchors(canvas, mode, G);
+        expect(anchors.photoBottom, `${canvas} / ${mode}`).toEqual({ x: 0, y: activity.photoBleed.top + activity.photoBleed.height, scale: 1 });
+        expect(placeArt(piece, anchors), `${canvas} / ${mode}`).toEqual({ left: 10, top: activity.photoBleed.top + activity.photoBleed.height - 40, width: 100 });
+      }
+      // No photo box: nothing to hang from, so the piece is not drawn (Flyer.tsx skips it; drawnChecks expects none).
+      for (const body of ['none', 'week'] as const) {
+        expect(artAnchors(canvas, body, G).photoBottom, `${canvas} / ${body}`).toBeUndefined();
+        expect(placeArt(piece, artAnchors(canvas, body, G)), `${canvas} / ${body}`).toBeNull();
+      }
+    }
   });
 
   // What every look's boxes keep (tests/geometry.ts): inside the safe box, the bleed's sides excepted; no two on each
@@ -383,7 +402,7 @@ function artInk(slug: string) {
 /** Where a piece's ink lands, as canvas points, placed as Flyer.tsx places it (rotate, then flip, about the centre). */
 function inkPoints(d: ArtPlacement, canvas: CanvasId, mode: Body): [number, number][] {
   const art = artInk(d.slug);
-  const { left, top, width: w } = placeArt(d, artAnchors(canvas, mode, G));
+  const { left, top, width: w } = placeArt(d, artAnchors(canvas, mode, G))!;
   const h = (w * art.height) / art.width;
   const t = ((d.rot ?? 0) * Math.PI) / 180;
   return art.px.map(([sx, sy]) => {
@@ -411,7 +430,7 @@ describe('template art', () => {
         const stored = DEFAULT_DOODLES[i];
         // A spark on the photo is the stored piece but for the ink it prints in.
         if (stored.anchor) return expect({ ...d, slug: stored.slug }).toEqual(stored);
-        const at = placeArt(d, anchors);
+        const at = placeArt(d, anchors)!;
         // toBe, not toBeCloseTo: the story must not move by a float's last bit.
         expect(at.left, `${d.slug} x`).toBe(stored.x);
         expect(at.top, `${d.slug} y`).toBe(stored.y);
@@ -482,7 +501,7 @@ describe('template art', () => {
       // Its offsets from the pill are what the design pass set, on every canvas: 776, 1601.7 on the story.
       expect([spark.x, spark.y, spark.w]).toEqual([776 - 832.5, 1601.7 - 1544, 92]);
       // So beside the default pill it lands on the same canvas column on every canvas, 57.7 px below its row's top.
-      const at = placeArt(spark, artAnchors(canvas, 'band', G));
+      const at = placeArt(spark, artAnchors(canvas, 'band', G))!;
       expect(at.left).toBe(776);
       expect(at.top).toBeCloseTo({ story: 1601.7, whatsapp: 1381.7 }[canvas], 9);
       expect(at.width, 'the pill does not shrink, so neither does its spark').toBe(92);
@@ -534,8 +553,10 @@ describe('template art', () => {
     expect(artAnchors('story', 'week', G)).toMatchObject({ photoLeft: { x: 70, y: 707, scale: 1 }, photoRight: { x: 1010, y: 707, scale: 1 } });
     expect(artAnchors('whatsapp', 'week', G)).toMatchObject({ photoLeft: { x: 54, y: 471, scale: 1 }, photoRight: { x: 1026, y: 471, scale: 1 } });
     for (const canvas of CANVAS_IDS) {
-      const { photoLeft: _l, photoRight: _r, ...week } = artAnchors(canvas, 'week', G);
-      const { photoLeft: _bl, photoRight: _br, ...band } = artAnchors(canvas, 'band', G);
+      // The week draws no photo box, so it has no photo bottom to hang from either (stage 6 of the Sunset look gives it one).
+      const { photoLeft: _l, photoRight: _r, photoBottom: none, ...week } = artAnchors(canvas, 'week', G);
+      const { photoLeft: _bl, photoRight: _br, photoBottom: _bb, ...band } = artAnchors(canvas, 'band', G);
+      expect(none, canvas).toBeUndefined();
       expect(week, canvas).toEqual(band);
     }
   });

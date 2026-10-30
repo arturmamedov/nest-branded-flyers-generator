@@ -77,6 +77,8 @@ const ART: ArtPlacement[] = [
   { slug: 'frame-box-sm', anchor: 'bottomRight', x: -260, y: -200, w: 220, rot: -6 },
   { slug: 'spark-yellow', anchor: 'pillEnd', x: 12, y: -24, w: 60, rot: 30, flipX: true },
   { slug: 'blob-teal', anchor: 'askEnd', x: 20, y: 10, w: 70, rot: 0, opacity: 0.8 },
+  // From the photo's bottom (2026-10-30): drawn only where the body has a photo box.
+  { slug: 'spark-yellow', anchor: 'photoBottom', x: 420, y: -70, w: 100, rot: 15 },
 ];
 
 export const PROOF_LOOK: Look = {

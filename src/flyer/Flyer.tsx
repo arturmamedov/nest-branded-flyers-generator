@@ -3,7 +3,7 @@ import { deriveChips, DEFAULT_CHIP_ORDER } from '../shared/chips';
 import { EYEBROW_MARK, marksFor, marksOf } from '../shared/defaults';
 import { printedExtras } from '../shared/extras';
 import { BODY_FONT } from '../shared/fonts';
-import { ASK_MAX_WIDTH, CANVASES, PILL_TILT_ROOM, artAnchors, bodyOf, boxesOf, photoFrame, pillBox, placeArt, safeBox, type ArtAnchor, type ArtPoint, type CanvasId, type Rect, type WeekBoxes } from '../shared/layout';
+import { ASK_MAX_WIDTH, CANVASES, PILL_TILT_ROOM, artAnchors, bodyOf, boxesOf, photoFrame, pillBox, placeArt, safeBox, type ArtPoints, type CanvasId, type Rect, type WeekBoxes } from '../shared/layout';
 import { lookOf, type ArtPlacement, type LineType, type Look, type Palette } from '../shared/looks';
 import { coverRect } from '../shared/photo';
 import type { FlyerData, FlyerText, Hostel, PhotoInfo } from '../shared/schema';
@@ -67,8 +67,10 @@ function doodleLook(d: ArtPlacement): CSSProperties {
   return { position: 'absolute', transform: t || undefined, opacity: d.opacity };
 }
 
-function doodleStyle(d: ArtPlacement, anchors: Record<ArtAnchor, ArtPoint>): CSSProperties {
-  return { ...doodleLook(d), ...placeArt(d, anchors) };
+/** A piece hung from a point of the canvas, or nothing where the body has no such point (placeArt). */
+function doodleStyle(d: ArtPlacement, anchors: ArtPoints): CSSProperties | null {
+  const at = placeArt(d, anchors);
+  return at && { ...doodleLook(d), ...at };
 }
 
 /** A piece that hangs from the end of the block it is drawn with: the pill (pillEnd), or the ask's copy (askEnd). Its
@@ -297,7 +299,10 @@ export function Flyer({ data, canvas, hostel, photo, showSafeZones = false, ref 
         boxSizing: 'content-box',
       }}
     >
-      {pieces.map((d, i) => (pillArt.includes(d) || askArt.includes(d) ? null : <img key={i} data-art="" data-anchor={d.anchor ?? 'canvas'} src={art(d.slug)} alt="" style={doodleStyle(d, anchors)} />))}
+      {pieces.map((d, i) => {
+        const style = pillArt.includes(d) || askArt.includes(d) ? null : doodleStyle(d, anchors);
+        return style && <img key={i} data-art="" data-anchor={d.anchor ?? 'canvas'} src={art(d.slug)} alt="" style={style} />;
+      })}
 
       <div
         data-group="eyebrow"

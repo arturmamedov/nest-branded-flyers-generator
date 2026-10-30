@@ -393,7 +393,11 @@ export const PILL_TILT_ROOM = 1;
 export const ASK_MAX_WIDTH = 760;
 
 /** Stored anchors, plus the ones only a look's own art uses (looks.ts). */
-export type ArtAnchor = DoodleAnchor | 'bottomLeft' | 'bottomRight' | 'pillEnd' | 'askEnd';
+export type ArtAnchor = DoodleAnchor | 'bottomLeft' | 'bottomRight' | 'pillEnd' | 'askEnd' | 'photoBottom';
+
+/** Where art hangs from on a canvas: every anchor but one is always there; photoBottom only where the body draws a
+    photo box (artAnchors), so a piece hung there is drawn only then (placeArt). */
+export type ArtPoints = { [A in Exclude<ArtAnchor, 'photoBottom'>]: ArtPoint } & { photoBottom?: ArtPoint };
 
 /** Where art hangs from on a canvas, for a flyer's body, in a look's boxes. The one statement of
     the rule (schema.ts and defaults.ts point here):
@@ -412,12 +416,16 @@ export type ArtAnchor = DoodleAnchor | 'bottomLeft' | 'bottomRight' | 'pillEnd' 
     - askEnd: the right end of the ask's block of copy, at its top. The block is as wide as its copy, so this point
       is where the widest block ends: the renderer hangs the art from the end of the block it draws, at the same
       offsets (the hand-drawn look's pencil), and a flyer with no ask prints none of this art.
+    - photoBottom: the bottom-left corner of the photo box the body draws (the bleed's and the band's end alike,
+      tests/geometry.ts), where the Sunset look's splash and the botanicals along the photo's edge hang (2026-10-30).
+      A body with no photo box, no photo or a week flyer, has no such point, and a piece hung there is not drawn.
     placeArt() puts a piece there. */
-export function artAnchors(canvas: CanvasId, body: Body, geometry: Geometry): Record<ArtAnchor, ArtPoint> {
+export function artAnchors(canvas: CanvasId, body: Body, geometry: Geometry): ArtPoints {
   const { width, height } = CANVASES[canvas];
   const { activity: a, week: w, art } = boxesOf(canvas, geometry);
   let photoLeft: ArtPoint;
   let photoRight: ArtPoint;
+  let photoBottom: ArtPoint | undefined;
   if (body === 'none') {
     const r = a.noPhotoRule;
     photoLeft = { x: r.left, y: r.top, scale: 1 };
@@ -431,6 +439,7 @@ export function artAnchors(canvas: CanvasId, body: Body, geometry: Geometry): Re
     const top = body === 'bleed' ? a.photoBleed.top : b.top;
     photoLeft = { x: b.left + art.photoInset, y: top, scale: 1 };
     photoRight = { x: b.left + b.width - art.photoInset, y: top, scale: 1 };
+    photoBottom = { x: 0, y: a.photoBleed.top + a.photoBleed.height, scale: 1 };
   }
   return {
     canvas: { x: 0, y: 0, scale: 1 },
@@ -440,13 +449,16 @@ export function artAnchors(canvas: CanvasId, body: Body, geometry: Geometry): Re
     bottomRight: { x: width, y: height, scale: art.cornerScale },
     pillEnd: { x: (width + DEFAULT_PILL_WIDTH) / 2, y: a.pill.top, scale: 1 },
     askEnd: { x: a.ask.left + ASK_MAX_WIDTH, y: a.ask.top, scale: 1 },
+    ...(photoBottom ? { photoBottom } : {}),
   };
 }
 
 /** Where a piece of art lands: its anchor point plus its offset, both at the
-    anchor's scale, and drawn w × scale wide. The renderer's only placement rule. */
-export function placeArt(d: { anchor?: ArtAnchor; x: number; y: number; w: number }, anchors: Record<ArtAnchor, ArtPoint>) {
+    anchor's scale, and drawn w × scale wide. The renderer's only placement rule.
+    Nowhere (null) when the body has no such anchor: the piece is not drawn. */
+export function placeArt(d: { anchor?: ArtAnchor; x: number; y: number; w: number }, anchors: ArtPoints): { left: number; top: number; width: number } | null {
   const o = anchors[d.anchor ?? 'canvas'];
+  if (!o) return null;
   return { left: o.x + d.x * o.scale, top: o.y + d.y * o.scale, width: d.w * o.scale };
 }
 

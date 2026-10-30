@@ -63,7 +63,7 @@ export function sameDoodles(a: DoodlePlacement[], b: DoodlePlacement[]): boolean
    photo carry their anchors already (and trade inks, below). Only the renderer uses these anchors, so
    the stored data stays DEFAULT_DOODLES as every flyer has it (no migration,
    and an older release still reads it). */
-const FOLLOWS: Record<string, ArtAnchor> = { 'blob-yellow': 'bottomLeft', 'blob-teal': 'bottomRight', 'spark-teal': 'pillEnd' };
+const FOLLOWS: Record<string, 'bottomLeft' | 'bottomRight' | 'pillEnd'> = { 'blob-yellow': 'bottomLeft', 'blob-teal': 'bottomRight', 'spark-teal': 'pillEnd' };
 
 /** The template's two pairs print in each other's ink. Each piece keeps its drawing and its place.
     - The corner blobs (Artur, 2026-10-12): teal in the left corner, yellow in the right, where a long pill carries

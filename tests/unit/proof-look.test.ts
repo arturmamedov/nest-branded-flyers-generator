@@ -42,6 +42,13 @@ describe('the proof look', () => {
     expect(looksToPick([PROOF_LOOK_ID], { look: PROOF_LOOK_ID })).toEqual([PROOF_LOOK]);
   });
 
+  // A piece on every point a look's art may hang from, so a renderer that lost one shows in its specs (the canvas is
+  // where every stored piece hangs, the shipped looks' confetti among them).
+  it('hangs a piece from every anchor a look’s own art may use', () => {
+    const hung = new Set(PROOF_LOOK.art({ doodles: DEFAULT_DOODLES }).map((d) => d.anchor));
+    expect([...hung].sort()).toEqual(['askEnd', 'bottomLeft', 'bottomRight', 'photoBottom', 'photoLeft', 'photoRight', 'pillEnd']);
+  });
+
   it('its face ships nowhere: a devDependency, never imported by src/flyer/fonts.css', () => {
     expect(pkg.dependencies[fontPackage(PROOF_FAMILY)]).toBeUndefined();
     expect(readFileSync(join(ROOT, 'src/flyer/fonts.css'), 'utf8')).not.toContain(fontPackage(PROOF_FAMILY));

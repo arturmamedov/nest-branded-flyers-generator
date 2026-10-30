@@ -251,9 +251,13 @@ export async function checkDrawn(page: Page, payload: FlyerPayload, canvas: Canv
   // is the look's own count: hand-drawn hangs its spark there, another look may hang nothing.
   const pieces = look.art(payload.flyer.data);
   const onPill = pieces.filter((d) => d.anchor === 'pillEnd');
+  // A piece hung from a point this body lacks (the photo's bottom, with no photo box) is not drawn.
   const want = pieces
     .filter((d) => d.anchor !== 'pillEnd' && d.anchor !== 'askEnd')
-    .map((d) => ({ ...placeArt(d, artAnchors(canvas, body, geometry)), file: `${d.slug}.png` }));
+    .flatMap((d) => {
+      const at = placeArt(d, artAnchors(canvas, body, geometry));
+      return at ? [{ ...at, file: `${d.slug}.png` }] : [];
+    });
   expect(r.art.map((a) => a.file), `${label}: art pieces`).toEqual(want.map((a) => a.file));
   // The style reads back rounded to two decimals, so to the nearest 0.05 px.
   r.art.forEach((a, i) => {
