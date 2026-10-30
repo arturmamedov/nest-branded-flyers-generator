@@ -6,7 +6,7 @@ section per stage.
 
 ## Stage 1: the look as data inside the seam (2026-10-30)
 
-Branch `feat/second-look`, cut from `main` at `d309edf`. Eleven commits, `7443305..9d34b03`, nothing pushed, no release
+Branch `feat/second-look`, cut from `main` at `d309edf`. Ten commits, `7443305..9d34b03`, and the record’s after them; nothing pushed, no release
 built, the live site and the Laragon copy untouched. Nothing a staff member sees changes: no site names the look, so
 no switch shows and every new flyer is still hand-drawn. A flyer saved in the look (`data.look: 'sunset-vibes'`) opens,
 saves and prints in it on both backends.
