@@ -65,11 +65,52 @@ export const sunsetIconSlug = (icon: SunsetIcon, ink: string) => `sunset-icon-${
 /** The Nests wordmark in an ink (the handoff ships one per ink its sets print). */
 const wordmarkIn = (ink: string) => `assets/art/sunset-wordmark-${hexOf(ink)}.png`;
 
-/** The design's boxes rest on the photo behind everything, which the seam cannot hold yet: until that stage, this look
-    prints the shared table. One thing today's tokens can say: the band along the bottom keeps its size on WhatsApp
-    (the shared 0.8 shrinks the corner art there). */
+/** The design's boxes (the plan's geometry table: the readouts of the v4 proof, README §6.1), stage 2 (2026-10-30).
+    The photo is background art behind everything (Artur's decision 1), one shape on both canvases, 1080 × 948, its
+    box starting above the canvas on WhatsApp so its bottom part shows (decision 2); In a frame prints exactly as Full
+    bleed and No photo the placeholder in the same box (answers 6 and 7: photoBehind). Every text box at the design's
+    top and height: the headline box starts where SUNSET's ink does, 193 above the photo's bottom, and keeps 320 for a
+    long Spanish line; the chips touch (the kind to come draws rules between them); the pill box is the plain line's
+    slot. The week's title and rows are transitional until This week B (stage 6): the title under the taller eyebrow,
+    five rows above the Activity ask. The band along the bottom keeps its size on WhatsApp (the shared 0.8 shrinks the
+    corner art there). */
 const GEOMETRY: Geometry = {
-  whatsapp: { cornerScale: 1 },
+  photoBehind: true,
+  story: {
+    boxes: {
+      eyebrow: { height: 173.2 },
+      headline: { top: 755, height: 320 },
+      headlineNoPhoto: { top: 755, height: 320 },
+      photoBleed: { top: 0, height: 948 },
+      chips: { top: 1103, height: 206.3 },
+      extras: { top: 1313, height: 36 },
+      ask: { top: 1353.3, height: 188 },
+      pill: { top: 1572, height: 44 },
+      weekTitle: { top: 593 },
+    },
+    chipGap: 0,
+    rowsTop: 938,
+    rowHeight: 64,
+    rowGap: 20,
+  },
+  whatsapp: {
+    boxes: {
+      eyebrow: { height: 163.4 },
+      headline: { top: 436.2, height: 320 },
+      headlineNoPhoto: { top: 436.2, height: 320 },
+      photoBleed: { top: -318.8, height: 948 },
+      chips: { top: 784.2, height: 206.3 },
+      extras: { top: 994, height: 36 },
+      ask: { top: 1034.5, height: 188 },
+      pill: { top: 1253, height: 44 },
+      weekTitle: { top: 378.3 },
+    },
+    chipGap: 0,
+    rowsTop: 640,
+    rowHeight: 64,
+    rowGap: 15,
+    cornerScale: 1,
+  },
 };
 
 /** Day's palette for every flyer: a flyer's stored colours are hand-drawn's. No chip fill and no highlighter, so the
@@ -120,14 +161,21 @@ const TYPE: Look['type'] = {
   weekPriceSub: { font: M, weight: 500, size: 18, lineHeight: 1.2222, upper: true, ink: 'muted', on: 'surface' },
 };
 
-/** The pieces today's anchors can hang, in draw order, from the handoff's layers (README §1.1, §5): the confetti over
-    the photo's place and the top-right botanical, in canvas px; the band along the bottom, from the bottom-left corner
-    at full size on both canvases. Its y is the file's drawn height at 1080 wide (1131 × 287), so its bottom edge is the
-    canvas's (§5 says −273.21, from the design board's floor). The splash, the blob and the other botanicals hang from
-    the photo's bottom, the canvas's top and the blocks' bottom: anchors their stages add. */
+/** The art, in the handoff's draw order (README §1.1, §5), over the photo behind everything: the splash in the ground
+    colour over the photo's bottom 448.81 px (the Day pre-fill of the mask), the confetti over the photo's place and
+    the top-right botanical in canvas px, the three botanicals along the splash's edge from the photo's bottom (fixed
+    there: the design moves them to clear text, the app does not), and the band along the bottom, from the bottom-left
+    corner at full size on both canvases. The band's y is the file's drawn height at 1080 wide (1131 × 287), so its
+    bottom edge is the canvas's (§5 says −273.21, from the design board's floor). With no photo box to hang from (a
+    week flyer, until stage 6) the pieces at the photo's bottom are not drawn. The blob and the lower ferns hang from
+    the canvas's top and the blocks' bottom: anchors their stages add. */
 const ART: ArtPlacement[] = [
+  { slug: 'sunset-splash-day', anchor: 'photoBottom', x: 0, y: -448.81, w: 1080, rot: 0 },
   { slug: 'sunset-confetti-day', x: 182.39, y: 3.82, w: 804.03, rot: 0 },
+  { slug: 'sunset-bot-fern-w', anchor: 'photoBottom', x: 0, y: -484.14, w: 150.88, rot: 0 },
   { slug: 'sunset-bot-tr', x: 806.9, y: 0, w: 269.28, rot: 0 },
+  { slug: 'sunset-bot-fern-r', anchor: 'photoBottom', x: 997.88, y: -394.38, w: 82.12, rot: 0 },
+  { slug: 'sunset-bot-monstera', anchor: 'photoBottom', x: 94.54, y: -401.07, w: 219.63, rot: 0 },
   { slug: 'sunset-bot-band', anchor: 'bottomLeft', x: 0, y: -274.06, w: 1080, rot: 0 },
 ];
 

@@ -7,7 +7,7 @@ import { checkDrawn, drawnSamples, samples } from './drawnChecks';
 import { pixel, serverPng } from './exports';
 import { compare, failures, regionsOf } from './pixels';
 import { sampleCopy } from './proofFlyers';
-import { CANVASES, CANVAS_IDS, DEFAULT_CANVAS, type CanvasId } from '../../src/shared/layout';
+import { CANVASES, CANVAS_IDS, DEFAULT_CANVAS, boxesOf, type CanvasId } from '../../src/shared/layout';
 import { FIRST_LOOK, allLooks, type Look } from '../../src/shared/looks';
 import { DEFAULT_COLORS } from '../../src/shared/looks/handDrawn';
 import type { FlyerPayload } from '../../src/shared/schema';
@@ -40,6 +40,15 @@ const CUT: Record<string, string[]> = {};
 for (const canvas of CANVAS_IDS)
   for (const title of ['Long copy · stress test', 'Highlighter wrap'])
     for (const body of ['bleed', 'band', 'none']) CUT[`sunset-vibes | ${canvas} | ${title} / ${body}`] = ['Sunrise hike above'];
+
+/** A pixel of the look's ground on a canvas: the top-left corner, unless the photo lies behind everything there; then
+    a point on the splash, 60 px above the photo's bottom in the side margin (left of the headline's ink and clear of
+    the botanicals, which hang at the splash's edge higher up), where a week flyer with no photo prints the ground too. */
+function groundAt(look: Look, canvas: CanvasId): { x: number; y: number } {
+  if (!look.geometry.photoBehind) return { x: 2, y: 2 };
+  const photo = boxesOf(canvas, look.geometry).activity.photoBleed;
+  return { x: 20, y: Math.round(photo.top + photo.height - 60) };
+}
 
 /** The letters every face must carry (the handoff's README §1.5), beyond ASCII. */
 const LETTERS = 'ÑñÁÉÍÓÚ¡¿€·’';
@@ -105,7 +114,8 @@ for (const look of SHIPPED) {
         for (const canvas of CANVAS_IDS) {
           const golden = await serverPng(request, id, canvas);
           const regions = await regionsOf(page, id, canvas);
-          expect(pixel(golden, 2, 2), `${canvas}: the server drew the look's ground`).toBe(look.palette({ colors: DEFAULT_COLORS }).ground.toUpperCase());
+          const at = groundAt(look, canvas);
+          expect(pixel(golden, at.x, at.y), `${canvas}: the server drew the look's ground`).toBe(look.palette({ colors: DEFAULT_COLORS }).ground.toUpperCase());
           await canvasButton(editor, canvas).click();
           const candidate = PNG.sync.read(readFileSync(await (await download(editor, 'png')).path()));
           expect([candidate.width, candidate.height]).toEqual([CANVASES[canvas].width, CANVASES[canvas].height]);
@@ -115,6 +125,51 @@ for (const look of SHIPPED) {
         expect(overridden(), 'the editor read the client-only config').toBe(true);
       } finally {
         await context.close();
+      }
+    });
+  }
+
+  if (look.geometry.photoBehind) {
+    /* The photo behind everything (Artur's decision 1 and answers 6 and 7, 2026-10-30): the flyer's first block, so
+       the art and the copy paint over it; In a frame prints exactly as Full bleed; No photo prints the placeholder
+       colour in the photo's box, with the splash (the ground over the photo's bottom) and the botanicals as with a photo. */
+    test(`${look.id}: the photo is drawn first, under everything; In a frame prints exactly as Full bleed; No photo prints the placeholder in the photo's box`, async ({ page, request }) => {
+      test.setTimeout(240_000);
+      const pool = (await samples(request)).find((p) => p.flyer.title === 'Pool party')!;
+      const paint = look.palette({ colors: DEFAULT_COLORS });
+      for (const canvas of CANVAS_IDS) {
+        const box = boxesOf(canvas, look.geometry).activity.photoBleed;
+        for (const mode of ['bleed', 'band', 'none'] as const) {
+          await drawPayload(page, inLook({ ...pool, flyer: { ...pool.flyer, data: { ...pool.flyer.data, photoMode: mode } } }, look), canvas);
+          const first = await page.evaluate(() => {
+            const el = document.querySelector('[data-flyer]')!.firstElementChild as HTMLElement;
+            const b = el.getBoundingClientRect();
+            return { group: el.dataset.group, top: b.top, height: b.height, left: b.left, width: b.width, img: el.querySelectorAll('img').length };
+          });
+          // Chrome lays out in 1/64 px: the box's edges to the nearest one.
+          const { top, height, ...rest } = first;
+          expect(rest, `${canvas} / ${mode}: the photo box is the first block`).toEqual({ group: 'photo', left: 0, width: 1080, img: mode === 'none' ? 0 : 1 });
+          expect(top, `${canvas} / ${mode}: the photo box's top`).toBeCloseTo(box.top, 1);
+          expect(height, `${canvas} / ${mode}: the photo box's height`).toBeCloseTo(box.height, 1);
+          // The splash hangs from the photo's bottom in every mode, the week aside: the placeholder box is a photo box.
+          const splash = await page.evaluate(() => [...document.querySelectorAll<HTMLElement>('[data-flyer] > img[data-art][data-anchor=photoBottom]')].map((el) => parseFloat(el.style.top)));
+          expect(splash.length, `${canvas} / ${mode}: the pieces at the photo's bottom`).toBe(look.art(pool.flyer.data).filter((d) => d.anchor === 'photoBottom').length);
+          expect(Math.min(...splash), `${canvas} / ${mode}: the splash's top`).toBeCloseTo(box.top + box.height - 484.14, 1);
+        }
+        // The exports: a copy In a frame and a copy in Full bleed are one picture. Chrome now and then rasterises a
+        // small piece differently (baseline.spec.ts): fresh copies, up to three times, until two agree.
+        let same = false;
+        for (let i = 0; i < 3 && !same; i++) {
+          const band = await serverPng(request, (await sampleCopy(request, 'Pool party', 'band', keep, look.id)).id, canvas);
+          const bleed = await serverPng(request, (await sampleCopy(request, 'Pool party', 'bleed', keep, look.id)).id, canvas);
+          same = band.data.equals(bleed.data);
+        }
+        expect(same, `${canvas}: In a frame prints exactly as Full bleed`).toBe(true);
+        // No photo: the placeholder at the photo box's top-left corner on the canvas, the ground on the splash below
+        // its crests (60 px above the photo's bottom, left of the headline's ink and clear of the botanicals).
+        const none = await serverPng(request, (await sampleCopy(request, 'Pool party', 'none', keep, look.id)).id, canvas);
+        expect(pixel(none, 2, Math.max(0, box.top) + 2), `${canvas}: the placeholder where the photo would be`).toBe(paint.placeholder.toUpperCase());
+        expect(pixel(none, groundAt(look, canvas).x, groundAt(look, canvas).y), `${canvas}: the splash over the photo's bottom`).toBe(paint.ground.toUpperCase());
       }
     });
   }

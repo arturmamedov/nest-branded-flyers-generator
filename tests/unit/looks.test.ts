@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { ROOT } from '../../scripts/gen-shared.js';
 import { EYEBROW_MARKS, marksOf } from '../../src/shared/defaults.js';
 import * as fonts from '../../src/shared/fonts.js';
-import { SHARED_GEOMETRY } from '../../src/shared/layout.js';
+import { CANVAS_IDS, SHARED_GEOMETRY, artAnchors, boxesOf, photoFrame, placeArt } from '../../src/shared/layout.js';
 import { FIRST_LOOK, allLooks, lookIds, lookOf, siteLooks } from '../../src/shared/looks.js';
 import { DEFAULT_COLORS, DEFAULT_DOODLES, HAND_DRAWN, resolveDoodles } from '../../src/shared/looks/handDrawn.js';
 import { SUNSET_VIBES, sunsetIconSlug } from '../../src/shared/looks/sunsetVibes.js';
@@ -240,16 +240,76 @@ describe('the Sunset Vibes look (stage 1: the look as data, docs/prompts/sunset-
     expect(SUNSET_VIBES.wordmark).toBe('assets/art/sunset-wordmark-0d6f82.png');
   });
 
-  it('places the pieces today’s anchors can hang (the confetti, the top-right botanical, the band at full size on both canvases), the same on every flyer', () => {
+  it('places its art in the handoff’s draw order (README §1.1, §5): the splash and the botanicals at the photo’s edge from the photo’s bottom, the confetti and the top-right piece on the canvas, the band from the bottom corner at full size on both canvases; the same on every flyer', () => {
     const art = SUNSET_VIBES.art({ doodles: DEFAULT_DOODLES });
     expect(art).toEqual([
+      { slug: 'sunset-splash-day', anchor: 'photoBottom', x: 0, y: -448.81, w: 1080, rot: 0 },
       { slug: 'sunset-confetti-day', x: 182.39, y: 3.82, w: 804.03, rot: 0 },
+      { slug: 'sunset-bot-fern-w', anchor: 'photoBottom', x: 0, y: -484.14, w: 150.88, rot: 0 },
       { slug: 'sunset-bot-tr', x: 806.9, y: 0, w: 269.28, rot: 0 },
+      { slug: 'sunset-bot-fern-r', anchor: 'photoBottom', x: 997.88, y: -394.38, w: 82.12, rot: 0 },
+      { slug: 'sunset-bot-monstera', anchor: 'photoBottom', x: 94.54, y: -401.07, w: 219.63, rot: 0 },
       { slug: 'sunset-bot-band', anchor: 'bottomLeft', x: 0, y: -274.06, w: 1080, rot: 0 },
     ]);
     expect(SUNSET_VIBES.art({ doodles: [] })).toBe(art);
-    // The design's boxes wait for the photo behind everything (stage 2): the shared table, and the band unshrunk on WhatsApp.
-    expect(SUNSET_VIBES.geometry).toEqual({ whatsapp: { cornerScale: 1 } });
+  });
+
+  // The plan's geometry table (docs/prompts/sunset-vibes-look.md), the readouts of the v4 proof: the photo behind
+  // everything, 1080 × 948 on both canvases (above the canvas top on WhatsApp), every text box at the design's top and
+  // height. The week's title and rows are transitional until stage 6 (This week B): the title under the taller
+  // eyebrow, five rows above the Activity ask.
+  it('prints the design’s Activity boxes on both canvases, with the photo behind everything (stage 2, 2026-10-30)', () => {
+    expect(SUNSET_VIBES.geometry).toEqual({
+      photoBehind: true,
+      story: {
+        boxes: {
+          eyebrow: { height: 173.2 },
+          headline: { top: 755, height: 320 },
+          headlineNoPhoto: { top: 755, height: 320 },
+          photoBleed: { top: 0, height: 948 },
+          chips: { top: 1103, height: 206.3 },
+          extras: { top: 1313, height: 36 },
+          ask: { top: 1353.3, height: 188 },
+          pill: { top: 1572, height: 44 },
+          weekTitle: { top: 593 },
+        },
+        chipGap: 0,
+        rowsTop: 938,
+        rowHeight: 64,
+        rowGap: 20,
+      },
+      whatsapp: {
+        boxes: {
+          eyebrow: { height: 163.4 },
+          headline: { top: 436.2, height: 320 },
+          headlineNoPhoto: { top: 436.2, height: 320 },
+          photoBleed: { top: -318.8, height: 948 },
+          chips: { top: 784.2, height: 206.3 },
+          extras: { top: 994, height: 36 },
+          ask: { top: 1034.5, height: 188 },
+          pill: { top: 1253, height: 44 },
+          weekTitle: { top: 378.3 },
+        },
+        chipGap: 0,
+        rowsTop: 640,
+        rowHeight: 64,
+        rowGap: 15,
+        cornerScale: 1,
+      },
+    });
+    // One photo shape on both canvases, the band's and no photo's box the same (Artur's answers 6 and 7).
+    for (const canvas of CANVAS_IDS) {
+      const { activity } = boxesOf(canvas, SUNSET_VIBES.geometry);
+      expect([activity.photoBleed.width, activity.photoBleed.height], canvas).toEqual([1080, 948]);
+      expect(activity.photoBand, canvas).toEqual(activity.photoBleed);
+      expect(activity.noPhotoRule, canvas).toEqual(activity.photoBleed);
+      expect(photoFrame(canvas, 'band', SUNSET_VIBES.geometry), canvas).toEqual({ width: 1080, height: 948 });
+    }
+    // The splash's top on the story: the photo's bottom less 448.81 (README §1.1).
+    const splash = SUNSET_VIBES.art({ doodles: DEFAULT_DOODLES })[0];
+    expect(placeArt(splash, artAnchors('story', 'band', SUNSET_VIBES.geometry))).toEqual({ left: 0, top: 948 - 448.81, width: 1080 });
+    expect(placeArt(splash, artAnchors('whatsapp', 'none', SUNSET_VIBES.geometry))!.top).toBeCloseTo(-318.8 + 948 - 448.81, 6);
+    expect(placeArt(splash, artAnchors('story', 'week', SUNSET_VIBES.geometry)), 'the week draws no photo until stage 6').toBeNull();
   });
 
   it('draws no frame, today’s pill with no corners and no tilt (its line kind comes later), and the marks as hand-drawn', () => {
