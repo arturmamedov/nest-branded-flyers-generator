@@ -108,3 +108,133 @@ is 56 until the lockup's box; the extras keep a floor of 0.8 in today's row kind
 
 Stage 2's block is in the plan file, brought up to date (the geometry, the photo modes as answered, the tilt on the
 words). Suggested run: Claude Fable 5.1 (`claude-fable-5-1`), effort **high**, started in plan mode.
+
+## Stage 2: the photo behind, the headline (2026-10-30, unattended)
+
+Run overnight, unattended, on `feat/second-look` from `47e9712`: nobody answered, so where the block says "I answer
+from them" or "for Artur to decide" the plan's recommendation was taken, and each is listed below with the picture
+that shows it. Four commits of code, `13a3590..96b042e`, and the record's after them; nothing pushed, no release
+built, the live site and the Laragon copy untouched. An Activity flyer in Sunset Vibes now prints the design's top
+half on both canvases in each photo mode: the photo behind everything, the splash and its botanicals, the two words
+staggered and turned, the Spanish line centred under them. Hand-drawn did not move by a pixel. Nothing a staff member
+sees changes: no site names the look.
+
+### The plan of the night, as built
+
+| # | Piece | Seam change | Commit |
+|---|---|---|---|
+| 1 | The `photoBottom` anchor | `ArtAnchor` + `photoBottom`; `ArtPoints` (every anchor but that one always there); `placeArt()` answers null where the body lacks the anchor, and the renderer draws nothing; the proof look hangs a piece from it | `13a3590` |
+| 2 | The photo behind everything | `Geometry.photoBehind` (on the geometry, not on `Look`: every reader of a geometry learns it); `boxesOf()` gives the band's and the no-photo rule's boxes the bleed's; the renderer draws the photo group first; `tests/geometry.ts`, `drawnChecks` and `pixels.ts` let the photo be | `09fefb7` |
+| 3 | The look's Activity geometry and its art | The plan's table on both canvases; the splash and the three botanicals on `photoBottom`; a browser test for answers 6 and 7 | `5adaf0e` |
+| 4 | The staggered headline kind | `Look.headline?: StaggeredHeadline` (`word1`, `word2`: `dx`, `y`, `rise`, `cap`, `margin`; `spanishTop`); `wordSlot()` in `layout.ts`; `StaggeredHeadlineBlock` in the renderer; `rotate` on the two words; the stacked kind leaves a line's turn | `96b042e` |
+| 5 | The record | This section, the plan file, the status lines | after it |
+
+### What was built, commit by commit
+
+- **`13a3590`, the anchor.** `photoBottom` is the bottom-left corner of the photo box a body draws (the bleed's and
+  the band's end alike). A body with no photo box (no photo, a week flyer) has no such point: `artAnchors()` returns
+  `ArtPoints`, where that one anchor is optional, `placeArt()` answers null for a piece hung there, `Flyer.tsx` skips
+  it and `drawnChecks` expects none. Hand-drawn's `FOLLOWS` names the anchors it uses. The proof look hangs a
+  `spark-yellow` from it, and `proof-look.test.ts` holds it to a piece on every anchor a look's own art may use.
+- **`09fefb7`, the photo behind.** `Geometry.photoBehind`: the photo as background art, drawn first (the flyer's
+  first block, so the art and the copy paint over it), in the bleed box in every photo mode, free of the safe zone
+  and the stack. With it, `boxesOf()` makes the band's and the no-photo rule's boxes the bleed's: `photoFrame()`
+  answers the bleed's shape for the band (one crop serves both modes, answer 6), `activityGroups()` puts the photo
+  group there in every mode, and `artAnchors()` has a `photoBottom` with no photo too (the placeholder's box, answer
+  7). `tests/geometry.ts` keeps every rule for the text boxes (a photo above the canvas and under the headline passes;
+  a headline out of the safe zone is still named) and keeps the photo edge to edge, one shape on both canvases, and
+  above the chips. `drawnChecks` lets the photo leave the safe box and lie under the blocks. The fidelity mask
+  (`pixels.ts`) takes the other blocks' boxes out of the photo's mask, so the words drawn over the photo stay in
+  every metric (hand-drawn's photo meets no other box: nothing changes there).
+- **`5adaf0e`, the look's geometry and art.** The plan's table: the photo 0 / 948 on the story and −318.8 / 948 on
+  WhatsApp; the eyebrow 173.2 / 163.4 tall; the headline (and the no-photo headline) 755 / 320 and 436.2 / 320; the
+  chips 1103 / 206.3 and 784.2 / 206.3 with no gap; the extras 1313 / 36 and 994 / 36; the ask 1353.3 / 188 and
+  1034.5 / 188; the pill 1572 / 44 and 1253 / 44. The week's title and rows are **transitional** until This week B
+  (the title at 593 / 378.3 in the shared 250 box, five rows of 64 at 938 / 20 and 640 / 15): the design's week ask
+  box comes with stage 6, and five rows must end above the Activity ask. The art in the handoff's draw order: the
+  splash (`sunset-splash-day`, 0 / −448.81), the confetti, fern-w (0 / −484.14), the top-right botanical, fern-r
+  (997.88 / −394.38), the monstera (94.54 / −401.07), the band. `shipped-looks.spec.ts` holds the photo first under
+  everything on both canvases in every mode, a copy In a frame byte-identical to a copy in Full bleed (fresh copies up
+  to three times, for Chrome's rasterising flakes), and No photo as the placeholder in the photo's box with the
+  splash (a pixel of each). The client-export test's ground pixel moved from the corner to the splash for a look with
+  the photo behind.
+- **`96b042e`, the staggered headline.** `Look.headline` is the kind: each word centred `dx` from the canvas's
+  middle, its baseline `y` into the box, fitted to its slot (`wordSlot()`: `min(cap, 2 × the room to the nearer safe
+  edge − margin)`, 749.62 / 474.06 on the story, 809.62 / 534.06 on WhatsApp), turned by its line's `rotate` about
+  its baseline centre, which lands on the slot's top-middle: the line box is turned about the point `rise` into it
+  and moved up by `rise` em, so the fit's size carries it (`rise` is where the face's baseline falls in a line at
+  line-height 1, measured in Chrome: Archivo Black 0.86, Caveat Brush 0.83). The Spanish line is centred at
+  `spanishTop` (248.93) across the box, wrapping balanced, floor 0.8 as before. The words are out of the flow, so a
+  long Spanish line never moves them. Sunset's numbers are the plan's: word 1 at −70.19 / 151.03, word 2 at
+  222.97 / 212.15 (PB − 41.97 and PB + 19.15 on both canvases), caps 840 / 560, margins 50 / 20, turns −9.5° and
+  −6.5°. The week's title keeps the stacked kind until stage 6, and the stacked kind now leaves a line's turn
+  (`upright()`): with `rotate` on the words, the week's title drew them turned in its box and the sparse week's title
+  clipped on both canvases, stage 1's trap met. `shipped-looks.spec.ts` reads each word's slot, row, size, turn,
+  origin and move back from the page, and the Spanish line's top and alignment; its CUT table lists what the kind
+  cuts (below).
+
+### How it was held
+
+- **The drawing did not move.** The baseline (`nest-sunset-baseline`, captured from `7443305`, 36 cases on both
+  canvases) checked byte-identical before anything at `47e9712`, then at `13a3590`, `09fefb7`, `5adaf0e` and
+  `96b042e`: 36 compared, 0 skipped, every time.
+- **Each piece's gate** on a fresh build: the unit suite, the browser specs it touched in the `render` project
+  (`render.spec`, `shipped-looks.spec`, `art.spec`, `fidelity.spec`, `editor.spec` as the piece asked), the proof
+  look's `looks.spec` on `dist-proof/`, then the baseline.
+- **The gates at the end**, at `96b042e`: `npm run typecheck && npm test && npm run test:contract && npm run
+  test:render`, all green: 960 unit tests (58 files), 390 in the contract suite
+  (235 skipped: the projects that need a deployment, as always here), 433 in the browser
+  (one skipped, as before; 11.4 min).
+- **Chrome** (the installed one, driven by Playwright from `backups/second-look/tmp/chrome.mts`): the editor with a
+  Pool party copy in the look, the preview in the three modes on both canvases, the photo handle dragged on WhatsApp
+  where the photo starts above the canvas (its box begins 99 px above the stage on screen, cut by the canvas; at 2×
+  the drag moved the crop, y 0.5 → 0.39, and the save took it; at 1× the photo just covers its frame and cannot pan,
+  as in Hand-drawn). `backups/second-look/stage-2-chrome-*.png`.
+- **The pictures** (outside git, drawn by the server's export of the built app through `backups/second-look/sheet.ts`,
+  which now takes a sheet's name and draws Pool party and the Long copy stress test in the three photo modes and the
+  This week stress test, Hand-drawn above Sunset Vibes, both canvases):
+  - `backups/second-look/stage-2-photo-behind.png`: at `5adaf0e`, the photo behind, the headline still stacked.
+  - `backups/second-look/stage-2-headline.png`: at `96b042e`, the headline staggered.
+  - `backups/second-look/stage-2-headline-cuts.png`: at `96b042e`, Pizza night, Surf lesson, Pizza · weekly and
+    Paragliding in Full bleed: the samples whose headline the kind cuts on the story, and one it does not.
+
+### For Artur to strike (each a recommendation taken in his place; the picture shows it)
+
+| Decision | Taken | Picture |
+|---|---|---|
+| The headline floor stays 0.6 (settled for the night). With the words staggered, a second word's slot on the story holds about 9 Caveat Brush letters at the floor and the first word's about 14: four of the six Activity samples cut a line on the story (Pizza night and Pizza · weekly "Family dinner,", Pizza · weekly "every Friday.", Surf lesson "of fun waves."), the stress test both words on both canvases; WhatsApp cuts the stress test alone. | The samples' copy kept, each cut listed in `shipped-looks.spec.ts`'s CUT table with its why; the editor says it is cut off. His to strike: a lower floor for this look's words, a wider second slot, or the samples' copy. | `stage-2-headline-cuts.png`, `stage-2-headline.png` |
+| The Spanish line's place: the design measures the headline's ink and sets the line 24 px under it. | A fixed top in the box (248.93, the design's with "Vibes" at full size): a short or shrunk second word leaves a little more room above the Spanish line than the design would. | `stage-2-headline.png` (Pool party: "pool party." fitted smaller) |
+| The week flyer in the look until stage 6 (the title and rows had to move: the taller eyebrow and the Activity ask's new top break the shared week table's rules). | A transitional week geometry: the title stacked and upright at 593 / 378.3 in the shared 250 box, five rows of 64 px in today's framed kind (their day and name boxes reach below a 64 px row). Not a print anyone sees: no site names the look. | `stage-2-photo-behind.png`, `stage-2-headline.png` (the last two columns) |
+| No photo in the look: the preview's photo handle. | `photoFrame()` answers null for No photo (nothing to crop, and the ways out stay open, answer 7), so the preview shows no handle and no "Drop the event photo here" over the placeholder box; a drop on the stage still lands. | `stage-2-chrome-story-no-photo.png` |
+| Where `photoBehind` lives: the plan's table said `Look.photoBehind`. | On the look's `geometry` (`Geometry.photoBehind`): it says where the photo box sits against the stack and the safe zone, which is geometry, and every reader of a geometry (`boxesOf`, `photoFrame`, `activityGroups`, `artAnchors`, `geometryProblems`) learns it without a second argument. | — |
+| The eyebrow on the raw photo (no blob until stage 5): "NEXT ACTIVITY" and the marks sit on the photo's top on both canvases, small and dark on a bright picture. | Left as the plan stages it; stage 5's lockup and blob cover it. | `stage-2-photo-behind.png` |
+| The splash-edge botanicals: the design moves each to clear text, the app does not (the plan's "fixed"). | Fixed where the plan puts them; nothing of the samples' copy meets them. | `stage-2-photo-behind.png` |
+
+### Found on the way
+
+- **Chrome snaps a baseline to a whole pixel** (the probe read 124 of 144.64 px for Archivo Black, 162 of 188.17), so
+  `rise` is the face's share at 100 px (0.86, 0.83) and a word's baseline may sit up to half a pixel off the design's.
+  Measured with `backups/second-look/tmp/measure-rise.mts` (a zero-size inline-block aligned to the baseline).
+- **A box's edges read back at 1/64 px** (the WhatsApp photo's top is −318.796875): the spec compares them to a tenth.
+- **`playwright test --project render <file>` reads the file as a project name** (`--project` is variadic): write
+  `--project=render`.
+- **A throwaway outside the repository cannot resolve `node_modules`**: the night's scripts live in
+  `backups/second-look/tmp/` (git-ignored).
+- **The stacked kind and a turned line** (stage 1's trap, met): `typeStyle()` draws any line's `rotate`, so the
+  week's title drew Sunset's words turned in its stacked box and the sparse week's title clipped. The stacked kind now
+  draws its lines upright; the proof look's turned eyebrow is not a headline line, and hand-drawn turns nothing.
+- **The turned words never trigger the height pass** on any sample: word 1's turned line box ends about 233 into the
+  320 px box, word 2's about 271, the stress test's two-line Spanish line at 302.
+- **In a frame and Full bleed export byte-identical** in the look, on both canvases, first try (the test allows three).
+- **The client export matches the server's within 0.5 %** with the photo behind and the words turned (Pool party in
+  the band and the bleed, Paragliding with no photo, the week stress test, both canvases): modern-screenshot carries
+  `transform-origin` in percent, `translateY` in em and `text-wrap: balance`.
+- **The export under load, seen again**: the first sheet of the night died while a gate's browser run competed with
+  it (stage 1 saw a 500 the same way); run by itself it drew every export. The sheets were drawn between runs.
+- `backups/second-look/tmp/cuts.mts` lists every cut line and clipped box in the look at once; the per-canvas sample
+  test stops at its first.
+
+### Next: stage 3
+
+Stage 3's block is in the plan file, brought up to date (the staggered kind's markup and hooks, the words' slots and
+fit, the cuts). Suggested run: Claude Fable 5.1 (`claude-fable-5-1`), effort **high**, started in plan mode.

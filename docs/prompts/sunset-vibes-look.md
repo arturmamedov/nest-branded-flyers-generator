@@ -81,7 +81,7 @@ streaks, steps 7 and 9 of the first handoff, a look switch on Create with AI, a 
 release.
 ```
 
-## Stage 2's block (paste; brought up to date by stage 1 on 2026-10-30)
+## Stage 2's block (brought up to date by stage 1 on 2026-10-30; built that night, unattended, `13a3590..96b042e`: the report's "Stage 2")
 
 ```
 Read CLAUDE.md, then docs/prompts/sunset-vibes-look.md whole (the master plan; its "Decided" points and Artur's
@@ -126,42 +126,57 @@ The streaks (stage 3), the chips, ask, extras, pill and lower art (stage 4), the
 week B (stage 6), the colour sets, the fields, the release.
 ```
 
-## Stage 3's block (paste; stage 2 brings it up to date): the streaks
+## Stage 3's block (paste; brought up to date by stage 2 on 2026-10-30): the streaks
 
 ```
-Read CLAUDE.md, docs/prompts/sunset-vibes-look.md whole (decided points and Artur's answers not reopened),
-docs/reports/sunset-vibes.md, docs/adding-a-look.md, src/shared/looks.ts, src/shared/looks/sunsetVibes.ts,
-src/flyer/Flyer.tsx (the headline kind), src/flyer/ready.ts, src/flyer/fit.ts, src/editor/export/ClientExporter.tsx,
-tests/render/fidelity.spec.ts, tests/render/shipped-looks.spec.ts, and the handoff's README §1.1 (layers 17 and 19),
-§5 (the streak masks) and §7.12; the generator, reference/source/sm-streaks.js, whole (7.8 KB).
+Read CLAUDE.md, docs/prompts/sunset-vibes-look.md whole (decided points and Artur's answers not reopened; "What
+stage 2 found"), docs/reports/sunset-vibes.md (stage 2's "For Artur to strike" table: what he struck or kept of it
+since), docs/adding-a-look.md, src/shared/looks.ts (StaggeredHeadline, LineType.rotate), src/shared/layout.ts
+(wordSlot), src/shared/looks/sunsetVibes.ts (HEADLINE), src/flyer/Flyer.tsx (StaggeredHeadlineBlock: a word is a
+div[data-word] fitted to its slot, turned about its baseline centre by `translateY(-rise em) rotate(θ)` with the
+origin at `50% rise`), src/flyer/ready.ts, src/flyer/fit.ts, src/editor/export/ClientExporter.tsx,
+tests/render/fidelity.spec.ts, tests/render/shipped-looks.spec.ts (its CUT table and the headline test), and the
+handoff's README §1.1 (layers 17 and 19), §5 (the streak masks) and §7.12; the generator,
+reference/source/sm-streaks.js, whole (7.8 KB). The pictures of stage 2 are backups/second-look/stage-2-*.png.
 
 Build stage 3 of the plan: the dry-brush streaks over the headline words (Artur's answer 8: "port the generator
-now"). sm-streaks.js ported to the renderer: for each headline word as fitted (its text, face, size, tilt), the
-word's alpha field, a flow along its strokes, seeded noise and an alpha mask at 2×, coloured with the ground and drawn
-over the word; deterministic (seeded by the word, its size and its face, so a flyer prints the same twice); cached per
-key (the library cards mount the renderer); awaited by prepareFlyer() after the fit, so both exports carry it, and
-the client export stays within 0.5 % of the server's. A streak token on the look (which lines, the cover and the
-minimum distance from the edge, the handoff's numbers); Hand-drawn sets none. Hand-drawn must not change by one pixel.
+now"). sm-streaks.js ported to the renderer: for each headline word as fitted (its text, face, size, tilt: the
+fitted size is the word's style.fontSize after fit.ts, the tilt its line's rotate, the baseline centre the slot's
+top-middle), the word's alpha field, a flow along its strokes, seeded noise and an alpha mask at 2×, coloured with
+the ground and drawn over the word; deterministic (seeded by the word, its size and its face, so a flyer prints the
+same twice); cached per key (the library cards mount the renderer); awaited by prepareFlyer() after the fit, so both
+exports carry it, and the client export stays within 0.5 % of the server's (the fidelity mask keeps the headline box
+in every metric, stage 2). A streak token on the look (which lines, the cover and the minimum distance from the edge,
+the handoff's numbers: cover 0.13 / 0.10, minD 4 / 3); Hand-drawn sets none; the stacked kind draws none. A word cut
+at its floor (the CUT table) is streaked as drawn. Hand-drawn must not change by one pixel.
 
 HOW TO WORK
 
 - Start in plan mode; check git (feat/second-look, clean; else stop and ask); stage by path; warn before a
-  src/shared/ edit if npm run dev may be running. The baseline (nest-sunset-baseline) before anything and after
-  every commit that touches src/. A browser run reads the specs live and the app from dist/: never edit
-  tests/render, tests/proof or src/ while one runs.
+  src/shared/ edit if npm run dev may be running. The baseline (nest-sunset-baseline, captured from 7443305) before
+  anything and after every commit that touches src/: `npm run build`, then
+  `RENDER_BASELINE=check RENDER_BASELINE_DIR=<the folder> npx playwright test --project=render tests/render/baseline.spec.ts`
+  (`--project=render` with the equals sign: the flag is variadic and would read the file as a project). A browser run
+  reads the specs live and the app from dist/: never edit tests/render, tests/proof or src/ while one runs. Throwaway
+  scripts go in backups/second-look/tmp/ (git-ignored, inside the repository so node_modules resolves); .mts for
+  top-level await.
 - A SHORT table of the changes in order, with how long a streak takes to make at 1080 px and what the library's
   cards do meanwhile; build nothing before I say go; tests first, a commit per piece.
 - Pictures from the real renderer: both stress tests and Pool party in the new look beside Hand-drawn, both
-  canvases, with the streaks; I answer from them.
+  canvases, with the streaks (backups/second-look/sheet.ts takes a sheet's name: `npx tsx backups/second-look/sheet.ts
+  stage-3-streaks`, after npm run build and never beside a browser run: an export under load has failed twice); I
+  answer from them.
 - Before calling it done: typecheck, test, test:contract, test:render (fidelity and shipped-looks included); the
-  baseline; Chrome (the preview, the library with a few Sunset cards, one download per canvas, the copy to clipboard).
+  baseline; Chrome (the preview, the library with a few Sunset cards, one download per canvas, the copy to clipboard;
+  backups/second-look/tmp/chrome.mts drives the installed Chrome).
 - Record it (report section, status line, the plan file with stage 4's block brought up to date). End with stage
   4's block, the model and the effort.
 
 NOT NOW
 
 The chips, ask, extras, pill and lower art (stage 4), the eyebrow and the blob (stage 5), This week B (stage 6), the
-colour sets, the fields, the release.
+colour sets, the fields, the release, and stage 2's open points (the floor, the Spanish line's place) unless Artur
+answers them first.
 ```
 
 ## Stage 4's block (paste; stage 3 brings it up to date): the blocks
@@ -559,6 +574,34 @@ copies `assets/` whole).
 - **The fields round** builds all four fields and the Spanish row names (answers 12 and 13).
 - Seen once: the first server export of a Sunset week flyer in the sheet's run answered 500 while the render suite ran
   beside it; the re-run and the spec's exports passed (an export under load; watch it).
+
+## What stage 2 found that changes the later stages (2026-10-30, unattended; the report's "Stage 2" section)
+
+- **`photoBehind` is on the geometry**, `Geometry.photoBehind`, not on `Look`: every reader of a geometry learns it
+  (`boxesOf` gives the band's and the no-photo rule's boxes the bleed's; `photoFrame` answers the bleed's shape for
+  the band and null for no photo; `artAnchors` has `photoBottom` with no photo). Stage 6's week photo: the week body
+  draws its photo box the same way (`weekPhoto` in the geometry, the group drawn first), and `photoBottom` then
+  exists on a week flyer.
+- **The headline kind is `Look.headline?: StaggeredHeadline`** (absent: stacked). Its numbers are fixed tops inside
+  the box (the baselines 151.03 and 212.15, the Spanish line at 248.93), not measured ink: the design's 24 px under
+  the ink is approximate here. Stage 6's title: the week's title box must be 320 tall for the kind (today's 250 clips
+  it), its top 593 / 378.3 as the table says; the kind takes the box, so the title is one more call.
+- **The stacked kind draws its lines upright**: `LineType.rotate` on the words is drawn by the staggered kind alone
+  (a turned word in the stacked box lies on the line under it and clips, stage 1's trap met on the sparse week).
+- **`rise`** (where a face's baseline falls in a line at line-height 1) is measured in Chrome and baked into the word
+  token: Archivo Black 0.86, Caveat Brush 0.83. A face swapped later needs its own number
+  (`backups/second-look/tmp/measure-rise.mts`).
+- **The cuts in the look** (the CUT table in `shipped-looks.spec.ts`): the stress test's two words on both canvases;
+  on the story alone "Family dinner," (Pizza night, Pizza · weekly), "every Friday." (Pizza · weekly), "of fun waves."
+  (Surf lesson). A second word's slot on the story holds about 9 Caveat Brush letters at the floor. For Artur: the
+  floor, the slot, or the copy (the report's table).
+- **The week in the look is transitional** until stage 6: the title at 593 / 378.3 in the shared 250 box, five rows
+  of 64 px (938 / 20 and 640 / 15) in today's framed kind, so five rows end above the Activity ask. Stage 6 replaces
+  all of it (weekTitle 300 tall, weekAsk, weekPill, the trio kind at 64 / 32 and 64 / 15).
+- **The fidelity mask** takes the other blocks' boxes out of the photo's mask, so the headline over the photo counts
+  in every metric: stage 3's streaks are held by it.
+- `placeArt()` answers null for an anchor the body lacks; a look's art list may name `photoBottom` freely.
+- The export under load failed again (a sheet beside a browser run): draw the sheets between runs.
 
 ## Traps found while planning
 
