@@ -1,5 +1,8 @@
 # Launch prompt: the real second look, from Claude Design's handoff
 
+**Replaced on 2026-10-30** by `docs/prompts/sunset-vibes-look.md`, the master plan of the port written from the handoff
+(`design_handoff_new_look/design_handoff_sunset_vibes/`): the block below was never launched. Kept as it was.
+
 Written 2026-10-14, at the end of the session that finished the looks seam (stages 5 to 7, `bfcb54c..993bf4b`), for a
 session with no memory of it. Before launching it, put Claude Design's handoff in **`design_handoff_new_look/`** at the
 repo's root, next to the first handoff (`design_handoff_flyer_generator/`), as it came: the README or spec, the
