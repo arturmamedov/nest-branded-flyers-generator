@@ -16,7 +16,8 @@ npm test               # Vitest: shared logic, shared vectors, the editor's hist
 npm run test:contract  # HTTP contract suite on every backend, php-basic (behind a login), php-access (the lock over
                        # HTTP), cross; CONTRACT_BASE_URL (+ _BASIC_USER/_PASSWORD) in .env targets a deployment
 npm run gen            # regenerate schema/*.json, seed/samples.json, the error table in docs/api-contract.md
-npm run gen:art        # remake the template's blobs and photo sparks in each other's ink (four derived files in assets/art/)
+npm run gen:art        # remake the derived art in assets/art/: Hand-drawn's blobs and photo sparks in each other's ink (four
+                       # files), and the Sunset look's icons in its line colour (four files, from the paths its entry holds)
 npm run test:render    # builds dist/ and dist-proof/ when their inputs changed, then Playwright: render/export checks,
                        # client-export fidelity, the AI page on the fake, and the looks specs on the tests' own build
                        # (the proof look)

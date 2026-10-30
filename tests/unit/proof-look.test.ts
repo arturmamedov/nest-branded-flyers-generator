@@ -8,6 +8,7 @@ import { marksOf } from '../../src/shared/defaults.js';
 import { CANVAS_IDS, photoFrame, SHARED_GEOMETRY } from '../../src/shared/layout.js';
 import { allLooks, lookIds, lookOf, looksToPick, type LineType, type Look } from '../../src/shared/looks.js';
 import { DEFAULT_COLORS, DEFAULT_DOODLES, HAND_DRAWN } from '../../src/shared/looks/handDrawn.js';
+import { SUNSET_VIBES } from '../../src/shared/looks/sunsetVibes.js';
 import { fontPackage, lookContract } from '../lookContract.js';
 import { PROOF_LOOK_ID } from '../proof/id.js';
 import { PROOF_FAMILY, PROOF_LOOK } from '../proof/look.js';
@@ -22,8 +23,8 @@ const pkg = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8')) as {
 };
 
 describe('the proof look', () => {
-  it('joins the registry after the first look, in the tests’ build alone', () => {
-    expect(lookIds()).toEqual([HAND_DRAWN.id, PROOF_LOOK_ID]);
+  it('joins the registry after the shipped looks, in the tests’ build alone', () => {
+    expect(lookIds()).toEqual([HAND_DRAWN.id, SUNSET_VIBES.id, PROOF_LOOK_ID]);
     expect(lookOf({ look: PROOF_LOOK_ID })).toBe(PROOF_LOOK);
   });
 

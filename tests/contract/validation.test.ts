@@ -2,6 +2,7 @@ import { afterAll, describe, expect, it } from 'vitest';
 import { newFlyerData } from '../../src/shared/defaults.js';
 import { LABELS_MAX, LABEL_SLUGS, LABEL_SLUG_MAX } from '../../src/shared/labels.js';
 import { FlyerPayloadSchema, FlyerSavedSchema } from '../../src/shared/schema.js';
+import { FIRST_LOOK, lookIds } from '../../src/shared/looks.js';
 import { SHARE_MAX } from '../../src/shared/share.js';
 import { TEXT_LIMITS } from '../../src/shared/text.js';
 import { PROOF_LOOK_ID } from '../proof/id.js';
@@ -51,6 +52,15 @@ describe('normalisation', () => {
     const empty = await mine.create({ ...flyerInput(), data: { ...data, overrides: {} } });
     expect(empty.flyer.data.overrides).toEqual({});
     expect(empty.flyer.data.week).toEqual([]);
+  });
+
+  it('a look the release has saves, and reads back as it was sent', async () => {
+    // The Sunset look (2026-10-30): the registry has two, and a save is held to the registry, never to the site's list.
+    const other = lookIds().find((id) => id !== FIRST_LOOK)!;
+    expect(other).toBeDefined();
+    const { id, flyer } = await mine.create(flyerInput({ data: { ...newFlyerData('activity'), look: other } }));
+    expect(flyer.data.look).toBe(other);
+    expect((await ok(send('GET', `api/flyers/${id}`), FlyerPayloadSchema)).flyer.data.look).toBe(other);
   });
 
   it('the template column wins over data.template', async () => {

@@ -574,7 +574,8 @@
               "default": "hand-drawn",
               "type": "string",
               "enum": [
-                "hand-drawn"
+                "hand-drawn",
+                "sunset-vibes"
               ]
             }
           },

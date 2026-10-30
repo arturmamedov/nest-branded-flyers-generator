@@ -1,6 +1,7 @@
 import type { EyebrowMarks } from './defaults.js';
 import type { ArtAnchor, Geometry } from './layout.js';
 import { HAND_DRAWN } from './looks/handDrawn.js';
+import { SUNSET_VIBES } from './looks/sunsetVibes.js';
 import type { DoodlePlacement, FlyerData } from './schema.js';
 
 /* The looks a flyer can print in (docs/prompts/looks-seam.md; the owner's answers, 2026-10-13 and 2026-10-14). One
@@ -171,8 +172,8 @@ export interface Look {
 /** What a flyer that names no look prints in, forever: the hand-drawn look. */
 export const FIRST_LOOK = HAND_DRAWN.id;
 
-/** The app's looks, the first look first. */
-const registry: Look[] = [HAND_DRAWN];
+/** The app's looks, the first look first, then each as it arrived. A site offers what it names of them (siteLooks). */
+const registry: Look[] = [HAND_DRAWN, SUNSET_VIBES];
 let read = false;
 
 /** Adds a look before anything has read the registry, and throws after: the schema takes the ids when it loads, so a
