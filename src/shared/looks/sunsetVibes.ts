@@ -1,6 +1,6 @@
 import { ARCHIVO_BLACK_FAMILY, ARCHIVO_BLACK_FONT, BODY_FAMILY, BODY_FONT, CAVEAT_BRUSH_FAMILY, CAVEAT_BRUSH_FONT } from '../fonts.js';
 import type { Geometry } from '../layout.js';
-import type { ArtPlacement, Look, Palette, StaggeredHeadline } from '../looks.js';
+import type { ArtPlacement, Look, Palette, StaggeredHeadline, Streaks } from '../looks.js';
 
 /* The Sunset Vibes look: Duque Nest's sunset flyer (Sunset Merge v2), ported from Claude Design's handoff
    (design_handoff_new_look/design_handoff_sunset_vibes/README.md) by the stages of docs/prompts/sunset-vibes-look.md,
@@ -176,6 +176,15 @@ const HEADLINE: StaggeredHeadline = {
   spanishTop: 248.93,
 };
 
+/** The dry-brush streaks over the two words (README §1.1, layers 17 and 19; §7.12), the handoff's masks' own numbers:
+    SUNSET loses 13 % of its ink, 4 px from its edge left whole; Vibes 10 % and 3 px. The masks were made for those
+    two words at their sizes; the app knocks the streaks out of any word at any size at render (Artur's answer 8), in
+    the ground colour, the same on both exports and on every print of a flyer. */
+const STREAKS: Streaks = {
+  headline1: { cover: 0.13, minD: 4 },
+  headline2: { cover: 0.1, minD: 3 },
+};
+
 /** The art, in the handoff's draw order (README §1.1, §5), over the photo behind everything: the splash in the ground
     colour over the photo's bottom 448.81 px (the Day pre-fill of the mask), the confetti over the photo's place and
     the top-right botanical in canvas px, the three botanicals along the splash's edge from the photo's bottom (fixed
@@ -210,6 +219,7 @@ export const SUNSET_VIBES: Look = {
   ],
   type: TYPE,
   headline: HEADLINE,
+  streaks: STREAKS,
   // 4.5:1 for the copy, 3:1 where a line says so (the headline words); no ink forbidden: the orange is its own.
   rules: { minContrast: 4.5, forbiddenInks: [] },
   art: () => ART,

@@ -130,6 +130,14 @@ describe('the proof look', () => {
       }
     });
 
+    // The kinds are two-valued (the plan, docs/prompts/sunset-vibes-look.md, "The seam's changes"): the proof look keeps
+    // hand-drawn's stacked headline, so it has no streaks to set (they are the staggered kind's). The canary for the
+    // staggered kind and its streaks is the release's own build, tests/render/shipped-looks.spec.ts.
+    it('keeps the stacked headline kind, and so sets no streaks: the staggered kind’s canary is the shipped look’s own spec', () => {
+      expect(PROOF_LOOK.headline).toBeUndefined();
+      expect(PROOF_LOOK.streaks).toBeUndefined();
+    });
+
     it('its boxes are not the shared table’s either', () => {
       for (const canvas of CANVAS_IDS)
         for (const mode of ['bleed', 'band'] as const) {

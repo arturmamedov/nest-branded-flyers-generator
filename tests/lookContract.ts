@@ -88,6 +88,20 @@ export function lookContract(look: Look, faces: FaceSources): void {
     }
   });
 
+  // The streaks are knocked out of a word placed by itself: the staggered kind draws them, the stacked kind none (a
+  // streak made for one word would lie over the line under it). A share of the ink is knocked out, never none or all,
+  // and the edge left whole is a distance.
+  it(`${look.id}: its streaks, where it has them, lie over the words of a staggered headline, and knock out a share of each`, () => {
+    if (!look.streaks) return;
+    expect(look.headline?.kind, 'streaks over a stacked headline').toBe('staggered');
+    for (const [line, s] of Object.entries(look.streaks)) {
+      expect(['headline1', 'headline2'], line).toContain(line);
+      expect(s.cover, `${line}: cover`).toBeGreaterThan(0);
+      expect(s.cover, `${line}: cover`).toBeLessThan(1);
+      expect(s.minD, `${line}: minD`).toBeGreaterThanOrEqual(0);
+    }
+  });
+
   // The marks sit in the eyebrow's row, EYEBROW_MARK.top below its top: a look's marks are no taller than its eyebrow box
   // leaves them on any canvas, or they would reach into the headline.
   it(`${look.id}: its marks fit its eyebrow box on every canvas`, () => {

@@ -329,6 +329,14 @@ describe('the Sunset Vibes look (stage 1: the look as data, docs/prompts/sunset-
     expect(HAND_DRAWN.headline, 'hand-drawn stacks its lines').toBeUndefined();
   });
 
+  // The handoff's streak masks (README §1.1, layers 17 and 19; §5) were made for SUNSET and Vibes alone: the app draws
+  // them at render for any word (Artur's answer 8), with the masks' own numbers: the share of the word's ink knocked
+  // out, and the least distance from the ink's edge left whole, in px.
+  it('knocks dry-brush streaks out of both headline words at render, with the handoff’s cover and edge (stage 3)', () => {
+    expect(SUNSET_VIBES.streaks).toEqual({ headline1: { cover: 0.13, minD: 4 }, headline2: { cover: 0.1, minD: 3 } });
+    expect(HAND_DRAWN.streaks, 'hand-drawn streaks nothing').toBeUndefined();
+  });
+
   it('draws no frame, today’s pill with no corners and no tilt (its line kind comes later), and the marks as hand-drawn', () => {
     expect(SUNSET_VIBES.frame).toEqual({ path: 'M0 0 H 960 V 200 H 0 Z', viewBox: '0 0 960 200', stroke: 0, photoRadius: 0 });
     expect(SUNSET_VIBES.pill).toEqual({ radius: 0, tilt: 0, padding: '10px 24px 12px', gap: 18, dot: 8 });

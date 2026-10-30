@@ -125,6 +125,19 @@ export interface StaggeredHeadline {
   readonly spanishTop: number;
 }
 
+/** A dry-brush streak knocked out of one headline word (the Sunset look, README §1.1 layers 17 and 19, §7.12): the
+    handoff's generator, ported to draw at render over any word (src/flyer/streaks.ts). `cover` is the share of the
+    word's ink knocked out (the lightest share along the strokes, in the ground colour); `minD` the distance from the
+    ink's edge, in px, left whole, so the letters keep their outline. */
+export interface Streak {
+  readonly cover: number;
+  readonly minD: number;
+}
+
+/** The streaks a look knocks out of its headline words, by line; a line left out is streaked nowhere. The staggered
+    kind draws them, since it places each word by itself; the stacked kind draws none. Absent: none, hand-drawn's. */
+export type Streaks = { readonly [L in 'headline1' | 'headline2']?: Streak };
+
 /** One look: what it is called, and what it decides about how a flyer prints. */
 export interface Look {
   /** Stored in data.look, so forever once a release accepts it. */
@@ -145,6 +158,9 @@ export interface Look {
       last, the Spanish line 16 px under them). Staggered: the Sunset look's (2026-10-30). The week's title is stacked
       in every look until This week B (the plan's stage 6). */
   readonly headline?: StaggeredHeadline;
+  /** The dry-brush streaks over the staggered headline's words, deterministic per word, size and face, drawn at render
+      in the ground colour and awaited by both exports (the Sunset look, 2026-10-30). Absent: none. */
+  readonly streaks?: Streaks;
   /** What its copy is held to: a contrast every line reaches on its ground, and inks no line may print in. */
   readonly rules: { readonly minContrast: number; readonly forbiddenInks: readonly string[] };
   /** Its art for a flyer, each piece by the point it hangs from (layout.ts, artAnchors): the canvas, the photo's
