@@ -189,12 +189,16 @@ function WeekRow({ slot, row, height, type, inline, frame, paint }: { slot: numb
                 </div>
               </div>
             )}
-            {/* A price with a · takes two lines, as the COST chip's big and small line (the owner's call, 2026-09-29). */}
-            {row.cost.map((line, i) => (
-              <div key={i} data-cell="cost" {...fitOf(type.weekPrice)} style={{ ...typeStyle(type.weekPrice, paint), whiteSpace: 'nowrap', maxWidth: '100%' }}>
-                {line}
-              </div>
-            ))}
+            {/* A price with a · takes two lines, as the COST chip's big and small line (the owner's call, 2026-09-29): the
+                price in weekPrice, the part after the dot in weekPriceSub. */}
+            {row.cost.map((line, i) => {
+              const cost = i === 0 ? type.weekPrice : type.weekPriceSub;
+              return (
+                <div key={i} data-cell="cost" {...fitOf(cost)} style={{ ...typeStyle(cost, paint), whiteSpace: 'nowrap', maxWidth: '100%' }}>
+                  {line}
+                </div>
+              );
+            })}
           </div>
         )}
       </div>

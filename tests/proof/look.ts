@@ -123,6 +123,7 @@ export const PROOF_LOOK: Look = {
     weekName: { font: MONO, weight: 700, size: 38, lineHeight: 1.1, floor: 0.55, ink: 'accent', on: 'surface' },
     weekTime: { font: MONO, weight: 700, size: 30, lineHeight: 1.15, floor: 0.65, ink: 'ink', on: 'surface' },
     weekPrice: { font: MONO, weight: 400, size: 24, lineHeight: 1.25, floor: 0.65, ink: 'muted', on: 'surface' },
+    weekPriceSub: { font: MONO, weight: 400, size: 22, lineHeight: 1.3, floor: 0.6, ink: 'muted', on: 'surface' },
   },
   // Its own numbers, stricter than hand-drawn's, and an ink of its own forbidden: its rules are its own.
   rules: { minContrast: 7, forbiddenInks: ['#FF0000'] },

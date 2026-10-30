@@ -135,6 +135,8 @@ const TYPE: Look['type'] = {
   weekName: { font: HEADLINE_FONT, weight: 800, size: 44, lineHeight: 1.06, floor: 0.6, ink: 'accent', on: 'surface' },
   weekTime: { font: HEADLINE_FONT, weight: 700, size: 34, lineHeight: 1.1, floor: 0.7, ink: 'ink', on: 'surface' },
   weekPrice: { font: BODY_FONT, weight: 600, size: 26, lineHeight: 1.2, floor: 0.7, ink: 'muted', on: 'surface' },
+  // The part of a price after its middle dot, on the line under it (the owner's call, 2026-09-29): set as the price.
+  weekPriceSub: { font: BODY_FONT, weight: 600, size: 26, lineHeight: 1.2, floor: 0.7, ink: 'muted', on: 'surface' },
 };
 
 export const HAND_DRAWN: Look = {

@@ -77,7 +77,8 @@ export interface LineType {
 }
 
 /** Every line of copy a flyer prints, by its place. The WHEN chip's big line is chipBigMarked: it sits on the
-    highlighter, taller. */
+    highlighter, taller. A week row's price with a middle dot prints on two lines: the price (weekPrice), and the part
+    after the dot under it (weekPriceSub; the Sunset look's price sub-line, hand-drawn's set as the price). */
 export type LineName =
   | 'eyebrow'
   | 'headline1'
@@ -96,7 +97,8 @@ export type LineName =
   | 'weekDay'
   | 'weekName'
   | 'weekTime'
-  | 'weekPrice';
+  | 'weekPrice'
+  | 'weekPriceSub';
 
 /** One look: what it is called, and what it decides about how a flyer prints. */
 export interface Look {

@@ -75,6 +75,8 @@ describe('the looks', () => {
       weekName: [44, 0.6],
       weekTime: [34, 0.7],
       weekPrice: [26, 0.7],
+      // The price after the middle dot, on its own line: hand-drawn sets it as the price (the Sunset look sets it smaller).
+      weekPriceSub: [26, 0.7],
     });
     expect(HAND_DRAWN.type.extras.gap).toBe(16);
   });

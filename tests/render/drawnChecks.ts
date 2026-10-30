@@ -86,6 +86,8 @@ export async function checkDrawn(page: Page, payload: FlyerPayload, canvas: Canv
         name: el.querySelector('[data-cell=name]')?.textContent ?? '',
         time: el.querySelector('[data-cell=time]')?.textContent ?? '',
         cost: [...el.querySelectorAll('[data-cell=cost]')].map((c) => c.textContent ?? ''),
+        // Each cost line's size before the fit: the price's, then the price sub-line's (a line the look does not fit prints at its size).
+        costSizes: [...el.querySelectorAll<HTMLElement>('[data-cell=cost]')].map((c) => parseFloat(c.dataset.fit ?? getComputedStyle(c).fontSize)),
         clocks: el.querySelectorAll('[data-deco=clock]').length,
         marks: el.querySelectorAll('[data-deco=highlighter]').length,
         right: right ? edges(right) : null,
@@ -259,6 +261,8 @@ export async function checkDrawn(page: Page, payload: FlyerPayload, canvas: Canv
     ] as const)
       expect(Math.abs(x.box[edge] - value), `${label}: row ${slot} ${edge}`).toBeLessThanOrEqual(0.5);
     expect({ day: x.day, name: x.name, time: x.time, cost: x.cost }, `${label}: row ${slot} prints`).toEqual(printed[slot]);
+    // The price is set in weekPrice; the part after the middle dot, under it, in weekPriceSub.
+    expect(x.costSizes, `${label}: row ${slot} cost lines' sizes`).toEqual(printed[slot].cost.map((_, i) => (i === 0 ? look.type.weekPrice : look.type.weekPriceSub).size));
     expect(x.clocks, `${label}: row ${slot} clock`).toBe(printed[slot].time ? 1 : 0);
     expect(x.marks, `${label}: row ${slot} highlighter`).toBe(printed[slot].day ? 1 : 0);
     // A long time or price shrinks inside its capped group; spilling out of it would reach the name unseen.
