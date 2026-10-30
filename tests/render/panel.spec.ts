@@ -22,6 +22,7 @@ import {
 } from '../editor';
 import { FIELD } from '../../src/editor/fields';
 import { LEAVE_PROMPT } from '../../src/editor/leaveGuard';
+import { RECENT_PREF } from '../../src/editor/recentFlyers';
 import { SECTIONS, SECTIONS_PREF } from '../../src/editor/sectionFolds';
 import { newFlyerData } from '../../src/shared/defaults';
 import { CANVAS_IDS } from '../../src/shared/layout';
@@ -469,7 +470,8 @@ test('the panel starts open on every visit, and a fold writes nothing', async ({
   await panelFold(page).click();
   await expect(page.getByLabel('When', { exact: true })).toBeHidden();
   await expect(status(page)).toHaveText('Saved');
-  expect(await page.evaluate(() => Object.keys(localStorage)), 'nothing is remembered of the fold, nor of the sections').toEqual([]);
+  // The flyer opened is one of the flyers opened last (recentFlyers.ts): that is all this visit leaves behind.
+  expect(await page.evaluate(() => Object.keys(localStorage)), 'nothing is remembered of the fold, nor of the sections').toEqual([RECENT_PREF]);
   await page.reload();
   await expect(panelFold(page)).toHaveAccessibleName('Hide the form');
   await expect(page.getByLabel('When', { exact: true })).toBeVisible();
