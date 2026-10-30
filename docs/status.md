@@ -9,8 +9,9 @@ What is open on top, in short lines; then a log, one line per session; then the 
   of it is pushed. Origin has everything before, looks stages 5 to 7 included: the history's "`main` is still at
   `a96d1bf`" is from before that push.
 - Next: the Sunset Vibes look, by stages (`docs/prompts/sunset-vibes-look.md`, the master plan from Claude Design's
-  handoff; it replaces `second-look.md`), on `feat/second-look`: stage 1, the look as data inside the seam, is under way.
-  After the look is signed, the faster tests (`docs/prompts/speed-tests.md`).
+  handoff; it replaces `second-look.md`), on `feat/second-look`, unmerged: stage 1 (the look as data inside the seam)
+  is built; stage 2 (the photo behind, the headline) is next, its block in the plan. After the look is signed, the
+  faster tests (`docs/prompts/speed-tests.md`).
 
 ## Live
 
@@ -88,7 +89,9 @@ Each report's "For Artur to decide" has the reasons.
 - 2026-10-15, the flyers opened last: this browser's last 5 first in the library, each with "Opened 2 h ago", on
   `feat/recent-flyers`, unmerged (`docs/reports/recent-flyers.md`).
 - 2026-10-30, the Sunset Vibes look, stage 1: the look as data inside the seam (the registry's second entry, its fonts,
-  palette and art files, the seam tokens its entry needs), on `feat/second-look` (`docs/reports/sunset-vibes.md`).
+  palette, art and icons, and the seam tokens its entry needs: three palette roles, a line's turn and own minimum,
+  `weekPriceSub`, nullable inline slots, `Look.marks`), every sample printing in it in the shared layout on both
+  canvases, on `feat/second-look`, unmerged (`docs/reports/sunset-vibes.md`).
 
 ## History
 

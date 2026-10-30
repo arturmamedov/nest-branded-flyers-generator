@@ -81,33 +81,39 @@ streaks, steps 7 and 9 of the first handoff, a look switch on Create with AI, a 
 release.
 ```
 
-## Stage 2's block (paste; stage 1 brings it up to date)
+## Stage 2's block (paste; brought up to date by stage 1 on 2026-10-30)
 
 ```
 Read CLAUDE.md, then docs/prompts/sunset-vibes-look.md whole (the master plan; its "Decided" points and Artur's
 answers in it are not reopened), docs/reports/sunset-vibes.md (what stage 1 built and found), docs/adding-a-look.md,
 src/shared/looks.ts, src/shared/looks/sunsetVibes.ts, src/shared/layout.ts, src/flyer/Flyer.tsx, src/shared/photo.ts,
-src/editor/Preview.tsx, tests/geometry.ts, tests/render/drawnChecks.ts, tests/render/pixels.ts and the handoff's
-README §1, §2, §5, §6 and §7.1–7.4, 7.12, 7.14 (design_handoff_new_look/design_handoff_sunset_vibes/README.md). For
-any number, reference/source/SunsetInfoBoard v4.dc.html.
+src/editor/Preview.tsx, tests/geometry.ts, tests/render/drawnChecks.ts, tests/render/pixels.ts,
+tests/render/shipped-looks.spec.ts and the handoff's README §1, §2, §5, §6 and §7.1–7.4, 7.12, 7.14
+(design_handoff_new_look/design_handoff_sunset_vibes/README.md). For any number, reference/source/SunsetInfoBoard
+v4.dc.html.
 
-Build stage 2 of the plan: the photo behind everything (photoBehind, the photoBottom anchor, the splash and the
-splash-edge botanicals, no-photo as decided) and the staggered, tilted headline kind, so that an Activity flyer in
-Sunset Vibes prints the design's top half on both canvases in each photo mode. Hand-drawn must not change by one
-pixel.
+Build stage 2 of the plan: the photo behind everything (photoBehind; the photoBottom anchor; the splash and the
+splash-edge botanicals; In a frame printing exactly as Full bleed, answer 6; No photo as the placeholder in the photo's
+box with the splash and the botanicals, answer 7) and the staggered, tilted headline kind (rotate on the two words,
+their tops and centres as the plan's numbers), with the look's Activity geometry (the plan's table: every top and
+height stage 1 left shared, both canvases), so that an Activity flyer in Sunset Vibes prints the design's top half on
+both canvases in each photo mode. Hand-drawn must not change by one pixel.
 
 HOW TO WORK
 
 - Start in plan mode. Check git first: feat/second-look, a clean tree (design_handoff_new_look/ untracked). If
   not, or if another session may be writing here, stop and ask. Stage by path. Warn me before a src/shared/ edit
   if npm run dev may be running.
-- Check the baseline from stage 1 (nest-sunset-baseline) before anything, then after every commit that touches
-  src/.
+- Check the baseline from stage 1 (the temp folder nest-sunset-baseline, captured from 7443305; npm run build
+  first) before anything, then after every commit that touches src/. A browser run reads the specs live and the app
+  from dist/: never edit tests/render, tests/proof or src/ while one runs.
 - Show me SHORT, in a table, what you will change and in what order, with the plan's seam changes for this stage.
-  Build nothing before I say go. Then every change with its test first, a commit per piece as it goes green.
+  Build nothing before I say go. Then every change with its test first, a commit per piece as it goes green
+  (tests/render/shipped-looks.spec.ts holds every sample in the look: its CLIPS table takes the boxes a sample is
+  known to clip, each with its why).
 - Pictures, not words: when the photo is behind, and again when the headline is staggered, the Pool party sample
   and both stress tests in the new look beside Hand-drawn, both canvases, the three photo modes, drawn by the real
-  renderer. I answer from them.
+  renderer (the stage 1 sheet's script is the model: backups/second-look/). I answer from them.
 - Before calling it done: npm run typecheck && npm test && npm run test:contract && npm run test:render; the
   baseline; the editor in Chrome with the new look (the preview, the photo handle on a photo that starts above the
   canvas, the three modes).
@@ -116,11 +122,49 @@ HOW TO WORK
 
 NOT NOW
 
-The chips, ask, extras, pill and lower art (stage 3), the eyebrow and the blob (stage 4), This week B (stage 5),
-the streaks, the colour sets, the fields, the release.
+The streaks (stage 3), the chips, ask, extras, pill and lower art (stage 4), the eyebrow and the blob (stage 5), This
+week B (stage 6), the colour sets, the fields, the release.
 ```
 
-## Stage 3's block (paste; stage 2 brings it up to date)
+## Stage 3's block (paste; stage 2 brings it up to date): the streaks
+
+```
+Read CLAUDE.md, docs/prompts/sunset-vibes-look.md whole (decided points and Artur's answers not reopened),
+docs/reports/sunset-vibes.md, docs/adding-a-look.md, src/shared/looks.ts, src/shared/looks/sunsetVibes.ts,
+src/flyer/Flyer.tsx (the headline kind), src/flyer/ready.ts, src/flyer/fit.ts, src/editor/export/ClientExporter.tsx,
+tests/render/fidelity.spec.ts, tests/render/shipped-looks.spec.ts, and the handoff's README §1.1 (layers 17 and 19),
+§5 (the streak masks) and §7.12; the generator, reference/source/sm-streaks.js, whole (7.8 KB).
+
+Build stage 3 of the plan: the dry-brush streaks over the headline words (Artur's answer 8: "port the generator
+now"). sm-streaks.js ported to the renderer: for each headline word as fitted (its text, face, size, tilt), the
+word's alpha field, a flow along its strokes, seeded noise and an alpha mask at 2×, coloured with the ground and drawn
+over the word; deterministic (seeded by the word, its size and its face, so a flyer prints the same twice); cached per
+key (the library cards mount the renderer); awaited by prepareFlyer() after the fit, so both exports carry it, and
+the client export stays within 0.5 % of the server's. A streak token on the look (which lines, the cover and the
+minimum distance from the edge, the handoff's numbers); Hand-drawn sets none. Hand-drawn must not change by one pixel.
+
+HOW TO WORK
+
+- Start in plan mode; check git (feat/second-look, clean; else stop and ask); stage by path; warn before a
+  src/shared/ edit if npm run dev may be running. The baseline (nest-sunset-baseline) before anything and after
+  every commit that touches src/. A browser run reads the specs live and the app from dist/: never edit
+  tests/render, tests/proof or src/ while one runs.
+- A SHORT table of the changes in order, with how long a streak takes to make at 1080 px and what the library's
+  cards do meanwhile; build nothing before I say go; tests first, a commit per piece.
+- Pictures from the real renderer: both stress tests and Pool party in the new look beside Hand-drawn, both
+  canvases, with the streaks; I answer from them.
+- Before calling it done: typecheck, test, test:contract, test:render (fidelity and shipped-looks included); the
+  baseline; Chrome (the preview, the library with a few Sunset cards, one download per canvas, the copy to clipboard).
+- Record it (report section, status line, the plan file with stage 4's block brought up to date). End with stage
+  4's block, the model and the effort.
+
+NOT NOW
+
+The chips, ask, extras, pill and lower art (stage 4), the eyebrow and the blob (stage 5), This week B (stage 6), the
+colour sets, the fields, the release.
+```
+
+## Stage 4's block (paste; stage 3 brings it up to date): the blocks
 
 ```
 Read CLAUDE.md, docs/prompts/sunset-vibes-look.md whole (decided points and Artur's answers not reopened),
@@ -129,11 +173,14 @@ src/shared/layout.ts, src/flyer/Flyer.tsx, scripts/art-inks.ts, tests/geometry.t
 the handoff's README §1.2, §1.3, §5 ("Inline slots"), §6.1 and §7.6–7.10, 7.12, 7.15–7.17. For any number,
 reference/source/SunsetInfoBoard v4.dc.html.
 
-Build stage 3 of the plan: the columns chip kind (icon above, the chip's lines centred, 1.2 px rules between
-columns, no frame; the icons as PNG files in the line colour made by npm run gen:art), the centred ask kind (the
-pen above, both lines centred and wrapping, no rule), the extras as the design's notes line, the pill as Artur
-decided in stage 1, the lower ferns on the bodyBottom anchors and the band on the bottom corners at scale 1 on
-both canvases. Hand-drawn must not change by one pixel.
+Build stage 4 of the plan: the columns chip kind (icon above, the chip's lines centred, 1.2 px rules between
+columns, no frame; the icons are the PNG files stage 1 made, in the line colour: look.inline.whenIcon, whereIcon,
+costIcon), the centred ask kind (the pen above, look.inline.askIcon, both lines centred and wrapping, no rule), the
+extras as the design's notes line (answer 5: Montserrat 400 · 17 · muted, no floor once it wraps), the pill as a
+plain line in the footer's slot (answer 4: a pill kind; Montserrat 700 · 22 · upper, ink on the ground, the dot in
+the line colour; the type's pill line then ink on ground), the lower ferns on the bodyBottom anchors at bodyScale
+(answer 9: 0.87 on WhatsApp), and both column orders drawn for Artur to pick (answer 10). The band is placed since
+stage 1. Hand-drawn must not change by one pixel.
 
 HOW TO WORK
 
@@ -142,19 +189,20 @@ HOW TO WORK
   every commit that touches src/.
 - A SHORT table of the changes in order; build nothing before I say go; tests first, a commit per piece.
 - Pictures from the real renderer at each kind: the six Activity samples in the new look beside Hand-drawn, both
-  canvases; the chip's line order and the ask are answered from them.
+  canvases, the chips in both orders (icon · big · small · label, and icon · label · big · small); the order and the
+  ask are answered from them.
 - Before calling it done: typecheck, test, test:contract, test:render; the baseline; Chrome (the preview and one
   download per canvas).
-- Record it (report section, status line, the plan file with stage 4's block brought up to date). End with stage
-  4's block, the model and the effort.
+- Record it (report section, status line, the plan file with stage 5's block brought up to date). End with stage
+  5's block, the model and the effort.
 
 NOT NOW
 
-The eyebrow and the blob (stage 4), This week B (stage 5), the second ask and the footer (fields, later), the colour
+The eyebrow and the blob (stage 5), This week B (stage 6), the second ask and the footer (fields, later), the colour
 sets, the release.
 ```
 
-## Stage 4's block (paste; stage 3 brings it up to date)
+## Stage 5's block (paste; stage 4 brings it up to date): the eyebrow
 
 ```
 Read CLAUDE.md, docs/prompts/sunset-vibes-look.md whole (decided points and Artur's answers not reopened),
@@ -163,11 +211,14 @@ src/shared/layout.ts, src/shared/defaults.ts (marksFor), src/flyer/Flyer.tsx (Ma
 src/editor/export/ClientExporter.tsx, tests/render/fidelity.spec.ts, and the handoff's README §1.1 (layers 4, 13–15),
 §6.3 and §7.11–7.12. For any number, reference/source/SunsetInfoBoard v4.dc.html (lockup(), blobScale(), BLOB).
 
-Build stage 4 of the plan: the lockup eyebrow kind (the eyebrow line, then the marks, left-aligned on the blob), the
-marks token (which marks and their height), the topLeft anchor with its per-canvas scale, the stretch art kind for
-the blob (a CSS border-image three-slice: the body row stretches until the piece's bottom meets the eyebrow box's
-bottom plus an offset), and "Activities" as Artur decided in stage 1. The client export must still match the
-server's (fidelity: border-image through modern-screenshot). Hand-drawn must not change by one pixel.
+Build stage 5 of the plan: the lockup eyebrow kind (the eyebrow line, then the marks, left-aligned on the blob: the
+hostel's badge beside the wordmark, as Hand-drawn, Artur's answer 2, so the blob grows to about × 1.3 or the marks
+shrink, decided from the pictures), the marks token's height (stage 1 added Look.marks; Sunset's is 56 until the
+lockup's box holds 81.7), the eyebrow box's own height, the topLeft anchor with its per-canvas scale, the stretch
+art kind for the blob (a CSS border-image three-slice: the body row stretches until the piece's bottom meets the
+eyebrow box's bottom plus an offset), and "Activities" printed by the kind as a fixed word token (answer 3: Caveat
+Brush · 65.14 · −8° · hot). The client export must still match the server's (fidelity: border-image through
+modern-screenshot). Hand-drawn must not change by one pixel.
 
 HOW TO WORK
 
@@ -179,15 +230,15 @@ HOW TO WORK
   longest eyebrow the API takes) on both canvases, beside Hand-drawn.
 - Before calling it done: typecheck, test, test:contract, test:render (fidelity included); the baseline; Chrome
   (the preview, one download per canvas, the copy to clipboard).
-- Record it (report section, status line, the plan file with stage 5's block brought up to date). End with stage
-  5's block, the model and the effort.
+- Record it (report section, status line, the plan file with stage 6's block brought up to date). End with stage
+  6's block, the model and the effort.
 
 NOT NOW
 
-This week B (stage 5), the mask kind, the colour sets, the hostel's name as a field, the release.
+This week B (stage 6), the mask kind, the colour sets, the hostel's name as a field, the release.
 ```
 
-## Stage 5's block (paste; stage 4 brings it up to date)
+## Stage 6's block (paste; stage 5 brings it up to date): This week B
 
 ```
 Read CLAUDE.md, docs/prompts/sunset-vibes-look.md whole (decided points and Artur's answers not reopened),
@@ -197,11 +248,13 @@ WeekRows), src/editor/Preview.tsx, src/editor/exportActions.ts, tests/geometry.t
 rows' checks), and the handoff's README §1.5, §6.2 and §7.18–7.21. For any number, reference/source/SunsetInfoBoard
 v4.dc.html (weekPH(), buildWRow(), WR).
 
-Build stage 5 of the plan: This week B. The week flyer prints its photo behind, with the splash, in the look's
-weekPhoto box (one shape on both canvases); the week's own ask and pill boxes; the trio row kind (day 190 wide on
-the left, the name in the middle, the time over the price right-aligned in 210, a 1.2 px rule between rows, no
-frame, no highlighter); the weekPriceSub line for the price after the middle dot; the title through the staggered
-kind. Hand-drawn must not change by one pixel.
+Build stage 6 of the plan: This week B. The week flyer prints its photo behind, with the splash, in the look's
+weekPhoto box (one shape on both canvases): its own photo when it has one, else a default picture of its hostel
+(Artur's answer 11: one file per hostel, which he supplies, seeded with the hostel; a flyer with neither prints the
+placeholder, as answer 7); the week's own ask and pill boxes; the trio row kind (day 190 wide on the left, the name
+in the middle, the time over the price right-aligned in 210, a 1.2 px rule between rows, no frame, no highlighter);
+the weekPriceSub line (stage 1 added it) for the price after the middle dot; the title through the staggered kind.
+Hand-drawn must not change by one pixel.
 
 HOW TO WORK
 
@@ -213,15 +266,15 @@ HOW TO WORK
   look beside Hand-drawn, both canvases, with and without a photo.
 - Before calling it done: typecheck, test, test:contract, test:render; the baseline; Chrome (a week flyer's
   preview, the photo handle on it, one download per canvas).
-- Record it (report section, status line, the plan file with stage 6's block brought up to date). End with stage
-  6's block, the model and the effort.
+- Record it (report section, status line, the plan file with stage 7's block brought up to date). End with stage
+  7's block, the model and the effort.
 
 NOT NOW
 
-Spanish row names (a field, later), the colour sets, the release.
+Spanish row names (a field, later: answer 13), the colour sets, the release.
 ```
 
-## Stage 6's block (paste; stage 5 brings it up to date)
+## Stage 7's block (paste; stage 6 brings it up to date): close
 
 ```
 Read CLAUDE.md, docs/prompts/sunset-vibes-look.md whole, docs/reports/sunset-vibes.md whole, docs/adding-a-look.md,
@@ -250,8 +303,8 @@ HOW TO WORK
   with the new id), docs/adding-a-look.md where it was wrong or short (the kinds, the new anchors, nullable slots,
   the stretch kind, the proof look's canaries against every shipped look), docs/status.md. Push nothing, build no
   release.
-- End your report with what is mine to do, in order, and the block for the next round (the fields of README
-  §7.5–7.9 I said yes to in stage 1, or the colour sets), the model and the effort.
+- End your report with what is mine to do, in order, and the block for the next round (the fields: all four of
+  README §7.5–7.9 and the Spanish row names, answers 12 and 13; or the colour sets), the model and the effort.
 ```
 
 ---
@@ -403,7 +456,7 @@ Copied from the handoff's `art/` under the README's names; the Day pre-fills sta
 Not copied now: the masks, the Dusk pre-fills, the streaks, the teal botanicals, the other wordmarks (the release
 copies `assets/` whole).
 
-## What stage 1 builds, in order
+## What stage 1 builds, in order (built 2026-10-30, `7443305..9d34b03`; the deviations are in "What stage 1 found")
 
 1. The branch, the first commit (plan, status, the note on `second-look.md`), the baseline capture.
 2. The questions, one at a time; the answers into this file.
@@ -472,6 +525,40 @@ copies `assets/` whole).
 | 11 | "One photo per hostel by default and user can change it by upload or by future media library" | A week flyer prints its own photo when it has one; without one, a default picture of its hostel (one file per hostel, supplied by Artur, seeded with the hostel); a media library is a later round. Built with This week B. |
 | 12 | All four fields; "I think is better to include everything and after with a condition remove what is missed better then develope new data" | The fields round builds the EN sub-line, the 4th column (meeting point), the second ask and the footer line; a field a flyer leaves empty collapses, as every optional field does. |
 | 13 | Kept: "a field, written by staff and the AI" | Spanish row names join that round: a row's optional `nameEs`, typed in the form and written by the AI's brief; a row without one prints its EN name alone. |
+
+## What stage 1 found that changes the later stages (2026-10-30; the report is docs/reports/sunset-vibes.md)
+
+- **The geometry waits for the photo behind.** Every design top rests on the photo being out of the stack:
+  `tests/geometry.ts` refuses the Activity tops while the photo is in it (the headline at 755 overlaps the shared photo
+  712–1092 on the story; on WhatsApp the eyebrow at 163 runs into the headline and the chips at 784 into the band
+  476–880), and "fitted boxes at least the story's" ties the two canvases. So the entry's geometry is the shared table
+  (plus `cornerScale: 1` on WhatsApp for the band) and **stage 2 sets every top and height of the table above**, with
+  `photoBehind`.
+- **The tilt waits for the staggered kind**: `LineType.rotate` is in the seam (the proof look turns its eyebrow),
+  Sunset's words are upright until stage 2 places them apart (a tilted 145 px word in today's stacked box lies on the
+  line under it, and its transformed bounds trigger the height pass).
+- **Archivo Black is wide.** The stress test's headline (18 characters) at the floor of 144.64 px (86.8) is wider than
+  the safe column on both canvases: the editor says it is cut off, and `shipped-looks.spec.ts` lists it as the known
+  cut. The design's face holds about 14 upper-case letters in 940 px at that size. The staggered kind fits each word
+  to its own room (cap 840 / 560): a long first word is cut in this look unless the floor goes below 0.6. For Artur
+  (the report).
+- **The marks** (answer 2: badge beside the wordmark): `Look.marks` is in the seam (`marksOf()`; the proof look prints
+  the badge alone at 48 px); Sunset's is `{ which: 'both', height: 56 }` until the lockup's box holds 81.7 (stage 5),
+  where the row must hold name, badge and wordmark.
+- **The pill** (answer 4): no nullable pill; Sunset prints today's kind with no corners and no tilt until the line kind
+  (stage 4). `drawnChecks` expects the look's own count of art off the pill (Sunset hangs none).
+- **The inline slots are nullable** and two joined (`costIcon`, `askIcon`); the icons are PNG files per ink made by
+  `npm run gen:art` from the paths the entry holds (`SUNSET_ICONS`, `sunsetIconSlug`). `fitOf()` writes nothing for a
+  line with no floor; `weekPriceSub` is a line.
+- **A browser run reads the specs live and the app from `dist/`**: an edit to `tests/render`, `tests/proof` or `src/`
+  while one runs makes false failures (two cost a cycle in stage 1). Edit between runs.
+- **The streaks are a stage** (answer 8, stage 3): `sm-streaks.js` is page-side canvas work per word (a distance field,
+  a flow, noise, an alpha mask at 2×); its cost per word at 1080 px, the cache, and the library's cards are its first
+  questions.
+- **The week photo per hostel** (answer 11) is a seed change in stage 6: a file per hostel that Artur supplies.
+- **The fields round** builds all four fields and the Spanish row names (answers 12 and 13).
+- Seen once: the first server export of a Sunset week flyer in the sheet's run answered 500 while the render suite ran
+  beside it; the re-run and the spec's exports passed (an export under load; watch it).
 
 ## Traps found while planning
 

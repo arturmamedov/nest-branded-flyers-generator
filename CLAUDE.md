@@ -172,7 +172,7 @@ tier.
 
 ## Status
 
-- Now: `main`, ahead of origin by the library's search, the faster sessions and the library's URL, unpushed. Next: the real second look
-  (`docs/prompts/second-look.md`).
+- Now: `main`, ahead of origin by the library's search, the faster sessions and the library's URL, unpushed. The Sunset
+  Vibes look, by stages (`docs/prompts/sunset-vibes-look.md`), on `feat/second-look`: stage 1 built, stage 2 next.
 - Live: IONOS runs release `81639a1deb21` (from `74b6761`), unlocked; it goes public only once a real login exists.
 - Everything else, open, waiting, Artur's to do and to decide, and the history: [docs/status.md](docs/status.md).
