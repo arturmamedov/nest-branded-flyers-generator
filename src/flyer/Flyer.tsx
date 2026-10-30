@@ -118,8 +118,10 @@ function Headline({ group, box, W, t, type, paint }: { group: 'headline' | 'titl
   );
 }
 
-/** Copy on the highlighter's stroke, the look's file: the WHEN chip's big line, and a week row's day. */
-function Highlight({ file, children }: { file: string; children: ReactNode }) {
+/** Copy on the highlighter's stroke, the look's file: the WHEN chip's big line, and a week row's day. A look with no
+    highlighter prints the copy plain. */
+function Highlight({ file, children }: { file: string | null; children: ReactNode }) {
+  if (!file) return <>{children}</>;
   return (
     <span
       data-deco="highlighter"
@@ -183,7 +185,7 @@ function WeekRow({ slot, row, height, type, inline, frame, paint }: { slot: numb
           <div data-cell="right" style={{ flex: '0 0 auto', maxWidth: DAY_WIDTH, overflowX: 'clip', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
             {row.time && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, maxWidth: '100%' }}>
-                <img data-deco="clock" src={art(inline.clock)} alt="" style={{ height: 30, width: 'auto', flex: '0 0 auto' }} />
+                {inline.clock && <img data-deco="clock" src={art(inline.clock)} alt="" style={{ height: 30, width: 'auto', flex: '0 0 auto' }} />}
                 <div data-cell="time" {...fitOf(type.weekTime)} style={{ ...typeStyle(type.weekTime, paint), whiteSpace: 'nowrap', minWidth: 0 }}>
                   {row.time}
                 </div>
@@ -298,11 +300,11 @@ export function Flyer({ data, canvas, hostel, photo, showSafeZones = false, ref 
         style={{ position: 'absolute', ...across(A.eyebrow, W), top: A.eyebrow.top, height: A.eyebrow.height, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 24 }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 18, flex: '0 0 auto' }}>
-          <img data-deco="icon" src={art(look.inline.eyebrowIcon)} alt="" style={{ height: 62, width: 'auto' }} />
+          {look.inline.eyebrowIcon && <img data-deco="icon" src={art(look.inline.eyebrowIcon)} alt="" style={{ height: 62, width: 'auto' }} />}
           {t.eyebrow && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
               <div style={{ ...typeStyle(type.eyebrow, paint), whiteSpace: 'nowrap' }}>{t.eyebrow}</div>
-              <div data-deco="rule" style={{ height: 16, background: `url(${art(look.inline.eyebrowRule)}) left center/100% 100% no-repeat` }} />
+              {look.inline.eyebrowRule && <div data-deco="rule" style={{ height: 16, background: `url(${art(look.inline.eyebrowRule)}) left center/100% 100% no-repeat` }} />}
             </div>
           )}
         </div>
@@ -330,10 +332,12 @@ export function Flyer({ data, canvas, hostel, photo, showSafeZones = false, ref 
             </div>
           )}
           {mode === 'none' && (
+            /* The block stays where the rule would be, so the flyer has every block of its template; a look with no
+               rule draws nothing in it. */
             <div
               data-group="photo"
               data-deco="rule"
-              style={{ position: 'absolute', ...across(A.noPhotoRule, W), top: A.noPhotoRule.top, height: A.noPhotoRule.height, background: `url(${art(look.inline.photoRule)}) center/100% 100% no-repeat` }}
+              style={{ position: 'absolute', ...across(A.noPhotoRule, W), top: A.noPhotoRule.top, height: A.noPhotoRule.height, background: look.inline.photoRule ? `url(${art(look.inline.photoRule)}) center/100% 100% no-repeat` : undefined }}
             />
           )}
 
@@ -344,14 +348,16 @@ export function Flyer({ data, canvas, hostel, photo, showSafeZones = false, ref 
             >
               {chips.map((chip) => {
                 const when = chip.key === 'when';
-                const icon = chip.key === 'when' ? art(look.inline.whenIcon) : chip.key === 'where' ? art(look.inline.whereIcon) : null;
+                // The look's icon for the chip; the COST chip's is the € glyph where the look names none (hand-drawn).
+                const file = chip.key === 'when' ? look.inline.whenIcon : chip.key === 'where' ? look.inline.whereIcon : look.inline.costIcon;
+                const icon = file ? art(file) : null;
                 return (
                   <div key={chip.key} data-chip={chip.key} data-fit-box="1" style={{ position: 'relative', height: A.chips.height, overflow: 'hidden' }}>
                     <WonkyBox frame={look.frame} fill={paint.surface} stroke={paint.ink} />
                     <div style={{ position: 'relative', zIndex: 1, padding: '24px 26px 20px', display: 'flex', flexDirection: 'column', gap: 8 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10, height: 36 }}>
                         {icon && <img data-deco="icon" src={icon} alt="" style={{ height: 32, width: 'auto' }} />}
-                        {!icon && <span data-deco="icon" style={typeStyle(type.costGlyph, paint)}>€</span>}
+                        {!icon && chip.key === 'cost' && <span data-deco="icon" style={typeStyle(type.costGlyph, paint)}>€</span>}
                         <span style={typeStyle(type.chipLabel, paint)}>{chip.label}</span>
                       </div>
                       {when ? (
@@ -365,7 +371,7 @@ export function Flyer({ data, canvas, hostel, photo, showSafeZones = false, ref 
                         /* The time is one line that shrinks, as a week row's is: left to wrap, a browser could break a
                            range after its hyphen ("09:15-" over "14:00") and the chip clipped the second line. */
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                          <img data-deco="clock" src={art(look.inline.clock)} alt="" style={{ height: 36, width: 'auto', flex: '0 0 auto' }} />
+                          {look.inline.clock && <img data-deco="clock" src={art(look.inline.clock)} alt="" style={{ height: 36, width: 'auto', flex: '0 0 auto' }} />}
                           <div {...fitOf(type.chipTime)} style={{ ...typeStyle(type.chipTime, paint), whiteSpace: 'nowrap', minWidth: 0 }}>{chip.sub}</div>
                         </div>
                       )}
@@ -404,7 +410,7 @@ export function Flyer({ data, canvas, hostel, photo, showSafeZones = false, ref 
             {t.askEn && (
               <div {...fitOf(type.askEn)} style={{ ...typeStyle(type.askEn, paint), whiteSpace: 'nowrap' }}>{t.askEn}</div>
             )}
-            <div data-deco="rule" style={{ height: 22, marginTop: 2, background: `url(${art(look.inline.askRule)}) left center/100% 100% no-repeat` }} />
+            {look.inline.askRule && <div data-deco="rule" style={{ height: 22, marginTop: 2, background: `url(${art(look.inline.askRule)}) left center/100% 100% no-repeat` }} />}
             {t.askEs && (
               <div {...fitOf(type.askEs)} style={{ ...typeStyle(type.askEs, paint), marginTop: 10, whiteSpace: 'nowrap' }}>{t.askEs}</div>
             )}

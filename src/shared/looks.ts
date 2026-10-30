@@ -122,19 +122,24 @@ export interface Look {
       corners, the bottom corners, the pill's end (drawn with the pill), the end of the ask's copy (drawn with the
       ask). Hand-drawn's is the flyer's own arrangement (data.doodles, which only it reads) and its pencil. */
   art(data: Pick<FlyerData, 'doodles'>): readonly ArtPlacement[];
-  /** The art drawn inside the blocks, by file name (assets/art/<name>.png). */
+  /** The art drawn inside the blocks, by file name (assets/art/<name>.png). A slot left null draws nothing there (the
+      Sunset look prints no rules, no clock and no highlighter). */
   readonly inline: {
-    readonly eyebrowIcon: string;
-    readonly eyebrowRule: string;
+    readonly eyebrowIcon: string | null;
+    readonly eyebrowRule: string | null;
     /** The line that stands for the photo on a flyer with none. */
-    readonly photoRule: string;
-    readonly askRule: string;
-    readonly whenIcon: string;
-    readonly whereIcon: string;
+    readonly photoRule: string | null;
+    readonly askRule: string | null;
+    readonly whenIcon: string | null;
+    readonly whereIcon: string | null;
+    /** Before the COST chip's label; null: the € glyph (type.costGlyph), hand-drawn's. */
+    readonly costIcon: string | null;
+    /** The ask's own icon, drawn by an ask kind that has a place for it (the Sunset look's pen); today's draws none. */
+    readonly askIcon: string | null;
     /** Before the time, in the WHEN chip and in a week row. */
-    readonly clock: string;
+    readonly clock: string | null;
     /** Under the WHEN chip's day and each week row's day. */
-    readonly highlighter: string;
+    readonly highlighter: string | null;
   };
   /** The Nests wordmark's file, at the eyebrow's right. The hostels' badges beside it are every look's. */
   readonly wordmark: string;

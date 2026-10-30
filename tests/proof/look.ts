@@ -135,6 +135,8 @@ export const PROOF_LOOK: Look = {
     askRule: 'frame-box',
     whenIcon: 'blob-teal',
     whereIcon: 'blob-yellow',
+    costIcon: 'frame-box',
+    askIcon: 'blob-yellow',
     clock: 'spark-yellow',
     highlighter: 'frame-box-sm',
   },

@@ -2,6 +2,7 @@ import type { APIRequestContext, Page } from '@playwright/test';
 import { expect } from '../browser';
 import { drawPayload } from './drawn';
 import { bodiesOf, groupsOf, highlighterWrapSample } from './pixels';
+import { DEFAULT_CHIP_ORDER, deriveChips } from '../../src/shared/chips';
 import { marksFor } from '../../src/shared/defaults';
 import { CANVASES, artAnchors, bodyOf, placeArt, safeBox, weekRowRect, type Body, type CanvasId } from '../../src/shared/layout';
 import { lookOf, type Look } from '../../src/shared/looks';
@@ -119,6 +120,20 @@ export async function checkDrawn(page: Page, payload: FlyerPayload, canvas: Canv
       logo: img.dataset.logo,
       right: img.getBoundingClientRect().right,
     }));
+    // The inline art, by slot: what each block drew where the look names a file, and nothing where it names none.
+    const eyebrow = document.querySelector('[data-group=eyebrow]')!;
+    const inline = {
+      eyebrowIcons: eyebrow.querySelectorAll('img[data-deco=icon]').length,
+      // Every rule with a picture in it: the eyebrow's, the ask's, and the one that stands for no photo.
+      rules: [...document.querySelectorAll('[data-flyer] [data-deco=rule]')].filter((el) => getComputedStyle(el).backgroundImage !== 'none').length,
+      chips: [...document.querySelectorAll<HTMLElement>('[data-chip]')].map((el) => ({
+        key: el.dataset.chip,
+        icons: el.querySelectorAll('img[data-deco=icon]').length,
+        glyphs: el.querySelectorAll('span[data-deco=icon]').length,
+        clocks: el.querySelectorAll('[data-deco=clock]').length,
+        marks: el.querySelectorAll('[data-deco=highlighter]').length,
+      })),
+    };
     // The flyer's own art (the pencil in the ask box is part of the block, not a doodle).
     const file = (el: HTMLElement) => new URL((el as HTMLImageElement).src).pathname.split('/').pop();
     const art = [...document.querySelectorAll<HTMLElement>('[data-flyer] > img[data-art]')].map((el) => ({
@@ -143,6 +158,7 @@ export async function checkDrawn(page: Page, payload: FlyerPayload, canvas: Canv
     return {
       art,
       pillArt,
+      inline,
       clips,
       unhooked,
       drawn: document.querySelector<HTMLElement>('[data-flyer]')!.dataset.canvas,
@@ -190,12 +206,37 @@ export async function checkDrawn(page: Page, payload: FlyerPayload, canvas: Canv
   expect(r.logos.map((m) => m.logo), `${label}: the eyebrow's marks`).toEqual(marksFor(!!payload.hostel?.logoPath).map((m) => (m === 'badge' ? 'hostel' : 'nests')));
   for (const m of r.logos) expect(m.right, `${label}: the ${m.logo} mark ends inside the safe box`).toBeLessThanOrEqual(safe.left + safe.width + 0.5);
 
+  // The inline art is drawn where the look names a file, and nowhere it names none: the eyebrow's icon and rule, each
+  // chip's icon (the € glyph stands in on the COST chip when the look has no cost icon), the WHEN chip's clock and
+  // highlighter, the ask's rule, and the rule that stands for no photo.
+  const slots = look.inline;
+  const printed = body === 'week' ? printedRows(payload.flyer.data.week) : [];
+  const asks = !!(t.askEn || t.askEs);
+  expect(r.inline.eyebrowIcons, `${label}: the eyebrow's icon`).toBe(slots.eyebrowIcon ? 1 : 0);
+  expect(r.inline.rules, `${label}: the rules drawn`).toBe((slots.eyebrowRule ? 1 : 0) + (asks && slots.askRule ? 1 : 0) + (body === 'none' && slots.photoRule ? 1 : 0));
+  const chips = body === 'week' ? [] : deriveChips(payload.flyer.data.chips, payload.hostel?.name ?? null, payload.flyer.data.overrides.chips?.order ?? DEFAULT_CHIP_ORDER);
+  expect(
+    r.inline.chips,
+    `${label}: each chip's inline art`,
+  ).toEqual(
+    chips.map((chip) => {
+      const icon = chip.key === 'when' ? slots.whenIcon : chip.key === 'where' ? slots.whereIcon : slots.costIcon;
+      return {
+        key: chip.key,
+        icons: icon ? 1 : 0,
+        glyphs: chip.key === 'cost' && !icon ? 1 : 0,
+        clocks: chip.key === 'when' && chip.sub && slots.clock ? 1 : 0,
+        marks: chip.key === 'when' && slots.highlighter ? 1 : 0,
+      };
+    }),
+  );
+
   // The art where the look hangs it, from data that went through the store: hand-drawn's template set is
   // recognised and follows the canvas (the blobs to its corners, in each other's ink). The art at the end of the
-  // ask is drawn inside the ask's block, and is not among these (art.spec.ts holds it).
+  // ask is drawn inside the ask's block, and is not among these (art.spec.ts holds it). The art off the pill's end
+  // is the look's own count: hand-drawn hangs its spark there, another look may hang nothing.
   const pieces = look.art(payload.flyer.data);
   const onPill = pieces.filter((d) => d.anchor === 'pillEnd');
-  expect(onPill.length, `${label}: the template's spark hangs from the pill`).toBe(1);
   const want = pieces
     .filter((d) => d.anchor !== 'pillEnd' && d.anchor !== 'askEnd')
     .map((d) => ({ ...placeArt(d, artAnchors(canvas, body, geometry)), file: `${d.slug}.png` }));
@@ -248,8 +289,8 @@ export async function checkDrawn(page: Page, payload: FlyerPayload, canvas: Canv
   expect(r.scroll, `${label}: no scrollbars`).toEqual({ w: W, h: HT });
 
   // A week flyer prints exactly its printable rows, top-aligned, each as the shared rules say:
-  // the short name, the price on two lines, no clock without a time, no highlighter without a day.
-  const printed = body === 'week' ? printedRows(payload.flyer.data.week) : [];
+  // the short name, the price on two lines, no clock without a time, no highlighter without a day (and neither where
+  // the look has no clock or no highlighter).
   expect(r.rows.map((x) => x.slot), `${label}: printed rows, slot by slot`).toEqual(printed.map((_, slot) => slot));
   r.rows.forEach((x, slot) => {
     const cell = weekRowRect(canvas, slot, geometry);
@@ -263,8 +304,8 @@ export async function checkDrawn(page: Page, payload: FlyerPayload, canvas: Canv
     expect({ day: x.day, name: x.name, time: x.time, cost: x.cost }, `${label}: row ${slot} prints`).toEqual(printed[slot]);
     // The price is set in weekPrice; the part after the middle dot, under it, in weekPriceSub.
     expect(x.costSizes, `${label}: row ${slot} cost lines' sizes`).toEqual(printed[slot].cost.map((_, i) => (i === 0 ? look.type.weekPrice : look.type.weekPriceSub).size));
-    expect(x.clocks, `${label}: row ${slot} clock`).toBe(printed[slot].time ? 1 : 0);
-    expect(x.marks, `${label}: row ${slot} highlighter`).toBe(printed[slot].day ? 1 : 0);
+    expect(x.clocks, `${label}: row ${slot} clock`).toBe(printed[slot].time && slots.clock ? 1 : 0);
+    expect(x.marks, `${label}: row ${slot} highlighter`).toBe(printed[slot].day && slots.highlighter ? 1 : 0);
     // A long time or price shrinks inside its capped group; spilling out of it would reach the name unseen.
     for (const kid of x.rightKids)
       expect(kid.left >= x.right!.left - 0.5 && kid.right <= x.right!.right + 0.5, `${label}: row ${slot} right group holds its lines`).toBe(true);
@@ -280,8 +321,13 @@ export async function checkDrawn(page: Page, payload: FlyerPayload, canvas: Canv
   if (payload.flyer.title === 'This week · stress test') {
     expect(r.rows[1].name, `${label}: a long name prints its short name`).toBe('Catamaran to Los Gigantes');
     expect(r.rows[0].cost, `${label}: a price with a · prints on two lines`).toEqual(['25€', '18€ without breakfast']);
-    // The cap is what shrinks them: sized to their copy, both would print at full size and squeeze the name.
-    for (const text of ['10:00 – 13:00', '18€ without breakfast']) {
+    // The cap is what shrinks them: sized to their copy, both would print at full size and squeeze the name. A line
+    // the look never shrinks (no floor) is not fitted, so there is no entry to read: the cap clips it instead.
+    for (const [text, line] of [
+      ['10:00 – 13:00', 'weekTime'],
+      ['18€ without breakfast', 'weekPriceSub'],
+    ] as const) {
+      if (look.type[line].floor === undefined) continue;
       const entry = r.fit.entries.find((e) => e.text === text)!;
       expect(entry.finalPx, `${label}: "${text}" shrinks in its capped column`).toBeLessThan(entry.base);
     }

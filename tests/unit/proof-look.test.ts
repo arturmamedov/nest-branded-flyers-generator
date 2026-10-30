@@ -82,7 +82,7 @@ describe('the proof look', () => {
         });
 
         it('its files: art, inline art and the wordmark', () => {
-          const files = (look: typeof PROOF_LOOK) => [...Object.values(look.inline), ...look.art({ doodles: DEFAULT_DOODLES }).map((d) => d.slug), look.wordmark];
+          const files = (look: typeof PROOF_LOOK) => [...Object.values(look.inline).filter((f) => f !== null), ...look.art({ doodles: DEFAULT_DOODLES }).map((d) => d.slug), look.wordmark];
           expect(shared(files(PROOF_LOOK), files(theirs))).toEqual([]);
         });
 

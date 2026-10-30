@@ -62,12 +62,16 @@ export function lookContract(look: Look, faces: FaceSources): void {
   });
 
   it(`${look.id}: every art file it names is under assets/`, () => {
+    // A slot a look leaves empty (null) names no file: the renderer draws nothing there.
     const files = [
-      ...Object.values(look.inline).map((name) => `assets/art/${name}.png`),
+      ...Object.values(look.inline)
+        .filter((name): name is string => name !== null)
+        .map((name) => `assets/art/${name}.png`),
       ...look.art({ doodles: DEFAULT_DOODLES }).map((d) => `assets/art/${d.slug}.png`),
       look.wordmark,
     ];
-    expect(files.length).toBeGreaterThan(10);
+    // A look with few pieces still names its wordmark and some icons: an empty list would pass for the wrong reason.
+    expect(files.length).toBeGreaterThan(5);
     expect(files.filter((file) => !existsSync(join(ROOT, file)))).toEqual([]);
   });
 

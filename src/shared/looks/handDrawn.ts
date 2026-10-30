@@ -178,6 +178,9 @@ export const HAND_DRAWN: Look = {
     askRule: 'rule-teal-ask',
     whenIcon: 'icon-calendar',
     whereIcon: 'icon-pin',
+    // The COST chip's € is a glyph (costGlyph), and nothing sits above the ask but its own lines.
+    costIcon: null,
+    askIcon: null,
     clock: 'icon-clock',
     highlighter: 'mark-yellow',
   },

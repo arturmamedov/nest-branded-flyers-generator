@@ -90,6 +90,21 @@ describe('the looks', () => {
     expect(HAND_DRAWN.wordmark).toBe('assets/nest-logo-teal.png');
   });
 
+  it('hand-drawn’s inline art is the handoff’s files: the € glyph where a look may draw a cost icon, and nothing above the ask', () => {
+    expect(HAND_DRAWN.inline).toEqual({
+      eyebrowIcon: 'icon-calendar',
+      eyebrowRule: 'rule-teal-wide',
+      photoRule: 'rule-teal-wide',
+      askRule: 'rule-teal-ask',
+      whenIcon: 'icon-calendar',
+      whereIcon: 'icon-pin',
+      costIcon: null,
+      askIcon: null,
+      clock: 'icon-clock',
+      highlighter: 'mark-yellow',
+    });
+  });
+
   it('hand-drawn’s frame is the handoff’s code-drawn one: a 5 px stroke, and the photo’s 40 px corners', () => {
     const { path, ...frame } = HAND_DRAWN.frame;
     expect(frame).toEqual({ viewBox: '0 0 960 200', stroke: 5, photoRadius: 40 });
