@@ -296,6 +296,10 @@ test('the editor on the PHP backend: create, photos, crop, reopen, library, down
     const mine = card(page, title);
     await expect(mine).toBeVisible();
     await expect(mine.locator('.card-meta')).toContainText(hostel.name);
+    // Reopened in the editor just now: one of the flyers this browser opened last, first with its line
+    // (recentFlyers.ts). The browser's own memory, whichever backend answers.
+    await expect(page.locator('li.card').first()).toContainText(title);
+    await expect(mine.locator('.card-opened')).toHaveText(/^Opened (just now|1 min ago)$/);
     // Its labels come with this backend's list, and its filter by label is this backend's own.
     await expect(mine.locator('.card-label')).toHaveText([firstLabel.name, secondLabel.name]);
     await filterLibrary(page, 'Label', { label: secondLabel.name }, `?label=${secondLabel.slug}`);
